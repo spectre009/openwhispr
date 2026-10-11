@@ -7,6 +7,7 @@
 
 const { spawnSync } = require("child_process");
 const fs = require("fs");
+const os = require("os");
 const path = require("path");
 
 const isWindows = process.platform === "win32";
@@ -87,8 +88,9 @@ function tryCompile() {
       name: "MSVC",
       check: { command: "cl", args: [] },
       useShell: true,
+      // /Fo keeps the object file out of the repo root, where cl writes it by default.
       getCommand: () =>
-        `cl /O2 /nologo ${quotePath(cSource)} /Fe:${quotePath(outputBinary)} ole32.lib oleaut32.lib`,
+        `cl /O2 /nologo ${quotePath(cSource)} /Fo:${quotePath(path.join(os.tmpdir(), "windows-text-monitor.obj"))} /Fe:${quotePath(outputBinary)} ole32.lib oleaut32.lib`,
     },
     {
       name: "MinGW-w64",
