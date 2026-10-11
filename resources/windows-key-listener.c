@@ -3,7 +3,8 @@
  *
  * Uses Windows Low-Level Keyboard Hook to detect key up/down events.
  * Accepts a virtual key code as command line argument.
- * Outputs "KEY_DOWN" and "KEY_UP" to stdout.
+ * Outputs "KEY_DOWN <osEventMs> <hookMs>" and "KEY_UP <osEventMs> <hookMs>" to stdout:
+ * when Windows stamped the key event and when this hook saw it, as epoch milliseconds.
  *
  * Compile with: cl /O2 windows-key-listener.c /Fe:windows-key-listener.exe user32.lib
  * Or with MinGW: gcc -O2 windows-key-listener.c -o windows-key-listener.exe -luser32
@@ -30,6 +31,24 @@ static BOOL g_altDown = FALSE;
 static BOOL g_shiftDown = FALSE;
 static BOOL g_leftWinDown = FALSE;
 static BOOL g_rightWinDown = FALSE;
+
+static ULONGLONG EpochMsNow(void) {
+    FILETIME ft;
+    ULARGE_INTEGER t;
+    GetSystemTimePreciseAsFileTime(&ft);
+    t.LowPart = ft.dwLowDateTime;
+    t.HighPart = ft.dwHighDateTime;
+    return (t.QuadPart - 116444736000000000ULL) / 10000ULL;
+}
+
+// eventTick is the event's GetTickCount stamp (KBDLLHOOKSTRUCT.time); its age
+// back-dates the wall clock, so the app can tell input-delivery delay from its own.
+static void EmitKeyEvent(const char* name, DWORD eventTick) {
+    ULONGLONG now = EpochMsNow();
+    DWORD age = GetTickCount() - eventTick;
+    printf("%s %llu %llu\n", name, now - age, now);
+    fflush(stdout);
+}
 
 static BOOL IsCtrlVk(DWORD vkCode) {
     return vkCode == VK_CONTROL || vkCode == VK_LCONTROL || vkCode == VK_RCONTROL;
@@ -205,8 +224,7 @@ LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
         if (g_isKeyDown && isKeyUp && IsRequiredModifierEvent(kbd->vkCode) &&
             !AreRequiredModifiersPressed()) {
             g_isKeyDown = FALSE;
-            printf("KEY_UP\n");
-            fflush(stdout);
+            EmitKeyEvent("KEY_UP", kbd->time);
         }
 
         // Self-heal a missed target-key KEY_UP. GetAsyncKeyState is only reliable
@@ -214,22 +232,19 @@ LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
         if (g_isKeyDown && !g_useModifiersOnly && kbd->vkCode != g_targetVk &&
             !(GetAsyncKeyState(g_targetVk) & 0x8000)) {
             g_isKeyDown = FALSE;
-            printf("KEY_UP\n");
-            fflush(stdout);
+            EmitKeyEvent("KEY_UP", kbd->time);
         }
 
         if (g_useModifiersOnly) {
             if (isKeyDown) {
                 if (!g_isKeyDown && AreRequiredModifiersPressed()) {
                     g_isKeyDown = TRUE;
-                    printf("KEY_DOWN\n");
-                    fflush(stdout);
+                    EmitKeyEvent("KEY_DOWN", kbd->time);
                 }
             } else if (isKeyUp) {
                 if (g_isKeyDown && !AreRequiredModifiersPressed()) {
                     g_isKeyDown = FALSE;
-                    printf("KEY_UP\n");
-                    fflush(stdout);
+                    EmitKeyEvent("KEY_UP", kbd->time);
                 }
             }
             return CallNextHookEx(g_hook, nCode, wParam, lParam);
@@ -241,15 +256,13 @@ LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
                 // Only trigger if modifiers are satisfied and not already down
                 if (!g_isKeyDown && AreRequiredModifiersPressed()) {
                     g_isKeyDown = TRUE;
-                    printf("KEY_DOWN\n");
-                    fflush(stdout);
+                    EmitKeyEvent("KEY_DOWN", kbd->time);
                 }
             } else if (isKeyUp) {
                 // Target key released
                 if (g_isKeyDown) {
                     g_isKeyDown = FALSE;
-                    printf("KEY_UP\n");
-                    fflush(stdout);
+                    EmitKeyEvent("KEY_UP", kbd->time);
                 }
             }
         }

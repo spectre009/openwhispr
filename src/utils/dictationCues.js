@@ -71,13 +71,17 @@ const scheduleTone = (context, frequency, startTime) => {
 
 const isEnabled = () => getSettings().audioCuesEnabled;
 
+// Resolves with what the cue cost: a context created or resumed for it makes the
+// tones audible later than the recording actually started.
 const playCue = async (notes) => {
   try {
-    if (!isEnabled()) return;
+    if (!isEnabled()) return { played: false, reason: "disabled" };
 
+    const requestedAt = performance.now();
+    const priorState = audioContext?.state ?? "none";
     const context = await resumeContextIfNeeded();
     if (!context) {
-      return;
+      return { played: false, reason: "no-context", priorState };
     }
 
     const baseTime = context.currentTime + 0.005;
@@ -85,12 +89,21 @@ const playCue = async (notes) => {
       const noteStart = baseTime + index * (NOTE_DURATION_SECONDS + NOTE_GAP_SECONDS);
       scheduleTone(context, frequency, noteStart);
     });
+    return {
+      played: true,
+      priorState,
+      readyMs: Math.round(performance.now() - requestedAt),
+      outputLatencyMs: Math.round(
+        ((context.outputLatency || 0) + (context.baseLatency || 0)) * 1000
+      ),
+    };
   } catch (error) {
     logger.debug(
       "Failed to play dictation cue",
       { error: error instanceof Error ? error.message : String(error) },
       "audio"
     );
+    return { played: false, reason: "error" };
   }
 };
 

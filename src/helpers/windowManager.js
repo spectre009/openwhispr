@@ -917,7 +917,7 @@ class WindowManager {
     return required;
   }
 
-  startWindowsPushToTalk(key) {
+  startWindowsPushToTalk(key, keyTiming) {
     if (!this._isOnboardingInputAllowed("dictation")) return;
     if (this.winPushState?.active || this.isDictationProcessing()) {
       return;
@@ -926,9 +926,18 @@ class WindowManager {
     const MIN_HOLD_DURATION_MS = 150;
     const MAX_PUSH_DURATION_MS = 300000;
     const downTime = Date.now();
+    // Travels with prepare and start so the renderer can log where the time
+    // between the physical key press and the recording went.
+    const trace = {
+      pressId: downTime,
+      keyAt: keyTiming?.eventAt ?? downTime,
+      keyTimeSource: keyTiming?.eventAt ? "os" : "main",
+      hookAt: keyTiming?.hookAt,
+      mainAt: downTime,
+    };
 
     this.showDictationPanel({ reposition: true });
-    this.sendPrepareDictation();
+    this.sendPrepareDictation({ trace });
 
     const safetyTimeoutId = setTimeout(() => {
       if (!this.winPushState || this.winPushState.downTime !== downTime) return;
@@ -951,7 +960,7 @@ class WindowManager {
 
       if (!this.winPushState.isRecording) {
         this.winPushState.isRecording = true;
-        this.sendStartDictation();
+        this.sendStartDictation({ trace });
       }
     }, MIN_HOLD_DURATION_MS);
   }
@@ -1175,7 +1184,7 @@ class WindowManager {
     this.mainWindow.webContents.send("open-assistant-panel");
   }
 
-  sendStartDictation() {
+  sendStartDictation({ trace } = {}) {
     if (!this._isOnboardingInputAllowed("dictation")) return;
     if (this._shouldBlockDictationInput("dictation")) {
       return;
@@ -1190,7 +1199,10 @@ class WindowManager {
       const targetPidPromise = this.textEditMonitor?.captureTargetPid?.();
       void this.selectionManager?.captureTarget?.();
       this.showDictationPanel({ reposition: true, targetPidPromise });
-      this.mainWindow.webContents.send("start-dictation");
+      this.mainWindow.webContents.send(
+        "start-dictation",
+        trace ? { trace: { ...trace, startSentAt: Date.now() } } : undefined
+      );
     }
   }
 
@@ -1203,7 +1215,7 @@ class WindowManager {
     }
   }
 
-  sendPrepareDictation({ inputKind = "dictation" } = {}) {
+  sendPrepareDictation({ inputKind = "dictation", trace } = {}) {
     if (!this._isOnboardingInputAllowed(inputKind)) return;
     if (this._shouldBlockDictationInput(inputKind)) {
       return;
@@ -1215,7 +1227,10 @@ class WindowManager {
       return;
     }
     if (this.mainWindow && !this.mainWindow.isDestroyed()) {
-      this.mainWindow.webContents.send("prepare-dictation", { inputKind });
+      this.mainWindow.webContents.send("prepare-dictation", {
+        inputKind,
+        ...(trace && { trace: { ...trace, prepareSentAt: Date.now() } }),
+      });
     }
   }
 

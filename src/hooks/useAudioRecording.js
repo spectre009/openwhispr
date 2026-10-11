@@ -23,6 +23,13 @@ import {
 } from "../utils/transcriptionPreview";
 import { canStartDictation } from "../utils/dictationReadiness";
 import { waitForVisualFrames } from "../utils/visualFrame";
+import { startEventLoopStallMonitor } from "../helpers/eventLoopStallMonitor";
+import {
+  createStartTrace,
+  joinStartTrace,
+  logStartTrace,
+  markStartTrace,
+} from "../utils/dictationStartTrace";
 import { resolveLifecycleInputKind } from "../helpers/dictationRouting";
 import { createAssistantResponseDelivery } from "../helpers/assistantResponseDelivery";
 import { recordCleanupFailure } from "../stores/cleanupFailureStore";
@@ -36,6 +43,7 @@ const SELECTION_EDIT_DETAIL_KEY_BY_CODE = {
   paste_failed: "pasteFailed",
 };
 const COMPANION_AUDIO_LEVEL_INTERVAL_MS = 80;
+const START_CUE_LOG_WAIT_MS = 2000;
 
 export const useAudioRecording = (toast, options = {}) => {
   const { t } = useTranslation();
@@ -60,6 +68,7 @@ export const useAudioRecording = (toast, options = {}) => {
   const pushForceStoppedRef = useRef(false);
   const stopLockRef = useRef(false);
   const preparationGenerationRef = useRef(0);
+  const startTraceRef = useRef(null);
   const dictationErrorGenerationRef = useRef(0);
   const wasRecordingRef = useRef(false);
   const pastesInFlightRef = useRef(0);
@@ -131,10 +140,13 @@ export const useAudioRecording = (toast, options = {}) => {
   }, []);
 
   const performStartRecording = useCallback(
-    async ({ voiceAgentRequested = false, translationRequested = false } = {}) => {
+    async ({ voiceAgentRequested = false, translationRequested = false, pressTrace } = {}) => {
       if (startLockRef.current) return false;
       lastStartOptionsRef.current = { voiceAgentRequested, translationRequested };
       startLockRef.current = true;
+      const trace = joinStartTrace(startTraceRef.current, pressTrace);
+      startTraceRef.current = trace;
+      markStartTrace(trace, "startReceived");
       stopRequestedDuringStartRef.current = false;
       pushForceStoppedRef.current = false;
       let recordingStarted = false;
@@ -163,12 +175,13 @@ export const useAudioRecording = (toast, options = {}) => {
         // microphone; AudioManager confirms the same value once recording.
         setIsAssistantVoice(voiceAgentRequested);
         await waitForVisualFrames();
+        markStartTrace(trace, "startFramesDone");
         if (preparationGeneration !== preparationGenerationRef.current) return false;
 
         // Start acquisition only after the compact thinking frame has reached
         // the compositor. startRecording() joins this prepared capture, so the
         // device still opens exactly once.
-        void audioManagerRef.current.prepareMicCapture?.();
+        void audioManagerRef.current.prepareMicCapture?.({ trace });
 
         // The floating dictation panel is non-focusable, so the foreground app is
         // still the user's actual editing target here. Refresh it for recordings
@@ -179,6 +192,7 @@ export const useAudioRecording = (toast, options = {}) => {
         } catch (error) {
           logger.warn("Failed to refresh dictation target", { error: error?.message });
         }
+        markStartTrace(trace, "targetCaptured");
 
         demoKindRef.current = getOnboardingDemoKind(voiceAgentRequested);
         audioManagerRef.current.setVoiceAgentRequested(voiceAgentRequested);
@@ -235,11 +249,15 @@ export const useAudioRecording = (toast, options = {}) => {
           }
         }
 
+        audioManagerRef.current.lastStartInfo = null;
+        audioManagerRef.current.startTrace = trace;
         const didStart = audioManagerRef.current.shouldUseStreaming()
           ? await audioManagerRef.current.startStreamingRecording()
           : await audioManagerRef.current.startRecording();
         recordingStarted = didStart;
         if (didStart) {
+          markStartTrace(trace, "recordingStarted");
+          trace.details = { ...trace.details, ...audioManagerRef.current.lastStartInfo };
           dictationErrorGenerationRef.current += 1;
           dismissDictationError?.();
         }
@@ -248,6 +266,7 @@ export const useAudioRecording = (toast, options = {}) => {
         // dropped (isRecording was still false), leaving a runaway recording
         // until the next hotkey press. Honor it now that we started.
         if (didStart && stopRequestedDuringStartRef.current) {
+          logStartTrace(trace, "stopped-during-start");
           window.electronAPI?.unregisterCancelHotkey?.();
           // Cue semantics mirror performStopRecording: unconditional for
           // streaming, gated on the stop landing for batch.
@@ -267,12 +286,37 @@ export const useAudioRecording = (toast, options = {}) => {
             window.electronAPI?.pauseMediaPlayback?.();
           }
           window.electronAPI?.registerCancelHotkey?.("Escape");
-          void playStartCue();
+          // Bounded: a wedged output device can leave the cue's resume pending,
+          // and the start must still be logged.
+          void Promise.race([
+            playStartCue(),
+            new Promise((resolve) =>
+              setTimeout(() => resolve({ played: false, reason: "pending" }), START_CUE_LOG_WAIT_MS)
+            ),
+          ]).then((cue) => {
+            if (cue?.played) markStartTrace(trace, "cueScheduled");
+            trace.details = {
+              ...trace.details,
+              cuePlayed: cue?.played,
+              cuePriorState: cue?.priorState ?? cue?.reason,
+              cueReadyMs: cue?.readyMs,
+              cueOutputLatencyMs: cue?.outputLatencyMs,
+            };
+            logStartTrace(trace, "started");
+          });
+        } else if (didStart) {
+          logStartTrace(trace, "stopped-during-start");
         }
 
         return didStart;
       } finally {
         startLockRef.current = false;
+        if (!recordingStarted) {
+          logStartTrace(
+            trace,
+            stopRequestedDuringStartRef.current ? "stopped-during-start" : "not-started"
+          );
+        }
         // A stop that landed mid-start set isStopping expecting the started
         // recording's state change to clear it; if the recording never began,
         // no state change will ever arrive.
@@ -338,6 +382,8 @@ export const useAudioRecording = (toast, options = {}) => {
 
   useEffect(() => {
     audioManagerRef.current = new AudioManager();
+    // rAF waits and IPC replies on the start path queue behind this thread.
+    const stopStallMonitor = startEventLoopStallMonitor({ logger, label: "renderer" });
 
     // Resolve and pin the input device now, not on the first hotkey press, which
     // would otherwise wait on the device lookup before the mic can open.
@@ -985,8 +1031,8 @@ export const useAudioRecording = (toast, options = {}) => {
       }
     };
 
-    const handleStart = async () => {
-      await performStartRecording();
+    const handleStart = async (pressTrace) => {
+      await performStartRecording({ pressTrace });
     };
 
     const handleStop = async () => {
@@ -1008,14 +1054,17 @@ export const useAudioRecording = (toast, options = {}) => {
       onToggle?.();
     });
 
-    const disposeStart = window.electronAPI.onStartDictation?.(() => {
-      handleStart();
+    const disposeStart = window.electronAPI.onStartDictation?.((payload) => {
+      handleStart(payload?.trace);
       onToggle?.();
     });
 
     const disposePrepare = window.electronAPI.onPrepareDictation?.(async (options) => {
       if (!audioManagerRef.current || startLockRef.current) return;
       if (!canStartDictation(audioManagerRef.current.getState())) return;
+      const trace = createStartTrace(options?.trace);
+      startTraceRef.current = trace;
+      markStartTrace(trace, "prepareReceived");
       const generation = ++preparationGenerationRef.current;
       setIsAssistantVoice(false);
       setIsPreparing(true);
@@ -1024,8 +1073,9 @@ export const useAudioRecording = (toast, options = {}) => {
       // recording at this point.
       reportLifecycle("preparing", options?.inputKind);
       await waitForVisualFrames();
+      markStartTrace(trace, "prepareFramesDone");
       if (generation !== preparationGenerationRef.current || startLockRef.current) return;
-      void audioManagerRef.current.prepareMicCapture?.();
+      void audioManagerRef.current.prepareMicCapture?.({ trace });
     });
 
     const disposeCancelPreparation = window.electronAPI.onCancelDictationPreparation?.(() => {
@@ -1060,6 +1110,7 @@ export const useAudioRecording = (toast, options = {}) => {
       disposeCancelPreparation?.();
       disposeStop?.();
       disposeForceStopped?.();
+      stopStallMonitor();
       if (audioManagerRef.current) {
         audioManagerRef.current.cleanup();
       }

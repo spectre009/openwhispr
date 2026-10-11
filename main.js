@@ -453,6 +453,10 @@ function initializeCoreManagers() {
 
   debugLogger = require("./src/helpers/debugLogger");
   debugLogger.ensureFileLogging();
+  require("./src/helpers/eventLoopStallMonitor").startEventLoopStallMonitor({
+    logger: debugLogger,
+    label: "main",
+  });
   if (process.platform === "linux") {
     // The compositing mode is settled once the GPU process has reported its info; a GPU
     // process crash can still drop it to software later, logged below.
@@ -1845,11 +1849,11 @@ async function startApp() {
 
     // Dictation supports push-to-talk and needs the overlay window; meeting
     // drives other windows (matching their globalShortcut callbacks and macOS).
-    const dispatchNativeKeyDown = (key) => {
+    const dispatchNativeKeyDown = (key, timing) => {
       if (hotkeyManager.slotHasHotkey("dictation", key)) {
         if (!isLiveWindow(windowManager.mainWindow)) return;
         if (windowManager.getActivationMode() === "push") {
-          windowManager.startWindowsPushToTalk(key);
+          windowManager.startWindowsPushToTalk(key, timing);
         } else {
           windowManager.sendToggleDictation();
         }

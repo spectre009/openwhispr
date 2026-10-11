@@ -44,6 +44,17 @@ export interface MainWindowInputRegion {
   height: number;
 }
 
+// Epoch-ms stamps for one push-to-talk press, set by the main process.
+export interface DictationPressTrace {
+  pressId: number;
+  keyAt: number;
+  keyTimeSource: "os" | "main";
+  hookAt?: number;
+  mainAt: number;
+  prepareSentAt?: number;
+  startSentAt?: number;
+}
+
 export type ChineseScriptPreference = "simplified" | "traditional" | "as-transcribed";
 
 export type InferenceMode = "openwhispr" | "providers" | "local" | "self-hosted" | "enterprise";
@@ -1342,10 +1353,15 @@ declare global {
       onToggleVoiceAgent?: (callback: () => void) => () => void;
       onToggleTranslation?: (callback: () => void) => () => void;
       onOpenAssistantPanel?: (callback: () => void) => () => void;
-      onStartDictation?: (callback: () => void) => () => void;
+      onStartDictation?: (
+        callback: (payload?: { trace?: DictationPressTrace }) => void
+      ) => () => void;
       onStopDictation?: (callback: () => void) => () => void;
       onPrepareDictation?: (
-        callback: (options?: { inputKind?: "dictation" | "assistant" | "translation" }) => void
+        callback: (options?: {
+          inputKind?: "dictation" | "assistant" | "translation";
+          trace?: DictationPressTrace;
+        }) => void
       ) => () => void;
       onCancelDictationPreparation?: (callback: () => void) => () => void;
       onCancelDictation?: (callback: () => void) => () => void;

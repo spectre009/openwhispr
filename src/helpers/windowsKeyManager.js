@@ -14,6 +14,31 @@ const EventEmitter = require("events");
 const fs = require("fs");
 const debugLogger = require("./debugLogger");
 
+// "KEY_DOWN <osEventMs> <hookMs>" (epoch ms); prebuilt binaries from before the
+// timing fields print the bare event name.
+const KEY_EVENT_LINE = /^(KEY_DOWN|KEY_UP)(?: (\d+) (\d+))?$/;
+
+function parseKeyEventLine(line, receivedAt = Date.now()) {
+  const match = KEY_EVENT_LINE.exec(line);
+  if (!match) return null;
+  const timing = { receivedAt };
+  if (match[2]) {
+    timing.eventAt = Number(match[2]);
+    timing.hookAt = Number(match[3]);
+  }
+  return { type: match[1], timing };
+}
+
+// eventToHookMs is Windows delivering the key to the hook; hookToMainMs is the
+// pipe plus this process's event loop.
+function describeKeyTiming(timing) {
+  if (timing.eventAt === undefined) return {};
+  return {
+    eventToHookMs: timing.hookAt - timing.eventAt,
+    hookToMainMs: timing.receivedAt - timing.hookAt,
+  };
+}
+
 class WindowsKeyManager extends EventEmitter {
   constructor() {
     super();
@@ -135,15 +160,14 @@ class WindowsKeyManager extends EventEmitter {
       return;
     }
 
-    if (line === "KEY_DOWN") {
-      debugLogger.debug("[WindowsKeyManager] KEY_DOWN detected", { key });
-      this.emit("key-down", key);
-      return;
-    }
-
-    if (line === "KEY_UP") {
-      debugLogger.debug("[WindowsKeyManager] KEY_UP detected", { key });
-      this.emit("key-up", key);
+    const keyEvent = parseKeyEventLine(line);
+    if (keyEvent) {
+      const { type, timing } = keyEvent;
+      debugLogger.debug(`[WindowsKeyManager] ${type} detected`, {
+        key,
+        ...describeKeyTiming(timing),
+      });
+      this.emit(type === "KEY_DOWN" ? "key-down" : "key-up", key, timing);
       return;
     }
 
@@ -220,3 +244,4 @@ class WindowsKeyManager extends EventEmitter {
 }
 
 module.exports = WindowsKeyManager;
+module.exports.parseKeyEventLine = parseKeyEventLine;
