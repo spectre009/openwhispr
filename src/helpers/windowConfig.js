@@ -236,9 +236,9 @@ const CONTROL_PANEL_CONFIG = {
     backgroundThrottling: false,
   },
   title: "Control Panel",
-  // Packaged builds take the taskbar icon from their executable; development
-  // runs electron.exe, so the window has to name the app icon itself.
-  ...(process.env.NODE_ENV === "development" &&
+  // Packaged builds take the taskbar icon from their executable; a checkout run
+  // through electron.exe (process.defaultApp) has to name the app icon itself.
+  ...(process.defaultApp &&
     process.platform !== "darwin" && {
       icon: path.join(
         __dirname,

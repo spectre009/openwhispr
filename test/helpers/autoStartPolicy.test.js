@@ -4,6 +4,7 @@ const assert = require("node:assert/strict");
 const {
   HIDDEN_LAUNCH_FLAG,
   getLoginItemArgs,
+  getLoginItemPath,
   resolveAutoStartState,
   needsHiddenFlagMigration,
   wasLaunchedHidden,
@@ -20,6 +21,26 @@ test("Windows login items are read and written with the same args", () => {
 test("platforms without a hidden-launch flag pass no args", () => {
   assert.deepEqual(getLoginItemArgs("darwin"), []);
   assert.deepEqual(getLoginItemArgs("linux"), []);
+});
+
+test("an unpackaged Windows run manages the installed app's login item, not electron.exe", () => {
+  const installedExePath = "C:\\Users\\u\\AppData\\Local\\Programs\\OpenWhispr\\OpenWhispr.exe";
+  const base = { platform: "win32", isUnpackaged: true, installedExePath };
+  assert.equal(getLoginItemPath({ ...base, installedExeExists: true }), installedExePath);
+  assert.equal(
+    getLoginItemPath({ ...base, installedExeExists: false }),
+    undefined,
+    "no installed app: keep Electron's default"
+  );
+  assert.equal(
+    getLoginItemPath({ ...base, isUnpackaged: false, installedExeExists: true }),
+    undefined,
+    "the installed app registers itself"
+  );
+  assert.equal(
+    getLoginItemPath({ ...base, platform: "darwin", installedExeExists: true }),
+    undefined
+  );
 });
 
 // The bug behind the reported "startup app not recognized": openAtLogin only

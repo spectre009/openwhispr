@@ -2067,6 +2067,7 @@
         "automaticUpdatesDescription": "Baixar e instalar atualizações em segundo plano",
         "badges": {
           "dev": "Dev",
+          "selfBuilt": "Compilação própria",
           "latest": "Mais recente",
           "update": "Atualização"
         },
@@ -2110,6 +2111,7 @@
         "installAndRestart": "Instalar e reiniciar",
         "latestVersion": "Você está na versão mais recente",
         "managedByPackageManager": "As atualizações são instaladas pelo seu gerenciador de pacotes",
+        "selfBuilt": "As atualizações estão desativadas em compilações próprias",
         "newVersion": "Uma versão mais recente está disponível",
         "newVersionAvailable": "Nova versão disponível",
         "restarting": "Reiniciando...",

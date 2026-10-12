@@ -2382,6 +2382,7 @@
         "automaticUpdatesDescription": "Télécharger et installer les mises à jour en arrière-plan",
         "badges": {
           "dev": "Dev",
+          "selfBuilt": "Compilé localement",
           "latest": "À jour",
           "update": "Mise à jour"
         },
@@ -2425,6 +2426,7 @@
         "installAndRestart": "Installer et redémarrer",
         "latestVersion": "Vous avez la dernière version",
         "managedByPackageManager": "Les mises à jour sont installées via votre gestionnaire de paquets",
+        "selfBuilt": "Les mises à jour sont désactivées pour les versions compilées localement",
         "newVersion": "Une version plus récente est disponible",
         "newVersionAvailable": "Nouvelle version disponible",
         "restarting": "Redémarrage...",

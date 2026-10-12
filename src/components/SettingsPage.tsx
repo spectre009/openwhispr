@@ -4585,11 +4585,13 @@ EOF`,
                     description={
                       updateStatus.isDevelopment
                         ? t("settingsPage.general.updates.devMode")
-                        : !updateStatus.isSupported
-                          ? t("settingsPage.general.updates.managedByPackageManager")
-                          : isUpdateAvailable
-                            ? t("settingsPage.general.updates.newVersionAvailable")
-                            : t("settingsPage.general.updates.latestVersion")
+                        : updateStatus.isSelfBuilt
+                          ? t("settingsPage.general.updates.selfBuilt")
+                          : !updateStatus.isSupported
+                            ? t("settingsPage.general.updates.managedByPackageManager")
+                            : isUpdateAvailable
+                              ? t("settingsPage.general.updates.newVersionAvailable")
+                              : t("settingsPage.general.updates.latestVersion")
                     }
                   >
                     <div className="flex items-center gap-2.5">
@@ -4598,10 +4600,17 @@ EOF`,
                         className="text-xs tabular-nums text-muted-foreground font-mono"
                       >
                         {currentVersion || t("settingsPage.general.updates.versionPlaceholder")}
+                        {updateStatus.selfBuiltCommit
+                          ? ` (${updateStatus.selfBuiltCommit.slice(0, 7)})`
+                          : ""}
                       </span>
                       {updateStatus.isDevelopment ? (
                         <Badge variant="warning">
                           {t("settingsPage.general.updates.badges.dev")}
+                        </Badge>
+                      ) : updateStatus.isSelfBuilt ? (
+                        <Badge variant="outline">
+                          {t("settingsPage.general.updates.badges.selfBuilt")}
                         </Badge>
                       ) : isUpdateAvailable ? (
                         <Badge variant="success">

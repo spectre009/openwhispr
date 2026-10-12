@@ -13,6 +13,14 @@ function getLoginItemArgs(platform) {
   return platform === "win32" ? [HIDDEN_LAUNCH_FLAG] : [];
 }
 
+// An unpackaged run (selfhost Dev mode) would register bare electron.exe under the
+// same Run value name as the installed app, so it manages the installed app's entry
+// instead. undefined keeps Electron's default, process.execPath.
+function getLoginItemPath({ platform, isUnpackaged, installedExePath, installedExeExists }) {
+  if (platform !== "win32" || !isUnpackaged || !installedExeExists) return undefined;
+  return installedExePath;
+}
+
 // For the platforms setLoginItemSettings covers: win32 and darwin.
 function resolveAutoStartState({ platform, loginItemSettings }) {
   if (platform === "win32") {
@@ -75,6 +83,7 @@ function getRelaunchWaiter({ launcherPath, args, pid }) {
 module.exports = {
   HIDDEN_LAUNCH_FLAG,
   getLoginItemArgs,
+  getLoginItemPath,
   resolveAutoStartState,
   needsHiddenFlagMigration,
   wasLaunchedHidden,

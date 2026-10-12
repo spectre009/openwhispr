@@ -3730,6 +3730,7 @@
         "automaticUpdatesDescription": "تنزيل التحديثات وتثبيتها في الخلفية",
         "badges": {
           "dev": "تطوير",
+          "selfBuilt": "بناء ذاتي",
           "latest": "الأحدث",
           "update": "تحديث"
         },
@@ -3773,6 +3774,7 @@
         "installAndRestart": "تثبيت وإعادة التشغيل",
         "latestVersion": "أنت تستخدم أحدث إصدار",
         "managedByPackageManager": "يتم تثبيت التحديثات عبر مدير الحزم لديك",
+        "selfBuilt": "التحديثات معطّلة في الإصدارات المبنية ذاتيًا",
         "newVersion": "يتوفر إصدار أحدث",
         "newVersionAvailable": "يتوفر إصدار جديد",
         "restarting": "جاري إعادة التشغيل...",

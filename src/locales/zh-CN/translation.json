@@ -2088,6 +2088,7 @@
         "automaticUpdatesDescription": "在后台下载并安装更新",
         "badges": {
           "dev": "开发版",
+          "selfBuilt": "自行构建",
           "latest": "最新",
           "update": "更新"
         },
@@ -2131,6 +2132,7 @@
         "installAndRestart": "安装并重启",
         "latestVersion": "你已经是最新版本",
         "managedByPackageManager": "更新通过您的包管理器安装",
+        "selfBuilt": "自行构建的版本已禁用更新",
         "newVersion": "有更新的版本可用",
         "newVersionAvailable": "有新版本可用",
         "restarting": "正在重启...",

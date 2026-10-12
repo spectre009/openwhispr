@@ -4,6 +4,17 @@ const { autoUpdater } = require("electron-updater");
 // installs are updated by the package manager instead.
 const isUpdaterSupported = process.platform !== "linux" || Boolean(process.env.APPIMAGE);
 
+// Local fork builds (electron-builder.local-win.json) set selfBuilt in the packaged
+// package.json. The feed below is upstream's, so updating would replace the fork.
+const packageJson = require("../package.json");
+const isSelfBuilt = packageJson.selfBuilt === true;
+const selfBuiltCommit = isSelfBuilt ? packageJson.selfBuiltCommit || null : null;
+const SELF_BUILT_MESSAGE = "Updates are disabled for self-built builds";
+
+function feedDisabled() {
+  return process.env.NODE_ENV === "development" || isSelfBuilt;
+}
+
 class UpdateManager {
   constructor() {
     this.updateAvailable = false;
@@ -27,7 +38,7 @@ class UpdateManager {
   }
 
   setupAutoUpdater() {
-    if (process.env.NODE_ENV === "development") {
+    if (feedDisabled()) {
       return;
     }
 
@@ -165,6 +176,10 @@ class UpdateManager {
         };
       }
 
+      if (isSelfBuilt) {
+        return { updateAvailable: false, message: SELF_BUILT_MESSAGE };
+      }
+
       if (!isUpdaterSupported) {
         return {
           updateAvailable: false,
@@ -206,6 +221,10 @@ class UpdateManager {
         };
       }
 
+      if (isSelfBuilt) {
+        return { success: false, message: SELF_BUILT_MESSAGE };
+      }
+
       if (this.isDownloading) {
         return {
           success: true,
@@ -240,6 +259,10 @@ class UpdateManager {
           success: false,
           message: "Update installation is disabled in development mode",
         };
+      }
+
+      if (isSelfBuilt) {
+        return { success: false, message: SELF_BUILT_MESSAGE };
       }
 
       if (!this.updateDownloaded) {
@@ -286,7 +309,9 @@ class UpdateManager {
         updateAvailable: this.updateAvailable,
         updateDownloaded: this.updateDownloaded,
         isDevelopment: process.env.NODE_ENV === "development",
-        isSupported: isUpdaterSupported,
+        isSupported: isUpdaterSupported && !isSelfBuilt,
+        isSelfBuilt,
+        selfBuiltCommit,
       };
     } catch (error) {
       console.error("❌ Error getting update status:", error);
@@ -339,7 +364,7 @@ class UpdateManager {
   }
 
   checkForUpdatesOnStartup() {
-    if (process.env.NODE_ENV !== "development" && isUpdaterSupported) {
+    if (!feedDisabled() && isUpdaterSupported) {
       setTimeout(() => {
         this._autoCheckForUpdates("Startup");
       }, 3000);

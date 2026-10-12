@@ -5,6 +5,8 @@ interface UpdateStatus {
   updateDownloaded: boolean;
   isDevelopment: boolean;
   isSupported: boolean;
+  isSelfBuilt?: boolean;
+  selfBuiltCommit?: string | null;
 }
 
 interface UpdateInfo {

@@ -33,6 +33,15 @@ const readArgLogLevel = () => {
 
 const hasConsoleLogOptIn = () => (process.argv || []).includes("--console-logs");
 
+// Set by local fork builds (electron-builder.local-win.json + selfhost.js).
+const readSelfBuiltCommit = () => {
+  try {
+    return require("../../package.json").selfBuiltCommit || null;
+  } catch {
+    return null;
+  }
+};
+
 class DebugLogger {
   constructor() {
     this.logLevel = this.resolveLogLevel();
@@ -82,6 +91,7 @@ class DebugLogger {
         userDataPath: app.getPath("userData"),
         resourcesPath: process.resourcesPath,
         environment: process.env.NODE_ENV,
+        selfBuiltCommit: readSelfBuiltCommit(),
       });
     } catch (error) {
       this.fileLoggingEnabled = false;

@@ -1,0 +1,6 @@
+{
+  "extends": "electron-builder.unsigned-win.json",
+  "extraMetadata": {
+    "selfBuilt": true
+  }
+}

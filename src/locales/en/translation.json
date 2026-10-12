@@ -2382,6 +2382,7 @@
         "automaticUpdatesDescription": "Download and install updates in the background",
         "badges": {
           "dev": "Dev",
+          "selfBuilt": "Self-built",
           "latest": "Latest",
           "update": "Update"
         },
@@ -2425,6 +2426,7 @@
         "installAndRestart": "Install & Restart",
         "latestVersion": "You're on the latest version",
         "managedByPackageManager": "Updates are installed through your package manager",
+        "selfBuilt": "Updates are disabled for self-built builds",
         "newVersion": "A newer version is available",
         "newVersionAvailable": "New version available",
         "restarting": "Restarting...",

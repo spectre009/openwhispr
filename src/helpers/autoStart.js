@@ -2,10 +2,13 @@
 // macOS and Windows; on Linux it does nothing, so an XDG autostart entry stands in
 // (linuxAutostart.js). Decisions live in autoStartPolicy.js.
 
+const fs = require("fs");
+const path = require("path");
 const { app } = require("electron");
 const linuxAutostart = require("./linuxAutostart");
 const {
   getLoginItemArgs,
+  getLoginItemPath,
   resolveAutoStartState,
   needsHiddenFlagMigration,
   wasLaunchedHidden,
@@ -13,15 +16,31 @@ const {
 
 const isLinux = () => process.platform === "linux";
 
+// Where the per-user NSIS installer puts the app (electron-builder default).
+function installedExePath() {
+  if (!process.env.LOCALAPPDATA) return null;
+  return path.join(process.env.LOCALAPPDATA, "Programs", "OpenWhispr", "OpenWhispr.exe");
+}
+
+function loginItemOptions() {
+  const installed = process.platform === "win32" ? installedExePath() : null;
+  const exePath = getLoginItemPath({
+    platform: process.platform,
+    isUnpackaged: Boolean(process.defaultApp),
+    installedExePath: installed,
+    installedExeExists: Boolean(installed) && fs.existsSync(installed),
+  });
+  const options = { args: getLoginItemArgs(process.platform) };
+  if (exePath) options.path = exePath;
+  return options;
+}
+
 function readLoginItemSettings() {
-  return app.getLoginItemSettings({ args: getLoginItemArgs(process.platform) });
+  return app.getLoginItemSettings(loginItemOptions());
 }
 
 function writeLoginItem(enabled) {
-  app.setLoginItemSettings({
-    openAtLogin: enabled,
-    args: getLoginItemArgs(process.platform),
-  });
+  app.setLoginItemSettings({ ...loginItemOptions(), openAtLogin: enabled });
 }
 
 // { enabled, requiresApproval } — requiresApproval is macOS-only.

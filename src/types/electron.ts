@@ -991,6 +991,8 @@ export interface UpdateStatusResult {
   updateDownloaded: boolean;
   isDevelopment: boolean;
   isSupported: boolean;
+  isSelfBuilt?: boolean;
+  selfBuiltCommit?: string | null;
 }
 
 export interface UpdateInfoResult {

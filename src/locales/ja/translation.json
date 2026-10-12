@@ -2088,6 +2088,7 @@
         "automaticUpdatesDescription": "アップデートをバックグラウンドでダウンロードしてインストールします",
         "badges": {
           "dev": "開発版",
+          "selfBuilt": "自己ビルド",
           "latest": "最新",
           "update": "アップデート"
         },
@@ -2131,6 +2132,7 @@
         "installAndRestart": "インストールして再起動",
         "latestVersion": "最新バージョンをお使いです",
         "managedByPackageManager": "アップデートはパッケージマネージャーから行われます",
+        "selfBuilt": "自己ビルド版では更新が無効です",
         "newVersion": "新しいバージョンがあります",
         "newVersionAvailable": "新しいバージョンが利用可能",
         "restarting": "再起動中...",

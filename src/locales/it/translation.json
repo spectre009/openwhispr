@@ -2088,6 +2088,7 @@
         "automaticUpdatesDescription": "Scarica e installa gli aggiornamenti in background",
         "badges": {
           "dev": "Dev",
+          "selfBuilt": "Build locale",
           "latest": "Aggiornato",
           "update": "Aggiornamento"
         },
@@ -2131,6 +2132,7 @@
         "installAndRestart": "Installa e riavvia",
         "latestVersion": "Hai già l'ultima versione",
         "managedByPackageManager": "Gli aggiornamenti vengono installati tramite il gestore pacchetti",
+        "selfBuilt": "Gli aggiornamenti sono disattivati per le build compilate in proprio",
         "newVersion": "È disponibile una versione più recente",
         "newVersionAvailable": "Nuova versione disponibile",
         "restarting": "Riavvio...",

@@ -44,12 +44,13 @@ function makeAutoUpdater({ offline = false } = {}) {
 
 // updater.js requires electron and child_process lazily (constructor, cleanup(),
 // Rosetta probe), so the mocks stay installed until afterEach.
-function createUpdateManager(autoUpdater) {
+function createUpdateManager(autoUpdater, { packageJson } = {}) {
   delete require.cache[updaterModulePath];
   Module._load = function loadWithMocks(request, parent, isMain) {
     if (request === "electron-updater") return { autoUpdater };
     if (request === "electron") return { autoUpdater: { on() {}, removeListener() {} } };
     if (request === "child_process") return { execSync: () => "0" };
+    if (packageJson && request === "../package.json") return packageJson;
     return originalLoad.call(this, request, parent, isMain);
   };
   const UpdateManager = require(updaterModulePath);
@@ -236,4 +237,49 @@ test("a Linux AppImage is supported, but deb/rpm/tar.gz installs never touch the
   assert.match(result.message, /package manager/);
 
   packaged.cleanup();
+});
+
+test("a self-built package never touches the upstream feed", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout", "setInterval"] });
+  setPlatform("win32");
+  const autoUpdater = makeAutoUpdater();
+  let feedSet = false;
+  autoUpdater.setFeedURL = () => {
+    feedSet = true;
+  };
+  const manager = createUpdateManager(autoUpdater, {
+    packageJson: { selfBuilt: true, selfBuiltCommit: "0123456789abcdef" },
+  });
+  manager.setAutoUpdatesEnabled(true);
+
+  assert.equal(feedSet, false, "the upstream feed is never configured");
+  assert.deepEqual(Object.keys(autoUpdater.listeners), [], "no updater events are wired");
+
+  manager.checkForUpdatesOnStartup();
+  t.mock.timers.tick(STARTUP_DELAY_MS + PERIODIC_INTERVAL_MS);
+  assert.equal(autoUpdater.calls, 0, "no automatic checks are scheduled");
+
+  const check = await manager.checkForUpdates();
+  assert.equal(check.updateAvailable, false);
+  assert.match(check.message, /self-built/);
+  assert.equal((await manager.downloadUpdate()).success, false);
+  assert.equal((await manager.installUpdate()).success, false);
+  assert.equal(autoUpdater.calls, 0, "a manual check short-circuits");
+  assert.equal(autoUpdater.downloads, 0, "nothing is downloaded");
+
+  const status = await manager.getUpdateStatus();
+  assert.equal(status.isSupported, false);
+  assert.equal(status.isSelfBuilt, true);
+  assert.equal(status.selfBuiltCommit, "0123456789abcdef");
+
+  manager.cleanup();
+});
+
+test("a regular package reports itself as not self-built", async () => {
+  setPlatform("win32");
+  const manager = createUpdateManager(makeAutoUpdater(), { packageJson: { version: "1.0.0" } });
+  const status = await manager.getUpdateStatus();
+  assert.equal(status.isSelfBuilt, false);
+  assert.equal(status.selfBuiltCommit, null);
+  manager.cleanup();
 });

@@ -2088,6 +2088,7 @@
         "automaticUpdatesDescription": "在背景下載並安裝更新",
         "badges": {
           "dev": "開發版",
+          "selfBuilt": "自行建置",
           "latest": "最新",
           "update": "更新"
         },
@@ -2131,6 +2132,7 @@
         "installAndRestart": "安裝並重新啟動",
         "latestVersion": "你使用的是最新版本",
         "managedByPackageManager": "更新透過您的套件管理器安裝",
+        "selfBuilt": "自行建置的版本已停用更新",
         "newVersion": "有更新的版本可用",
         "newVersionAvailable": "有新版本可用",
         "restarting": "重新啟動中...",
