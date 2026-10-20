@@ -70,12 +70,20 @@ function isStartupApprovedDisabled(hexBytes) {
 }
 
 // Vite's watch log: settled when the newest session's latest build finished.
+// Callers also wait for the log to go quiet: the watcher can rebuild several times
+// in a row (seen right after a reboot), and each rebuild empties src/dist.
 function rendererBuildSettled(logText) {
   if (!logText) return false;
   const session = logText.slice(Math.max(0, logText.lastIndexOf("===== ")));
   const lastStart = session.lastIndexOf("build started");
   const lastDone = session.lastIndexOf("built in");
   return lastDone !== -1 && lastDone > lastStart;
+}
+
+// main.js logs this and keeps running when the window can't load, so an alive
+// process alone doesn't prove Dev started.
+function devStartFailed(logText) {
+  return /Failed to start app/.test(logText || "");
 }
 
 // Files that decide which helper binaries end up in resources/bin.
@@ -232,6 +240,7 @@ module.exports = {
   runEntryValue,
   isStartupApprovedDisabled,
   rendererBuildSettled,
+  devStartFailed,
   isHelperInput,
   parseLsTree,
   helperFingerprint,

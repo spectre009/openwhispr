@@ -53,6 +53,15 @@ test("the renderer build is settled only once the latest build in the newest ses
   );
 });
 
+test("a Dev whose window failed to load is detected from its log", () => {
+  assert.equal(
+    core.devStartFailed("Failed to start app: Error: ERR_FILE_NOT_FOUND (-6) loading 'file:///x'"),
+    true
+  );
+  assert.equal(core.devStartFailed("[INFO][cli-bridge] CLI bridge started"), false);
+  assert.equal(core.devStartFailed(""), false);
+});
+
 test("the helper fingerprint follows build inputs and ignores everything else", () => {
   const tree = (overrides = {}) =>
     [

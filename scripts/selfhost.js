@@ -63,6 +63,7 @@ const INSTALL_TIMEOUT_MS = 3 * 60 * 1000;
 const STOP_TIMEOUT_MS = 20000;
 const ALIVE_CHECK_MS = 10000;
 const RENDERER_BUILD_TIMEOUT_MS = 300000;
+const RENDERER_QUIET_MS = 3000;
 
 const log = (message) => console.log(`[selfhost] ${message}`);
 const warn = (message) => console.warn(`[selfhost] warning: ${message}`);
@@ -443,7 +444,15 @@ async function ensureRendererWatch() {
     log(`renderer watcher started (log: ${WATCH_LOG})`);
   }
   const deadline = Date.now() + RENDERER_BUILD_TIMEOUT_MS;
-  while (!rendererSettled()) {
+  let lastSize = -1;
+  let quietSince = Date.now();
+  for (;;) {
+    const size = fs.existsSync(WATCH_LOG) ? fs.statSync(WATCH_LOG).size : 0;
+    if (size !== lastSize) {
+      lastSize = size;
+      quietSince = Date.now();
+    }
+    if (rendererSettled() && Date.now() - quietSince >= RENDERER_QUIET_MS) return;
     if (Date.now() > deadline) throw new Error(`renderer build did not settle; see ${WATCH_LOG}`);
     await sleep(500);
   }
@@ -451,6 +460,7 @@ async function ensureRendererWatch() {
 
 function startDevElectron({ cdpPort }) {
   const logFile = path.join(LOG_DIR, "dev-electron.log");
+  const offset = fs.existsSync(logFile) ? fs.statSync(logFile).size : 0;
   const out = openAppendLog(logFile);
   const env = cleanEnv({
     NODE_ENV: "production",
@@ -466,6 +476,19 @@ function startDevElectron({ cdpPort }) {
     stdio: ["ignore", out, out],
   }).unref();
   log(`Dev Electron starting (log: ${logFile})`);
+  return { logFile, offset };
+}
+
+function readFrom(file, offset) {
+  const fd = fs.openSync(file, "r");
+  try {
+    const length = Math.max(0, fs.fstatSync(fd).size - offset);
+    const buffer = Buffer.alloc(length);
+    fs.readSync(fd, buffer, 0, length, offset);
+    return buffer.toString("utf8");
+  } finally {
+    fs.closeSync(fd);
+  }
 }
 
 async function commandDev(options) {
@@ -480,8 +503,14 @@ async function commandDev(options) {
   ensureSqliteForElectron(REPO);
   if (options.restart) await stopDevApp();
   await ensureRendererWatch();
-  startDevElectron(options);
+  const started = startDevElectron(options);
   await confirmAlive("Dev", (c) => c.devMains);
+  if (core.devStartFailed(readFrom(started.logFile, started.offset))) {
+    throw new Error(
+      `Dev is running but could not load its window (see ${started.logFile}); ` +
+        "run `selfhost dev --restart`, or `selfhost stable` to go back"
+    );
+  }
   recordWriter(target);
 }
 
