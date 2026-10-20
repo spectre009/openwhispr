@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import AudioManager from "../helpers/audioManager";
 import logger from "../utils/logger";
-import { playStartCue, playStopCue } from "../utils/dictationCues";
+import { playStartCue, playStopCue, releaseCueOutput, warmCueOutput } from "../utils/dictationCues";
 import { getSettings } from "../stores/settingsStore";
 import { expandSnippets } from "../utils/snippets";
 import { getRecordingErrorTitle, getRecordingErrorDescription } from "../utils/recordingErrors";
@@ -163,6 +163,7 @@ export const useAudioRecording = (toast, options = {}) => {
         }
 
         if (!canStartDictation(audioManagerRef.current.getState())) return false;
+        void warmCueOutput();
 
         const assistantSelectionContext = voiceAgentRequested
           ? (getAssistantSelectionContextRef.current?.() ?? null)
@@ -301,6 +302,9 @@ export const useAudioRecording = (toast, options = {}) => {
               cuePriorState: cue?.priorState ?? cue?.reason,
               cueReadyMs: cue?.readyMs,
               cueOutputLatencyMs: cue?.outputLatencyMs,
+              cueWasWarm: cue?.wasWarm,
+              cueWarmedForMs: cue?.warmedForMs,
+              cueDelayedMs: cue?.delayedMs,
             };
             logStartTrace(trace, "started");
           });
@@ -323,6 +327,7 @@ export const useAudioRecording = (toast, options = {}) => {
         if (stopRequestedDuringStartRef.current && !recordingStarted) setIsStopping(false);
         stopRequestedDuringStartRef.current = false;
         if (!recordingStarted) {
+          releaseCueOutput();
           setIsPreparing(false);
           setIsAssistantVoice(false);
           // Covers every exit above that never started a recording — the
@@ -558,6 +563,7 @@ export const useAudioRecording = (toast, options = {}) => {
           if (wasRecordingRef.current && getSettings().pauseMediaOnDictation) {
             window.electronAPI?.resumeMediaPlayback?.();
           }
+          if (wasRecordingRef.current) releaseCueOutput();
         }
         wasRecordingRef.current = isRecording;
         setIsRecording(isRecording);
@@ -1062,6 +1068,7 @@ export const useAudioRecording = (toast, options = {}) => {
     const disposePrepare = window.electronAPI.onPrepareDictation?.(async (options) => {
       if (!audioManagerRef.current || startLockRef.current) return;
       if (!canStartDictation(audioManagerRef.current.getState())) return;
+      void warmCueOutput();
       const trace = createStartTrace(options?.trace);
       startTraceRef.current = trace;
       markStartTrace(trace, "prepareReceived");
@@ -1082,6 +1089,7 @@ export const useAudioRecording = (toast, options = {}) => {
       preparationGenerationRef.current += 1;
       setIsPreparing(false);
       audioManagerRef.current?.cancelPreparedMicCapture?.();
+      releaseCueOutput();
       if (reportedLifecycleRef.current?.startsWith("preparing:")) reportLifecycle("idle");
     });
 
@@ -1133,6 +1141,7 @@ export const useAudioRecording = (toast, options = {}) => {
       setIsStopping(false);
       audioManagerRef.current.cancelPreparedMicCapture?.();
       window.electronAPI?.unregisterCancelHotkey?.();
+      releaseCueOutput();
       const state = audioManagerRef.current.getState();
       if (getSettings().pauseMediaOnDictation) {
         window.electronAPI?.resumeMediaPlayback?.();
