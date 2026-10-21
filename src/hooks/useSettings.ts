@@ -419,6 +419,8 @@ function useSettingsInternal() {
     setRecordingEdgeStrip: store.setRecordingEdgeStrip,
     recordingEdgeStripDisplays: store.recordingEdgeStripDisplays,
     setRecordingEdgeStripDisplays: store.setRecordingEdgeStripDisplays,
+    recordingTrayIndicator: store.recordingTrayIndicator,
+    setRecordingTrayIndicator: store.setRecordingTrayIndicator,
     microphoneSelectionMode: store.microphoneSelectionMode,
     preferBuiltInMic: store.preferBuiltInMic,
     selectedMicDeviceId: store.selectedMicDeviceId,

@@ -1096,8 +1096,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
   ),
 
   // Recording indicator: the edge strip is drawn by main
-  notifyRecordingEdgeStripChanged: (settings) =>
-    ipcRenderer.send("recording-edge-strip-changed", settings),
+  notifyRecordingIndicatorChanged: (settings) =>
+    ipcRenderer.send("recording-indicator-changed", settings),
   previewRecordingEdgeStrip: (settings) =>
     ipcRenderer.invoke("preview-recording-edge-strip", settings),
 

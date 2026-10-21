@@ -65,7 +65,8 @@
     "openControlPanel": "Ouvrir le panneau de contrôle",
     "hideControlPanel": "Masquer le panneau de contrôle",
     "quit": "Quitter OpenWhispr",
-    "tooltip": "OpenWhispr - Dictée vocale"
+    "tooltip": "OpenWhispr - Dictée vocale",
+    "recordingTooltip": "OpenWhispr · Enregistrement {{elapsed}}"
   },
   "menu": {
     "appLabel": "OpenWhispr",
@@ -2266,7 +2267,7 @@
         "recordingStyleSolidDescription": "Rempli de votre couleur, avec un contour visible sur fond clair comme sombre",
         "recordingStyleBeaconDescription": "Plein, avec une lueur lente autour",
         "recordingColor": "Couleur d'enregistrement",
-        "recordingColorDescription": "Utilisée par Teinté, Plein, Balise et la bande en bord d'écran. L'icône passe en blanc ou en sombre pour rester lisible",
+        "recordingColorDescription": "Utilisée par Teinté, Plein, Balise, le bord de l'écran et le point de la barre d'état. L'icône passe en blanc ou en sombre pour rester lisible",
         "colorRed": "Rouge",
         "colorCoral": "Corail",
         "colorAmber": "Ambre",
@@ -2277,14 +2278,17 @@
         "colorPink": "Rose",
         "colorCustom": "Couleur personnalisée",
         "edgeStrip": "Bord de l'écran pendant l'enregistrement",
-        "edgeStripDescription": "Une bande lumineuse en haut de l'écran, que vous remarquerez du coin de l'œil. Elle n'apparaît ni dans les partages d'écran ni dans les captures",
+        "edgeStripDescription": "Une bande lumineuse en haut de l'écran, ou un cadre autour de l'écran de l'icône flottante, que vous remarquerez du coin de l'œil. Elle n'apparaît ni dans les partages d'écran ni dans les captures",
         "edgeStripOff": "Désactivée",
         "edgeStripShort": "Bande courte",
         "edgeStripFull": "Toute la largeur",
+        "edgeStripFrame": "Cadre complet",
         "edgeStripDisplays": "Écrans qui affichent la bande",
         "edgeStripDisplaysPill": "Écran de l'icône flottante",
         "edgeStripDisplaysAll": "Tous les écrans",
         "edgeStripPreviewHint": "Afficher la bande pendant trois secondes",
+        "recordingTray": "Icône de la barre d'état pendant l'enregistrement",
+        "recordingTrayDescription": "Ajoute un point de la couleur d'enregistrement à l'icône de la barre d'état, et la durée d'enregistrement à son info-bulle",
         "description": "Contrôlez quand l'icône de dictée est visible à l'écran",
         "title": "Icône flottante"
       },

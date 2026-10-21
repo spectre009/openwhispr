@@ -65,7 +65,8 @@
     "openControlPanel": "コントロールパネルを開く",
     "hideControlPanel": "コントロールパネルを非表示",
     "quit": "OpenWhispr を終了",
-    "tooltip": "OpenWhispr - 音声ディクテーション"
+    "tooltip": "OpenWhispr - 音声ディクテーション",
+    "recordingTooltip": "OpenWhispr · 録音中 {{elapsed}}"
   },
   "menu": {
     "appLabel": "OpenWhispr",
@@ -1974,7 +1975,7 @@
         "recordingStyleSolidDescription": "選んだ色で塗りつぶし、明るい背景でも暗い背景でも見えるよう輪郭を付けます",
         "recordingStyleBeaconDescription": "ソリッドに、ゆっくりとした光の輪を加えます",
         "recordingColor": "録音の色",
-        "recordingColorDescription": "ティント、ソリッド、ビーコンと画面端のバーで使用します。アイコンは読みやすいよう白または濃い色に切り替わります",
+        "recordingColorDescription": "ティント、ソリッド、ビーコン、画面端、トレイのドットで使用します。アイコンは読みやすいよう白または濃い色に切り替わります",
         "colorRed": "赤",
         "colorCoral": "コーラル",
         "colorAmber": "アンバー",
@@ -1985,14 +1986,17 @@
         "colorPink": "ピンク",
         "colorCustom": "カスタムカラー",
         "edgeStrip": "録音中の画面端",
-        "edgeStripDescription": "画面上端に光るバーを表示し、視界の端でも気付けるようにします。画面共有やスクリーンショットには表示されません",
+        "edgeStripDescription": "画面上端に光るバー、またはフローティングアイコンのモニターを囲む枠を表示し、視界の端でも気付けるようにします。画面共有やスクリーンショットには表示されません",
         "edgeStripOff": "オフ",
         "edgeStripShort": "短いバー",
         "edgeStripFull": "全幅",
+        "edgeStripFrame": "全周フレーム",
         "edgeStripDisplays": "バーを表示するモニター",
         "edgeStripDisplaysPill": "フローティングアイコンのモニター",
         "edgeStripDisplaysAll": "すべてのモニター",
-        "edgeStripPreviewHint": "バーを 3 秒間表示します"
+        "edgeStripPreviewHint": "バーを 3 秒間表示します",
+        "recordingTray": "録音中のトレイアイコン",
+        "recordingTrayDescription": "トレイアイコンに録音の色のドットを付け、ツールチップに録音時間を表示します"
       },
       "hotkey": {
         "activationMode": "起動モード",

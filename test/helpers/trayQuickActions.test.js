@@ -4,7 +4,8 @@ const Module = require("node:module");
 
 const originalLoad = Module._load;
 Module._load = function loadTrayWithStubs(request, parent, isMain) {
-  if (request === "electron") return { Tray: class {}, Menu: {}, nativeImage: {}, app: {} };
+  if (request === "electron")
+    return { Tray: class {}, Menu: {}, nativeImage: {}, app: { on: () => undefined } };
   if (request === "./debugLogger") return { info: () => undefined, debug: () => undefined };
   if (request === "./dockManager") return {};
   if (request === "./i18nMain") return { i18nMain: { t: (key) => key } };

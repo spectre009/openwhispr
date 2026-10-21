@@ -96,7 +96,7 @@ const { centeredBounds, clampedBounds } = require("./onboardingWindowBounds");
 const { ONBOARDING_DEMO_KINDS, isOnboardingInputAllowed } = require("./onboardingInputPolicy");
 const { createHotkeyRepeatGate } = require("./hotkeyRepeatGate");
 const { RecordingEdgeStrip } = require("./recordingEdgeStrip");
-const { normalizeEdgeStripSettings } = require("./recordingIndicator");
+const { normalizeRecordingIndicatorSettings } = require("./recordingIndicator");
 const { getLinuxSessionInfo } = require("./linuxSession");
 
 class WindowManager {
@@ -165,6 +165,7 @@ class WindowManager {
     this._pendingMeetingNoteNavigation = null;
     this._pendingNoteNavigation = null;
     this._pendingSettingsSection = null;
+    this._recordingIndicatorSettings = normalizeRecordingIndicatorSettings(null);
     this.recordingEdgeStrip = new RecordingEdgeStrip({
       BrowserWindow,
       screen,
@@ -1227,10 +1228,18 @@ class WindowManager {
     this.setDictationLifecycleState(DICTATION_LIFECYCLE.IDLE, this._dictationInputKind);
   }
 
-  // The dictation window reports the edge strip settings; only the strip
-  // needs them in main.
-  setRecordingEdgeStripSettings(settings) {
-    this.recordingEdgeStrip.configure(normalizeEdgeStripSettings(settings));
+  // The dictation window reports the settings of the indicators main draws:
+  // the edge strip or frame, and the tray icon. They are kept, since the tray
+  // is created after that window first reports.
+  setRecordingIndicatorSettings(settings) {
+    const normalized = normalizeRecordingIndicatorSettings(settings);
+    this._recordingIndicatorSettings = normalized;
+    this.recordingEdgeStrip.configure(normalized);
+    this.onRecordingIndicatorSettings?.(normalized);
+  }
+
+  getRecordingIndicatorSettings() {
+    return this._recordingIndicatorSettings;
   }
 
   previewRecordingEdgeStrip(settings) {

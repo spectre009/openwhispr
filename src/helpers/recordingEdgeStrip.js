@@ -1,5 +1,5 @@
 const {
-  normalizeEdgeStripSettings,
+  normalizeRecordingIndicatorSettings,
   resolveEdgeStripBounds,
   resolveRecordingAccent,
 } = require("./recordingIndicator");
@@ -7,8 +7,11 @@ const {
 const EDGE_STRIP_PREVIEW_MS = 3000;
 // Strip windows stay for a while after the strip last hid, so back-to-back
 // dictations reuse them, then go: each holds its own renderer (~20 MB private,
-// measured on Windows).
+// measured on Windows). A frame covers the work area, and a hidden window keeps
+// its surface (the GPU process grew by ~260 MB for one on a 5672 DIP display at
+// 135%), so it goes much sooner.
 const EDGE_STRIP_IDLE_RELEASE_MS = 5 * 60 * 1000;
+const EDGE_FRAME_IDLE_RELEASE_MS = 30 * 1000;
 
 // A few DIP tall, transparent, never focusable and click-through: the strip
 // must never take a click or the keyboard from the app being dictated into.
@@ -40,21 +43,34 @@ const EDGE_STRIP_WINDOW_OPTIONS = Object.freeze({
 });
 
 /**
- * The strip's page: a 4 DIP bar in the accent with a dark hairline under it
- * (so it still reads on a background of its own color) and a glow that fades
- * out within the window. Steady on purpose: a transparent window is
+ * The overlay's page, steady on purpose: a transparent window is
  * recomposited on every animation frame, and three breathing strips cost the
- * GPU process about a fifth of a core while recording. The accent is a
- * validated #rrggbb.
+ * GPU process about a fifth of a core while recording. A strip is a 4 DIP bar
+ * in the accent with a dark hairline under it (so it still reads on a
+ * background of its own color) and a glow that fades out within the window.
+ * A frame is a 3 DIP ring around the window's edge with a dark hairline
+ * inside and a soft inner glow. The accent is a validated #rrggbb.
  */
 function buildEdgeStripPage({ accent, mode }) {
+  const base = "html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent}";
+  if (mode === "frame") {
+    return page(
+      base +
+        `.s{position:absolute;inset:0;box-shadow:inset 0 0 0 3px ${accent},` +
+        `inset 0 0 0 4px rgba(0,0,0,.35),inset 0 0 26px 6px ${accent}8c}`
+    );
+  }
   const inset = mode === "short" ? 6 : 0;
   const radius = mode === "short" ? "0 0 4px 4px" : "0";
-  const css =
-    "html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent}" +
-    `.s{position:absolute;top:0;left:${inset}px;right:${inset}px;height:4px;border-radius:${radius};` +
-    `background:${accent};box-shadow:0 1px 0 rgba(0,0,0,.35),0 0 6px 1px ${accent}}`;
-  return `<!doctype html><html><head><meta charset="utf-8"><style>${css}</style></head><body><div class="s"></div></body></html>`;
+  return page(
+    base +
+      `.s{position:absolute;top:0;left:${inset}px;right:${inset}px;height:4px;border-radius:${radius};` +
+      `background:${accent};box-shadow:0 1px 0 rgba(0,0,0,.35),0 0 6px 1px ${accent}}`
+  );
+}
+
+function page(css) {
+  return `<!doctype html><html><head><meta charset="utf-8"><style>${css}</style></head><body><div class="s" aria-hidden="true"></div></body></html>`;
 }
 
 // Encoded whole: a literal "#" in the CSS would otherwise start a fragment.
@@ -88,17 +104,18 @@ class RecordingEdgeStrip {
     this._logger = logger;
     this._supported = supported;
     this._timers = timers;
-    this._settings = normalizeEdgeStripSettings(null);
+    this._settings = normalizeRecordingIndicatorSettings(null);
     this._recording = false;
     this._preview = null;
     this._idleTimer = null;
+    this._lastShownMode = null;
     this._windows = new Map();
     this._destroyed = false;
     this._loggedUnsupported = false;
   }
 
   configure(settings) {
-    this._settings = normalizeEdgeStripSettings(settings);
+    this._settings = normalizeRecordingIndicatorSettings(settings);
     this._apply("settings");
   }
 
@@ -112,7 +129,7 @@ class RecordingEdgeStrip {
   // Shows the strip with `settings` for a moment. The preview carries its own
   // settings, so it never waits for the dictation window to report a change.
   preview(settings, durationMs = EDGE_STRIP_PREVIEW_MS) {
-    const normalized = normalizeEdgeStripSettings(settings);
+    const normalized = normalizeRecordingIndicatorSettings(settings);
     if (this._destroyed || !this._isSupported() || normalized.strip === "off") return false;
     if (this._preview) this._timers.clearTimeout(this._preview.timer);
     const preview = { settings: normalized, timer: null };
@@ -143,7 +160,7 @@ class RecordingEdgeStrip {
   release() {
     this._clearPreview();
     this._recording = false;
-    this._settings = normalizeEdgeStripSettings(null);
+    this._settings = normalizeRecordingIndicatorSettings(null);
     this._destroyAll();
   }
 
@@ -222,9 +239,13 @@ class RecordingEdgeStrip {
       }
     }
 
-    for (const [id, entry] of this._windows) {
-      if (!targetIds.has(id) && entry.win.isVisible()) entry.win.hide();
+    for (const [id, entry] of [...this._windows]) {
+      if (targetIds.has(id)) continue;
+      // A frame left behind on another monitor holds a work-area surface.
+      if (active.strip === "frame") this._destroyWindow(id);
+      else if (entry.win.isVisible()) entry.win.hide();
     }
+    this._lastShownMode = active.strip;
   }
 
   _load(id, entry, url) {
@@ -255,7 +276,8 @@ class RecordingEdgeStrip {
   }
 
   _targetDisplays(settings, displays) {
-    if (settings.displays === "all") return displays;
+    // A frame only ever outlines the floating icon's monitor.
+    if (settings.displays === "all" && settings.strip !== "frame") return displays;
     const pill = this._getPillDisplay?.();
     const match = pill && displays.find((display) => display.id === pill.id);
     const display = match || this._screen.getPrimaryDisplay?.() || displays[0];
@@ -271,12 +293,14 @@ class RecordingEdgeStrip {
 
   _scheduleIdleRelease() {
     if (this._idleTimer || this._windows.size === 0) return;
+    const delay =
+      this._lastShownMode === "frame" ? EDGE_FRAME_IDLE_RELEASE_MS : EDGE_STRIP_IDLE_RELEASE_MS;
     this._idleTimer = this._timers.setTimeout(() => {
       this._idleTimer = null;
       if (this._activeSettings()) return;
       this._logger?.debug?.("[RecordingEdgeStrip] Releasing idle strip windows", {}, "window");
       this._destroyAll();
-    }, EDGE_STRIP_IDLE_RELEASE_MS);
+    }, delay);
   }
 
   _cancelIdleRelease() {
@@ -340,6 +364,7 @@ class RecordingEdgeStrip {
 }
 
 module.exports = {
+  EDGE_FRAME_IDLE_RELEASE_MS,
   EDGE_STRIP_IDLE_RELEASE_MS,
   EDGE_STRIP_PREVIEW_MS,
   EDGE_STRIP_WINDOW_OPTIONS,

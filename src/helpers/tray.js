@@ -1,8 +1,10 @@
-const { Tray, Menu, nativeImage, app, systemPreferences } = require("electron");
+const { Tray, Menu, nativeImage, app, screen, systemPreferences } = require("electron");
 const path = require("path");
 const fs = require("fs");
 const debugLogger = require("./debugLogger");
 const { i18nMain } = require("./i18nMain");
+const { drawRecordingBadge, formatRecordingElapsed } = require("./trayRecordingBadge");
+const { resolveRecordingAccent } = require("./recordingIndicator");
 const { windowsTrayIdentity } = require("../../package.json");
 
 // Permanent identity for signed production Windows builds; keep across releases.
@@ -23,6 +25,14 @@ class TrayManager {
     this.controlPanelWindow = null;
     this.windowManager = null;
     this.attachedControlPanels = new WeakSet();
+    // The icon as loaded (a multi-size .ico on Windows), restored after a
+    // recording; the badged copy is a single bitmap.
+    this._baseIcon = null;
+    this._badgeCache = null;
+    this._badgeShown = false;
+    this._recordingStartedAt = null;
+    this._tooltipTimer = null;
+    app.on("before-quit", () => this._stopTooltipTimer());
   }
 
   setWindows(mainWindow, controlPanelWindow) {
@@ -156,6 +166,7 @@ class TrayManager {
       } else {
         this.tray = new Tray(trayIcon);
       }
+      this._baseIcon = trayIcon;
 
       this.updateTrayMenu();
       this.setupTrayEventHandlers();
@@ -323,11 +334,114 @@ class TrayManager {
   }
 
   updateTrayMenu() {
-    if (!this.tray) return;
+    if (!this._isTrayLive()) return;
 
     const contextMenu = Menu.buildFromTemplate(this.buildContextMenuTemplate());
-    this.tray.setToolTip(i18nMain.t("tray.tooltip"));
+    this.tray.setToolTip(this._tooltip());
     this.tray.setContextMenu(contextMenu);
+  }
+
+  _isTrayLive() {
+    return Boolean(this.tray && !this.tray.isDestroyed?.());
+  }
+
+  _recordingIndicatorWanted() {
+    const recording = this.windowManager?.isDictating?.() ?? false;
+    const settings = this.windowManager?.getRecordingIndicatorSettings?.();
+    return { recording, enabled: recording && settings?.tray === true, settings };
+  }
+
+  _tooltip() {
+    const { enabled } = this._recordingIndicatorWanted();
+    if (!enabled || !this._recordingStartedAt) return i18nMain.t("tray.tooltip");
+    return i18nMain.t("tray.recordingTooltip", {
+      elapsed: formatRecordingElapsed(Date.now() - this._recordingStartedAt),
+    });
+  }
+
+  /**
+   * While a dictation records and the setting is on: a dot in the recording
+   * color on the tray icon and the elapsed time in its tooltip. Driven by the
+   * main-process lifecycle and settings, so every way a recording ends
+   * (stop, cancel, a crashed or reloaded renderer) puts the icon back.
+   */
+  updateRecordingIndicator() {
+    const { recording, enabled, settings } = this._recordingIndicatorWanted();
+    if (!recording) this._recordingStartedAt = null;
+    else if (!this._recordingStartedAt) this._recordingStartedAt = Date.now();
+
+    if (!this._isTrayLive()) {
+      this._stopTooltipTimer();
+      return;
+    }
+    const badge = enabled ? this._badgedIcon(settings.color) : null;
+    if (badge) {
+      this.tray.setImage(badge);
+      if (!this._badgeShown) {
+        debugLogger.debug("Tray recording badge shown", { size: badge.getSize?.() }, "tray");
+      }
+      this._badgeShown = true;
+    } else if (this._badgeShown && this._baseIcon) {
+      this.tray.setImage(this._baseIcon);
+      this._badgeShown = false;
+      debugLogger.debug("Tray recording badge removed", undefined, "tray");
+    }
+    this.tray.setToolTip(this._tooltip());
+    if (enabled) this._startTooltipTimer();
+    else this._stopTooltipTimer();
+  }
+
+  // Only the tooltip ticks; the menu rebuilds on state changes alone.
+  _startTooltipTimer() {
+    if (this._tooltipTimer) return;
+    this._tooltipTimer = setInterval(() => {
+      if (!this._isTrayLive() || !this._recordingIndicatorWanted().enabled) {
+        this._stopTooltipTimer();
+        return;
+      }
+      this.tray.setToolTip(this._tooltip());
+    }, 1000);
+  }
+
+  _stopTooltipTimer() {
+    if (!this._tooltipTimer) return;
+    clearInterval(this._tooltipTimer);
+    this._tooltipTimer = null;
+  }
+
+  // One bitmap at the tray's pixel size: Windows turns a generated image into
+  // a single bitmap whatever representations it carries, so this draws at
+  // 16 DIP on the primary display (where the taskbar's tray is). macOS keeps
+  // its template icon, which can't carry a color.
+  _badgedIcon(color) {
+    if (process.platform === "darwin" || !this._baseIcon || this._baseIcon.isEmpty()) return null;
+    const accent = resolveRecordingAccent(color);
+    const scale = screen.getPrimaryDisplay()?.scaleFactor || 1;
+    const size = Math.max(16, Math.round(16 * scale));
+    const key = `${size}:${accent}`;
+    if (this._badgeCache?.key === key) return this._badgeCache.image;
+    try {
+      const bitmap = this._baseIcon
+        .resize({ width: size, height: size, quality: "best" })
+        .toBitmap();
+      if (bitmap.length !== size * size * 4) {
+        debugLogger.warn(
+          "Tray icon bitmap has an unexpected size",
+          { size, bytes: bitmap.length },
+          "tray"
+        );
+        return null;
+      }
+      const image = nativeImage.createFromBitmap(drawRecordingBadge(bitmap, size, accent), {
+        width: size,
+        height: size,
+      });
+      this._badgeCache = { key, image };
+      return image;
+    } catch (error) {
+      debugLogger.warn("Could not draw the tray recording badge", { error: error.message }, "tray");
+      return null;
+    }
   }
 
   setupTrayEventHandlers() {

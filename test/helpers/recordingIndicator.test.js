@@ -155,7 +155,7 @@ test("edge strip settings normalize to the known values, defaulting to off on th
   const {
     normalizeRecordingEdgeStrip,
     normalizeRecordingEdgeStripDisplays,
-    normalizeEdgeStripSettings,
+    normalizeRecordingIndicatorSettings,
   } = await load();
   for (const mode of ["off", "short", "full"])
     assert.equal(normalizeRecordingEdgeStrip(mode), mode);
@@ -168,20 +168,21 @@ test("edge strip settings normalize to the known values, defaulting to off on th
   for (const value of [undefined, "primary", "ALL", 0]) {
     assert.equal(normalizeRecordingEdgeStripDisplays(value), "pill");
   }
-  assert.deepEqual(normalizeEdgeStripSettings(null), {
+  assert.deepEqual(normalizeRecordingIndicatorSettings(null), {
     color: "red",
     strip: "off",
     displays: "pill",
+    tray: false,
   });
   assert.deepEqual(
-    normalizeEdgeStripSettings({
+    normalizeRecordingIndicatorSettings({
       style: "beacon",
       color: "#ABCDEF",
       strip: "short",
       displays: "all",
       extra: 1,
     }),
-    { color: "#abcdef", strip: "short", displays: "all" }
+    { color: "#abcdef", strip: "short", displays: "all", tray: false }
   );
 });
 
@@ -234,4 +235,28 @@ test("the strip hugs the top of the whole display, short and centered or full wi
   );
   assert.equal(resolveEdgeStripBounds(g95, "off"), null);
   assert.equal(resolveEdgeStripBounds(null, "short"), null);
+});
+
+test("a frame covers the display's work area, above the taskbar", async () => {
+  const { resolveEdgeStripBounds } = await load();
+  const g95 = {
+    bounds: { x: 0, y: 0, width: 5672, height: 1596 },
+    workArea: { x: 0, y: 0, width: 5672, height: 1548 },
+  };
+  assert.deepEqual(resolveEdgeStripBounds(g95, "frame"), { x: 0, y: 0, width: 5672, height: 1548 });
+  const upper = { bounds: { x: -16, y: -1596, width: 2836, height: 1596 } };
+  assert.deepEqual(
+    resolveEdgeStripBounds(upper, "frame"),
+    upper.bounds,
+    "no work area: the bounds"
+  );
+});
+
+test("the tray setting reaches main only when it is exactly true", async () => {
+  const { normalizeRecordingIndicatorSettings } = await load();
+  assert.equal(normalizeRecordingIndicatorSettings({ tray: true }).tray, true);
+  for (const tray of [undefined, "true", 1, false]) {
+    assert.equal(normalizeRecordingIndicatorSettings({ tray }).tray, false);
+  }
+  assert.equal(normalizeRecordingIndicatorSettings({ strip: "frame" }).strip, "frame");
 });

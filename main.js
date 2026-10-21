@@ -1248,10 +1248,11 @@ async function startApp() {
     }
   });
 
-  // Reported by the dictation window whenever an edge strip setting changes
-  // (and once at load); main only keeps them in memory for the strip, which
-  // can't exist before that window does.
-  ipcMain.on("recording-edge-strip-changed", (event, settings) => {
+  // Reported by the dictation window whenever a setting of the main-process
+  // indicators (edge strip or frame, tray) changes, and once at load; main
+  // only keeps them in memory, since neither can matter before that window
+  // exists.
+  ipcMain.on("recording-indicator-changed", (event, settings) => {
     const dictationWindow = windowManager.mainWindow;
     if (
       !dictationWindow ||
@@ -1260,7 +1261,7 @@ async function startApp() {
     ) {
       return;
     }
-    windowManager.setRecordingEdgeStripSettings(settings);
+    windowManager.setRecordingIndicatorSettings(settings);
   });
 
   dockManager.init();
@@ -1506,10 +1507,17 @@ async function startApp() {
   trayManager.setWindows(windowManager.mainWindow, windowManager.controlPanelWindow);
   trayManager.setWindowManager(windowManager);
   // The tray's listen item is a toggle, so it has to rebuild when dictation
-  // starts or stops.
-  windowManager.onDictationStateChanged = () => trayManager.updateTrayMenu();
+  // starts or stops; the recording dot and tooltip follow the same state.
+  windowManager.onDictationStateChanged = () => {
+    trayManager.updateTrayMenu();
+    trayManager.updateRecordingIndicator();
+  };
+  windowManager.onRecordingIndicatorSettings = () => trayManager.updateRecordingIndicator();
   trayManager.setCreateControlPanelCallback(() => windowManager.createControlPanelWindow());
   await trayManager.createTray();
+  // The dictation window may have reported its indicator settings, or started
+  // recording, before the tray existed; it reads both from the window manager.
+  trayManager.updateRecordingIndicator();
 
   updateManager.checkForUpdatesOnStartup();
 

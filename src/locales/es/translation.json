@@ -65,7 +65,8 @@
     "openControlPanel": "Abrir panel de control",
     "hideControlPanel": "Ocultar panel de control",
     "quit": "Salir de OpenWhispr",
-    "tooltip": "OpenWhispr - Dictado por voz"
+    "tooltip": "OpenWhispr - Dictado por voz",
+    "recordingTooltip": "OpenWhispr · Grabando {{elapsed}}"
   },
   "menu": {
     "appLabel": "OpenWhispr",
@@ -2026,7 +2027,7 @@
         "recordingStyleSolidDescription": "Relleno con tu color y con contorno para que se vea sobre fondos claros y oscuros",
         "recordingStyleBeaconDescription": "Sólido, con un brillo lento a su alrededor",
         "recordingColor": "Color de grabación",
-        "recordingColorDescription": "Lo usan Teñido, Sólido, Baliza y la franja del borde de la pantalla. El icono cambia a blanco u oscuro para seguir siendo legible",
+        "recordingColorDescription": "Lo usan Teñido, Sólido, Baliza, el borde de la pantalla y el punto de la bandeja. El icono cambia a blanco u oscuro para seguir siendo legible",
         "colorRed": "Rojo",
         "colorCoral": "Coral",
         "colorAmber": "Ámbar",
@@ -2037,14 +2038,17 @@
         "colorPink": "Rosa",
         "colorCustom": "Color personalizado",
         "edgeStrip": "Borde de la pantalla mientras graba",
-        "edgeStripDescription": "Una franja luminosa en la parte superior de la pantalla que notarás con el rabillo del ojo. No aparece al compartir pantalla ni en capturas",
+        "edgeStripDescription": "Una franja luminosa en la parte superior de la pantalla, o un marco alrededor del monitor del icono flotante, que notarás con el rabillo del ojo. No aparece al compartir pantalla ni en capturas",
         "edgeStripOff": "Desactivado",
         "edgeStripShort": "Franja corta",
         "edgeStripFull": "Ancho completo",
+        "edgeStripFrame": "Marco completo",
         "edgeStripDisplays": "Monitores que muestran la franja",
         "edgeStripDisplaysPill": "Monitor del icono flotante",
         "edgeStripDisplaysAll": "Todos los monitores",
-        "edgeStripPreviewHint": "Mostrar la franja durante tres segundos"
+        "edgeStripPreviewHint": "Mostrar la franja durante tres segundos",
+        "recordingTray": "Icono de la bandeja mientras graba",
+        "recordingTrayDescription": "Añade un punto del color de grabación al icono de la bandeja y el tiempo de grabación a su descripción emergente"
       },
       "hotkey": {
         "activationMode": "Modo de activación",

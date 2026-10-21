@@ -111,10 +111,11 @@ export function recordingIndicatorCssVars(color) {
   };
 }
 
-// The optional glowing strip along the top edge of the screen while the
-// microphone is live: short and centered, or the full width of the display.
+// The optional glow at the edge of the screen while the microphone is live: a
+// strip along the top (short and centered, or the full width) or a frame
+// around the whole work area of the floating icon's monitor.
 export const DEFAULT_RECORDING_EDGE_STRIP = "off";
-export const RECORDING_EDGE_STRIP_MODES = Object.freeze(["off", "short", "full"]);
+export const RECORDING_EDGE_STRIP_MODES = Object.freeze(["off", "short", "full", "frame"]);
 
 export function normalizeRecordingEdgeStrip(value) {
   return RECORDING_EDGE_STRIP_MODES.includes(value) ? value : DEFAULT_RECORDING_EDGE_STRIP;
@@ -130,13 +131,14 @@ export function normalizeRecordingEdgeStripDisplays(value) {
     : DEFAULT_RECORDING_EDGE_STRIP_DISPLAYS;
 }
 
-/** The edge strip's settings, as main receives them over IPC. */
-export function normalizeEdgeStripSettings(value) {
+/** The main-process recording indicators' settings, as main receives them over IPC. */
+export function normalizeRecordingIndicatorSettings(value) {
   const settings = value && typeof value === "object" ? value : {};
   return {
     color: normalizeRecordingIndicatorColor(settings.color),
     strip: normalizeRecordingEdgeStrip(settings.strip),
     displays: normalizeRecordingEdgeStripDisplays(settings.displays),
+    tray: settings.tray === true,
   };
 }
 
@@ -144,16 +146,23 @@ export const EDGE_STRIP_HEIGHT = 8;
 export const SHORT_EDGE_STRIP = Object.freeze({ fraction: 0.25, min: 480, max: 1400 });
 
 /**
- * The strip window's box on `display`, in DIP. It hugs the top of the whole
- * display (bounds, not the work area: nothing is docked there on Windows,
- * and a top taskbar should not push it down) and keeps negative origins, so
- * monitors above or left of the primary one get it at their own top edge.
+ * The overlay window's box on `display`, in DIP. A strip hugs the top of the
+ * whole display (bounds, not the work area: nothing is docked there on
+ * Windows, and a top taskbar should not push it down) and keeps negative
+ * origins, so monitors above or left of the primary one get it at their own
+ * top edge. A frame covers the work area, so it outlines the screen above the
+ * taskbar.
  */
 export function resolveEdgeStripBounds(display, mode) {
   const area = display?.bounds;
-  if (!area || normalizeRecordingEdgeStrip(mode) === "off") return null;
+  const normalized = normalizeRecordingEdgeStrip(mode);
+  if (!area || normalized === "off") return null;
+  if (normalized === "frame") {
+    const workArea = display.workArea || area;
+    return { x: workArea.x, y: workArea.y, width: workArea.width, height: workArea.height };
+  }
   let width = area.width;
-  if (mode === "short") {
+  if (normalized === "short") {
     const wanted = Math.round(area.width * SHORT_EDGE_STRIP.fraction);
     width = Math.min(
       area.width,

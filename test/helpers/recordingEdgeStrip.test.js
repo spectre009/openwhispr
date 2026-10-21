@@ -2,6 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 
 const {
+  EDGE_FRAME_IDLE_RELEASE_MS,
   EDGE_STRIP_IDLE_RELEASE_MS,
   EDGE_STRIP_PREVIEW_MS,
   RecordingEdgeStrip,
@@ -9,7 +10,11 @@ const {
   edgeStripUrl,
 } = require("../../src/helpers/recordingEdgeStrip");
 
-const G95 = { id: 1217155111, bounds: { x: 0, y: 0, width: 5672, height: 1596 } };
+const G95 = {
+  id: 1217155111,
+  bounds: { x: 0, y: 0, width: 5672, height: 1596 },
+  workArea: { x: 0, y: 0, width: 5672, height: 1548 },
+};
 const PG = { id: 2373425187, bounds: { x: -16, y: -1596, width: 2836, height: 1596 } };
 const M32 = { id: 1564834236, bounds: { x: 2820, y: -1602, width: 2837, height: 1596 } };
 
@@ -419,5 +424,48 @@ test("destroy removes every window and ignores later calls", async () => {
   strip.setRecording(true);
   strip.configure(ON);
   await settle();
+  assert.equal(live().length, 0);
+});
+
+const FRAME = { color: "red", strip: "frame", displays: "all" };
+
+test("a frame covers the work area of the floating icon's monitor only, whatever the monitors setting", async () => {
+  const { strip, shown, live } = harness();
+  strip.configure(FRAME);
+  strip.setRecording(true);
+  await settle();
+  assert.equal(live().length, 1);
+  assert.deepEqual(shown()[0].getBounds(), { x: 0, y: 0, width: 5672, height: 1548 });
+});
+
+test("the frame page is a steady ring in the accent, hidden from assistive tech", () => {
+  const page = buildEdgeStripPage({ accent: "#ef3b3b", mode: "frame" });
+  assert.ok(page.includes("inset 0 0 0 3px #ef3b3b"));
+  assert.ok(page.includes("#ef3b3b8c"), "the soft glow is the accent at partial alpha");
+  assert.ok(!/animation|@keyframes|transition/.test(page));
+  assert.ok(page.includes('aria-hidden="true"'));
+});
+
+test("a frame left behind when the pill changes monitors is destroyed, not kept hidden", async () => {
+  const { strip, env, live, shown } = harness();
+  strip.configure(FRAME);
+  strip.setRecording(true);
+  await settle();
+  env.pill = { ...PG, workArea: PG.bounds };
+  strip.refresh("drag");
+  await settle();
+  assert.equal(live().length, 1, "only the new monitor's frame remains");
+  assert.deepEqual(shown()[0].getBounds(), PG.bounds);
+});
+
+test("a hidden frame is released after the short frame grace", async () => {
+  const { strip, live, pendingTimers, runTimers } = harness();
+  strip.configure(FRAME);
+  strip.setRecording(true);
+  await settle();
+  strip.setRecording(false);
+  assert.equal(pendingTimers(EDGE_FRAME_IDLE_RELEASE_MS).length, 1);
+  assert.equal(pendingTimers(EDGE_STRIP_IDLE_RELEASE_MS).length, 0);
+  runTimers(EDGE_FRAME_IDLE_RELEASE_MS);
   assert.equal(live().length, 0);
 });

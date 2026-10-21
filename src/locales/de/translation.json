@@ -65,7 +65,8 @@
     "openControlPanel": "Kontrollzentrum öffnen",
     "hideControlPanel": "Kontrollzentrum ausblenden",
     "quit": "OpenWhispr beenden",
-    "tooltip": "OpenWhispr – Sprachdiktat"
+    "tooltip": "OpenWhispr – Sprachdiktat",
+    "recordingTooltip": "OpenWhispr · Aufnahme {{elapsed}}"
   },
   "menu": {
     "appLabel": "OpenWhispr",
@@ -2266,7 +2267,7 @@
         "recordingStyleSolidDescription": "In Ihrer Farbe gefüllt, mit Rand, damit sie auf hellem und dunklem Hintergrund sichtbar ist",
         "recordingStyleBeaconDescription": "Vollfarbe mit einem langsamen Leuchten ringsum",
         "recordingColor": "Aufnahmefarbe",
-        "recordingColorDescription": "Für Getönt, Vollfarbe, Leuchtfeuer und den Streifen am Bildschirmrand. Das Symbol wird weiß oder dunkel, damit es lesbar bleibt",
+        "recordingColorDescription": "Für Getönt, Vollfarbe, Leuchtfeuer, den Bildschirmrand und den Punkt im Infobereich. Das Symbol wird weiß oder dunkel, damit es lesbar bleibt",
         "colorRed": "Rot",
         "colorCoral": "Koralle",
         "colorAmber": "Bernstein",
@@ -2277,14 +2278,17 @@
         "colorPink": "Pink",
         "colorCustom": "Eigene Farbe",
         "edgeStrip": "Bildschirmrand während der Aufnahme",
-        "edgeStripDescription": "Ein leuchtender Streifen am oberen Bildschirmrand, den Sie aus dem Augenwinkel bemerken. Er erscheint nicht in Bildschirmfreigaben oder Screenshots",
+        "edgeStripDescription": "Ein leuchtender Streifen am oberen Bildschirmrand oder ein Rahmen um den Monitor des schwebenden Symbols, den Sie aus dem Augenwinkel bemerken. Er erscheint nicht in Bildschirmfreigaben oder Screenshots",
         "edgeStripOff": "Aus",
         "edgeStripShort": "Kurzer Streifen",
         "edgeStripFull": "Volle Breite",
+        "edgeStripFrame": "Voller Rahmen",
         "edgeStripDisplays": "Monitore mit dem Streifen",
         "edgeStripDisplaysPill": "Monitor des schwebenden Symbols",
         "edgeStripDisplaysAll": "Alle Monitore",
         "edgeStripPreviewHint": "Den Streifen drei Sekunden lang anzeigen",
+        "recordingTray": "Infobereich-Symbol während der Aufnahme",
+        "recordingTrayDescription": "Fügt dem Symbol im Infobereich einen Punkt in der Aufnahmefarbe und seinem Tooltip die Aufnahmedauer hinzu",
         "description": "Steuern Sie, wann das Diktat-Symbol auf Ihrem Bildschirm sichtbar ist",
         "title": "Schwebendes Symbol"
       },

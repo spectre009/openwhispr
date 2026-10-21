@@ -30,6 +30,7 @@ async function createTrayOn(platform, { channel = "production", metadata = {} } 
         on() {}
       },
       Menu: { buildFromTemplate: () => ({}) },
+      app: { on: () => undefined },
       systemPreferences: {
         // Copied because the object comes from the VM's realm, whose prototype
         // deepStrictEqual would reject.
@@ -40,6 +41,8 @@ async function createTrayOn(platform, { channel = "production", metadata = {} } 
     "./debugLogger": { error: (...args) => calls.push(["error", ...args]) },
     "./dockManager": {},
     "./i18nMain": { i18nMain: { t: (key) => key } },
+    "./trayRecordingBadge": require("../../src/helpers/trayRecordingBadge"),
+    "./recordingIndicator": { resolveRecordingAccent: (color) => color },
   };
   const loadedModule = { exports: {} };
   vm.runInNewContext(

@@ -1241,6 +1241,8 @@ export default function SettingsPage({
     setRecordingEdgeStrip,
     recordingEdgeStripDisplays,
     setRecordingEdgeStripDisplays,
+    recordingTrayIndicator,
+    setRecordingTrayIndicator,
     cloudBackupEnabled,
     setCloudBackupEnabled,
     insightsSyncEnabled,
@@ -3316,6 +3318,8 @@ export default function SettingsPage({
                   setRecordingEdgeStrip={setRecordingEdgeStrip}
                   recordingEdgeStripDisplays={recordingEdgeStripDisplays}
                   setRecordingEdgeStripDisplays={setRecordingEdgeStripDisplays}
+                  recordingTrayIndicator={recordingTrayIndicator}
+                  setRecordingTrayIndicator={setRecordingTrayIndicator}
                 />
               </SettingsPanel>
             </div>

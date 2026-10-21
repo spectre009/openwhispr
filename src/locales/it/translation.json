@@ -65,7 +65,8 @@
     "openControlPanel": "Apri pannello di controllo",
     "hideControlPanel": "Nascondi pannello di controllo",
     "quit": "Esci da OpenWhispr",
-    "tooltip": "OpenWhispr - Dettatura vocale"
+    "tooltip": "OpenWhispr - Dettatura vocale",
+    "recordingTooltip": "OpenWhispr · Registrazione {{elapsed}}"
   },
   "menu": {
     "appLabel": "OpenWhispr",
@@ -1974,7 +1975,7 @@
         "recordingStyleSolidDescription": "Riempito con il tuo colore, con un bordo che si vede su sfondi chiari e scuri",
         "recordingStyleBeaconDescription": "Pieno, con un bagliore lento intorno",
         "recordingColor": "Colore di registrazione",
-        "recordingColorDescription": "Usato da Colorato, Pieno, Faro e dalla striscia sul bordo dello schermo. L'icona diventa bianca o scura per restare leggibile",
+        "recordingColorDescription": "Usato da Colorato, Pieno, Faro, dal bordo dello schermo e dal punto nell'area di notifica. L'icona diventa bianca o scura per restare leggibile",
         "colorRed": "Rosso",
         "colorCoral": "Corallo",
         "colorAmber": "Ambra",
@@ -1985,14 +1986,17 @@
         "colorPink": "Rosa",
         "colorCustom": "Colore personalizzato",
         "edgeStrip": "Bordo dello schermo durante la registrazione",
-        "edgeStripDescription": "Una striscia luminosa in cima allo schermo che noterai con la coda dell'occhio. Non compare nelle condivisioni dello schermo né negli screenshot",
+        "edgeStripDescription": "Una striscia luminosa in cima allo schermo, o una cornice attorno al monitor dell'icona mobile, che noterai con la coda dell'occhio. Non compare nelle condivisioni dello schermo né negli screenshot",
         "edgeStripOff": "Disattivata",
         "edgeStripShort": "Striscia corta",
         "edgeStripFull": "Larghezza intera",
+        "edgeStripFrame": "Cornice completa",
         "edgeStripDisplays": "Monitor che mostrano la striscia",
         "edgeStripDisplaysPill": "Monitor dell'icona mobile",
         "edgeStripDisplaysAll": "Tutti i monitor",
-        "edgeStripPreviewHint": "Mostra la striscia per tre secondi"
+        "edgeStripPreviewHint": "Mostra la striscia per tre secondi",
+        "recordingTray": "Icona nell'area di notifica durante la registrazione",
+        "recordingTrayDescription": "Aggiunge un punto del colore di registrazione all'icona nell'area di notifica e la durata della registrazione al suo suggerimento"
       },
       "hotkey": {
         "activationMode": "Modalità di attivazione",

@@ -65,7 +65,8 @@
     "openControlPanel": "Abrir painel de controle",
     "hideControlPanel": "Ocultar painel de controle",
     "quit": "Sair do OpenWhispr",
-    "tooltip": "OpenWhispr - Ditado por voz"
+    "tooltip": "OpenWhispr - Ditado por voz",
+    "recordingTooltip": "OpenWhispr · Gravando {{elapsed}}"
   },
   "menu": {
     "appLabel": "OpenWhispr",
@@ -1953,7 +1954,7 @@
         "recordingStyleSolidDescription": "Preenchido com a sua cor, com contorno para aparecer em fundos claros e escuros",
         "recordingStyleBeaconDescription": "Sólido, com um brilho lento ao redor",
         "recordingColor": "Cor de gravação",
-        "recordingColorDescription": "Usada por Tingido, Sólido, Farol e pela faixa na borda da tela. O ícone fica branco ou escuro para continuar legível",
+        "recordingColorDescription": "Usada por Tingido, Sólido, Farol, pela borda da tela e pelo ponto da bandeja. O ícone fica branco ou escuro para continuar legível",
         "colorRed": "Vermelho",
         "colorCoral": "Coral",
         "colorAmber": "Âmbar",
@@ -1964,14 +1965,17 @@
         "colorPink": "Rosa",
         "colorCustom": "Cor personalizada",
         "edgeStrip": "Borda da tela durante a gravação",
-        "edgeStripDescription": "Uma faixa luminosa no topo da tela que você nota com o canto do olho. Ela não aparece no compartilhamento de tela nem em capturas",
+        "edgeStripDescription": "Uma faixa luminosa no topo da tela, ou uma moldura ao redor do monitor do ícone flutuante, que você nota com o canto do olho. Ela não aparece no compartilhamento de tela nem em capturas",
         "edgeStripOff": "Desativada",
         "edgeStripShort": "Faixa curta",
         "edgeStripFull": "Largura total",
+        "edgeStripFrame": "Moldura completa",
         "edgeStripDisplays": "Monitores que mostram a faixa",
         "edgeStripDisplaysPill": "Monitor do ícone flutuante",
         "edgeStripDisplaysAll": "Todos os monitores",
-        "edgeStripPreviewHint": "Mostrar a faixa por três segundos"
+        "edgeStripPreviewHint": "Mostrar a faixa por três segundos",
+        "recordingTray": "Ícone da bandeja durante a gravação",
+        "recordingTrayDescription": "Adiciona um ponto na cor de gravação ao ícone da bandeja e o tempo de gravação à sua dica"
       },
       "hotkey": {
         "activationMode": "Modo de ativação",

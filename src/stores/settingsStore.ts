@@ -301,6 +301,7 @@ const BOOLEAN_SETTINGS = new Set([
   "audioCuesEnabled",
   "pauseMediaOnDictation",
   "floatingIconAutoHide",
+  "recordingTrayIndicator",
   "startMinimized",
   "meetingProcessDetection",
   "speakerDiarizationEnabled",
@@ -936,6 +937,7 @@ export interface SettingsState
   recordingIndicatorColor: string;
   recordingEdgeStrip: RecordingEdgeStripMode;
   recordingEdgeStripDisplays: RecordingEdgeStripDisplays;
+  recordingTrayIndicator: boolean;
   showTranscriptionPreview: boolean;
   autoPasteEnabled: boolean;
   keepTranscriptionInClipboard: boolean;
@@ -1259,6 +1261,7 @@ export interface SettingsState
   setRecordingIndicatorColor: (color: string) => void;
   setRecordingEdgeStrip: (mode: RecordingEdgeStripMode) => void;
   setRecordingEdgeStripDisplays: (displays: RecordingEdgeStripDisplays) => void;
+  setRecordingTrayIndicator: (value: boolean) => void;
   setShowTranscriptionPreview: (value: boolean) => void;
   setAutoPasteEnabled: (value: boolean) => void;
   setKeepTranscriptionInClipboard: (value: boolean) => void;
@@ -1735,6 +1738,7 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   recordingEdgeStripDisplays: normalizeRecordingEdgeStripDisplays(
     readString("recordingEdgeStripDisplays", "pill")
   ) as RecordingEdgeStripDisplays,
+  recordingTrayIndicator: readBoolean("recordingTrayIndicator", false),
   showTranscriptionPreview: readBoolean("showTranscriptionPreview", false),
   autoPasteEnabled: readBoolean("autoPasteEnabled", true),
   keepTranscriptionInClipboard: readBoolean("keepTranscriptionInClipboard", false),
@@ -2618,6 +2622,7 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
     if (isBrowser) localStorage.setItem("recordingEdgeStripDisplays", next);
     set({ recordingEdgeStripDisplays: next });
   },
+  setRecordingTrayIndicator: createBooleanSetter("recordingTrayIndicator"),
 
   setShowTranscriptionPreview: createBooleanSetter("showTranscriptionPreview"),
   setAutoPasteEnabled: createBooleanSetter("autoPasteEnabled"),

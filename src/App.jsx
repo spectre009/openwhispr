@@ -82,6 +82,7 @@ export default function App() {
   const recordingIndicatorColor = useSettingsStore((s) => s.recordingIndicatorColor);
   const recordingEdgeStrip = useSettingsStore((s) => s.recordingEdgeStrip);
   const recordingEdgeStripDisplays = useSettingsStore((s) => s.recordingEdgeStripDisplays);
+  const recordingTrayIndicator = useSettingsStore((s) => s.recordingTrayIndicator);
   const panelStartPosition = useSettingsStore((s) => s.panelStartPosition);
   const floatingIconDisplay = useSettingsStore((s) => s.floatingIconDisplay);
   const floatingIconDisplayLabel = useSettingsStore((s) => s.floatingIconDisplayLabel);
@@ -106,16 +107,22 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Main draws the edge strip. Settings changes reach this window as storage
-  // events, which update the store without calling its setters, so only an
-  // effect over the values themselves sees them.
+  // Main draws the edge strip and the tray dot. Settings changes reach this
+  // window as storage events, which update the store without calling its
+  // setters, so only an effect over the values themselves sees them.
   useEffect(() => {
-    window.electronAPI?.notifyRecordingEdgeStripChanged?.({
+    window.electronAPI?.notifyRecordingIndicatorChanged?.({
       color: recordingIndicatorColor,
       strip: recordingEdgeStrip,
       displays: recordingEdgeStripDisplays,
+      tray: recordingTrayIndicator,
     });
-  }, [recordingIndicatorColor, recordingEdgeStrip, recordingEdgeStripDisplays]);
+  }, [
+    recordingIndicatorColor,
+    recordingEdgeStrip,
+    recordingEdgeStripDisplays,
+    recordingTrayIndicator,
+  ]);
 
   useEffect(() => {
     let timer;

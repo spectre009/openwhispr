@@ -65,7 +65,8 @@
     "openControlPanel": "Open Control Panel",
     "hideControlPanel": "Hide Control Panel",
     "quit": "Quit OpenWhispr",
-    "tooltip": "OpenWhispr - Voice Dictation"
+    "tooltip": "OpenWhispr - Voice Dictation",
+    "recordingTooltip": "OpenWhispr · Recording {{elapsed}}"
   },
   "menu": {
     "appLabel": "OpenWhispr",
@@ -2266,7 +2267,7 @@
         "recordingStyleSolidDescription": "Filled with your color, outlined so it shows on light and dark backgrounds",
         "recordingStyleBeaconDescription": "Solid, with a slow glow around it",
         "recordingColor": "Recording color",
-        "recordingColorDescription": "Used by Tinted, Solid, Beacon and the screen-edge strip. The icon turns white or dark to stay readable",
+        "recordingColorDescription": "Used by Tinted, Solid, Beacon, the screen edge and the tray dot. The icon turns white or dark to stay readable",
         "colorRed": "Red",
         "colorCoral": "Coral",
         "colorAmber": "Amber",
@@ -2277,14 +2278,17 @@
         "colorPink": "Pink",
         "colorCustom": "Custom color",
         "edgeStrip": "Screen edge while recording",
-        "edgeStripDescription": "A glowing strip at the top of the screen that you'll notice out of the corner of your eye. It doesn't appear in screen shares or screenshots",
+        "edgeStripDescription": "A glowing strip at the top of the screen, or a frame around the floating icon's monitor, that you'll notice out of the corner of your eye. It doesn't appear in screen shares or screenshots",
         "edgeStripOff": "Off",
         "edgeStripShort": "Short strip",
         "edgeStripFull": "Full width",
+        "edgeStripFrame": "Full frame",
         "edgeStripDisplays": "Monitors that show the strip",
         "edgeStripDisplaysPill": "Floating icon's monitor",
         "edgeStripDisplaysAll": "All monitors",
         "edgeStripPreviewHint": "Show the strip for three seconds",
+        "recordingTray": "Tray icon while recording",
+        "recordingTrayDescription": "Adds a dot in the recording color to the tray icon, and the recording time to its tooltip",
         "description": "Control when the dictation icon is visible on your screen",
         "title": "Floating Icon"
       },

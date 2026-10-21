@@ -216,11 +216,20 @@ test("a preview needs the dictation window", () => {
 
 test("settings reach the strip normalized", () => {
   const { manager, calls } = managerWithStripSpy();
-  manager.setRecordingEdgeStripSettings({
+  manager.setRecordingIndicatorSettings({
     style: "beacon",
     color: "RED",
     strip: "huge",
     displays: "all",
   });
-  assert.deepEqual(calls.at(-1), ["configure", { color: "red", strip: "off", displays: "all" }]);
+  assert.deepEqual(calls.at(-1), [
+    "configure",
+    { color: "red", strip: "off", displays: "all", tray: false },
+  ]);
+  assert.deepEqual(manager.getRecordingIndicatorSettings(), {
+    color: "red",
+    strip: "off",
+    displays: "all",
+    tray: false,
+  });
 });

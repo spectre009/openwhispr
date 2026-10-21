@@ -61,13 +61,14 @@ export interface FloatingIconDisplayInfo {
 // How OpenWhispr shows that the microphone is live. Values come from
 // src/helpers/recordingIndicator.js.
 export type RecordingIndicatorStyle = "classic" | "tinted" | "solid" | "beacon";
-export type RecordingEdgeStripMode = "off" | "short" | "full";
+export type RecordingEdgeStripMode = "off" | "short" | "full" | "frame";
 export type RecordingEdgeStripDisplays = "pill" | "all";
 
-export interface RecordingEdgeStripSettings {
+export interface RecordingIndicatorSettings {
   color: string;
   strip: RecordingEdgeStripMode;
   displays: RecordingEdgeStripDisplays;
+  tray?: boolean;
 }
 
 export interface MainWindowInputRegion {
@@ -2542,9 +2543,9 @@ declare global {
       onFloatingIconPlacementPreview?: (
         callback: (payload: { durationMs: number }) => void
       ) => () => void;
-      notifyRecordingEdgeStripChanged?: (settings: RecordingEdgeStripSettings) => void;
+      notifyRecordingIndicatorChanged?: (settings: RecordingIndicatorSettings) => void;
       previewRecordingEdgeStrip?: (
-        settings: RecordingEdgeStripSettings
+        settings: RecordingIndicatorSettings
       ) => Promise<{ success: boolean }>;
       getMainWindowHorizontalDirection?: () => Promise<"left" | "right">;
       onMainWindowHorizontalDirectionChanged?: (

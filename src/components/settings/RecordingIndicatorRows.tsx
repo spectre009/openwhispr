@@ -2,6 +2,7 @@ import { useCallback, useMemo, useRef, useState, type CSSProperties } from "reac
 import { useTranslation } from "react-i18next";
 import { SettingsPanelRow, SettingsRow } from "../ui/SettingsSection";
 import { Button } from "../ui/button";
+import { Toggle } from "../ui/toggle";
 import { cn } from "../lib/utils";
 import { VoicePill } from "../dictation/VoicePill";
 import { SELECT_CLASS } from "./FloatingIconPlacementRows";
@@ -58,6 +59,7 @@ const EDGE_STRIP_KEYS: Record<RecordingEdgeStripMode, string> = {
   off: "settingsPage.general.floatingIcon.edgeStripOff",
   short: "settingsPage.general.floatingIcon.edgeStripShort",
   full: "settingsPage.general.floatingIcon.edgeStripFull",
+  frame: "settingsPage.general.floatingIcon.edgeStripFrame",
 };
 
 const EDGE_STRIP_DISPLAY_KEYS: Record<RecordingEdgeStripDisplays, string> = {
@@ -74,6 +76,8 @@ interface RecordingIndicatorRowsProps {
   setRecordingEdgeStrip: (mode: RecordingEdgeStripMode) => void;
   recordingEdgeStripDisplays: RecordingEdgeStripDisplays;
   setRecordingEdgeStripDisplays: (displays: RecordingEdgeStripDisplays) => void;
+  recordingTrayIndicator: boolean;
+  setRecordingTrayIndicator: (value: boolean) => void;
 }
 
 // A speech-like RMS level for the preview pill (conversational speech sits
@@ -106,6 +110,8 @@ export function RecordingIndicatorRows({
   setRecordingEdgeStrip,
   recordingEdgeStripDisplays,
   setRecordingEdgeStripDisplays,
+  recordingTrayIndicator,
+  setRecordingTrayIndicator,
 }: RecordingIndicatorRowsProps) {
   const { t } = useTranslation();
   const getLevel = useSyntheticLevel();
@@ -115,7 +121,10 @@ export function RecordingIndicatorRows({
     [recordingIndicatorColor]
   );
   const stripOff = recordingEdgeStrip === "off";
-  const colorDisabled = recordingIndicatorStyle === "classic" && stripOff;
+  // A frame only ever outlines the floating icon's monitor.
+  const frame = recordingEdgeStrip === "frame";
+  const colorDisabled =
+    recordingIndicatorStyle === "classic" && stripOff && !recordingTrayIndicator;
   const customSelected = recordingIndicatorColor.startsWith("#");
 
   // The preview carries the settings as shown here, so it never waits for the
@@ -247,11 +256,11 @@ export function RecordingIndicatorRows({
               ))}
             </select>
             <select
-              value={recordingEdgeStripDisplays}
+              value={frame ? "pill" : recordingEdgeStripDisplays}
               onChange={(e) =>
                 setRecordingEdgeStripDisplays(e.target.value as RecordingEdgeStripDisplays)
               }
-              disabled={stripOff}
+              disabled={stripOff || frame}
               className={cn(SELECT_CLASS, "disabled:cursor-not-allowed disabled:opacity-45")}
               aria-label={t("settingsPage.general.floatingIcon.edgeStripDisplays")}
             >
@@ -273,6 +282,14 @@ export function RecordingIndicatorRows({
               {t("settingsPage.general.floatingIcon.showMe")}
             </Button>
           </div>
+        </SettingsRow>
+      </SettingsPanelRow>
+      <SettingsPanelRow>
+        <SettingsRow
+          label={t("settingsPage.general.floatingIcon.recordingTray")}
+          description={t("settingsPage.general.floatingIcon.recordingTrayDescription")}
+        >
+          <Toggle checked={recordingTrayIndicator} onChange={setRecordingTrayIndicator} />
         </SettingsRow>
       </SettingsPanelRow>
     </>

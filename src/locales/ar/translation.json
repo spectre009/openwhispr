@@ -3614,7 +3614,7 @@
         "recordingStyleSolidDescription": "مملوءة بلونك، مع إطار يجعلها ظاهرة على الخلفيات الفاتحة والداكنة",
         "recordingStyleBeaconDescription": "مصمت، مع توهج بطيء حوله",
         "recordingColor": "لون التسجيل",
-        "recordingColorDescription": "يُستخدم مع ملوّن ومصمت ومنارة وشريط حافة الشاشة. تتحول الأيقونة إلى الأبيض أو الداكن لتبقى واضحة",
+        "recordingColorDescription": "يُستخدم مع ملوّن ومصمت ومنارة وحافة الشاشة ونقطة علبة النظام. تتحول الأيقونة إلى الأبيض أو الداكن لتبقى واضحة",
         "colorRed": "أحمر",
         "colorCoral": "مرجاني",
         "colorAmber": "كهرماني",
@@ -3625,14 +3625,17 @@
         "colorPink": "وردي",
         "colorCustom": "لون مخصص",
         "edgeStrip": "حافة الشاشة أثناء التسجيل",
-        "edgeStripDescription": "شريط متوهج أعلى الشاشة تلاحظه بطرف عينك. لا يظهر عند مشاركة الشاشة أو في لقطات الشاشة",
+        "edgeStripDescription": "شريط متوهج أعلى الشاشة، أو إطار حول شاشة الأيقونة العائمة، تلاحظه بطرف عينك. لا يظهر عند مشاركة الشاشة أو في لقطات الشاشة",
         "edgeStripOff": "إيقاف",
         "edgeStripShort": "شريط قصير",
         "edgeStripFull": "بعرض الشاشة",
+        "edgeStripFrame": "إطار كامل",
         "edgeStripDisplays": "الشاشات التي تعرض الشريط",
         "edgeStripDisplaysPill": "شاشة الأيقونة العائمة",
         "edgeStripDisplaysAll": "كل الشاشات",
         "edgeStripPreviewHint": "عرض الشريط لمدة ثلاث ثوانٍ",
+        "recordingTray": "أيقونة علبة النظام أثناء التسجيل",
+        "recordingTrayDescription": "تضيف نقطة بلون التسجيل إلى أيقونة علبة النظام، ومدة التسجيل إلى تلميحها",
         "description": "التحكم في وقت ظهور رمز الإملاء على شاشتك",
         "title": "الرمز العائم"
       },
@@ -4173,7 +4176,8 @@
     "openControlPanel": "فتح لوحة التحكم",
     "hideControlPanel": "إخفاء لوحة التحكم",
     "quit": "إنهاء OpenWhispr",
-    "tooltip": "OpenWhispr - الإملاء الصوتي"
+    "tooltip": "OpenWhispr - الإملاء الصوتي",
+    "recordingTooltip": "OpenWhispr · تسجيل {{elapsed}}"
   },
   "menu": {
     "appLabel": "OpenWhispr",
