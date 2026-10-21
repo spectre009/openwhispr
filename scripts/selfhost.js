@@ -19,7 +19,8 @@
  * Dev mode are never touched until the short install window. Every ship backs up
  * the data folder and archives its installer; rollback is manual (`status` prints
  * the steps). A data guard refuses to run code on data that different code has
- * migrated. Decisions live in scripts/selfhost/core.js.
+ * migrated; an uncommitted Dev run counts as the commit its data code was later
+ * committed as. Decisions live in scripts/selfhost/core.js.
  */
 
 const { spawn, spawnSync } = require("child_process");
@@ -317,8 +318,17 @@ function ensureSqliteForElectron(root, logFile) {
 
 // ------------------------------------------------------------- data guarding
 
+// A commit's data code never changes, so its hashes are read once per process.
+const commitDataCache = new Map();
+
 function dataOfCommit(sha) {
-  return core.dataHashes((filePath) => gitShow(sha, filePath));
+  if (!commitDataCache.has(sha)) {
+    commitDataCache.set(
+      sha,
+      core.dataHashes((filePath) => gitShow(sha, filePath))
+    );
+  }
+  return commitDataCache.get(sha);
 }
 
 function dataOfWorkingTree() {
@@ -343,9 +353,35 @@ function isAncestor(a, b) {
   return gitOk(["merge-base", "--is-ancestor", a, b]);
 }
 
+// Commits the target descends from that came after the writer's HEAD and changed
+// data code: where an uncommitted Dev change to data code lands once committed.
+// Data code only changes at these commits, so they cover every state on the way;
+// --full-history keeps commits on merged branches that simplification would skip.
+// Hashes are read lazily, so the search stops at the first match. An unknown
+// writer sha yields nothing, which keeps the refusal.
+function* committedCandidates(writer, target) {
+  const range = run(
+    "git",
+    ["rev-list", "--full-history", `${writer.sha}..${target.sha}`, "--", ...core.DATA_PATHS],
+    { cwd: REPO, allowFailure: true }
+  );
+  if (range.status !== 0) return;
+  for (const sha of range.stdout.split(/\r?\n/).filter(Boolean)) {
+    yield { sha, data: dataOfCommit(sha) };
+  }
+}
+
+function guardFor(target) {
+  return core.guardDecision({
+    writers: readState().writers,
+    target,
+    isAncestor,
+    committedCandidates,
+  });
+}
+
 function runGuard(target, { acceptDataRisk } = {}) {
-  const state = readState();
-  const decision = core.guardDecision({ writers: state.writers, target, isAncestor });
+  const decision = guardFor(target);
   if (decision.allowed) return;
   const message = core.renderGuardRefusal({
     targetLabel: core.describeWriter(target),
@@ -1037,7 +1073,7 @@ function commandCheck(options) {
   const release = listReleases().find((r) => r.id === ref);
   const sha = release ? release.sha : resolveCommit(ref);
   const target = commitTarget(sha, release ? `release ${release.id}` : ref);
-  const decision = core.guardDecision({ writers: readState().writers, target, isAncestor });
+  const decision = guardFor(target);
   if (decision.allowed) {
     log(`${core.describeWriter(target)} may run on the current data`);
     return;

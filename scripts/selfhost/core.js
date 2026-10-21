@@ -149,17 +149,29 @@ function addWriter(writers, writer, now = new Date()) {
 
 // May `target` run on data every recorded writer has touched? Allowed when the
 // writer had the same data code, or when it is a committed ancestor of the target
-// (migrations only run forward). Older, diverged or uncommitted data code refuses.
-// isAncestor(writerSha, targetSha) comes from git.
-function guardDecision({ writers, target, isAncestor }) {
+// (migrations only run forward). An uncommitted writer counts as the commit it
+// was later committed as: one of committedCandidates(writer, target) — commits
+// the target descends from, as an iterable of { sha, data }, read lazily —
+// carrying exactly its data code. Older, diverged or never-committed data code
+// refuses. isAncestor(writerSha, targetSha) comes from git.
+function guardDecision({ writers, target, isAncestor, committedCandidates = () => [] }) {
   const blockers = [];
   for (const writer of writers) {
     const paths = changedDataPaths(writer.data, target.data);
     if (paths.length === 0) continue;
     if (!writer.dirty && isAncestor(writer.sha, target.sha)) continue;
+    if (writer.dirty && committedAs(writer, committedCandidates(writer, target))) continue;
     blockers.push({ writer, paths });
   }
   return { allowed: blockers.length === 0, blockers };
+}
+
+// The first candidate commit whose data code equals the writer's, or null.
+function committedAs(writer, candidates) {
+  for (const candidate of candidates) {
+    if (changedDataPaths(writer.data, candidate.data).length === 0) return candidate.sha;
+  }
+  return null;
 }
 
 function describeWriter(writer) {
@@ -179,8 +191,8 @@ function renderGuardRefusal({ targetLabel, blockers }) {
   }
   lines.push(
     "Restore a compatible data snapshot first (`selfhost status` lists them), or pass",
-    "--accept-data-risk if the difference is harmless (for example, the uncommitted Dev",
-    "change is exactly what this build contains)."
+    "--accept-data-risk if the difference is harmless (for example, the change only",
+    "touched comments or formatting in those files)."
   );
   return lines.join("\n");
 }
@@ -249,6 +261,7 @@ module.exports = {
   changedDataPaths,
   addWriter,
   guardDecision,
+  committedAs,
   describeWriter,
   renderGuardRefusal,
   renderRollbackSteps,

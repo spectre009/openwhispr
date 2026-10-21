@@ -166,6 +166,124 @@ test("data guard: an uncommitted Dev change to data code refuses even for a desc
   assert.equal(decision.allowed, false);
 });
 
+test("data guard: an uncommitted Dev change later committed counts as that commit", () => {
+  // Dev ran feature work uncommitted on "base"; it was committed as "feature",
+  // and "next" changed the same file again on top of it.
+  const dirtyDev = {
+    sha: "base",
+    dirty: true,
+    data: dataOf({ "src/stores/settingsStore.ts": "feature" }),
+  };
+  const target = { sha: "next", data: dataOf({ "src/stores/settingsStore.ts": "next" }) };
+  const candidates = [
+    { sha: "next", data: target.data },
+    { sha: "feature", data: dataOf({ "src/stores/settingsStore.ts": "feature" }) },
+  ];
+  const seen = [];
+  const decision = core.guardDecision({
+    writers: [dirtyDev],
+    target,
+    isAncestor: () => true,
+    committedCandidates: (writer, forTarget) => {
+      seen.push([writer.sha, forTarget.sha]);
+      return candidates;
+    },
+  });
+  assert.deepEqual(decision, { allowed: true, blockers: [] });
+  assert.deepEqual(seen, [["base", "next"]]);
+  assert.equal(core.committedAs(dirtyDev, candidates), "feature");
+});
+
+test("data guard: an uncommitted change that no commit carries still refuses", () => {
+  const dirtyDev = {
+    sha: "base",
+    dirty: true,
+    data: dataOf({
+      "src/stores/settingsStore.ts": "feature",
+      "src/helpers/database.js": "experiment",
+    }),
+  };
+  const target = { sha: "next", data: dataOf({ "src/stores/settingsStore.ts": "next" }) };
+  // Same settings code as a commit, but its database.js experiment was never committed.
+  const candidates = [
+    { sha: "feature", data: dataOf({ "src/stores/settingsStore.ts": "feature" }) },
+  ];
+  const decision = core.guardDecision({
+    writers: [dirtyDev],
+    target,
+    isAncestor: () => true,
+    committedCandidates: () => candidates,
+  });
+  assert.equal(decision.allowed, false);
+  assert.deepEqual(decision.blockers[0].paths.sort(), [
+    "src/helpers/database.js",
+    "src/stores/settingsStore.ts",
+  ]);
+  assert.equal(core.committedAs(dirtyDev, candidates), null);
+  assert.equal(core.committedAs(dirtyDev, []), null);
+});
+
+test("data guard: one uncommitted writer matching a commit does not excuse another", () => {
+  const committedLater = {
+    sha: "base",
+    dirty: true,
+    data: dataOf({ "src/stores/settingsStore.ts": "feature" }),
+  };
+  const abandoned = {
+    sha: "base",
+    dirty: true,
+    data: dataOf({ "src/helpers/database.js": "experiment" }),
+  };
+  const target = { sha: "next", data: dataOf({ "src/stores/settingsStore.ts": "feature" }) };
+  const candidates = [
+    { sha: "feature", data: dataOf({ "src/stores/settingsStore.ts": "feature" }) },
+  ];
+  const decision = core.guardDecision({
+    writers: [committedLater, abandoned],
+    target,
+    isAncestor: () => true,
+    committedCandidates: () => candidates,
+  });
+  assert.equal(decision.allowed, false);
+  assert.equal(decision.blockers.length, 1);
+  assert.equal(decision.blockers[0].writer, abandoned);
+});
+
+test("data guard: candidates are read lazily and the search stops at the first match", () => {
+  const dirtyDev = {
+    sha: "base",
+    dirty: true,
+    data: dataOf({ "src/stores/settingsStore.ts": "feature" }),
+  };
+  const read = [];
+  function* candidates() {
+    for (const [sha, value] of [
+      ["next", "next"],
+      ["feature", "feature"],
+      ["older", "older"],
+    ]) {
+      read.push(sha);
+      yield { sha, data: dataOf({ "src/stores/settingsStore.ts": value }) };
+    }
+  }
+  assert.equal(core.committedAs(dirtyDev, candidates()), "feature");
+  assert.deepEqual(read, ["next", "feature"]);
+});
+
+test("data guard: committed writers never consult the candidates", () => {
+  const diverged = { sha: "other", dirty: false, data: dataOf({ "src/helpers/database.js": "x" }) };
+  const target = { sha: "t", data: dataOf() };
+  const decision = core.guardDecision({
+    writers: [diverged],
+    target,
+    isAncestor: () => false,
+    committedCandidates: () => {
+      throw new Error("consulted for a committed writer");
+    },
+  });
+  assert.equal(decision.allowed, false);
+});
+
 test("data guard: Dev that only touched renderer code never blocks going back to Stable", () => {
   const dev = { sha: "feature", dirty: true, data: dataOf() };
   const stable = { sha: "main", data: dataOf() };
