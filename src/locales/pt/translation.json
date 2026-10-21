@@ -1953,7 +1953,7 @@
         "recordingStyleSolidDescription": "Preenchido com a sua cor, com contorno para aparecer em fundos claros e escuros",
         "recordingStyleBeaconDescription": "Sólido, com um brilho lento ao redor",
         "recordingColor": "Cor de gravação",
-        "recordingColorDescription": "Usada por Tingido, Sólido e Farol. O ícone fica branco ou escuro para continuar legível",
+        "recordingColorDescription": "Usada por Tingido, Sólido, Farol e pela faixa na borda da tela. O ícone fica branco ou escuro para continuar legível",
         "colorRed": "Vermelho",
         "colorCoral": "Coral",
         "colorAmber": "Âmbar",
@@ -1962,7 +1962,16 @@
         "colorBlue": "Azul",
         "colorPurple": "Roxo",
         "colorPink": "Rosa",
-        "colorCustom": "Cor personalizada"
+        "colorCustom": "Cor personalizada",
+        "edgeStrip": "Borda da tela durante a gravação",
+        "edgeStripDescription": "Uma faixa luminosa no topo da tela que você nota com o canto do olho. Ela não aparece no compartilhamento de tela nem em capturas",
+        "edgeStripOff": "Desativada",
+        "edgeStripShort": "Faixa curta",
+        "edgeStripFull": "Largura total",
+        "edgeStripDisplays": "Monitores que mostram a faixa",
+        "edgeStripDisplaysPill": "Monitor do ícone flutuante",
+        "edgeStripDisplaysAll": "Todos os monitores",
+        "edgeStripPreviewHint": "Mostrar a faixa por três segundos"
       },
       "hotkey": {
         "activationMode": "Modo de ativação",

@@ -11,6 +11,8 @@ import type {
   InferenceMode,
   LocalServerPrefs,
   PanelPosition,
+  RecordingEdgeStripDisplays,
+  RecordingEdgeStripMode,
   RecordingIndicatorStyle,
   SelfHostedType,
 } from "../types/electron";
@@ -19,6 +21,8 @@ import {
   normalizePanelPosition,
 } from "../helpers/floatingIconPlacement";
 import {
+  normalizeRecordingEdgeStrip,
+  normalizeRecordingEdgeStripDisplays,
   normalizeRecordingIndicatorColor,
   normalizeRecordingIndicatorStyle,
 } from "../helpers/recordingIndicator";
@@ -930,6 +934,8 @@ export interface SettingsState
   floatingIconDisplayLabel: string;
   recordingIndicatorStyle: RecordingIndicatorStyle;
   recordingIndicatorColor: string;
+  recordingEdgeStrip: RecordingEdgeStripMode;
+  recordingEdgeStripDisplays: RecordingEdgeStripDisplays;
   showTranscriptionPreview: boolean;
   autoPasteEnabled: boolean;
   keepTranscriptionInClipboard: boolean;
@@ -1251,6 +1257,8 @@ export interface SettingsState
   setFloatingIconDisplay: (display: string, label: string) => void;
   setRecordingIndicatorStyle: (style: RecordingIndicatorStyle) => void;
   setRecordingIndicatorColor: (color: string) => void;
+  setRecordingEdgeStrip: (mode: RecordingEdgeStripMode) => void;
+  setRecordingEdgeStripDisplays: (displays: RecordingEdgeStripDisplays) => void;
   setShowTranscriptionPreview: (value: boolean) => void;
   setAutoPasteEnabled: (value: boolean) => void;
   setKeepTranscriptionInClipboard: (value: boolean) => void;
@@ -1721,6 +1729,12 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   recordingIndicatorColor: normalizeRecordingIndicatorColor(
     readString("recordingIndicatorColor", "red")
   ),
+  recordingEdgeStrip: normalizeRecordingEdgeStrip(
+    readString("recordingEdgeStrip", "off")
+  ) as RecordingEdgeStripMode,
+  recordingEdgeStripDisplays: normalizeRecordingEdgeStripDisplays(
+    readString("recordingEdgeStripDisplays", "pill")
+  ) as RecordingEdgeStripDisplays,
   showTranscriptionPreview: readBoolean("showTranscriptionPreview", false),
   autoPasteEnabled: readBoolean("autoPasteEnabled", true),
   keepTranscriptionInClipboard: readBoolean("keepTranscriptionInClipboard", false),
@@ -2591,6 +2605,18 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
     if (get().recordingIndicatorColor === next) return;
     if (isBrowser) localStorage.setItem("recordingIndicatorColor", next);
     set({ recordingIndicatorColor: next });
+  },
+  setRecordingEdgeStrip: (mode: RecordingEdgeStripMode) => {
+    const next = normalizeRecordingEdgeStrip(mode) as RecordingEdgeStripMode;
+    if (get().recordingEdgeStrip === next) return;
+    if (isBrowser) localStorage.setItem("recordingEdgeStrip", next);
+    set({ recordingEdgeStrip: next });
+  },
+  setRecordingEdgeStripDisplays: (displays: RecordingEdgeStripDisplays) => {
+    const next = normalizeRecordingEdgeStripDisplays(displays) as RecordingEdgeStripDisplays;
+    if (get().recordingEdgeStripDisplays === next) return;
+    if (isBrowser) localStorage.setItem("recordingEdgeStripDisplays", next);
+    set({ recordingEdgeStripDisplays: next });
   },
 
   setShowTranscriptionPreview: createBooleanSetter("showTranscriptionPreview"),
@@ -3846,6 +3872,10 @@ export async function initializeSettings(): Promise<void> {
       value = normalizeRecordingIndicatorStyle(newValue);
     } else if (key === "recordingIndicatorColor") {
       value = normalizeRecordingIndicatorColor(newValue);
+    } else if (key === "recordingEdgeStrip") {
+      value = normalizeRecordingEdgeStrip(newValue);
+    } else if (key === "recordingEdgeStripDisplays") {
+      value = normalizeRecordingEdgeStripDisplays(newValue);
     } else {
       value = newValue;
     }

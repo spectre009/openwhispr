@@ -1692,6 +1692,10 @@ class IPCHandlers {
       this.windowManager.previewFloatingIconPlacement()
     );
 
+    ipcMain.handle("preview-recording-edge-strip", (_event, settings) =>
+      this.windowManager.previewRecordingEdgeStrip(settings)
+    );
+
     ipcMain.handle("open-settings-section", async (_event, section) => {
       if (!isProviderSettingsTarget(section)) return { success: false };
       await this.windowManager.openSettings(section);

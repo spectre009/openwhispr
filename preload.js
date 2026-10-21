@@ -1095,6 +1095,12 @@ contextBridge.exposeInMainWorld("electronAPI", {
     (callback) => (_event, payload) => callback(payload)
   ),
 
+  // Recording indicator: the edge strip is drawn by main
+  notifyRecordingEdgeStripChanged: (settings) =>
+    ipcRenderer.send("recording-edge-strip-changed", settings),
+  previewRecordingEdgeStrip: (settings) =>
+    ipcRenderer.invoke("preview-recording-edge-strip", settings),
+
   // Start minimized
   notifyStartMinimizedChanged: (enabled) => ipcRenderer.send("start-minimized-changed", enabled),
 

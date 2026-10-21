@@ -1,6 +1,7 @@
-import { useCallback, useMemo, useRef, type CSSProperties } from "react";
+import { useCallback, useMemo, useRef, useState, type CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
 import { SettingsPanelRow, SettingsRow } from "../ui/SettingsSection";
+import { Button } from "../ui/button";
 import { cn } from "../lib/utils";
 import { VoicePill } from "../dictation/VoicePill";
 import { SELECT_CLASS } from "./FloatingIconPlacementRows";
@@ -10,7 +11,11 @@ import {
   recordingIndicatorCssVars,
   resolveRecordingAccent,
 } from "../../helpers/recordingIndicator";
-import type { RecordingIndicatorStyle } from "../../types/electron";
+import type {
+  RecordingEdgeStripDisplays,
+  RecordingEdgeStripMode,
+  RecordingIndicatorStyle,
+} from "../../types/electron";
 
 const STYLE_KEYS: Record<RecordingIndicatorStyle, { label: string; description: string }> = {
   classic: {
@@ -49,11 +54,26 @@ const COLOR_LABEL_KEYS: Record<(typeof COLOR_IDS)[number], string> = {
 const SWATCH_CLASS =
   "size-5 rounded-full border-2 transition-[border-color,transform] duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 disabled:cursor-not-allowed";
 
+const EDGE_STRIP_KEYS: Record<RecordingEdgeStripMode, string> = {
+  off: "settingsPage.general.floatingIcon.edgeStripOff",
+  short: "settingsPage.general.floatingIcon.edgeStripShort",
+  full: "settingsPage.general.floatingIcon.edgeStripFull",
+};
+
+const EDGE_STRIP_DISPLAY_KEYS: Record<RecordingEdgeStripDisplays, string> = {
+  pill: "settingsPage.general.floatingIcon.edgeStripDisplaysPill",
+  all: "settingsPage.general.floatingIcon.edgeStripDisplaysAll",
+};
+
 interface RecordingIndicatorRowsProps {
   recordingIndicatorStyle: RecordingIndicatorStyle;
   setRecordingIndicatorStyle: (style: RecordingIndicatorStyle) => void;
   recordingIndicatorColor: string;
   setRecordingIndicatorColor: (color: string) => void;
+  recordingEdgeStrip: RecordingEdgeStripMode;
+  setRecordingEdgeStrip: (mode: RecordingEdgeStripMode) => void;
+  recordingEdgeStripDisplays: RecordingEdgeStripDisplays;
+  setRecordingEdgeStripDisplays: (displays: RecordingEdgeStripDisplays) => void;
 }
 
 // A speech-like RMS level for the preview pill (conversational speech sits
@@ -82,15 +102,36 @@ export function RecordingIndicatorRows({
   setRecordingIndicatorStyle,
   recordingIndicatorColor,
   setRecordingIndicatorColor,
+  recordingEdgeStrip,
+  setRecordingEdgeStrip,
+  recordingEdgeStripDisplays,
+  setRecordingEdgeStripDisplays,
 }: RecordingIndicatorRowsProps) {
   const { t } = useTranslation();
   const getLevel = useSyntheticLevel();
+  const [previewingStrip, setPreviewingStrip] = useState(false);
   const previewVars = useMemo(
     () => recordingIndicatorCssVars(recordingIndicatorColor) as CSSProperties,
     [recordingIndicatorColor]
   );
-  const colorDisabled = recordingIndicatorStyle === "classic";
+  const stripOff = recordingEdgeStrip === "off";
+  const colorDisabled = recordingIndicatorStyle === "classic" && stripOff;
   const customSelected = recordingIndicatorColor.startsWith("#");
+
+  // The preview carries the settings as shown here, so it never waits for the
+  // dictation window to hear about a change made a moment ago.
+  const handleStripPreview = async () => {
+    setPreviewingStrip(true);
+    try {
+      await window.electronAPI?.previewRecordingEdgeStrip?.({
+        color: recordingIndicatorColor,
+        strip: recordingEdgeStrip,
+        displays: recordingEdgeStripDisplays,
+      });
+    } finally {
+      setPreviewingStrip(false);
+    }
+  };
 
   return (
     <>
@@ -184,6 +225,53 @@ export function RecordingIndicatorRows({
                 className="absolute inset-0 cursor-[inherit] opacity-0"
               />
             </label>
+          </div>
+        </SettingsRow>
+      </SettingsPanelRow>
+      <SettingsPanelRow>
+        <SettingsRow
+          label={t("settingsPage.general.floatingIcon.edgeStrip")}
+          description={t("settingsPage.general.floatingIcon.edgeStripDescription")}
+        >
+          <div className="flex items-center gap-2">
+            <select
+              value={recordingEdgeStrip}
+              onChange={(e) => setRecordingEdgeStrip(e.target.value as RecordingEdgeStripMode)}
+              className={SELECT_CLASS}
+              aria-label={t("settingsPage.general.floatingIcon.edgeStrip")}
+            >
+              {(Object.keys(EDGE_STRIP_KEYS) as RecordingEdgeStripMode[]).map((mode) => (
+                <option key={mode} value={mode}>
+                  {t(EDGE_STRIP_KEYS[mode])}
+                </option>
+              ))}
+            </select>
+            <select
+              value={recordingEdgeStripDisplays}
+              onChange={(e) =>
+                setRecordingEdgeStripDisplays(e.target.value as RecordingEdgeStripDisplays)
+              }
+              disabled={stripOff}
+              className={cn(SELECT_CLASS, "disabled:cursor-not-allowed disabled:opacity-45")}
+              aria-label={t("settingsPage.general.floatingIcon.edgeStripDisplays")}
+            >
+              {(Object.keys(EDGE_STRIP_DISPLAY_KEYS) as RecordingEdgeStripDisplays[]).map(
+                (displays) => (
+                  <option key={displays} value={displays}>
+                    {t(EDGE_STRIP_DISPLAY_KEYS[displays])}
+                  </option>
+                )
+              )}
+            </select>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleStripPreview}
+              disabled={stripOff || previewingStrip}
+              title={t("settingsPage.general.floatingIcon.edgeStripPreviewHint")}
+            >
+              {t("settingsPage.general.floatingIcon.showMe")}
+            </Button>
           </div>
         </SettingsRow>
       </SettingsPanelRow>

@@ -1974,7 +1974,7 @@
         "recordingStyleSolidDescription": "以所選顏色填滿，並帶輪廓，在淺色和深色背景上都清楚可見",
         "recordingStyleBeaconDescription": "實心樣式，周圍帶有緩慢的光暈",
         "recordingColor": "錄音顏色",
-        "recordingColorDescription": "用於著色、實心和信標樣式。圖示會自動變為白色或深色以保持清楚",
+        "recordingColorDescription": "用於著色、實心、信標樣式和螢幕邊緣光條。圖示會自動變為白色或深色以保持清楚",
         "colorRed": "紅色",
         "colorCoral": "珊瑚色",
         "colorAmber": "琥珀色",
@@ -1983,7 +1983,16 @@
         "colorBlue": "藍色",
         "colorPurple": "紫色",
         "colorPink": "粉紅色",
-        "colorCustom": "自訂顏色"
+        "colorCustom": "自訂顏色",
+        "edgeStrip": "錄音時的螢幕邊緣",
+        "edgeStripDescription": "螢幕頂端的發光光條，用眼角餘光就能注意到。它不會出現在螢幕分享或螢幕截圖中",
+        "edgeStripOff": "關閉",
+        "edgeStripShort": "短光條",
+        "edgeStripFull": "全寬",
+        "edgeStripDisplays": "顯示光條的螢幕",
+        "edgeStripDisplaysPill": "浮動圖示所在的螢幕",
+        "edgeStripDisplaysAll": "所有螢幕",
+        "edgeStripPreviewHint": "顯示光條三秒"
       },
       "hotkey": {
         "activationMode": "啟用模式",

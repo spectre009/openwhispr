@@ -150,3 +150,88 @@ test("only a recording pill that owns its chrome takes a style", async () => {
     null
   );
 });
+
+test("edge strip settings normalize to the known values, defaulting to off on the pill's monitor", async () => {
+  const {
+    normalizeRecordingEdgeStrip,
+    normalizeRecordingEdgeStripDisplays,
+    normalizeEdgeStripSettings,
+  } = await load();
+  for (const mode of ["off", "short", "full"])
+    assert.equal(normalizeRecordingEdgeStrip(mode), mode);
+  for (const value of [undefined, null, "", "top", "Short", 1]) {
+    assert.equal(normalizeRecordingEdgeStrip(value), "off");
+  }
+  for (const displays of ["pill", "all"]) {
+    assert.equal(normalizeRecordingEdgeStripDisplays(displays), displays);
+  }
+  for (const value of [undefined, "primary", "ALL", 0]) {
+    assert.equal(normalizeRecordingEdgeStripDisplays(value), "pill");
+  }
+  assert.deepEqual(normalizeEdgeStripSettings(null), {
+    color: "red",
+    strip: "off",
+    displays: "pill",
+  });
+  assert.deepEqual(
+    normalizeEdgeStripSettings({
+      style: "beacon",
+      color: "#ABCDEF",
+      strip: "short",
+      displays: "all",
+      extra: 1,
+    }),
+    { color: "#abcdef", strip: "short", displays: "all" }
+  );
+});
+
+test("the strip hugs the top of the whole display, short and centered or full width", async () => {
+  const { resolveEdgeStripBounds, EDGE_STRIP_HEIGHT } = await load();
+  // The 57" primary: 25% of 5672 is 1418, clamped to 1400.
+  const g95 = {
+    bounds: { x: 0, y: 0, width: 5672, height: 1596 },
+    workArea: { x: 0, y: 0, width: 5672, height: 1548 },
+  };
+  assert.deepEqual(resolveEdgeStripBounds(g95, "short"), {
+    x: 2136,
+    y: 0,
+    width: 1400,
+    height: EDGE_STRIP_HEIGHT,
+  });
+  assert.deepEqual(resolveEdgeStripBounds(g95, "full"), {
+    x: 0,
+    y: 0,
+    width: 5672,
+    height: EDGE_STRIP_HEIGHT,
+  });
+  // A monitor above and left of the primary keeps its negative origin.
+  const upper = { bounds: { x: -16, y: -1596, width: 2836, height: 1596 } };
+  assert.deepEqual(resolveEdgeStripBounds(upper, "short"), {
+    x: -16 + 1064,
+    y: -1596,
+    width: 709,
+    height: 8,
+  });
+  assert.deepEqual(resolveEdgeStripBounds(upper, "full"), {
+    x: -16,
+    y: -1596,
+    width: 2836,
+    height: 8,
+  });
+  // A small display gets at least 480 DIP, never more than its own width.
+  assert.equal(
+    resolveEdgeStripBounds({ bounds: { x: 0, y: 0, width: 1280, height: 800 } }, "short").width,
+    480
+  );
+  assert.deepEqual(
+    resolveEdgeStripBounds({ bounds: { x: 10, y: 20, width: 400, height: 300 } }, "short"),
+    {
+      x: 10,
+      y: 20,
+      width: 400,
+      height: 8,
+    }
+  );
+  assert.equal(resolveEdgeStripBounds(g95, "off"), null);
+  assert.equal(resolveEdgeStripBounds(null, "short"), null);
+});

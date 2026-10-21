@@ -1974,7 +1974,7 @@
         "recordingStyleSolidDescription": "Riempito con il tuo colore, con un bordo che si vede su sfondi chiari e scuri",
         "recordingStyleBeaconDescription": "Pieno, con un bagliore lento intorno",
         "recordingColor": "Colore di registrazione",
-        "recordingColorDescription": "Usato da Colorato, Pieno e Faro. L'icona diventa bianca o scura per restare leggibile",
+        "recordingColorDescription": "Usato da Colorato, Pieno, Faro e dalla striscia sul bordo dello schermo. L'icona diventa bianca o scura per restare leggibile",
         "colorRed": "Rosso",
         "colorCoral": "Corallo",
         "colorAmber": "Ambra",
@@ -1983,7 +1983,16 @@
         "colorBlue": "Blu",
         "colorPurple": "Viola",
         "colorPink": "Rosa",
-        "colorCustom": "Colore personalizzato"
+        "colorCustom": "Colore personalizzato",
+        "edgeStrip": "Bordo dello schermo durante la registrazione",
+        "edgeStripDescription": "Una striscia luminosa in cima allo schermo che noterai con la coda dell'occhio. Non compare nelle condivisioni dello schermo né negli screenshot",
+        "edgeStripOff": "Disattivata",
+        "edgeStripShort": "Striscia corta",
+        "edgeStripFull": "Larghezza intera",
+        "edgeStripDisplays": "Monitor che mostrano la striscia",
+        "edgeStripDisplaysPill": "Monitor dell'icona mobile",
+        "edgeStripDisplaysAll": "Tutti i monitor",
+        "edgeStripPreviewHint": "Mostra la striscia per tre secondi"
       },
       "hotkey": {
         "activationMode": "Modalità di attivazione",

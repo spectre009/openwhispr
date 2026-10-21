@@ -1248,6 +1248,21 @@ async function startApp() {
     }
   });
 
+  // Reported by the dictation window whenever an edge strip setting changes
+  // (and once at load); main only keeps them in memory for the strip, which
+  // can't exist before that window does.
+  ipcMain.on("recording-edge-strip-changed", (event, settings) => {
+    const dictationWindow = windowManager.mainWindow;
+    if (
+      !dictationWindow ||
+      dictationWindow.isDestroyed() ||
+      event.sender !== dictationWindow.webContents
+    ) {
+      return;
+    }
+    windowManager.setRecordingEdgeStripSettings(settings);
+  });
+
   dockManager.init();
 
   // In development, wait for Vite dev server to be ready

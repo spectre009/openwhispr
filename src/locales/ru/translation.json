@@ -1978,7 +1978,7 @@
         "recordingStyleSolidDescription": "Заливка вашим цветом и обводка, заметная на светлом и тёмном фоне",
         "recordingStyleBeaconDescription": "Сплошной, с медленным свечением вокруг",
         "recordingColor": "Цвет записи",
-        "recordingColorDescription": "Используется стилями «Тонированный», «Сплошной» и «Маяк». Значок становится белым или тёмным, чтобы оставаться читаемым",
+        "recordingColorDescription": "Используется стилями «Тонированный», «Сплошной», «Маяк» и полосой у края экрана. Значок становится белым или тёмным, чтобы оставаться читаемым",
         "colorRed": "Красный",
         "colorCoral": "Коралловый",
         "colorAmber": "Янтарный",
@@ -1987,7 +1987,16 @@
         "colorBlue": "Синий",
         "colorPurple": "Фиолетовый",
         "colorPink": "Розовый",
-        "colorCustom": "Свой цвет"
+        "colorCustom": "Свой цвет",
+        "edgeStrip": "Край экрана во время записи",
+        "edgeStripDescription": "Светящаяся полоса у верхнего края экрана, которую вы заметите краем глаза. Она не видна при демонстрации экрана и на снимках экрана",
+        "edgeStripOff": "Выкл.",
+        "edgeStripShort": "Короткая полоса",
+        "edgeStripFull": "Во всю ширину",
+        "edgeStripDisplays": "Мониторы с полосой",
+        "edgeStripDisplaysPill": "Монитор плавающего значка",
+        "edgeStripDisplaysAll": "Все мониторы",
+        "edgeStripPreviewHint": "Показать полосу на три секунды"
       },
       "hotkey": {
         "activationMode": "Режим активации",

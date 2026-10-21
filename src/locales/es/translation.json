@@ -2026,7 +2026,7 @@
         "recordingStyleSolidDescription": "Relleno con tu color y con contorno para que se vea sobre fondos claros y oscuros",
         "recordingStyleBeaconDescription": "Sólido, con un brillo lento a su alrededor",
         "recordingColor": "Color de grabación",
-        "recordingColorDescription": "Lo usan Teñido, Sólido y Baliza. El icono cambia a blanco u oscuro para seguir siendo legible",
+        "recordingColorDescription": "Lo usan Teñido, Sólido, Baliza y la franja del borde de la pantalla. El icono cambia a blanco u oscuro para seguir siendo legible",
         "colorRed": "Rojo",
         "colorCoral": "Coral",
         "colorAmber": "Ámbar",
@@ -2035,7 +2035,16 @@
         "colorBlue": "Azul",
         "colorPurple": "Morado",
         "colorPink": "Rosa",
-        "colorCustom": "Color personalizado"
+        "colorCustom": "Color personalizado",
+        "edgeStrip": "Borde de la pantalla mientras graba",
+        "edgeStripDescription": "Una franja luminosa en la parte superior de la pantalla que notarás con el rabillo del ojo. No aparece al compartir pantalla ni en capturas",
+        "edgeStripOff": "Desactivado",
+        "edgeStripShort": "Franja corta",
+        "edgeStripFull": "Ancho completo",
+        "edgeStripDisplays": "Monitores que muestran la franja",
+        "edgeStripDisplaysPill": "Monitor del icono flotante",
+        "edgeStripDisplaysAll": "Todos los monitores",
+        "edgeStripPreviewHint": "Mostrar la franja durante tres segundos"
       },
       "hotkey": {
         "activationMode": "Modo de activación",

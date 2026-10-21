@@ -1237,6 +1237,10 @@ export default function SettingsPage({
     setRecordingIndicatorStyle,
     recordingIndicatorColor,
     setRecordingIndicatorColor,
+    recordingEdgeStrip,
+    setRecordingEdgeStrip,
+    recordingEdgeStripDisplays,
+    setRecordingEdgeStripDisplays,
     cloudBackupEnabled,
     setCloudBackupEnabled,
     insightsSyncEnabled,
@@ -3308,6 +3312,10 @@ export default function SettingsPage({
                   setRecordingIndicatorStyle={setRecordingIndicatorStyle}
                   recordingIndicatorColor={recordingIndicatorColor}
                   setRecordingIndicatorColor={setRecordingIndicatorColor}
+                  recordingEdgeStrip={recordingEdgeStrip}
+                  setRecordingEdgeStrip={setRecordingEdgeStrip}
+                  recordingEdgeStripDisplays={recordingEdgeStripDisplays}
+                  setRecordingEdgeStripDisplays={setRecordingEdgeStripDisplays}
                 />
               </SettingsPanel>
             </div>

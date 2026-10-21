@@ -79,6 +79,9 @@ export default function App() {
   // Floating icon auto-hide setting (read from store, synced via IPC)
   const floatingIconAutoHide = useSettingsStore((s) => s.floatingIconAutoHide);
   const { recordingStyle, recordingVars } = useRecordingIndicator();
+  const recordingIndicatorColor = useSettingsStore((s) => s.recordingIndicatorColor);
+  const recordingEdgeStrip = useSettingsStore((s) => s.recordingEdgeStrip);
+  const recordingEdgeStripDisplays = useSettingsStore((s) => s.recordingEdgeStripDisplays);
   const panelStartPosition = useSettingsStore((s) => s.panelStartPosition);
   const floatingIconDisplay = useSettingsStore((s) => s.floatingIconDisplay);
   const floatingIconDisplayLabel = useSettingsStore((s) => s.floatingIconDisplayLabel);
@@ -102,6 +105,17 @@ export default function App() {
     // Startup only: later changes are reported by the settings store's setters.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Main draws the edge strip. Settings changes reach this window as storage
+  // events, which update the store without calling its setters, so only an
+  // effect over the values themselves sees them.
+  useEffect(() => {
+    window.electronAPI?.notifyRecordingEdgeStripChanged?.({
+      color: recordingIndicatorColor,
+      strip: recordingEdgeStrip,
+      displays: recordingEdgeStripDisplays,
+    });
+  }, [recordingIndicatorColor, recordingEdgeStrip, recordingEdgeStripDisplays]);
 
   useEffect(() => {
     let timer;

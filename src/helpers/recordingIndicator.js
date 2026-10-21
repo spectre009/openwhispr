@@ -1,6 +1,7 @@
-// How the floating icon shows that the microphone is live: a style and a
-// color. Pure and dependency-free so main (via require), the renderer and the
-// tests share one parser and one set of contrast rules.
+// How OpenWhispr shows that the microphone is live: the floating icon's style
+// and color, and an optional strip along the top edge of the screen. Pure and
+// dependency-free so main (via require), the renderer and the tests share one
+// parser and one set of contrast rules.
 
 export const DEFAULT_RECORDING_INDICATOR_STYLE = "classic";
 export const RECORDING_INDICATOR_STYLES = Object.freeze(["classic", "tinted", "solid", "beacon"]);
@@ -107,6 +108,63 @@ export function recordingIndicatorCssVars(color) {
     "--recording-on-accent": pickForeground(accent),
     "--recording-tint-dark": resolveTintedAccent(accent, RECORDING_SURFACES.dark),
     "--recording-tint-light": resolveTintedAccent(accent, RECORDING_SURFACES.light),
+  };
+}
+
+// The optional glowing strip along the top edge of the screen while the
+// microphone is live: short and centered, or the full width of the display.
+export const DEFAULT_RECORDING_EDGE_STRIP = "off";
+export const RECORDING_EDGE_STRIP_MODES = Object.freeze(["off", "short", "full"]);
+
+export function normalizeRecordingEdgeStrip(value) {
+  return RECORDING_EDGE_STRIP_MODES.includes(value) ? value : DEFAULT_RECORDING_EDGE_STRIP;
+}
+
+// Only the floating icon's monitor, or every connected monitor.
+export const DEFAULT_RECORDING_EDGE_STRIP_DISPLAYS = "pill";
+export const RECORDING_EDGE_STRIP_DISPLAYS = Object.freeze(["pill", "all"]);
+
+export function normalizeRecordingEdgeStripDisplays(value) {
+  return RECORDING_EDGE_STRIP_DISPLAYS.includes(value)
+    ? value
+    : DEFAULT_RECORDING_EDGE_STRIP_DISPLAYS;
+}
+
+/** The edge strip's settings, as main receives them over IPC. */
+export function normalizeEdgeStripSettings(value) {
+  const settings = value && typeof value === "object" ? value : {};
+  return {
+    color: normalizeRecordingIndicatorColor(settings.color),
+    strip: normalizeRecordingEdgeStrip(settings.strip),
+    displays: normalizeRecordingEdgeStripDisplays(settings.displays),
+  };
+}
+
+export const EDGE_STRIP_HEIGHT = 8;
+export const SHORT_EDGE_STRIP = Object.freeze({ fraction: 0.25, min: 480, max: 1400 });
+
+/**
+ * The strip window's box on `display`, in DIP. It hugs the top of the whole
+ * display (bounds, not the work area: nothing is docked there on Windows,
+ * and a top taskbar should not push it down) and keeps negative origins, so
+ * monitors above or left of the primary one get it at their own top edge.
+ */
+export function resolveEdgeStripBounds(display, mode) {
+  const area = display?.bounds;
+  if (!area || normalizeRecordingEdgeStrip(mode) === "off") return null;
+  let width = area.width;
+  if (mode === "short") {
+    const wanted = Math.round(area.width * SHORT_EDGE_STRIP.fraction);
+    width = Math.min(
+      area.width,
+      Math.max(SHORT_EDGE_STRIP.min, Math.min(SHORT_EDGE_STRIP.max, wanted))
+    );
+  }
+  return {
+    x: area.x + Math.round((area.width - width) / 2),
+    y: area.y,
+    width,
+    height: EDGE_STRIP_HEIGHT,
   };
 }
 

@@ -95,6 +95,9 @@ const MEETING_NOTIFICATION_CARD_REGION = Object.freeze({
 const { centeredBounds, clampedBounds } = require("./onboardingWindowBounds");
 const { ONBOARDING_DEMO_KINDS, isOnboardingInputAllowed } = require("./onboardingInputPolicy");
 const { createHotkeyRepeatGate } = require("./hotkeyRepeatGate");
+const { RecordingEdgeStrip } = require("./recordingEdgeStrip");
+const { normalizeEdgeStripSettings } = require("./recordingIndicator");
+const { getLinuxSessionInfo } = require("./linuxSession");
 
 class WindowManager {
   constructor() {
@@ -162,10 +165,22 @@ class WindowManager {
     this._pendingMeetingNoteNavigation = null;
     this._pendingNoteNavigation = null;
     this._pendingSettingsSection = null;
+    this.recordingEdgeStrip = new RecordingEdgeStrip({
+      BrowserWindow,
+      screen,
+      getPillDisplay: () => this._edgeStripPillDisplay(),
+      setupAlwaysOnTop: (win) => WindowPositionUtil.setupAlwaysOnTop(win),
+      windowType: NOTIFICATION_WINDOW_CONFIG.type,
+      logger: debugLogger,
+      // Wayland compositors place windows themselves, so nothing can pin the
+      // strip to the top edge there.
+      supported: !(process.platform === "linux" && getLinuxSessionInfo().isWayland),
+    });
 
     app.on("before-quit", () => {
       this.isQuitting = true;
       this.hotkeyManager.unregisterAll();
+      this.recordingEdgeStrip.destroy();
     });
   }
 
@@ -186,6 +201,7 @@ class WindowManager {
 
     this.setMainWindowInteractivity(false);
     this.registerMainWindowEvents();
+    this._registerDictationLifecycleReset(this.mainWindow);
     this.registerAssistantSelectionContextMenu();
     this.registerExternalLinkHandlers(this.mainWindow, false);
 
@@ -1172,9 +1188,65 @@ class WindowManager {
     this._dictationLifecycleState = nextState;
     this._dictationInputKind = nextInputKind;
     this._isDictatingToggle = isDictationRecording(nextState);
+    this.recordingEdgeStrip.setRecording(this._isDictatingToggle);
     this.meetingDetectionEngine?.setUserRecording(this._isDictatingToggle);
     this._sendAgentDictationPillState();
     this.onDictationStateChanged?.();
+  }
+
+  // The dictation renderer reports the lifecycle, so one that crashes, reloads
+  // or closes mid-recording would leave main believing it still records: the
+  // edge strip would stay up and the recording gate would stay stuck. Main
+  // resets it itself.
+  _registerDictationLifecycleReset(win) {
+    if (!win) return;
+    const contents = win.webContents;
+    contents.on("render-process-gone", (_event, details) =>
+      this._resetDictationLifecycle("render-process-gone", details?.reason)
+    );
+    // Electron passes the details object first; the positional arguments are
+    // the older form of the same values.
+    contents.on("did-start-navigation", (details, _url, isInPlace, legacyIsMainFrame) => {
+      const isMainFrame = details?.isMainFrame ?? legacyIsMainFrame;
+      const isSameDocument = details?.isSameDocument ?? isInPlace;
+      if (isMainFrame && !isSameDocument) this._resetDictationLifecycle("navigation");
+    });
+    win.on("closed", () => {
+      this._resetDictationLifecycle("closed");
+      this.recordingEdgeStrip.release();
+    });
+  }
+
+  _resetDictationLifecycle(reason, detail) {
+    if (this._dictationLifecycleState === DICTATION_LIFECYCLE.IDLE) return;
+    debugLogger.info(
+      "[WindowManager] Dictation renderer went away; resetting its lifecycle",
+      { reason, detail, state: this._dictationLifecycleState },
+      "window"
+    );
+    this.setDictationLifecycleState(DICTATION_LIFECYCLE.IDLE, this._dictationInputKind);
+  }
+
+  // The dictation window reports the edge strip settings; only the strip
+  // needs them in main.
+  setRecordingEdgeStripSettings(settings) {
+    this.recordingEdgeStrip.configure(normalizeEdgeStripSettings(settings));
+  }
+
+  previewRecordingEdgeStrip(settings) {
+    // Without the dictation window there's nothing to record with, and strip
+    // windows left behind would count as the app's windows.
+    if (!this.mainWindow || this.mainWindow.isDestroyed()) return { success: false };
+    return { success: this.recordingEdgeStrip.preview(settings) };
+  }
+
+  // The strip follows the pill's own display, read when it shows, so a drag
+  // to another monitor takes it along.
+  _edgeStripPillDisplay() {
+    if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+      return this._getMainWindowDisplayFor(this.mainWindow.getBounds());
+    }
+    return this._resolveLockedDisplay() || screen.getPrimaryDisplay();
   }
 
   // The tray's listen item is a toggle over this state, like the pill's.
@@ -1562,6 +1634,8 @@ class WindowManager {
       ? resolveHorizontalWindowDirection(restingBase, display, this._panelStartPosition)
       : null;
     this._notifyMainWindowHorizontalDirection();
+    // A strip on the pill's monitor goes where the pill went.
+    this.recordingEdgeStrip.refresh("placement");
     return { applied: true, bounds };
   }
 
@@ -1581,6 +1655,7 @@ class WindowManager {
     this._topologyTimers = TOPOLOGY_RECONCILE_DELAYS_MS.map((delay, pass) =>
       setTimeout(() => {
         if (pass === 0) this._broadcastDisplaysChanged();
+        this.recordingEdgeStrip.handleDisplaysChanged();
         void this._enqueueMainWindowMutation(() => this._reconcilePlacementAfterTopology(event));
       }, delay)
     );
@@ -1689,6 +1764,7 @@ class WindowManager {
         this._manualRestingBounds = { ...draggedBounds };
         this._baseBoundsBeforeResize = null;
         this._lastResizeBounds = { ...draggedBounds };
+        this.recordingEdgeStrip.refresh("drag");
       }
     }
     this._dragStartBounds = null;
