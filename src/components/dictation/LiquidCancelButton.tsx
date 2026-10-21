@@ -4,6 +4,8 @@ import { cn } from "../lib/utils";
 import { emergenceBlend, traceFusedOutline } from "./liquidFusion";
 import type { VoicePillState } from "./VoicePill";
 import { LISTENING_ENTRANCE_TIMING, VOICE_PILL_CANCEL } from "../../helpers/voicePillPresentation";
+import { resolveRecordingChromeStyle } from "../../helpers/recordingIndicator";
+import type { RecordingIndicatorStyle } from "../../types/electron";
 
 const { size: CANCEL_BUTTON_SIZE, gap: CANCEL_BUTTON_GAP } = VOICE_PILL_CANCEL;
 const EMERGENCE_MS = 280;
@@ -107,6 +109,8 @@ interface LiquidCancelButtonProps {
   /** The pill state the skin replaces; keys the skin's stroke/fill to the
    *  pill's own chrome via .liquid-cancel-skin[data-pill-state] CSS. */
   pillState: VoicePillState;
+  /** The pill's recording style, redrawn by the fused skin while recording. */
+  recordingStyle?: RecordingIndicatorStyle;
   ariaLabel: string;
   onCancel: () => void;
   /** Fires when the fused skin starts/stops owning the pill surface, so the
@@ -120,6 +124,7 @@ export function LiquidCancelButton({
   pillWidth,
   pillHeight,
   pillState,
+  recordingStyle = "classic",
   ariaLabel,
   onCancel,
   onFusedSkinChange,
@@ -127,6 +132,11 @@ export function LiquidCancelButton({
   // The 60fps emergence lives here so only this leaf re-renders per frame.
   const t = useCancelEmergence(visible);
   const pillSize = usePillFootprintTween(pillWidth, pillHeight);
+  // Plain mode keeps its own bordered circle; only the fused skin stands in
+  // for the pill's chrome, and only while recording.
+  const skinRecordingStyle = fused
+    ? resolveRecordingChromeStyle({ style: recordingStyle, state: pillState })
+    : null;
   const skinActive = fused && t > 0;
   const [skinLingers, setSkinLingers] = useState(false);
   const notifyRef = useRef(onFusedSkinChange);
@@ -177,12 +187,17 @@ export function LiquidCancelButton({
   if (t <= 0 && !skinLingers) return null;
 
   return (
-    <div className="relative shrink-0" style={{ width: slotWidth, height: CANCEL_BUTTON_SIZE }}>
+    <div
+      className="liquid-cancel-slot relative shrink-0"
+      data-recording-style={skinRecordingStyle ?? undefined}
+      style={{ width: slotWidth, height: CANCEL_BUTTON_SIZE }}
+    >
       {outline && (
         <svg
           aria-hidden="true"
           className="liquid-cancel-skin absolute"
           data-pill-state={pillState}
+          data-recording-style={skinRecordingStyle ?? undefined}
           viewBox={`${outline.minX} ${outline.minY} ${outline.width} ${outline.height}`}
           style={{
             left: outline.minX - pillSize.w,

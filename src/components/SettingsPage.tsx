@@ -116,6 +116,7 @@ import {
 } from "./ui/SettingsSection";
 import type { InferenceModeOption } from "./ui/SettingsSection";
 import { FloatingIconPlacementRows } from "./settings/FloatingIconPlacementRows";
+import { RecordingIndicatorRows } from "./settings/RecordingIndicatorRows";
 import { useSettingsLayout } from "./ui/useSettingsLayout";
 import { useUsage } from "../hooks/useUsage";
 import { cn } from "./lib/utils";
@@ -1232,6 +1233,10 @@ export default function SettingsPage({
     floatingIconDisplay,
     floatingIconDisplayLabel,
     setFloatingIconDisplay,
+    recordingIndicatorStyle,
+    setRecordingIndicatorStyle,
+    recordingIndicatorColor,
+    setRecordingIndicatorColor,
     cloudBackupEnabled,
     setCloudBackupEnabled,
     insightsSyncEnabled,
@@ -3297,6 +3302,12 @@ export default function SettingsPage({
                   floatingIconDisplay={floatingIconDisplay}
                   floatingIconDisplayLabel={floatingIconDisplayLabel}
                   setFloatingIconDisplay={setFloatingIconDisplay}
+                />
+                <RecordingIndicatorRows
+                  recordingIndicatorStyle={recordingIndicatorStyle}
+                  setRecordingIndicatorStyle={setRecordingIndicatorStyle}
+                  recordingIndicatorColor={recordingIndicatorColor}
+                  setRecordingIndicatorColor={setRecordingIndicatorColor}
                 />
               </SettingsPanel>
             </div>

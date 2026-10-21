@@ -8,6 +8,8 @@ import {
   VOICE_PILL_FOOTPRINT,
   VOICE_PILL_GROW_TRANSITION,
 } from "../../helpers/voicePillPresentation";
+import { resolveRecordingChromeStyle } from "../../helpers/recordingIndicator";
+import type { RecordingIndicatorStyle } from "../../types/electron";
 
 export type VoicePillState =
   "idle" | "hover" | "recording" | "processing" | "thinking" | "unavailable";
@@ -27,6 +29,9 @@ interface VoicePillProps extends Omit<HTMLAttributes<HTMLDivElement>, "children"
   showExpandChevron?: boolean;
   isDragging?: boolean;
   horizontalDirection?: "left" | "right";
+  /** Settings → Floating icon → While recording. Colors come from
+   *  recordingIndicatorCssVars on an ancestor shared with the cancel skin. */
+  recordingStyle?: RecordingIndicatorStyle;
 }
 
 // Sized from WAVEFORM_BAR_COUNT so a bar-count change can never silently
@@ -43,7 +48,8 @@ const COMPACT_CONTENT_GAP_PX = 6;
 
 // Mirrored by .liquid-cancel-skin[data-pill-state] in dictation-panel.css,
 // which redraws this chrome while the cancel skin owns the fused surface —
-// change together.
+// change together. A recording style (data-recording-style) replaces the
+// recording row's chrome there and in the skin's recording rules alike.
 const STATE_APPEARANCE: Record<VoicePillState, string> = {
   idle: "border-border-hover bg-surface-1 text-muted-foreground dark:border-border/50",
   hover: "border-border-hover bg-surface-3 text-foreground",
@@ -69,6 +75,7 @@ export const VoicePill = forwardRef<HTMLDivElement, VoicePillProps>(function Voi
     showExpandChevron = false,
     isDragging = false,
     horizontalDirection = "right",
+    recordingStyle = "classic",
     className,
     style,
     ...props
@@ -79,6 +86,18 @@ export const VoicePill = forwardRef<HTMLDivElement, VoicePillProps>(function Voi
   const isProcessing = state === "processing";
   const isThinking = state === "thinking";
   const isUnavailable = state === "unavailable";
+  // Only a pill that owns its chrome takes the style: inside Live Transcript
+  // and under the fused cancel skin it stays headless (the skin carries it).
+  const recordingChromeStyle = resolveRecordingChromeStyle({
+    style: recordingStyle,
+    state,
+    integratedWithPanel,
+    liquidFused,
+  });
+  // The beacon glow sits outside the pill's box, so it stays lit while the
+  // fused skin draws the surface; only the Live Transcript footer drops it.
+  const showRecordingBeacon =
+    resolveRecordingChromeStyle({ style: recordingStyle, state, integratedWithPanel }) === "beacon";
   // One Signal glow (comet orbit over a breathing halo) serves both
   // identities; only the palette differs. It lights for the real thinking
   // state alone — glowing during the entrance or while listening would read
@@ -126,6 +145,7 @@ export const VoicePill = forwardRef<HTMLDivElement, VoicePillProps>(function Voi
       data-agent-mode={agentMode || undefined}
       data-agent-beam-active={(agentMode && isThinking) || undefined}
       data-expand-chevron={showExpandChevron || undefined}
+      data-recording-style={recordingChromeStyle ?? undefined}
       {...props}
     >
       <div
@@ -221,6 +241,13 @@ export const VoicePill = forwardRef<HTMLDivElement, VoicePillProps>(function Voi
         data-agent={agentMode || undefined}
       >
         <span className="processing-signal-ring" />
+      </span>
+      <span
+        aria-hidden="true"
+        className="recording-beacon-glow"
+        data-active={showRecordingBeacon ? "true" : undefined}
+      >
+        <span className="recording-beacon-ripple" />
       </span>
       {pill}
     </span>

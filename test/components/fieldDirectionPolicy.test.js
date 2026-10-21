@@ -114,6 +114,8 @@ const EXPECTED_NATIVE_FIELD_DIRECTIONS = {
   "src/components/onboarding/UseCaseStep.tsx": ["auto"],
   "src/components/settings/ChatAgentSettings.tsx": ["auto"],
   "src/components/settings/ProfileSection.tsx": ["inherit"],
+  // The custom recording color: a color value, no text.
+  "src/components/settings/RecordingIndicatorRows.tsx": ["inherit"],
   "src/components/ui/EmojiPicker.tsx": ["auto"],
   "src/components/ui/LanguageSelector.tsx": ["auto"],
 };

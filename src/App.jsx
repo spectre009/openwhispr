@@ -14,6 +14,7 @@ import { useMainWindowSizeOwner } from "./hooks/useMainWindowSizeOwner";
 import { useMainProcessNotifications } from "./hooks/useMainProcessNotifications";
 import { useListeningEntrancePhase } from "./hooks/useListeningEntrancePhase";
 import { useWindowResizeCompensation } from "./hooks/useWindowResizeCompensation";
+import { useRecordingIndicator } from "./hooks/useRecordingIndicator";
 import { useSettingsStore } from "./stores/settingsStore";
 import { isAgentAllowed } from "./stores/policyRules";
 import { usePolicyStore } from "./stores/policyStore";
@@ -77,6 +78,7 @@ export default function App() {
 
   // Floating icon auto-hide setting (read from store, synced via IPC)
   const floatingIconAutoHide = useSettingsStore((s) => s.floatingIconAutoHide);
+  const { recordingStyle, recordingVars } = useRecordingIndicator();
   const panelStartPosition = useSettingsStore((s) => s.panelStartPosition);
   const floatingIconDisplay = useSettingsStore((s) => s.floatingIconDisplay);
   const floatingIconDisplayLabel = useSettingsStore((s) => s.floatingIconDisplayLabel);
@@ -680,6 +682,7 @@ export default function App() {
           pillVisuallySuppressed ? "pointer-events-none" : ""
         } ${pillVisuallySuppressed ? "opacity-0" : "opacity-100"}`}
         style={{
+          ...recordingVars,
           "--voice-pill-travel-duration": `${voicePillTravelDuration}ms`,
         }}
         data-dictation-error-suppressed={dictationErrorSuppressesPill || undefined}
@@ -731,6 +734,7 @@ export default function App() {
               getAudioLevel={getAudioLevel}
               isDragging={isDragging}
               horizontalDirection={voiceHorizontalDirection}
+              recordingStyle={recordingStyle}
               role={pillIsInteractive ? "button" : "status"}
               tabIndex={pillIsInteractive ? 0 : undefined}
               aria-label={
@@ -795,6 +799,7 @@ export default function App() {
             pillWidth={cancelPillFootprint.width}
             pillHeight={cancelPillFootprint.height}
             pillState={commonPillState}
+            recordingStyle={recordingStyle}
             ariaLabel={
               isRecording ? t("app.buttons.cancelRecording") : t("app.buttons.cancelProcessing")
             }

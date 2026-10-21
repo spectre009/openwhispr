@@ -58,6 +58,10 @@ export interface FloatingIconDisplayInfo {
   scaleFactor: number;
 }
 
+// How the floating icon looks while recording. Values come from
+// src/helpers/recordingIndicator.js.
+export type RecordingIndicatorStyle = "classic" | "tinted" | "solid" | "beacon";
+
 export interface MainWindowInputRegion {
   viewportWidth: number;
   viewportHeight: number;

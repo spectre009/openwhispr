@@ -11,12 +11,17 @@ import type {
   InferenceMode,
   LocalServerPrefs,
   PanelPosition,
+  RecordingIndicatorStyle,
   SelfHostedType,
 } from "../types/electron";
 import {
   normalizeFloatingIconDisplay,
   normalizePanelPosition,
 } from "../helpers/floatingIconPlacement";
+import {
+  normalizeRecordingIndicatorColor,
+  normalizeRecordingIndicatorStyle,
+} from "../helpers/recordingIndicator";
 import type { CalendarAccount, MicrosoftCalendarAccount } from "../types/calendar";
 import { normalizeEmailDraftTarget, type EmailDraftTargetSetting } from "../utils/emailDraftTarget";
 import { PROMPT_KIND_LIST, type PromptKind } from "../config/prompts/registry";
@@ -923,6 +928,8 @@ export interface SettingsState
   panelStartPosition: PanelPosition;
   floatingIconDisplay: string;
   floatingIconDisplayLabel: string;
+  recordingIndicatorStyle: RecordingIndicatorStyle;
+  recordingIndicatorColor: string;
   showTranscriptionPreview: boolean;
   autoPasteEnabled: boolean;
   keepTranscriptionInClipboard: boolean;
@@ -1242,6 +1249,8 @@ export interface SettingsState
   setWhisperVadSamplesOverlap: (value: number) => void;
   setPanelStartPosition: (position: PanelPosition) => void;
   setFloatingIconDisplay: (display: string, label: string) => void;
+  setRecordingIndicatorStyle: (style: RecordingIndicatorStyle) => void;
+  setRecordingIndicatorColor: (color: string) => void;
   setShowTranscriptionPreview: (value: boolean) => void;
   setAutoPasteEnabled: (value: boolean) => void;
   setKeepTranscriptionInClipboard: (value: boolean) => void;
@@ -1706,6 +1715,12 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   ) as PanelPosition,
   floatingIconDisplay: normalizeFloatingIconDisplay(readString("floatingIconDisplay", "cursor")),
   floatingIconDisplayLabel: readString("floatingIconDisplayLabel", ""),
+  recordingIndicatorStyle: normalizeRecordingIndicatorStyle(
+    readString("recordingIndicatorStyle", "classic")
+  ) as RecordingIndicatorStyle,
+  recordingIndicatorColor: normalizeRecordingIndicatorColor(
+    readString("recordingIndicatorColor", "red")
+  ),
   showTranscriptionPreview: readBoolean("showTranscriptionPreview", false),
   autoPasteEnabled: readBoolean("autoPasteEnabled", true),
   keepTranscriptionInClipboard: readBoolean("keepTranscriptionInClipboard", false),
@@ -2564,6 +2579,18 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
     if (isBrowser) {
       window.electronAPI?.notifyFloatingIconDisplayChanged?.(next, nextLabel);
     }
+  },
+  setRecordingIndicatorStyle: (style: RecordingIndicatorStyle) => {
+    const next = normalizeRecordingIndicatorStyle(style) as RecordingIndicatorStyle;
+    if (get().recordingIndicatorStyle === next) return;
+    if (isBrowser) localStorage.setItem("recordingIndicatorStyle", next);
+    set({ recordingIndicatorStyle: next });
+  },
+  setRecordingIndicatorColor: (color: string) => {
+    const next = normalizeRecordingIndicatorColor(color);
+    if (get().recordingIndicatorColor === next) return;
+    if (isBrowser) localStorage.setItem("recordingIndicatorColor", next);
+    set({ recordingIndicatorColor: next });
   },
 
   setShowTranscriptionPreview: createBooleanSetter("showTranscriptionPreview"),
@@ -3815,6 +3842,10 @@ export async function initializeSettings(): Promise<void> {
       value = normalizePanelPosition(newValue);
     } else if (key === "floatingIconDisplay") {
       value = normalizeFloatingIconDisplay(newValue);
+    } else if (key === "recordingIndicatorStyle") {
+      value = normalizeRecordingIndicatorStyle(newValue);
+    } else if (key === "recordingIndicatorColor") {
+      value = normalizeRecordingIndicatorColor(newValue);
     } else {
       value = newValue;
     }

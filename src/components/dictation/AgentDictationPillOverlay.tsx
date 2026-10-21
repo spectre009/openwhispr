@@ -9,6 +9,7 @@ import {
 import { useTranslation } from "react-i18next";
 import { useListeningEntrancePhase } from "../../hooks/useListeningEntrancePhase";
 import { useLiveTranscriptPanel } from "../../hooks/useLiveTranscriptPanel";
+import { useRecordingIndicator } from "../../hooks/useRecordingIndicator";
 import {
   LIVE_TRANSCRIPT_ENTRANCE_TIMING,
   VOICE_PILL_FOOTPRINT,
@@ -43,6 +44,7 @@ const UNAVAILABLE_RESIZE = { success: false, message: "Window not available" };
 
 export default function AgentDictationPillOverlay() {
   const { t } = useTranslation();
+  const { recordingStyle, recordingVars } = useRecordingIndicator();
   const [companionState, setCompanionState] = useState(DEFAULT_STATE);
   const [hovered, setHovered] = useState(false);
   const audioLevelRef = useRef<number | null>(null);
@@ -216,6 +218,7 @@ export default function AgentDictationPillOverlay() {
         className={`voice-pill-position voice-pill-position-${voicePillDock} fixed z-50`}
         style={
           {
+            ...recordingVars,
             "--voice-pill-travel-duration": `${voicePillTravelDuration}ms`,
           } as CSSProperties
         }
@@ -237,6 +240,7 @@ export default function AgentDictationPillOverlay() {
             showExpandChevron={canReopenLiveTranscript && hovered}
             getAudioLevel={getAudioLevel}
             horizontalDirection={horizontalDirection}
+            recordingStyle={recordingStyle}
             role={pillInteractive ? "button" : "status"}
             aria-label={label}
             aria-disabled={!pillInteractive}
@@ -248,6 +252,7 @@ export default function AgentDictationPillOverlay() {
             pillWidth={cancelPillFootprint.width}
             pillHeight={cancelPillFootprint.height}
             pillState={state}
+            recordingStyle={recordingStyle}
             ariaLabel={
               isRecording ? t("app.buttons.cancelRecording") : t("app.buttons.cancelProcessing")
             }

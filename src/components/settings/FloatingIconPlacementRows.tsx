@@ -6,7 +6,7 @@ import { cn } from "../lib/utils";
 import type { FloatingIconDisplayInfo, PanelPosition } from "../../types/electron";
 import { relativeDisplayDirection } from "../../helpers/floatingIconPlacement";
 
-const SELECT_CLASS =
+export const SELECT_CLASS =
   "h-7 max-w-64 rounded border border-border/70 bg-surface-1/80 px-2.5 text-xs font-medium text-foreground shadow-sm hover:border-border-hover hover:bg-surface-2/70 focus:outline-none focus:ring-2 focus:ring-ring/30 focus:ring-offset-1 transition-colors duration-200";
 
 const ROWS = ["top", "middle", "bottom"] as const;
