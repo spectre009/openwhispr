@@ -1081,6 +1081,20 @@ contextBridge.exposeInMainWorld("electronAPI", {
   notifyPanelStartPositionChanged: (position) =>
     ipcRenderer.send("panel-start-position-changed", position),
 
+  // Floating icon display and placement preview
+  notifyFloatingIconDisplayChanged: (display, label) =>
+    ipcRenderer.send("floating-icon-display-changed", { display, label }),
+  getDisplays: () => ipcRenderer.invoke("get-displays"),
+  onDisplaysChanged: registerListener(
+    "displays-changed",
+    (callback) => (_event, displays) => callback(displays)
+  ),
+  previewFloatingIconPlacement: () => ipcRenderer.invoke("preview-floating-icon-placement"),
+  onFloatingIconPlacementPreview: registerListener(
+    "floating-icon-placement-preview",
+    (callback) => (_event, payload) => callback(payload)
+  ),
+
   // Start minimized
   notifyStartMinimizedChanged: (enabled) => ipcRenderer.send("start-minimized-changed", enabled),
 

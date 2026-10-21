@@ -10,8 +10,13 @@ import type {
   LocalTranscriptionProvider,
   InferenceMode,
   LocalServerPrefs,
+  PanelPosition,
   SelfHostedType,
 } from "../types/electron";
+import {
+  normalizeFloatingIconDisplay,
+  normalizePanelPosition,
+} from "../helpers/floatingIconPlacement";
 import type { CalendarAccount, MicrosoftCalendarAccount } from "../types/calendar";
 import { normalizeEmailDraftTarget, type EmailDraftTargetSetting } from "../utils/emailDraftTarget";
 import { PROMPT_KIND_LIST, type PromptKind } from "../config/prompts/registry";
@@ -915,7 +920,9 @@ export interface SettingsState
   whisperVadMaxSpeechDurationS: number;
   whisperVadSpeechPadMs: number;
   whisperVadSamplesOverlap: number;
-  panelStartPosition: "bottom-right" | "center" | "bottom-left";
+  panelStartPosition: PanelPosition;
+  floatingIconDisplay: string;
+  floatingIconDisplayLabel: string;
   showTranscriptionPreview: boolean;
   autoPasteEnabled: boolean;
   keepTranscriptionInClipboard: boolean;
@@ -1233,7 +1240,8 @@ export interface SettingsState
   setWhisperVadMaxSpeechDurationS: (value: number) => void;
   setWhisperVadSpeechPadMs: (value: number) => void;
   setWhisperVadSamplesOverlap: (value: number) => void;
-  setPanelStartPosition: (position: "bottom-right" | "center" | "bottom-left") => void;
+  setPanelStartPosition: (position: PanelPosition) => void;
+  setFloatingIconDisplay: (display: string, label: string) => void;
   setShowTranscriptionPreview: (value: boolean) => void;
   setAutoPasteEnabled: (value: boolean) => void;
   setKeepTranscriptionInClipboard: (value: boolean) => void;
@@ -1693,11 +1701,11 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
     "samplesOverlap",
     readString("whisperVadSamplesOverlap", "0.5")
   ),
-  panelStartPosition: (() => {
-    const v = readString("panelStartPosition", "bottom-right");
-    if (v === "bottom-right" || v === "center" || v === "bottom-left") return v;
-    return "bottom-right" as const;
-  })(),
+  panelStartPosition: normalizePanelPosition(
+    readString("panelStartPosition", "bottom-right")
+  ) as PanelPosition,
+  floatingIconDisplay: normalizeFloatingIconDisplay(readString("floatingIconDisplay", "cursor")),
+  floatingIconDisplayLabel: readString("floatingIconDisplayLabel", ""),
   showTranscriptionPreview: readBoolean("showTranscriptionPreview", false),
   autoPasteEnabled: readBoolean("autoPasteEnabled", true),
   keepTranscriptionInClipboard: readBoolean("keepTranscriptionInClipboard", false),
@@ -2532,12 +2540,29 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
       window.electronAPI?.setWhisperVadConfig?.({ samplesOverlap: next });
     }
   },
-  setPanelStartPosition: (position: "bottom-right" | "center" | "bottom-left") => {
-    if (get().panelStartPosition === position) return;
-    if (isBrowser) localStorage.setItem("panelStartPosition", position);
-    set({ panelStartPosition: position });
+  setPanelStartPosition: (position: PanelPosition) => {
+    const next = normalizePanelPosition(position) as PanelPosition;
+    if (get().panelStartPosition === next) return;
+    if (isBrowser) localStorage.setItem("panelStartPosition", next);
+    set({ panelStartPosition: next });
     if (isBrowser) {
-      window.electronAPI?.notifyPanelStartPositionChanged?.(position);
+      window.electronAPI?.notifyPanelStartPositionChanged?.(next);
+    }
+  },
+  setFloatingIconDisplay: (display: string, label: string) => {
+    const next = normalizeFloatingIconDisplay(display);
+    const nextLabel = typeof label === "string" ? label : "";
+    const state = get();
+    if (state.floatingIconDisplay === next && state.floatingIconDisplayLabel === nextLabel) return;
+    if (isBrowser) {
+      // Label first: another window's storage listener reacts to the display
+      // key and must already find the matching label.
+      localStorage.setItem("floatingIconDisplayLabel", nextLabel);
+      localStorage.setItem("floatingIconDisplay", next);
+    }
+    set({ floatingIconDisplay: next, floatingIconDisplayLabel: nextLabel });
+    if (isBrowser) {
+      window.electronAPI?.notifyFloatingIconDisplayChanged?.(next, nextLabel);
     }
   },
 
@@ -3786,6 +3811,10 @@ export async function initializeSettings(): Promise<void> {
       }
     } else if (key === "emailDraftTarget") {
       value = normalizeEmailDraftTarget(newValue);
+    } else if (key === "panelStartPosition") {
+      value = normalizePanelPosition(newValue);
+    } else if (key === "floatingIconDisplay") {
+      value = normalizeFloatingIconDisplay(newValue);
     } else {
       value = newValue;
     }

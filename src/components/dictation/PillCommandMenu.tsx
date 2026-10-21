@@ -5,6 +5,9 @@ import { useTranslation } from "react-i18next";
 interface PillCommandMenuProps {
   buttonRef: React.RefObject<HTMLDivElement | null>;
   align: "left" | "right" | "center";
+  // Toward the window's open side: above a pill docked at the bottom edge,
+  // below one docked at the top.
+  side?: "above" | "below";
   isRecording: boolean;
   agentAllowed: boolean;
   meetingAllowed: boolean;
@@ -24,6 +27,7 @@ interface PillCommandMenuProps {
 export function PillCommandMenu({
   buttonRef,
   align,
+  side = "above",
   isRecording,
   agentAllowed,
   meetingAllowed,
@@ -59,11 +63,12 @@ export function PillCommandMenu({
   // so the menu anchors on that same side, never on a logical start/end.
   const alignClass =
     align === "right" ? "right-0" : align === "left" ? "left-0" : "left-1/2 -translate-x-1/2";
+  const sideClass = side === "below" ? "top-full mt-3" : "bottom-full mb-3";
 
   return (
     <div
       ref={menuRef}
-      className={`absolute bottom-full ${alignClass} mb-3 w-48 overflow-hidden rounded-lg border border-border bg-popover text-popover-foreground shadow-lg backdrop-blur-sm`}
+      className={`absolute ${sideClass} ${alignClass} w-48 overflow-hidden rounded-lg border border-border bg-popover text-popover-foreground shadow-lg backdrop-blur-sm`}
       onMouseEnter={() => {
         setWindowInteractivity(true);
       }}

@@ -6,6 +6,7 @@ const debugLogger = require("./debugLogger");
 const { normalizeUiLanguage } = require("./i18nMain");
 const secretCrypto = require("./secretCrypto");
 const { BYOK_API_KEYS } = require("../config/secretKeys");
+const { normalizeFloatingIconDisplay, normalizePanelPosition } = require("./floatingIconPlacement");
 
 const SECRET_KEYS = [
   ...BYOK_API_KEYS.map((k) => k.env),
@@ -41,6 +42,8 @@ const PERSISTED_KEYS = [
   "ACTIVATION_MODE",
   "FLOATING_ICON_AUTO_HIDE",
   "PANEL_START_POSITION",
+  "FLOATING_ICON_DISPLAY",
+  "FLOATING_ICON_DISPLAY_LABEL",
   "START_MINIMIZED",
   "UI_LANGUAGE",
   "WHISPER_CUDA_ENABLED",
@@ -458,13 +461,28 @@ class EnvironmentManager {
   }
 
   getPanelStartPosition() {
-    const v = this._getKey("PANEL_START_POSITION");
-    if (v === "bottom-right" || v === "center" || v === "bottom-left") return v;
-    return "bottom-right";
+    return normalizePanelPosition(this._getKey("PANEL_START_POSITION"));
   }
 
   savePanelStartPosition(position) {
-    const result = this._saveKey("PANEL_START_POSITION", position);
+    const result = this._saveKey("PANEL_START_POSITION", normalizePanelPosition(position));
+    this.saveAllKeysToEnvFile().catch(() => {});
+    return result;
+  }
+
+  getFloatingIconDisplay() {
+    return {
+      display: normalizeFloatingIconDisplay(this._getKey("FLOATING_ICON_DISPLAY")),
+      label: this._getKey("FLOATING_ICON_DISPLAY_LABEL") || "",
+    };
+  }
+
+  saveFloatingIconDisplay(display, label) {
+    this._saveKey("FLOATING_ICON_DISPLAY", normalizeFloatingIconDisplay(display));
+    // .env values are written unquoted: keep the monitor name to characters
+    // dotenv reads back verbatim.
+    const safeLabel = typeof label === "string" ? label.replace(/[\r\n#"'`]/g, "").trim() : "";
+    const result = this._saveKey("FLOATING_ICON_DISPLAY_LABEL", safeLabel);
     this.saveAllKeysToEnvFile().catch(() => {});
     return result;
   }

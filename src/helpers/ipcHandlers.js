@@ -1686,6 +1686,12 @@ class IPCHandlers {
       this.windowManager.showDictationPanel({ reposition: true });
     });
 
+    ipcMain.handle("get-displays", () => this.windowManager.getDisplaysForSettings());
+
+    ipcMain.handle("preview-floating-icon-placement", () =>
+      this.windowManager.previewFloatingIconPlacement()
+    );
+
     ipcMain.handle("open-settings-section", async (_event, section) => {
       if (!isProviderSettingsTarget(section)) return { success: false };
       await this.windowManager.openSettings(section);

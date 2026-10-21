@@ -6,6 +6,9 @@ interface PillTooltipProps {
   content: React.ReactNode;
   emoji?: string;
   align?: "left" | "right" | "center";
+  // Toward the window's open side: above a pill docked at the bottom edge,
+  // below one docked at the top.
+  side?: "above" | "below";
   disabled?: boolean;
 }
 
@@ -19,6 +22,7 @@ export function PillTooltip({
   content,
   emoji,
   align = "center",
+  side = "above",
   disabled = false,
 }: PillTooltipProps): React.JSX.Element {
   const [isVisible, setIsVisible] = useState(false);
@@ -29,6 +33,8 @@ export function PillTooltip({
   const arrowClass =
     align === "right" ? "right-3" : align === "left" ? "left-3" : "left-1/2 -translate-x-1/2";
 
+  const below = side === "below";
+
   return (
     <div className="relative inline-block">
       <div onMouseEnter={() => setIsVisible(true)} onMouseLeave={() => setIsVisible(false)}>
@@ -36,12 +42,16 @@ export function PillTooltip({
       </div>
       {isVisible && !disabled && (
         <div
-          className={`absolute bottom-full ${alignClass} mb-2 px-1.5 py-1 text-[10px] text-popover-foreground bg-popover border border-border rounded-full z-10 shadow-lg transition-opacity duration-150 whitespace-nowrap`}
+          className={`absolute ${below ? "top-full mt-2" : "bottom-full mb-2"} ${alignClass} px-1.5 py-1 text-[10px] text-popover-foreground bg-popover border border-border rounded-full z-10 shadow-lg transition-opacity duration-150 whitespace-nowrap`}
         >
           {emoji && <span className="me-1">{emoji}</span>}
           {content}
           <div
-            className={`absolute top-full ${arrowClass} w-0 h-0 border-l-2 border-r-2 border-t-2 border-transparent border-t-popover`}
+            className={`absolute ${
+              below
+                ? "bottom-full border-b-2 border-b-popover"
+                : "top-full border-t-2 border-t-popover"
+            } ${arrowClass} w-0 h-0 border-l-2 border-r-2 border-transparent`}
           ></div>
         </div>
       )}

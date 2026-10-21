@@ -1,4 +1,5 @@
 import { LIVE_TRANSCRIPT_SURFACE_LIMITS } from "./voiceSurfaceGeometry.mjs";
+import { parsePanelPosition } from "./floatingIconPlacement.js";
 
 export { LIVE_TRANSCRIPT_SURFACE_LIMITS };
 
@@ -146,7 +147,7 @@ export function resolveLiveTranscriptEntrancePresentation(phase) {
  * dedicated centered transition is designed.
  */
 export function resolveVoiceHorizontalDirection(panelStartPosition) {
-  return panelStartPosition === "bottom-left" ? "left" : "right";
+  return parsePanelPosition(panelStartPosition).horizontal === "left" ? "left" : "right";
 }
 
 export function resolveVoicePillDock({
@@ -167,7 +168,10 @@ export function resolveVoicePillDock({
     return "live-transcript-bottom-left";
   }
   if (assistantOpen) return `assistant-bottom-${horizontalDirection}`;
-  if (panelStartPosition === "center") return "center";
+  const { vertical, horizontal } = parsePanelPosition(panelStartPosition);
+  if (vertical === "top")
+    return horizontal === "center" ? "top-center" : `top-${horizontalDirection}`;
+  if (horizontal === "center") return "center";
   return `bottom-${horizontalDirection}`;
 }
 

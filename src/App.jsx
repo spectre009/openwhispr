@@ -47,6 +47,7 @@ import {
   shouldOfferLiveTranscriptReopen,
   shouldSuppressPillForAssistantActions,
 } from "./helpers/voicePillPresentation";
+import { panelDocksAtTop, parsePanelPosition } from "./helpers/floatingIconPlacement";
 
 const formatPillHotkeyLabel = (value) =>
   formatHotkeyListLabel(value)
@@ -77,11 +78,41 @@ export default function App() {
   // Floating icon auto-hide setting (read from store, synced via IPC)
   const floatingIconAutoHide = useSettingsStore((s) => s.floatingIconAutoHide);
   const panelStartPosition = useSettingsStore((s) => s.panelStartPosition);
+  const floatingIconDisplay = useSettingsStore((s) => s.floatingIconDisplay);
+  const floatingIconDisplayLabel = useSettingsStore((s) => s.floatingIconDisplayLabel);
   const prevAutoHideRef = useRef(floatingIconAutoHide);
+  // Settings → "Show me" holds auto-hide off for the preview's duration.
+  const [placementPreviewActive, setPlacementPreviewActive] = useState(false);
   const [voiceHorizontalDirection, setVoiceHorizontalDirection] = useState(() =>
     resolveVoiceHorizontalDirection(panelStartPosition)
   );
   const [mainWindowHorizontalDirection, setMainWindowHorizontalDirection] = useState(null);
+
+  // Main boots the window from .env, which can lag the settings this window
+  // read from localStorage; report them once so the two always agree. Main
+  // ignores an unchanged value.
+  useEffect(() => {
+    window.electronAPI?.notifyPanelStartPositionChanged?.(panelStartPosition);
+    window.electronAPI?.notifyFloatingIconDisplayChanged?.(
+      floatingIconDisplay,
+      floatingIconDisplayLabel
+    );
+    // Startup only: later changes are reported by the settings store's setters.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    let timer;
+    const unsubscribe = window.electronAPI?.onFloatingIconPlacementPreview?.((payload) => {
+      clearTimeout(timer);
+      setPlacementPreviewActive(true);
+      timer = setTimeout(() => setPlacementPreviewActive(false), payload?.durationMs ?? 2000);
+    });
+    return () => {
+      clearTimeout(timer);
+      unsubscribe?.();
+    };
+  }, []);
 
   const setWindowInteractivity = React.useCallback((shouldCapture) => {
     // Linux has one pointer-poll owner; native mouseleave must not undo its
@@ -418,6 +449,7 @@ export default function App() {
 
     if (
       floatingIconAutoHide &&
+      !placementPreviewActive &&
       !isRecording &&
       !isVisuallyProcessing &&
       toastCount === 0 &&
@@ -439,6 +471,7 @@ export default function App() {
     isRecording,
     isVisuallyProcessing,
     floatingIconAutoHide,
+    placementPreviewActive,
     toastCount,
     dictationErrorPillHandoffActive,
     assistant.mounted,
@@ -599,7 +632,10 @@ export default function App() {
     horizontalDirection: voiceHorizontalDirection,
   });
   const voicePillPopoverAlign =
-    panelStartPosition === "center" ? "center" : voiceHorizontalDirection;
+    parsePanelPosition(panelStartPosition).horizontal === "center"
+      ? "center"
+      : voiceHorizontalDirection;
+  const voicePillPopoverSide = panelDocksAtTop(panelStartPosition) ? "below" : "above";
   const voicePillTravelDuration =
     liveTranscript.open && liveTranscript.entrancePhase === "encapsulate"
       ? LIVE_TRANSCRIPT_ENTRANCE_TIMING.encapsulateMs
@@ -676,6 +712,7 @@ export default function App() {
             content={canReopenLiveTranscript ? t("transcriptionPreview.label") : micTooltip}
             disabled={anyPanelMounted}
             align={voicePillPopoverAlign}
+            side={voicePillPopoverSide}
           >
             <VoicePill
               ref={buttonRef}
@@ -771,6 +808,7 @@ export default function App() {
             <PillCommandMenu
               buttonRef={buttonRef}
               align={voicePillPopoverAlign}
+              side={voicePillPopoverSide}
               isRecording={isRecording}
               agentAllowed={agentAllowed}
               meetingAllowed={meetingAllowed}

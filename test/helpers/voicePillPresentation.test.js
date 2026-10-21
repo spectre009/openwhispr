@@ -71,6 +71,56 @@ test("voice mode direction mirrors the right baseline only for bottom-left", asy
   assert.equal(resolveVoiceHorizontalDirection("center"), "right");
 });
 
+test("middle positions dock and animate like the bottom position in their column", async () => {
+  const { resolveVoiceHorizontalDirection, resolveVoicePillDock } = await load();
+  const dock = (panelStartPosition) =>
+    resolveVoicePillDock({
+      liveTranscriptOpen: false,
+      liveTranscriptEntrancePhase: "idle",
+      assistantOpen: false,
+      panelStartPosition,
+    });
+
+  assert.equal(resolveVoiceHorizontalDirection("middle-left"), "left");
+  assert.equal(resolveVoiceHorizontalDirection("middle-right"), "right");
+  assert.equal(resolveVoiceHorizontalDirection("middle-center"), "right");
+  assert.equal(dock("middle-left"), "bottom-left");
+  assert.equal(dock("middle-right"), "bottom-right");
+  assert.equal(dock("middle-center"), "center");
+  assert.equal(dock("center"), "center");
+});
+
+test("top positions dock at the window's top edge, and panels keep their footer dock", async () => {
+  const { resolveVoiceHorizontalDirection, resolveVoicePillDock } = await load();
+  const dock = (panelStartPosition, assistantOpen = false) =>
+    resolveVoicePillDock({
+      liveTranscriptOpen: false,
+      liveTranscriptEntrancePhase: "idle",
+      assistantOpen,
+      panelStartPosition,
+    });
+
+  assert.equal(resolveVoiceHorizontalDirection("top-left"), "left");
+  assert.equal(dock("top-left"), "top-left");
+  assert.equal(dock("top-right"), "top-right");
+  assert.equal(dock("top-center"), "top-center");
+  assert.equal(dock("top-right", true), "assistant-bottom-right");
+});
+
+test("every resolvable dock has a stylesheet rule in the shared coordinate system", async () => {
+  const fs = require("node:fs");
+  const path = require("node:path");
+  const css = fs.readFileSync(path.join(__dirname, "../../src/styles/dictation-panel.css"), "utf8");
+  for (const dock of ["top-left", "top-center", "top-right"]) {
+    const rule = css.match(new RegExp(`\\.voice-pill-position-${dock} \\{([^}]*)\\}`));
+    assert.ok(rule, `.voice-pill-position-${dock} exists`);
+    // bottom + transform (never top), so the pill can glide to a footer dock.
+    assert.match(rule[1], /bottom: calc\(100% - 0\.75rem\)/);
+    assert.match(rule[1], /transform: translate\([^)]*, 100%\)/);
+    assert.doesNotMatch(rule[1], /\btop:/);
+  }
+});
+
 test("the speaking pill resolves right-origin modes onto one interpolable dock system", async () => {
   const { resolveVoicePillDock } = await load();
 

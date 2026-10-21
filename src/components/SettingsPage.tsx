@@ -115,6 +115,7 @@ import {
   InferenceModeSelector,
 } from "./ui/SettingsSection";
 import type { InferenceModeOption } from "./ui/SettingsSection";
+import { FloatingIconPlacementRows } from "./settings/FloatingIconPlacementRows";
 import { useSettingsLayout } from "./ui/useSettingsLayout";
 import { useUsage } from "../hooks/useUsage";
 import { cn } from "./lib/utils";
@@ -1228,6 +1229,9 @@ export default function SettingsPage({
     setStartMinimized,
     panelStartPosition,
     setPanelStartPosition,
+    floatingIconDisplay,
+    floatingIconDisplayLabel,
+    setFloatingIconDisplay,
     cloudBackupEnabled,
     setCloudBackupEnabled,
     insightsSyncEnabled,
@@ -3287,32 +3291,13 @@ export default function SettingsPage({
                     <Toggle checked={floatingIconAutoHide} onChange={setFloatingIconAutoHide} />
                   </SettingsRow>
                 </SettingsPanelRow>
-                <SettingsPanelRow>
-                  <SettingsRow
-                    label={t("settingsPage.general.floatingIcon.startPosition")}
-                    description={t("settingsPage.general.floatingIcon.startPositionDescription")}
-                  >
-                    <select
-                      value={panelStartPosition}
-                      onChange={(e) =>
-                        setPanelStartPosition(
-                          e.target.value as "bottom-right" | "center" | "bottom-left"
-                        )
-                      }
-                      className="h-7 rounded border border-border/70 bg-surface-1/80 px-2.5 text-xs font-medium text-foreground shadow-sm hover:border-border-hover hover:bg-surface-2/70 focus:outline-none focus:ring-2 focus:ring-ring/30 focus:ring-offset-1 transition-colors duration-200"
-                    >
-                      <option value="bottom-right">
-                        {t("settingsPage.general.floatingIcon.bottomRight")}
-                      </option>
-                      <option value="center">
-                        {t("settingsPage.general.floatingIcon.center")}
-                      </option>
-                      <option value="bottom-left">
-                        {t("settingsPage.general.floatingIcon.bottomLeft")}
-                      </option>
-                    </select>
-                  </SettingsRow>
-                </SettingsPanelRow>
+                <FloatingIconPlacementRows
+                  panelStartPosition={panelStartPosition}
+                  setPanelStartPosition={setPanelStartPosition}
+                  floatingIconDisplay={floatingIconDisplay}
+                  floatingIconDisplayLabel={floatingIconDisplayLabel}
+                  setFloatingIconDisplay={setFloatingIconDisplay}
+                />
               </SettingsPanel>
             </div>
 

@@ -37,25 +37,34 @@ const SETTLE_TIMEOUT_MS = 900;
 const closeEnough = (actual: number, expected: number) =>
   Math.abs(actual - expected) <= BOUNDS_TOLERANCE_PX;
 
-export type MainWindowResizeAnchor = "bottom-left" | "bottom-right" | "center";
+export type MainWindowResizeAnchor =
+  "bottom-left" | "bottom-right" | "center" | "top-left" | "top-right" | "top-center";
 
-/** Keep the configured bottom/side anchor fixed in screen space while the OS
- * delivers the move and resize halves of setBounds on different frames. */
+/** Keep the configured docked edge (bottom, or top for top-row positions) and
+ * side fixed in screen space while the OS delivers the move and resize halves
+ * of setBounds on different frames. "center" is the bottom-center anchor. */
 export function calculateWindowAnchorCompensation(
   target: MainWindowBounds,
   current: MainWindowBounds,
   anchor: MainWindowResizeAnchor
 ) {
-  const targetBottom = target.y + target.height;
-  const currentBottom = current.y + current.height;
+  const horizontal =
+    anchor === "center" || anchor === "top-center"
+      ? "center"
+      : anchor.endsWith("-left")
+        ? "left"
+        : "right";
   const x =
-    anchor === "bottom-left"
+    horizontal === "left"
       ? target.x - current.x
-      : anchor === "center"
+      : horizontal === "center"
         ? target.x + target.width / 2 - (current.x + current.width / 2)
         : target.x + target.width - (current.x + current.width);
+  const y = anchor.startsWith("top")
+    ? target.y - current.y
+    : target.y + target.height - (current.y + current.height);
 
-  return { x, y: targetBottom - currentBottom };
+  return { x, y };
 }
 
 /**

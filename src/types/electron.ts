@@ -35,6 +35,29 @@ import type {
 
 export type LocalTranscriptionProvider = "whisper" | "nvidia" | "cohere";
 
+// Where the floating icon rests; "center" is the legacy spelling of
+// bottom-center. Values come from src/helpers/floatingIconPlacement.js.
+export type PanelPosition =
+  | "top-left"
+  | "top-center"
+  | "top-right"
+  | "middle-left"
+  | "middle-center"
+  | "middle-right"
+  | "bottom-left"
+  | "center"
+  | "bottom-right";
+
+// A connected display as offered by the floating icon's Display setting.
+export interface FloatingIconDisplayInfo {
+  id: string;
+  label: string;
+  primary: boolean;
+  bounds: Electron.Rectangle;
+  workArea: Electron.Rectangle;
+  scaleFactor: number;
+}
+
 export interface MainWindowInputRegion {
   viewportWidth: number;
   viewportHeight: number;
@@ -2500,6 +2523,13 @@ declare global {
       onFloatingIconAutoHideChanged?: (callback: (enabled: boolean) => void) => () => void;
       notifyStartMinimizedChanged?: (enabled: boolean) => void;
       notifyPanelStartPositionChanged?: (position: string) => void;
+      notifyFloatingIconDisplayChanged?: (display: string, label: string) => void;
+      getDisplays?: () => Promise<FloatingIconDisplayInfo[]>;
+      onDisplaysChanged?: (callback: (displays: FloatingIconDisplayInfo[]) => void) => () => void;
+      previewFloatingIconPlacement?: () => Promise<{ success: boolean }>;
+      onFloatingIconPlacementPreview?: (
+        callback: (payload: { durationMs: number }) => void
+      ) => () => void;
       getMainWindowHorizontalDirection?: () => Promise<"left" | "right">;
       onMainWindowHorizontalDirectionChanged?: (
         callback: (direction: "left" | "right") => void
@@ -2507,7 +2537,8 @@ declare global {
       onMainWindowWillResize?: (
         callback: (resize: {
           bounds: Electron.Rectangle;
-          anchor: "bottom-left" | "bottom-right" | "center";
+          anchor:
+            "bottom-left" | "bottom-right" | "center" | "top-left" | "top-right" | "top-center";
         }) => void
       ) => () => void;
 

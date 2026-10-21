@@ -1,4 +1,4 @@
-const { app, screen, BrowserWindow, dialog, ipcMain, Menu } = require("electron");
+const { app, screen, BrowserWindow, dialog, ipcMain, Menu, powerMonitor } = require("electron");
 const debugLogger = require("./debugLogger");
 const tokenStore = require("./tokenStore");
 const accountScopeBinding = require("./accountScopeBinding");
@@ -13,6 +13,16 @@ const HotkeyManager = require("./hotkeyManager");
 const { isGlobeLikeHotkey } = HotkeyManager;
 const DragManager = require("./dragManager");
 const MainWindowPlacementCoordinator = require("./mainWindowPlacementCoordinator");
+const {
+  isFloatingIconDisplayLocked,
+  isPointInWorkArea,
+  normalizeFloatingIconDisplay,
+  normalizePanelPosition,
+  panelDocksAtTop,
+  parsePanelPosition,
+  pillRestingPoint,
+  resolvePreferredDisplay,
+} = require("./floatingIconPlacement");
 const MenuManager = require("./menuManager");
 const DevServerManager = require("./devServerManager");
 const {
@@ -36,6 +46,30 @@ const {
 } = require("./dictationLifecycle");
 const { DEV_SERVER_PORT } = DevServerManager;
 const DRAG_MOVE_TOLERANCE_PX = 2;
+// Fractional display scaling rounds setBounds, so a window rarely reports the
+// exact bounds it was given (and at 135% grows a pixel or two each time).
+// Placement treats bounds within these margins as already in place, and puts a
+// resting pill back at the exact BASE size rather than feeding a rounded size
+// into the next move.
+const PLACEMENT_TOLERANCE_PX = 2;
+const PLACEMENT_SIZE_SLACK_PX = 4;
+// The smallest grown surface (the pill menu) is 32px wider and 160px taller
+// than BASE; anything closer to BASE is a resting pill with rounding creep.
+const GROWN_SURFACE_THRESHOLD_PX = 16;
+// Display events arrive in bursts while monitors wake or rearrange, and Windows
+// may still move windows after the last one. Placement is reconciled once the
+// burst settles, then checked again, a bounded number of times.
+const TOPOLOGY_RECONCILE_DELAYS_MS = Object.freeze([750, 1750, 3750]);
+const PLACEMENT_PREVIEW_MS = 2000;
+
+function boundsWithin(a, b) {
+  return (
+    Math.abs(a.x - b.x) <= PLACEMENT_TOLERANCE_PX &&
+    Math.abs(a.y - b.y) <= PLACEMENT_TOLERANCE_PX &&
+    Math.abs(a.width - b.width) <= PLACEMENT_SIZE_SLACK_PX &&
+    Math.abs(a.height - b.height) <= PLACEMENT_SIZE_SLACK_PX
+  );
+}
 const {
   MAIN_WINDOW_CONFIG,
   CONTROL_PANEL_CONFIG,
@@ -112,6 +146,13 @@ class WindowManager {
     this._cachedActivationMode = "tap";
     this._floatingIconAutoHide = false;
     this._panelStartPosition = "bottom-right";
+    this._floatingIconDisplay = "cursor";
+    this._floatingIconDisplayLabel = "";
+    this._lastLockedDisplayMatch = null;
+    this._manualRestingBounds = null;
+    this._surfaceGeneration = 0;
+    this._topologyTimers = [];
+    this._placementTopologyListening = false;
     this._activeHorizontalDirection = null;
     this._isDictatingToggle = false;
     this._dictationLifecycleState = DICTATION_LIFECYCLE.IDLE;
@@ -129,8 +170,8 @@ class WindowManager {
   }
 
   async createMainWindow() {
-    const cursorPos = screen.getCursorScreenPoint();
-    const display = screen.getDisplayNearestPoint(cursorPos);
+    const display =
+      this._resolveLockedDisplay() || screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
     const position = WindowPositionUtil.getMainWindowPosition(
       display,
       null,
@@ -141,6 +182,7 @@ class WindowManager {
       ...MAIN_WINDOW_CONFIG,
       ...position,
     });
+    this._listenForPlacementTopologyChanges();
 
     this.setMainWindowInteractivity(false);
     this.registerMainWindowEvents();
@@ -524,13 +566,22 @@ class WindowManager {
     return this._mainWindowResizeQueue;
   }
 
-  // The pill is bottom-anchored, so the display that owns its bottom-center
-  // point is the one that must keep it through resizes and repositions.
+  // The display that owns the resting pill must keep it through resizes and
+  // repositions. The pill's own center identifies it: an edge point can sit on
+  // a neighbouring display once a grown surface reaches a display edge.
   _getMainWindowDisplayFor(bounds) {
-    return screen.getDisplayNearestPoint({
-      x: bounds.x + bounds.width / 2,
-      y: bounds.y + bounds.height,
-    });
+    return screen.getDisplayNearestPoint(pillRestingPoint(bounds, this._panelStartPosition));
+  }
+
+  // The resize mask's anchor: the edge the pill docks against (top, or bottom
+  // for the other rows) and its side of the window, or its center.
+  _mainWindowResizeAnchor() {
+    const top = panelDocksAtTop(this._panelStartPosition);
+    if (parsePanelPosition(this._panelStartPosition).horizontal === "center") {
+      return top ? "top-center" : "center";
+    }
+    const side = this._activeHorizontalDirection || this.getMainWindowHorizontalDirection();
+    return `${top ? "top" : "bottom"}-${side}`;
   }
 
   _resolveMainWindowSize(sizeKey, workArea, request) {
@@ -592,10 +643,7 @@ class WindowManager {
         ...this._baseBoundsBeforeResize,
         ...WindowPositionUtil.clampToWorkArea(this._baseBoundsBeforeResize, display),
       };
-      const restoreAnchor =
-        this._panelStartPosition === "center"
-          ? "center"
-          : `bottom-${this._activeHorizontalDirection || this.getMainWindowHorizontalDirection()}`;
+      const restoreAnchor = this._mainWindowResizeAnchor();
       this._baseBoundsBeforeResize = null;
       if (
         restored.x === currentBounds.x &&
@@ -624,10 +672,18 @@ class WindowManager {
     if (
       sizeKey !== "BASE" &&
       !this._baseBoundsBeforeResize &&
-      currentBounds.width === WINDOW_SIZES.BASE.width &&
-      currentBounds.height === WINDOW_SIZES.BASE.height
+      Math.abs(currentBounds.width - WINDOW_SIZES.BASE.width) <= PLACEMENT_SIZE_SLACK_PX &&
+      Math.abs(currentBounds.height - WINDOW_SIZES.BASE.height) <= PLACEMENT_SIZE_SLACK_PX
     ) {
-      this._baseBoundsBeforeResize = { ...currentBounds };
+      // Fractional scaling rounds the resting window a pixel or two off BASE;
+      // record the exact BASE box at the pill's anchor so the restore neither
+      // misses it nor feeds the rounded size back in.
+      this._baseBoundsBeforeResize = WindowPositionUtil.anchorToRestingBounds(
+        currentBounds,
+        WINDOW_SIZES.BASE,
+        this._panelStartPosition,
+        display
+      );
       this._activeHorizontalDirection = resolveHorizontalWindowDirection(
         currentBounds,
         display,
@@ -642,28 +698,28 @@ class WindowManager {
         this._panelStartPosition
       );
     }
-    const position =
-      this._panelStartPosition === "center"
+    const position = this._mainWindowResizeAnchor();
+
+    // Keep the pill's docked edge fixed: the top edge for the top row (surfaces
+    // open downward), the bottom edge otherwise (they open upward); and its
+    // side of the window, or its center.
+    const horizontalAnchor =
+      position === "center" || position === "top-center"
         ? "center"
-        : `bottom-${this._activeHorizontalDirection || this.getMainWindowHorizontalDirection()}`;
-
-    let newX, newY;
-
-    if (position === "bottom-left") {
-      // Anchor bottom-left corner: keep x, expand rightward and upward
+        : position.endsWith("-left")
+          ? "left"
+          : "right";
+    let newX;
+    if (horizontalAnchor === "left") {
       newX = currentBounds.x;
-      newY = currentBounds.y + currentBounds.height - newSize.height;
-    } else if (position === "center") {
-      // Anchor bottom-center: expand symmetrically and upward
-      const centerX = currentBounds.x + currentBounds.width / 2;
-      newX = centerX - newSize.width / 2;
-      newY = currentBounds.y + currentBounds.height - newSize.height;
+    } else if (horizontalAnchor === "center") {
+      newX = currentBounds.x + currentBounds.width / 2 - newSize.width / 2;
     } else {
-      // bottom-right (default): anchor bottom-right corner, expand leftward and upward
-      const bottomRightX = currentBounds.x + currentBounds.width;
-      newX = bottomRightX - newSize.width;
-      newY = currentBounds.y + currentBounds.height - newSize.height;
+      newX = currentBounds.x + currentBounds.width - newSize.width;
     }
+    const newY = position.startsWith("top")
+      ? currentBounds.y
+      : currentBounds.y + currentBounds.height - newSize.height;
 
     const clamped = WindowPositionUtil.clampToWorkArea({ x: newX, y: newY, ...newSize }, display);
     const newBounds = { ...clamped, ...newSize };
@@ -1304,7 +1360,7 @@ class WindowManager {
 
   getMainWindowHorizontalDirection() {
     if (!this.mainWindow || this.mainWindow.isDestroyed()) {
-      return this._panelStartPosition === "bottom-left" ? "left" : "right";
+      return parsePanelPosition(this._panelStartPosition).horizontal === "left" ? "left" : "right";
     }
     const bounds = this.mainWindow.getBounds();
     const display = this._getMainWindowDisplayFor(bounds);
@@ -1320,22 +1376,245 @@ class WindowManager {
   }
 
   setPanelStartPosition(position) {
-    this._panelStartPosition = position || "bottom-right";
-    this._mainWindowPlacementCoordinator.resetManualPosition();
-    this._activeHorizontalDirection = null;
-    // Reposition the window immediately
-    if (this.mainWindow && !this.mainWindow.isDestroyed()) {
-      const currentBounds = this.mainWindow.getBounds();
-      const display = this._getMainWindowDisplayFor(currentBounds);
-      const newPos = WindowPositionUtil.getMainWindowPosition(
-        display,
-        { width: currentBounds.width, height: currentBounds.height },
-        this._panelStartPosition
-      );
-      this._clearRendererResizeMask();
-      this.mainWindow.setBounds(newPos);
-      this._notifyMainWindowHorizontalDirection();
+    const next = normalizePanelPosition(position);
+    if (next === this._panelStartPosition) return;
+    this._panelStartPosition = next;
+    this._applyChangedPlacementSetting();
+  }
+
+  setFloatingIconDisplay(display, label = "") {
+    const nextDisplay = normalizeFloatingIconDisplay(display);
+    const nextLabel = typeof label === "string" ? label.trim() : "";
+    if (nextDisplay === this._floatingIconDisplay && nextLabel === this._floatingIconDisplayLabel) {
+      return;
     }
+    this._floatingIconDisplay = nextDisplay;
+    this._floatingIconDisplayLabel = nextLabel;
+    this._lastLockedDisplayMatch = null;
+    this._applyChangedPlacementSetting();
+  }
+
+  // A new placement setting is the user choosing a spot: it replaces any drag
+  // and applies right away, refitting an open panel rather than collapsing it.
+  _applyChangedPlacementSetting() {
+    this._mainWindowPlacementCoordinator.resetManualPosition();
+    this._manualRestingBounds = null;
+    this._activeHorizontalDirection = null;
+    if (!this.mainWindow || this.mainWindow.isDestroyed()) return;
+    void this._enqueueMainWindowMutation(() => {
+      if (!this.mainWindow || this.mainWindow.isDestroyed()) return { applied: false };
+      const result = this._commitPlacement(this._resolvePlacementDisplay(), { reason: "setting" });
+      this._notifyMainWindowHorizontalDirection();
+      return result;
+    });
+  }
+
+  // Shows the pill at its configured spot for a moment, so a settings change
+  // can be seen without dictating. The renderer holds auto-hide off for the
+  // preview and hides the pill again only if nothing else claimed it.
+  async previewFloatingIconPlacement() {
+    if (this._onboardingActive || !this.mainWindow || this.mainWindow.isDestroyed()) {
+      return { success: false };
+    }
+    if (this._assistantPanelOpen || this._assistantPanelBusy) return { success: false };
+    this._mainWindowPlacementCoordinator.resetManualPosition();
+    this._manualRestingBounds = null;
+    await this._enqueueMainWindowMutation(() =>
+      this.mainWindow && !this.mainWindow.isDestroyed()
+        ? this._commitPlacement(this._resolvePlacementDisplay({ followCursor: true }), {
+            reason: "preview",
+          })
+        : { applied: false }
+    );
+    if (!this.mainWindow || this.mainWindow.isDestroyed()) return { success: false };
+    this.mainWindow.webContents.send("floating-icon-placement-preview", {
+      durationMs: PLACEMENT_PREVIEW_MS,
+    });
+    this._surfaceMainWindow(false);
+    return { success: true };
+  }
+
+  getDisplaysForSettings() {
+    const primaryId = screen.getPrimaryDisplay()?.id;
+    return screen.getAllDisplays().map((display) => ({
+      id: String(display.id),
+      label: typeof display.label === "string" ? display.label : "",
+      primary: display.id === primaryId,
+      bounds: display.bounds,
+      workArea: display.workArea,
+      scaleFactor: display.scaleFactor,
+    }));
+  }
+
+  // The configured display, re-read from the connected displays each time so a
+  // removed monitor is never used. Null when the icon follows the cursor.
+  _resolveLockedDisplay() {
+    if (!isFloatingIconDisplayLocked(this._floatingIconDisplay)) return null;
+    const resolved = resolvePreferredDisplay({
+      preference: this._floatingIconDisplay,
+      label: this._floatingIconDisplayLabel,
+      displays: screen.getAllDisplays(),
+      primaryDisplay: screen.getPrimaryDisplay(),
+    });
+    if (resolved && resolved.matchedBy !== this._lastLockedDisplayMatch) {
+      this._lastLockedDisplayMatch = resolved.matchedBy;
+      debugLogger.info(
+        "[WindowManager] Floating icon display resolved",
+        {
+          preference: this._floatingIconDisplay,
+          label: this._floatingIconDisplayLabel,
+          matchedBy: resolved.matchedBy,
+          displayId: resolved.display?.id,
+        },
+        "window"
+      );
+    }
+    return resolved?.display || null;
+  }
+
+  // Where a placement that isn't a dictation start lands: the locked display,
+  // or, following the cursor, the display the pill is already on (a settings
+  // change keeps it there) or the one under the mouse (a preview shows it
+  // where dictating would).
+  _resolvePlacementDisplay({ followCursor = false } = {}) {
+    const locked = this._resolveLockedDisplay();
+    if (locked) return locked;
+    if (followCursor) return screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
+    return this._getMainWindowDisplayFor(this.mainWindow.getBounds());
+  }
+
+  // Configured bounds on `display` for the window's current surface. A resting
+  // pill gets the exact BASE bounds; a grown surface keeps the resting pill's
+  // anchor, and the resting bounds it returns to are recorded so a clamp on the
+  // way can't make the pill drift.
+  _configuredMainWindowBounds(display, currentBounds) {
+    const base = WindowPositionUtil.getMainWindowPosition(
+      display,
+      WINDOW_SIZES.BASE,
+      this._panelStartPosition
+    );
+    const size = { width: currentBounds.width, height: currentBounds.height };
+    const grown =
+      size.width > base.width + GROWN_SURFACE_THRESHOLD_PX ||
+      size.height > base.height + GROWN_SURFACE_THRESHOLD_PX;
+    const bounds = grown
+      ? WindowPositionUtil.anchorToRestingBounds(base, size, this._panelStartPosition, display)
+      : { ...base };
+    return { base, bounds, grown };
+  }
+
+  // Puts the pill where the settings say on `display`. Runs inside the native
+  // geometry queue, so a resize already in flight finishes first and nothing
+  // queued earlier can overwrite it.
+  _commitPlacement(display, { reason }) {
+    if (!this.mainWindow || this.mainWindow.isDestroyed() || !display) {
+      return { applied: false, reason: "no-window" };
+    }
+    if (this.dragManager.isDragActive()) return { applied: false, reason: "dragging" };
+
+    const currentBounds = this.mainWindow.getBounds();
+    const coordinator = this._mainWindowPlacementCoordinator;
+    if (coordinator.hasManualPosition()) {
+      const manual = this._manualRestingBounds;
+      if (
+        manual &&
+        isPointInWorkArea(pillRestingPoint(manual, this._panelStartPosition), display)
+      ) {
+        // The drag still applies. Put the pill back only when something else
+        // (Windows, after a monitor change) moved it; a grown surface stays.
+        const sameSize =
+          Math.abs(manual.width - currentBounds.width) <= PLACEMENT_SIZE_SLACK_PX &&
+          Math.abs(manual.height - currentBounds.height) <= PLACEMENT_SIZE_SLACK_PX;
+        if (!sameSize || boundsWithin(manual, currentBounds)) {
+          return { applied: false, reason: "manual-position" };
+        }
+        return this._setPlacedBounds({ ...manual }, null, {
+          reason: `${reason}:manual`,
+          display,
+        });
+      }
+      // Dragged off the display the pill belongs on: the drag no longer applies.
+      coordinator.releaseManualPosition();
+      this._manualRestingBounds = null;
+    }
+
+    const { base, bounds, grown } = this._configuredMainWindowBounds(display, currentBounds);
+    if (boundsWithin(bounds, currentBounds)) {
+      if (grown && !this._baseBoundsBeforeResize) this._baseBoundsBeforeResize = base;
+      return { applied: false, reason: "in-place" };
+    }
+    return this._setPlacedBounds(bounds, grown ? base : null, { reason, display });
+  }
+
+  _setPlacedBounds(bounds, restingBase, { reason, display }) {
+    debugLogger.debug(
+      "[WindowManager] Placing dictation panel",
+      { reason, from: this.mainWindow.getBounds(), to: bounds, displayId: display?.id },
+      "window"
+    );
+    this._clearRendererResizeMask();
+    this.mainWindow.setBounds(bounds);
+    // An intentional native move, not a drag: resize restoration must not read
+    // it as the user moving the pill.
+    this._lastResizeBounds = { ...bounds };
+    this._baseBoundsBeforeResize = restingBase ? { ...restingBase } : null;
+    this._activeHorizontalDirection = restingBase
+      ? resolveHorizontalWindowDirection(restingBase, display, this._panelStartPosition)
+      : null;
+    this._notifyMainWindowHorizontalDirection();
+    return { applied: true, bounds };
+  }
+
+  _listenForPlacementTopologyChanges() {
+    if (this._placementTopologyListening) return;
+    this._placementTopologyListening = true;
+    const schedule = (event) => () => this._scheduleTopologyReconcile(event);
+    for (const event of ["display-added", "display-removed", "display-metrics-changed"]) {
+      screen.on(event, schedule(event));
+    }
+    powerMonitor?.on?.("resume", schedule("resume"));
+    powerMonitor?.on?.("unlock-screen", schedule("unlock-screen"));
+  }
+
+  _scheduleTopologyReconcile(event) {
+    for (const timer of this._topologyTimers) clearTimeout(timer);
+    this._topologyTimers = TOPOLOGY_RECONCILE_DELAYS_MS.map((delay, pass) =>
+      setTimeout(() => {
+        if (pass === 0) this._broadcastDisplaysChanged();
+        void this._enqueueMainWindowMutation(() => this._reconcilePlacementAfterTopology(event));
+      }, delay)
+    );
+  }
+
+  _broadcastDisplaysChanged() {
+    const panel = this.controlPanelWindow;
+    if (!panel || panel.isDestroyed()) return;
+    panel.webContents.send("displays-changed", this.getDisplaysForSettings());
+  }
+
+  // After monitors change (or sleep, wake and unlock), put the pill back where
+  // it belongs: Windows relocates windows off displays it is turning off and
+  // does not move them back.
+  _reconcilePlacementAfterTopology(event) {
+    if (!this.mainWindow || this.mainWindow.isDestroyed() || this._onboardingActive) {
+      return { applied: false, reason: "no-window" };
+    }
+    if (this.dragManager.isDragActive()) return { applied: false, reason: "dragging" };
+    const currentBounds = this.mainWindow.getBounds();
+    if (this._assistantPanelOpen || this._assistantPanelBusy) {
+      // An open panel owns its geometry; only keep it on screen.
+      const display = this._getMainWindowDisplayFor(currentBounds);
+      const clamped = WindowPositionUtil.clampToWorkArea(currentBounds, display);
+      if (clamped.x === currentBounds.x && clamped.y === currentBounds.y) {
+        return { applied: false, reason: "panel-open" };
+      }
+      this._clearRendererResizeMask();
+      this.mainWindow.setBounds({ ...currentBounds, ...clamped });
+      this._lastResizeBounds = { ...currentBounds, ...clamped };
+      return { applied: true, reason: "panel-open" };
+    }
+    const display = this._resolveLockedDisplay() || this._getMainWindowDisplayFor(currentBounds);
+    return this._commitPlacement(display, { reason: `topology:${event}` });
   }
 
   setHotkeyListeningMode(enabled) {
@@ -1407,6 +1686,7 @@ class WindowManager {
         Math.abs(draggedBounds.y - start.y) > DRAG_MOVE_TOLERANCE_PX;
       if (moved) {
         this._mainWindowPlacementCoordinator.markManuallyPositioned();
+        this._manualRestingBounds = { ...draggedBounds };
         this._baseBoundsBeforeResize = null;
         this._lastResizeBounds = { ...draggedBounds };
       }
@@ -1645,13 +1925,18 @@ class WindowManager {
       : screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
   }
 
+  // A dictation is starting: put the pill at its configured spot on the locked
+  // display, or on the display the user is working on. This also undoes any
+  // move Windows made while monitors slept or rearranged.
   _repositionToActiveDisplay(targetPidPromise) {
+    const locked = isFloatingIconDisplayLocked(this._floatingIconDisplay);
     return this._mainWindowPlacementCoordinator.request(
-      () => this._resolveActiveDisplay(targetPidPromise),
+      () => (locked ? this._resolveLockedDisplay() : this._resolveActiveDisplay(targetPidPromise)),
       (activeDisplay, isCurrent) =>
         this._enqueueMainWindowMutation(() =>
           this._performActiveDisplayReposition(activeDisplay, isCurrent)
-        )
+        ),
+      { deferManual: locked }
     );
   }
 
@@ -1664,46 +1949,13 @@ class WindowManager {
     ) {
       return { applied: false, reason: "superseded" };
     }
-
-    const currentBounds = this.mainWindow.getBounds();
-    const currentDisplay = this._getMainWindowDisplayFor(currentBounds);
-
-    if (currentDisplay.id === activeDisplay.id) {
-      // Nearest-display math can't tell "on this display" from "just past its
-      // edge", so a rearranged monitor or a drag that ended over another
-      // display can leave the panel stranded in dead space, looking like the
-      // overlay vanished. Pull it back before showing it.
-      const clamped = WindowPositionUtil.clampToWorkArea(currentBounds, currentDisplay);
-      if (clamped.x !== currentBounds.x || clamped.y !== currentBounds.y) {
-        const clampedBounds = { ...currentBounds, ...clamped };
-        this._clearRendererResizeMask();
-        this.mainWindow.setBounds(clampedBounds);
-        this._lastResizeBounds = { ...clampedBounds };
-        this._baseBoundsBeforeResize = null;
-        return { applied: true, bounds: clampedBounds };
-      }
-      return { applied: false, reason: "same-display" };
-    }
-
-    const newPos = WindowPositionUtil.getMainWindowPosition(
-      activeDisplay,
-      { width: currentBounds.width, height: currentBounds.height },
-      this._panelStartPosition
-    );
-    debugLogger.debug(
-      "[WindowManager] Moving dictation panel to the active display",
-      { from: currentBounds, to: newPos, displayId: activeDisplay.id },
-      "window"
-    );
-    this._clearRendererResizeMask();
-    this.mainWindow.setBounds(newPos);
-    // This is an intentional native move, not a drag. Keep resize restoration
-    // from treating the old display's bounds as the user's desired base state.
-    this._lastResizeBounds = { ...newPos };
-    this._baseBoundsBeforeResize = null;
-    this._activeHorizontalDirection = null;
-    this._notifyMainWindowHorizontalDirection();
-    return { applied: true, bounds: newPos };
+    // Re-read the display inside the queue: the one resolved before it may have
+    // been disconnected while a resize ran.
+    const display =
+      this._resolveLockedDisplay() ||
+      screen.getAllDisplays().find((candidate) => candidate.id === activeDisplay?.id) ||
+      screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
+    return this._commitPlacement(display, { reason: "dictation-start" });
   }
 
   showDictationPanel(options = {}) {
@@ -1718,8 +1970,24 @@ class WindowManager {
       return;
     }
     if (reposition) {
-      void this._repositionToActiveDisplay(targetPidPromise);
+      const placement = this._repositionToActiveDisplay(targetPidPromise);
+      // With a locked display the target is known at once, so a hidden pill is
+      // shown only after it moved: it never flashes at its previous spot. A
+      // hide in the meantime (a quick stop or cancel) wins.
+      if (isFloatingIconDisplayLocked(this._floatingIconDisplay) && !this.mainWindow.isVisible()) {
+        const generation = ++this._surfaceGeneration;
+        const surface = () => {
+          if (generation === this._surfaceGeneration) this._surfaceMainWindow(focus);
+        };
+        void placement.then(surface, surface);
+        return;
+      }
     }
+    this._surfaceMainWindow(focus);
+  }
+
+  _surfaceMainWindow(focus) {
+    if (this._onboardingActive || !this.mainWindow || this.mainWindow.isDestroyed()) return;
     if (this.mainWindow.isMinimized()) {
       this.mainWindow.restore();
     }
@@ -1964,6 +2232,7 @@ class WindowManager {
     // opened invisibly and nothing could show it again).
     if (this._assistantPanelOpen || this._assistantPanelBusy) return;
     this._mainWindowPlacementCoordinator.cancelPending();
+    this._surfaceGeneration += 1;
     if (this.mainWindow && !this.mainWindow.isDestroyed()) this.mainWindow.hide();
   }
 

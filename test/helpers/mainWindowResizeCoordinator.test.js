@@ -71,6 +71,30 @@ test("anchor compensation pins the configured edge for bottom-left and center an
   }
 });
 
+test("top anchors pin the window's top edge instead of its bottom", async () => {
+  const { calculateWindowAnchorCompensation } = await load();
+  const target = { x: 100, y: 4, width: 466, height: 562 };
+  const current = { x: 130, y: 10, width: 208, height: 120 };
+
+  assert.deepEqual(calculateWindowAnchorCompensation(target, current, "top-left"), {
+    x: -30,
+    y: -6,
+  });
+  // target center 333 vs current center 234.
+  assert.deepEqual(calculateWindowAnchorCompensation(target, current, "top-center"), {
+    x: 99,
+    y: -6,
+  });
+  // target right 566 vs current right 338.
+  assert.deepEqual(calculateWindowAnchorCompensation(target, current, "top-right"), {
+    x: 228,
+    y: -6,
+  });
+  for (const anchor of ["top-left", "top-center", "top-right"]) {
+    assert.deepEqual(calculateWindowAnchorCompensation(target, target, anchor), { x: 0, y: 0 });
+  }
+});
+
 test("dispose flushes the queued resize and refuses later requests without invoking", async () => {
   const { createMainWindowResizeCoordinator } = await load();
   const first = deferred();

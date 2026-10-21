@@ -172,7 +172,13 @@ OpenWhispr is an Electron-based desktop dictation application that uses whisper.
 - **localEmbeddings.js**: Local text embedding via ONNX Runtime + all-MiniLM-L6-v2 (384-dim vectors)
 - **vectorIndex.js**: Qdrant collection management — upsert, delete, search
 - **windowConfig.js**: Centralized window configuration
+  - `WindowPositionUtil.getMainWindowPosition` places the dictation window by a `panelStartPosition` on a display: rows `top`, `middle` and `bottom`, columns `left`, `center`, `right` (bottom-center is stored as the legacy `center`). The top row anchors the window's top edge, so grown surfaces (menu, toasts, error card, voice panels) open downward; the other rows anchor its bottom edge and open upward, the middle row putting that edge 32px below the work-area center, which centers the resting 40px pill over its 12px dock inset (`PILL_RESTING_CENTER_OFFSET`). `anchorToRestingBounds` derives a grown window's bounds from the resting ones
+  - Top-row renderer mirror: the pill's top docks (`.voice-pill-position-top-*`) are spelled in the same `bottom`/`transform` coordinates as every other dock so the pill glides into a panel footer; `PillTooltip` and `PillCommandMenu` take `side="below"`; the dictation window's toast viewport reads the setting (`panelDocksAtTop`) to open below the pill; the resize mask has `top-left`/`top-center`/`top-right` anchors. The assistant and live-transcript panels still keep their pill in a bottom footer
+- **floatingIconPlacement.js**: Pure ESM shared by main, renderer and tests: position parsing and normalizing, the display preference (`cursor`, `primary`, or an Electron display id) and `resolvePreferredDisplay`, which matches the id unless the remembered EDID label contradicts it, then a unique label (Windows display ids hash adapter + output and can change across reboots or driver resets), then falls back to the primary display without forgetting the preference
 - **windowManager.js**: Window creation and lifecycle management
+  - Dictation window placement: one owner, through the native geometry queue (`_enqueueMainWindowMutation`), so a placement can never be overwritten by a resize waiting on the renderer's resize mask. `_commitPlacement` puts the pill at its configured spot on a display and records the resting bounds a grown surface returns to. At fractional scaling (135%) each `setBounds` rounds and grows the window a pixel or two, so placement and the BASE restore always set the exact BASE box instead of feeding the reported size back
+  - When it runs: at a dictation start (`showDictationPanel({ reposition: true })`, on the locked display or the one the user works on — the cursor's on Windows/Linux, the target app's window on macOS), on a settings change, and after display changes, sleep/wake and unlock (debounced, then re-checked at bounded intervals, since Windows relocates windows off displays it turns off and never moves them back). A start on a locked display shows a hidden pill only after it moved, and a hide in the meantime wins
+  - A drag (`stopWindowDrag` with movement) keeps the pill where the user put it; with a locked display only while it stays on that display. Settings changes and Settings → "Show me" (`previewFloatingIconPlacement`, held visible by the renderer for 2s against auto-hide) reset it
 - **cliBridge.js**: Loopback HTTP server on ports 8200–8219, bearer-token auth (token at `~/.openwhispr/cli-bridge.json`), 127.0.0.1-only. Used by the unified CLI to talk to a running desktop app. `POST /v1/transcribe` takes a file **path** (never audio) and runs the user's downloaded local model through `IPCHandlers.transcribeLocalFile`, approving the path with `approveAudioPath` first; `GET /v1/transcribe/models` lists local models with download state and the app's default (`localTranscriptionModels.js`, read from the `.env` pre-warm values).
 - **connectors/**: Agent connectors
   - `connectorManager.js` owns every outside action: `prepare` → ApprovalCard → `commit` for anything other people see, `runDirect` for private drafts. The model can never reach `commit`
@@ -394,6 +400,8 @@ Settings stored in localStorage with these keys:
 - `customDictionary`: JSON array of words/phrases for improved transcription accuracy
 - `keepLocalModelLoaded`: Keeps the shared llama-server loaded instead of unloading it after 5 idle minutes (#1207; default off). Synced to main with `sync-startup-preferences`, outside its policy gate; `LlamaServerManager.setKeepResident` acts only on a change, since every window resyncs on load
 - `emailDraftTarget`: Where email drafts open (`auto`, `gmail`, `gmailSend`, `outlookWork`, `outlookPersonal`, `mailto`); `gmailSend` sends through the Gmail connector's approval card ("Send from chat (Gmail)"); an unknown value reads as `auto`
+- `panelStartPosition`: Where the floating dictation icon rests (`top-left`, `top-center`, `top-right`, `middle-left`, `middle-center`, `middle-right`, `bottom-left`, `center` = bottom-center, `bottom-right`); an unknown value reads as `bottom-right`
+- `floatingIconDisplay` / `floatingIconDisplayLabel`: Which display shows it (`cursor`, `primary`, or an Electron display id plus that monitor's name). The dictation window reports both to main once at load, since main boots the window from the `.env` copies
 
 Secret env vars (12 total: 7 BYOK API keys + 5 enterprise cloud creds — see `SECRET_KEYS` in `environment.js`) are encrypted at rest via Electron `safeStorage` and stored as per-key files under `userData/secure-keys/`. They are loaded into `process.env` at startup by `EnvironmentManager.init()`. Renderer reads them via IPC (`get-*-key`) and writes via debounced IPC (`save-*-key`). On Linux without a keyring, secrets fall back to plaintext.
 
@@ -401,6 +409,7 @@ Non-secret env vars persisted to `.env` (via `saveAllKeysToEnvFile()`):
 
 - `LOCAL_TRANSCRIPTION_PROVIDER`: Transcription engine (`nvidia` for Parakeet)
 - `PARAKEET_MODEL`: Selected Parakeet model name (e.g., `parakeet-tdt-0.6b-v3`)
+- `PANEL_START_POSITION`, `FLOATING_ICON_DISPLAY`, `FLOATING_ICON_DISPLAY_LABEL`: Copies of the floating icon placement settings, read before any window exists to place the dictation window at boot
 
 ### 6. Language Support
 
@@ -858,6 +867,7 @@ UI icons come from `src/components/icons/` (vendored Nucleo core outline compone
 - [ ] Test Hyprland Wayland hotkeys (if on Hyprland + Wayland)
 - [ ] Verify activation mode selector is hidden on GNOME Wayland and Hyprland Wayland
 - [ ] Verify meeting detection works with event-driven mode (check debug logs for "event-driven")
+- [ ] Multi-monitor: with Display set to a monitor, dictate with the mouse on another one — the icon stays on the chosen monitor at the chosen position; sleep and wake a monitor, and the icon returns to its spot
 - [ ] Test meeting notification suppression during recording
 - [ ] Test post-recording cooldown (notifications shouldn't flash immediately)
 - [ ] Create a note about "quarterly revenue projections", search via agent for "financial forecast" — should match semantically

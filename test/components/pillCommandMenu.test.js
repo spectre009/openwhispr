@@ -64,6 +64,21 @@ test("the command menu anchors on the pill's docked side", async (t) => {
   }
 });
 
+test("the command menu opens below a pill docked at the top of its window", async (t) => {
+  const menuClasses = async (side) => {
+    const markup = await renderMenu(t, side ? { side } : {});
+    return markup.match(/^<div class="([^"]*)"/)[1].split(" ");
+  };
+
+  const above = await menuClasses();
+  assert.ok(above.includes("bottom-full") && above.includes("mb-3"));
+  assert.ok(!above.includes("top-full"));
+
+  const below = await menuClasses("below");
+  assert.ok(below.includes("top-full") && below.includes("mt-3"));
+  assert.ok(!below.includes("bottom-full"));
+});
+
 test("the command menu offers a meeting recording only while idle and allowed", async (t) => {
   assert.match(await renderMenu(t, {}), /startMeetingRecording/);
   assert.doesNotMatch(await renderMenu(t, { isRecording: true }), /startMeetingRecording/);

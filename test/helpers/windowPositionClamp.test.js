@@ -95,3 +95,151 @@ test("clamps against negative-origin displays and falls back to bounds", () => {
     { x: -451, y: -1440 }
   );
 });
+
+// The 57" primary display under two 32" monitors, as Electron reports it.
+const ULTRAWIDE = { workArea: { x: 0, y: 0, width: 5672, height: 1548 } };
+const UPPER_LEFT = { workArea: { x: -16, y: -1596, width: 2836, height: 1596 } };
+
+test("the middle row centers the resting pill on the work area", () => {
+  // Window bottom = work-area center (774) + 32 (12px dock inset + half the 40px pill).
+  assert.deepEqual(WindowPositionUtil.getMainWindowPosition(ULTRAWIDE, null, "middle-center"), {
+    x: 2732,
+    y: 686,
+    width: 208,
+    height: 120,
+  });
+  assert.deepEqual(WindowPositionUtil.getMainWindowPosition(ULTRAWIDE, null, "middle-left"), {
+    x: 4,
+    y: 686,
+    width: 208,
+    height: 120,
+  });
+  assert.deepEqual(WindowPositionUtil.getMainWindowPosition(ULTRAWIDE, null, "middle-right"), {
+    x: 5460,
+    y: 686,
+    width: 208,
+    height: 120,
+  });
+  assert.deepEqual(WindowPositionUtil.getMainWindowPosition(UPPER_LEFT, null, "middle-center"), {
+    x: 1298,
+    y: -886,
+    width: 208,
+    height: 120,
+  });
+});
+
+test("the middle row keeps its bottom edge for any window height", () => {
+  const grown = WindowPositionUtil.getMainWindowPosition(
+    ULTRAWIDE,
+    { width: 466, height: 562 },
+    "middle-center"
+  );
+  assert.equal(grown.y + grown.height, 806);
+});
+
+test("legacy bottom positions are unchanged", () => {
+  assert.deepEqual(WindowPositionUtil.getMainWindowPosition(ULTRAWIDE, null, "center"), {
+    x: 2732,
+    y: 1424,
+    width: 208,
+    height: 120,
+  });
+  assert.deepEqual(WindowPositionUtil.getMainWindowPosition(ULTRAWIDE, null, "bottom-left"), {
+    x: 4,
+    y: 1424,
+    width: 208,
+    height: 120,
+  });
+});
+
+test("a grown surface keeps the resting pill's anchor and stays on its display", () => {
+  const base = { x: 2732, y: 686, width: 208, height: 120 };
+  assert.deepEqual(
+    WindowPositionUtil.anchorToRestingBounds(
+      base,
+      { width: 400, height: 500 },
+      "middle-center",
+      ULTRAWIDE
+    ),
+    { x: 2636, y: 306, width: 400, height: 500 }
+  );
+  const right = { x: 5460, y: 686, width: 208, height: 120 };
+  assert.deepEqual(
+    WindowPositionUtil.anchorToRestingBounds(
+      right,
+      { width: 400, height: 500 },
+      "middle-right",
+      ULTRAWIDE
+    ),
+    { x: 5268, y: 306, width: 400, height: 500 }
+  );
+  // Taller than the space above the pill: clamped to the top of the work area.
+  assert.deepEqual(
+    WindowPositionUtil.anchorToRestingBounds(
+      base,
+      { width: 466, height: 900 },
+      "middle-center",
+      ULTRAWIDE
+    ),
+    { x: 2603, y: 0, width: 466, height: 900 }
+  );
+});
+
+test("middle positions take the same voice direction as their column", () => {
+  assert.equal(resolveHorizontalWindowDirection(null, null, "middle-left"), "left");
+  assert.equal(resolveHorizontalWindowDirection(null, null, "middle-right"), "right");
+  assert.equal(
+    resolveHorizontalWindowDirection({ x: 4, width: 96 }, LAPTOP, "middle-center"),
+    "right"
+  );
+});
+
+test("the top row docks the window at the top of the work area", () => {
+  assert.deepEqual(WindowPositionUtil.getMainWindowPosition(ULTRAWIDE, null, "top-center"), {
+    x: 2732,
+    y: 4,
+    width: 208,
+    height: 120,
+  });
+  assert.deepEqual(WindowPositionUtil.getMainWindowPosition(ULTRAWIDE, null, "top-left"), {
+    x: 4,
+    y: 4,
+    width: 208,
+    height: 120,
+  });
+  assert.deepEqual(WindowPositionUtil.getMainWindowPosition(UPPER_LEFT, null, "top-right"), {
+    x: 2608,
+    y: -1592,
+    width: 208,
+    height: 120,
+  });
+  // A grown window keeps the top edge, so surfaces open downward.
+  const grown = WindowPositionUtil.getMainWindowPosition(
+    ULTRAWIDE,
+    { width: 466, height: 562 },
+    "top-center"
+  );
+  assert.equal(grown.y, 4);
+});
+
+test("a grown surface under a top-row pill keeps its top edge", () => {
+  const base = { x: 2732, y: 4, width: 208, height: 120 };
+  assert.deepEqual(
+    WindowPositionUtil.anchorToRestingBounds(
+      base,
+      { width: 400, height: 500 },
+      "top-center",
+      ULTRAWIDE
+    ),
+    { x: 2636, y: 4, width: 400, height: 500 }
+  );
+  assert.deepEqual(
+    WindowPositionUtil.anchorToRestingBounds(
+      { x: 5460, y: 4, width: 208, height: 120 },
+      { width: 400, height: 500 },
+      "top-right",
+      ULTRAWIDE
+    ),
+    { x: 5268, y: 4, width: 400, height: 500 }
+  );
+});

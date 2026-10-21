@@ -91,3 +91,41 @@ test("changing the configured position restores automatic placement", async () =
 
   assert.deepEqual(result, { applied: true, display: "display-a" });
 });
+
+test("a deferring request lets the placement judge a drag, which it may release", async () => {
+  const coordinator = new MainWindowPlacementCoordinator();
+  coordinator.markManuallyPositioned();
+
+  const result = await coordinator.request(
+    async () => "locked-display",
+    async (display, isCurrent) => {
+      assert.equal(coordinator.hasManualPosition(), true);
+      coordinator.releaseManualPosition();
+      return { applied: true, display, current: isCurrent() };
+    },
+    { deferManual: true }
+  );
+
+  assert.deepEqual(result, { applied: true, display: "locked-display", current: true });
+  assert.equal(coordinator.hasManualPosition(), false);
+});
+
+test("a new drag still supersedes a deferring request", async () => {
+  const coordinator = new MainWindowPlacementCoordinator();
+  const display = deferred();
+  let applied = false;
+
+  const pending = coordinator.request(
+    () => display.promise,
+    async () => {
+      applied = true;
+      return { applied: true };
+    },
+    { deferManual: true }
+  );
+  coordinator.markManuallyPositioned();
+  display.resolve("locked-display");
+
+  assert.deepEqual(await pending, { applied: false, reason: "superseded" });
+  assert.equal(applied, false);
+});

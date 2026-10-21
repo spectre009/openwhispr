@@ -288,6 +288,10 @@ process.on("unhandledRejection", (reason, promise) => {
 // Import helper module classes (but don't instantiate yet - wait for app.whenReady())
 const EnvironmentManager = require("./src/helpers/environment");
 const WindowManager = require("./src/helpers/windowManager");
+const {
+  normalizeFloatingIconDisplay,
+  normalizePanelPosition,
+} = require("./src/helpers/floatingIconPlacement");
 const DatabaseManager = require("./src/helpers/database");
 const ClipboardManager = require("./src/helpers/clipboard");
 const WhisperManager = require("./src/helpers/whisper");
@@ -1179,6 +1183,10 @@ async function startApp() {
   await windowManager.setActivationModeCache(environmentManager.getActivationMode());
   windowManager.setFloatingIconAutoHide(environmentManager.getFloatingIconAutoHide());
   windowManager.setPanelStartPosition(environmentManager.getPanelStartPosition());
+  {
+    const { display, label } = environmentManager.getFloatingIconDisplay();
+    windowManager.setFloatingIconDisplay(display, label);
+  }
 
   let activationModeChangeQueue = Promise.resolve();
   ipcMain.on("activation-mode-changed", (_event, mode) => {
@@ -1220,9 +1228,24 @@ async function startApp() {
     environmentManager.saveStartMinimized(enabled);
   });
 
+  // The renderer's settings are the source of truth: it reports them on every
+  // change and once at load, so .env (read at the next boot, before any window
+  // exists) only needs writing when the value actually differs.
   ipcMain.on("panel-start-position-changed", (_event, position) => {
     windowManager.setPanelStartPosition(position);
-    environmentManager.savePanelStartPosition(position);
+    if (environmentManager.getPanelStartPosition() !== normalizePanelPosition(position)) {
+      environmentManager.savePanelStartPosition(position);
+    }
+  });
+
+  ipcMain.on("floating-icon-display-changed", (_event, payload) => {
+    const display = normalizeFloatingIconDisplay(payload?.display);
+    const label = typeof payload?.label === "string" ? payload.label : "";
+    windowManager.setFloatingIconDisplay(display, label);
+    const saved = environmentManager.getFloatingIconDisplay();
+    if (saved.display !== display || saved.label !== label.trim()) {
+      environmentManager.saveFloatingIconDisplay(display, label);
+    }
   });
 
   dockManager.init();

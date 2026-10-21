@@ -9,6 +9,8 @@ import {
   type ToastProps,
 } from "./useToast";
 import { isDictationPanelWindow } from "../../utils/windowContext";
+import { useSettingsStore } from "../../stores/settingsStore";
+import { panelDocksAtTop } from "../../helpers/floatingIconPlacement";
 import {
   getDictationErrorActionCount,
   getDictationErrorDuration,
@@ -261,21 +263,28 @@ const ToastViewport: React.FC<{
   onResumeTimer: (id: string, remainingTime: number) => void;
 }> = ({ toasts, onDismiss, onPauseTimer, onResumeTimer }) => {
   const isDictationPanel = React.useMemo(isDictationPanelWindow, []);
+  // The dictation pill can dock at its window's top edge, which then grows
+  // downward: toasts open below the pill there instead of above it.
+  const pillDocksAtTop = useSettingsStore((s) => panelDocksAtTop(s.panelStartPosition));
   // Keep the error viewport anchored through its exit animation so the card
   // does not jump back to the standard toast position while fading out.
   const hasDictationError = toasts.some((toast) => toast.presentation === "dictation-error");
 
   if (toasts.length === 0) return null;
 
+  const dictationPanelPlacement = pillDocksAtTop
+    ? hasDictationError
+      ? "inset-x-3 top-3"
+      : "top-20 end-6"
+    : hasDictationError
+      ? "inset-x-3 bottom-3"
+      : "bottom-20 end-6";
+
   return (
     <div
       className={cn(
         "fixed z-[100] flex flex-col gap-1.5 pointer-events-none",
-        isDictationPanel
-          ? hasDictationError
-            ? "inset-x-3 bottom-3"
-            : "bottom-20 end-6"
-          : "bottom-5 end-5"
+        isDictationPanel ? dictationPanelPlacement : "bottom-5 end-5"
       )}
     >
       {toasts.map((toast) => (

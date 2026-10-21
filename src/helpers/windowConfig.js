@@ -1,6 +1,7 @@
 const path = require("path");
 const { getLinuxSessionInfo } = require("./linuxSession");
 const { ASSISTANT_PANEL_SIZE_LIMITS } = require("./voiceSurfaceGeometry");
+const { parsePanelPosition, PILL_RESTING_CENTER_OFFSET } = require("./floatingIconPlacement");
 
 const FOCUSLESS_OVERLAY_ROLES = new Set(["main", "notification"]);
 
@@ -162,16 +163,18 @@ const WINDOW_SIZES = {
  * or unavailable geometry; dragging the pill must be able to override it.
  */
 function resolveHorizontalWindowDirection(bounds, display, preferredPosition = "bottom-right") {
-  if (preferredPosition === "center") return "right";
+  const { horizontal } = parsePanelPosition(preferredPosition);
+  if (horizontal === "center") return "right";
+  const fallback = horizontal === "left" ? "left" : "right";
 
   const workArea = display?.workArea || display?.bounds;
   const windowCenter = Number(bounds?.x) + Number(bounds?.width) / 2;
   const displayCenter = Number(workArea?.x) + Number(workArea?.width) / 2;
   if (!Number.isFinite(windowCenter) || !Number.isFinite(displayCenter)) {
-    return preferredPosition === "bottom-left" ? "left" : "right";
+    return fallback;
   }
   if (windowCenter === displayCenter) {
-    return preferredPosition === "bottom-left" ? "left" : "right";
+    return fallback;
   }
   return windowCenter < displayCenter ? "left" : "right";
 }
@@ -314,18 +317,30 @@ class WindowPositionUtil {
     const { width, height } = customSize || WINDOW_SIZES.BASE;
     const MARGIN = 4;
     const workArea = display.workArea || display.bounds;
+    const { vertical, horizontal } = parsePanelPosition(position);
 
-    let x, y;
-    if (position === "bottom-left") {
+    let x;
+    if (horizontal === "left") {
       x = workArea.x + MARGIN;
-      y = workArea.y + workArea.height - height - MARGIN;
-    } else if (position === "center") {
+    } else if (horizontal === "center") {
       x = Math.round(workArea.x + (workArea.width - width) / 2);
-      y = workArea.y + workArea.height - height - MARGIN;
     } else {
-      // bottom-right (default)
       x = workArea.x + workArea.width - width - MARGIN;
-      y = workArea.y + workArea.height - height - MARGIN;
+    }
+
+    // The top row anchors the window's top edge, so grown surfaces open
+    // downward; the other rows anchor its bottom edge and open upward. The
+    // middle row places that edge so the resting pill is centered on the work
+    // area, whatever the window's current height.
+    let y;
+    if (vertical === "top") {
+      y = workArea.y + MARGIN;
+    } else {
+      const bottom =
+        vertical === "middle"
+          ? Math.round(workArea.y + workArea.height / 2) + PILL_RESTING_CENTER_OFFSET
+          : workArea.y + workArea.height - MARGIN;
+      y = bottom - height;
     }
 
     // Clamped to the display's own work area, never to zero: a monitor placed
@@ -335,6 +350,25 @@ class WindowPositionUtil {
       ...WindowPositionUtil.clampToWorkArea({ x, y, width, height }, display),
       width,
       height,
+    };
+  }
+
+  // Bounds for a window of `size` that keeps the resting window `base`'s pill
+  // anchor (its side or center, and its docked top or bottom edge) — how a
+  // grown surface sits over a pill placed at `base` — clamped to the display.
+  static anchorToRestingBounds(base, size, position, display) {
+    const { vertical, horizontal } = parsePanelPosition(position);
+    const x =
+      horizontal === "left"
+        ? base.x
+        : horizontal === "center"
+          ? Math.round(base.x + base.width / 2 - size.width / 2)
+          : base.x + base.width - size.width;
+    const y = vertical === "top" ? base.y : base.y + base.height - size.height;
+    return {
+      ...WindowPositionUtil.clampToWorkArea({ x, y, ...size }, display),
+      width: size.width,
+      height: size.height,
     };
   }
 

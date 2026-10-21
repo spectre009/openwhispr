@@ -484,6 +484,27 @@
   transform: translateX(-50%);
 }
 
+/* Top-row docks hang the pill 12px below the window's top edge. They are
+   spelled in the same bottom/transform coordinates as every other dock so the
+   pill glides (not jumps) into a panel footer at the window's bottom. */
+.voice-pill-position-top-right {
+  bottom: calc(100% - 0.75rem);
+  left: calc(100% - 0.75rem);
+  transform: translate(-100%, 100%);
+}
+
+.voice-pill-position-top-left {
+  bottom: calc(100% - 0.75rem);
+  left: 0.75rem;
+  transform: translate(0, 100%);
+}
+
+.voice-pill-position-top-center {
+  bottom: calc(100% - 0.75rem);
+  left: 50%;
+  transform: translate(-50%, 100%);
+}
+
 .voice-pill-position-assistant-bottom-right {
   bottom: 1.75rem;
   left: calc(100% - 1.75rem);
