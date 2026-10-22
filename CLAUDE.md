@@ -183,6 +183,25 @@ OpenWhispr is an Electron-based desktop dictation application that uses whisper.
   - When it runs: at a dictation start (`showDictationPanel({ reposition: true })`, on the locked display or the one the user works on — the cursor's on Windows/Linux, the target app's window on macOS), on a settings change, and after display changes, sleep/wake and unlock (debounced, then re-checked at bounded intervals, since Windows relocates windows off displays it turns off and never moves them back). A start on a locked display shows a hidden pill only after it moved, and a hide in the meantime wins
   - A drag (`stopWindowDrag` with movement) keeps the pill where the user put it; with a locked display only while it stays on that display. Settings changes and Settings → "Show me" (`previewFloatingIconPlacement`, held visible by the renderer for 2s against auto-hide) reset it
 - **cliBridge.js**: Loopback HTTP server on ports 8200–8219, bearer-token auth (token at `~/.openwhispr/cli-bridge.json`), 127.0.0.1-only. Used by the unified CLI to talk to a running desktop app. `POST /v1/transcribe` takes a file **path** (never audio) and runs the user's downloaded local model through `IPCHandlers.transcribeLocalFile`, approving the path with `approveAudioPath` first; `GET /v1/transcribe/models` lists local models with download state and the app's default (`localTranscriptionModels.js`, read from the `.env` pre-warm values).
+- **copilot/**: GitHub Copilot as a language-model provider for dictation cleanup, note formatting and translation only, over the official Copilot SDK (`@github/copilot-sdk`, pinned to an exact version)
+  - `copilotRuntime.js` owns the SDK client and its bundled `copilot-runtime` process: one client per sign-in, started on first use and stopped after 10 idle minutes, on sign-out and on quit (sidecar `copilot`; the SDK's stop is raced against 4 s, then `forceStop`, to fit the 8 s quit deadline). Models come from `client.rpc.models.list`, since `listModels()` caches until disconnect
+  - Each request is a one-shot session:
+    - Copilot's own prompt is replaced and the session has no tools (`availableTools: []`) and `infiniteSessions` off.
+    - Its session filesystem is in memory (`memorySessionFs.js`), so the runtime never writes a transcript to disk.
+    - The model id is checked against the live catalog first, and a `session.model_change` during the request aborts it, because the runtime silently swaps an unknown model.
+    - An `onUserPromptTransformed` hook returns the exact prompt; otherwise the runtime prefixes `<current_datetime>`.
+    - A truncated reply (`finishReason` `length`) is refused when `requireCompleteOutput` is set.
+    - `session.error` events are captured for classification (`copilotErrors.js`), since `sendAndWait` flattens errors to a plain `Error`.
+  - The runtime's working directory (`userData/copilot-runtime`) is created before every start: a missing one makes the stdio spawn fail silently, surfacing only as "Cannot call write after a stream was destroyed". The runtime gets an allowlisted environment, because `process.env` holds every decrypted API key, plus `COPILOT_GITHUB_TELEMETRY_DISABLED=true`. The Copilot modules redact tokens in their own logs.
+  - `copilotAuth.js`: GitHub device flow through `connectors/githubDeviceFlow.js` (`net.fetch`, no session cookies). Every attempt has a flow id; cancel and retry name it, and a reply for a replaced attempt is dropped. A new token is checked against Copilot on its own runtime before it replaces the saved one. The panel (`CopilotSignIn.tsx`) offers Copy code, Copy link and Open in browser, and never opens the browser by itself. The OAuth App client id is `COPILOT_OAUTH_CLIENT_ID` in `src/config/copilot.js` (`GITHUB_COPILOT_CLIENT_ID` overrides it). The token is `GITHUB_COPILOT_TOKEN`, a main-only secret that no `get-*` IPC returns; the login is `GITHUB_COPILOT_LOGIN`
+  - `copilotIpc.js`: `copilot-auth-status`, `copilot-auth-start`, `copilot-auth-cancel`, `copilot-auth-retry`, `copilot-sign-out`, `copilot-list-models`, `process-copilot-reasoning`; status changes are broadcast as `copilot-auth-changed`
+  - Scope gate (`copilotRequestRefusal` in `src/config/copilot.js`): chat, the voice assistant (`dictationAgent`, selection edits included), `requiresAgent` and image requests are refused in main and in the renderer's `processText`. Chat routing fails closed (`isChatUnsupportedProvider` in `chatRouting.js`), and the Copilot tab is hidden on those scopes
+  - Renderer side:
+    - `inferenceProviders/copilot.ts`; `copilotStore.ts` holds the auth status.
+    - `copilotModels.ts` and `copilotModelCache.ts` hold the signed-in plan's live list (cached for an hour), with the registry's `copilot` entry as the shipped fallback.
+    - `reconcileSelectedModels` repoints any scope that resolves to Copilot in providers mode with a model the plan doesn't serve, including note formatting inheriting cleanup's provider while keeping its own model. It runs after a fetch and on every settings change, against a list fetched within the hour.
+    - Copilot ids that collide with OpenAI or Anthropic ids (`gpt-6-astra`, `claude-sonnet-5`, …) resolve per provider, since `getCloudModel` is strict when given one.
+  - Packaging: `electron-builder.json` asar-unpacks `@github/copilot-sdk-*`, and `afterPack.js` (`verifyCopilotRuntime`) fails a build without the runtime. The win32-x64 runtime package is about 152 MB unpacked
 - **openWhisprCloudGate.js**: The "OpenWhispr account & Cloud" switch (Settings → Privacy & Data; on by default). Off, nothing reaches OpenWhispr's servers (`openwhispr.com`, `gizmovoice.ai` and their subdomains, plus an overridden API or auth origin) and no account or Cloud surface shows
   - Main owns it: `OPENWHISPR_CLOUD_DISABLED=true` in the userData `.env`, read before any request. `set-openwhispr-cloud-disabled` blocks at once, refuses while a bearer token is stored (`SIGNED_IN`), clears OpenWhispr cookies locally and resolves only after the `.env` write (`PERSIST_FAILED` otherwise). Preload reads the value once with `sendSync`; `openwhispr-cloud-disabled-changed` updates `openWhisprCloudStore` in every window, and `lib/auth.ts` re-runs the session check on each change
   - Chromium traffic: one `session.webRequest.onBeforeRequest` listener per session (the app's only one), installed through `app.on("session-created")` before any session exists and reading the live switch. Its filter names `http`, `https`, `ws` and `wss` explicitly: a `*://` filter does not match WebSockets. Each cancel is logged once as `[cloud-off] blocked …`
@@ -250,7 +269,7 @@ OpenWhispr is an Electron-based desktop dictation application that uses whisper.
 
 - **ReasoningService.ts**: AI processing for agent-addressed commands
   - Detects when user addresses their named agent and removes the agent name from final output
-  - Provider implementations live in a registry at `src/services/ai/inferenceProviders/index.ts` covering 8 providers (`anthropic`, `enterprise`, `gemini`, `groq`, `lan`, `local`, `openai`, `openwhispr`), each implementing the `InferenceProvider` interface from `types.ts`
+  - Provider implementations live in a registry at `src/services/ai/inferenceProviders/index.ts` covering 11 provider modules (`anthropic`, `copilot`, `corti`, `enterprise`, `gemini`, `groq`, `lan`, `local`, `openai`, `openwhispr`, `tinfoil`), each implementing the `InferenceProvider` interface from `types.ts`
   - Per-scope LLM config: 4 scopes (`dictationCleanup`, `dictationAgent`, `noteFormatting`, `chatIntelligence`) defined in `src/config/inferenceScopes.ts`
   - `selectResolvedLLMConfig(state, scope)` in `settingsStore.ts` resolves provider/model per scope with fallback chains
 
@@ -419,7 +438,7 @@ Settings stored in localStorage with these keys:
 - `recordingColorByMode` / `recordingAssistantColor` / `recordingTranslationColor`: Color voice assistant and translation recordings in their own colors (default off; `purple` / `cyan`, same values as `recordingIndicatorColor`)
 - `recordingReminderMinutes`: "Remind me while recording" (`0` = off, or 2, 3, 5, 10 minutes); an unknown value reads as off
 
-Secret env vars (12 total: 7 BYOK API keys + 5 enterprise cloud creds — see `SECRET_KEYS` in `environment.js`) are encrypted at rest via Electron `safeStorage` and stored as per-key files under `userData/secure-keys/`. They are loaded into `process.env` at startup by `EnvironmentManager.init()`. Renderer reads them via IPC (`get-*-key`) and writes via debounced IPC (`save-*-key`). On Linux without a keyring, secrets fall back to plaintext.
+Secret env vars (BYOK and per-scope custom API keys, Corti client credentials, enterprise cloud creds and the GitHub Copilot sign-in token — see `SECRET_KEYS` in `environment.js`) are encrypted at rest via Electron `safeStorage` and stored as per-key files under `userData/secure-keys/`. They are loaded into `process.env` at startup by `EnvironmentManager.init()`. Renderer reads them via IPC (`get-*-key`) and writes via debounced IPC (`save-*-key`), except `GITHUB_COPILOT_TOKEN`, which never leaves main. On Linux without a keyring, secrets fall back to plaintext.
 
 Non-secret env vars persisted to `.env` (via `saveAllKeysToEnvFile()`):
 
@@ -427,6 +446,7 @@ Non-secret env vars persisted to `.env` (via `saveAllKeysToEnvFile()`):
 - `PARAKEET_MODEL`: Selected Parakeet model name (e.g., `parakeet-tdt-0.6b-v3`)
 - `PANEL_START_POSITION`, `FLOATING_ICON_DISPLAY`, `FLOATING_ICON_DISPLAY_LABEL`: Copies of the floating icon placement settings, read before any window exists to place the dictation window at boot
 - `OPENWHISPR_CLOUD_DISABLED`: The "OpenWhispr account & Cloud" switch (`true` = off). The only copy: main owns it (see `openWhisprCloudGate.js`)
+- `GITHUB_COPILOT_LOGIN`: The GitHub login signed in to Copilot (its token is the secret `GITHUB_COPILOT_TOKEN`)
 
 ### 6. Language Support
 
@@ -475,6 +495,7 @@ Non-secret env vars persisted to `.env` (via `saveAllKeysToEnvFile()`):
     - Gemini 3 Flash (`gemini-3-flash-preview`) - Ultra-fast, high-capability next-gen model
     - Gemini 2.5 Flash Lite (`gemini-2.5-flash-lite`) - Lowest latency and cost (retired for new API keys; kept for existing ones)
     - Gemma 4 (`gemma-4-31b-it`, `gemma-4-26b-a4b-it`) - Google's open Gemma 4 models served through the Gemini API
+  - **GitHub Copilot** (Copilot SDK runtime in main, see `copilot/`): the models on the signed-in user's Copilot plan, listed live; the registry's `copilot` entry is the shipped fallback (Claude Haiku 5.5 `claude-haiku-5.5` default, `mai-code-2-flash`, `gpt-6-luna`, `claude-sonnet-5.5`). Cleanup, note formatting and translation only
   - **Local**: GGUF models via llama.cpp (Qwen, Llama, Mistral, GPT-OSS)
 
 ### 8. Model Registry Architecture
@@ -1036,7 +1057,7 @@ UI icons come from `src/components/icons/` (vendored Nucleo core outline compone
 
 ## Security Considerations
 
-- API keys and enterprise cloud creds (12 secrets total) encrypted at rest via Electron `safeStorage` → OS keychain (Keychain / DPAPI / libsecret), stored as per-key files in `userData/secure-keys/`. Linux without a keyring falls back to plaintext (Electron default). Closed in #629.
+- API keys, enterprise cloud creds and the GitHub Copilot sign-in token (`SECRET_KEYS` in `environment.js`) encrypted at rest via Electron `safeStorage` → OS keychain (Keychain / DPAPI / libsecret), stored as per-key files in `userData/secure-keys/`. Linux without a keyring falls back to plaintext (Electron default). Closed in #629.
 - Context isolation enabled
 - No remote code execution
 - Sanitized file paths
