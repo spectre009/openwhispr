@@ -3,9 +3,10 @@ import { useTranslation } from "react-i18next";
 import { BookOpen } from "../icons";
 import { Badge } from "../ui/badge";
 import { cn } from "../lib/utils";
+import { useOpenWhisprCloudDisabled } from "../../stores/openWhisprCloudStore";
 import {
-  INTEGRATIONS_SECTION_GROUPS,
   INTEGRATIONS_SECTION_ICONS,
+  visibleIntegrationsSectionGroups,
   type IntegrationsSection,
   type SectionMeta,
 } from "./integrationsSections";
@@ -44,6 +45,7 @@ export function IntegrationsNav({
   className,
 }: IntegrationsNavProps): ReactElement {
   const { t } = useTranslation();
+  const cloudDisabled = useOpenWhisprCloudDisabled();
 
   return (
     <nav
@@ -53,7 +55,7 @@ export function IntegrationsNav({
         className
       )}
     >
-      {INTEGRATIONS_SECTION_GROUPS.map((group) => (
+      {visibleIntegrationsSectionGroups(cloudDisabled).map((group) => (
         <div key={group.id}>
           <div className="px-2.5 pb-1.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/70">
             {t(`integrations.nav.groups.${group.id}`)}
@@ -104,14 +106,16 @@ export function IntegrationsNav({
       ))}
 
       <div className="flex-1" />
-      <button
-        type="button"
-        onClick={() => window.electronAPI?.openExternal?.(INTEGRATIONS_DOCS_URL)}
-        className="flex items-center gap-2 h-7 px-2.5 rounded-md text-xs text-muted-foreground outline-none transition-colors hover:text-foreground hover:bg-foreground/4 dark:hover:bg-white/4 focus-visible:ring-1 focus-visible:ring-primary/30"
-      >
-        <BookOpen size={14} className="shrink-0" />
-        {t("integrations.nav.docs")}
-      </button>
+      {!cloudDisabled && (
+        <button
+          type="button"
+          onClick={() => window.electronAPI?.openExternal?.(INTEGRATIONS_DOCS_URL)}
+          className="flex items-center gap-2 h-7 px-2.5 rounded-md text-xs text-muted-foreground outline-none transition-colors hover:text-foreground hover:bg-foreground/4 dark:hover:bg-white/4 focus-visible:ring-1 focus-visible:ring-primary/30"
+        >
+          <BookOpen size={14} className="shrink-0" />
+          {t("integrations.nav.docs")}
+        </button>
+      )}
     </nav>
   );
 }

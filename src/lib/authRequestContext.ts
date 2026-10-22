@@ -1,3 +1,5 @@
+import { isOpenWhisprCloudDisabled } from "../stores/openWhisprCloudStore";
+
 const AUTH_REQUEST_GENERATION = "openWhisprAuthGeneration";
 
 export interface AuthTokenState {
@@ -167,6 +169,9 @@ export async function authContextFetch(
   init?: RequestInit
 ): Promise<Response> {
   await assertAuthRequestCurrent(init);
+  // With the OpenWhispr account & Cloud switch off nothing reaches the auth
+  // server: a session check answers Better Auth's signed-out shape locally.
+  if (isOpenWhisprCloudDisabled()) return answerWhileCloudDisabled(input);
   try {
     const response = await globalThis.fetch(input, { ...init, credentials: "omit" });
     await assertAuthRequestCurrent(init);
@@ -191,6 +196,28 @@ function isGetSessionRequest(request: AuthRequest): boolean {
   } catch {
     return false;
   }
+}
+
+function requestUrlOf(input: RequestInfo | URL): string {
+  if (typeof input === "string") return input;
+  if (input instanceof URL) return input.href;
+  return input.url;
+}
+
+function answerWhileCloudDisabled(input: RequestInfo | URL): Response {
+  let path = "";
+  try {
+    path = new URL(requestUrlOf(input), "http://local.invalid").pathname;
+  } catch {
+    // An unparsable URL is not a session check.
+  }
+  if (path.endsWith("/get-session")) {
+    return new Response("null", {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+  throw new Error("OpenWhispr account is turned off");
 }
 
 function resolvedUserId(data: unknown): string | null {

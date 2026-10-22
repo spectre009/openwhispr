@@ -338,6 +338,14 @@ const { i18nMain, changeLanguage } = require("./src/helpers/i18nMain");
 const { ensureYdotool } = require("./src/helpers/ensureYdotool");
 const sidecarRegistry = require("./src/helpers/sidecarRegistry");
 const { reapStaleSidecars } = require("./src/helpers/sidecarReaper");
+const openWhisprCloudGate = require("./src/helpers/openWhisprCloudGate");
+
+// Registered before any session exists, so every one of them (the default
+// session included) gets the OpenWhispr Cloud blocker as it is created.
+openWhisprCloudGate.setExtraBlockedOrigins([resolveApiUrl(), resolveAuthUrl()]);
+app.on("session-created", (createdSession) => {
+  openWhisprCloudGate.installCloudBlock(createdSession);
+});
 
 // Manager instances - initialized after app.whenReady()
 let debugLogger = null;
@@ -456,6 +464,7 @@ function initializeCoreManagers() {
   setupProductionPath();
 
   debugLogger = require("./src/helpers/debugLogger");
+  openWhisprCloudGate.configureCloudGate({ logger: debugLogger });
   debugLogger.ensureFileLogging();
   require("./src/helpers/eventLoopStallMonitor").startEventLoopStallMonitor({
     logger: debugLogger,
@@ -898,18 +907,31 @@ function handleInvitationDeepLink(deepLinkUrl) {
   }
 }
 
-function resolveAuthUrl() {
+function readRuntimeEnv() {
   const fs = require("fs");
   const envPath = path.join(__dirname, "src", "dist", "runtime-env.json");
-  let runtimeEnv = {};
   try {
-    if (fs.existsSync(envPath)) runtimeEnv = JSON.parse(fs.readFileSync(envPath, "utf8"));
+    if (fs.existsSync(envPath)) return JSON.parse(fs.readFileSync(envPath, "utf8"));
   } catch {}
+  return {};
+}
+
+function resolveAuthUrl() {
+  const runtimeEnv = readRuntimeEnv();
   return (
     process.env.AUTH_URL ||
     process.env.VITE_AUTH_URL ||
     runtimeEnv.VITE_AUTH_URL ||
     "https://auth.openwhispr.com"
+  );
+}
+
+function resolveApiUrl() {
+  return (
+    process.env.OPENWHISPR_API_URL ||
+    process.env.VITE_OPENWHISPR_API_URL ||
+    readRuntimeEnv().VITE_OPENWHISPR_API_URL ||
+    ""
   );
 }
 
@@ -946,6 +968,7 @@ async function exchangeSignedTokenForRawBearer(signedToken) {
 // token, store it, and remove the cookie. Non-fatal — failures fall through
 // to the normal sign-in flow.
 async function migrateCookieToBearerToken() {
+  if (openWhisprCloudGate.isCloudDisabled()) return;
   const tokenStore = require("./src/helpers/tokenStore");
   if (tokenStore.get()) return;
 
@@ -975,6 +998,11 @@ async function migrateCookieToBearerToken() {
 // authClient sends `Authorization: Bearer <token>` on its next request.
 async function applySessionTokenAndRefresh(token) {
   if (!token) return;
+  // No OpenWhispr sign-in may be installed while the account & Cloud switch is off.
+  if (openWhisprCloudGate.isCloudDisabled()) {
+    if (debugLogger) debugLogger.info("[cloud-off] refused an OpenWhispr sign-in token");
+    return;
+  }
   if (!isLiveWindow(windowManager?.controlPanelWindow)) return;
 
   const tokenStore = require("./src/helpers/tokenStore");
@@ -1000,6 +1028,10 @@ async function applySessionTokenAndRefresh(token) {
 }
 
 async function handleOAuthDeepLink(deepLinkUrl) {
+  if (openWhisprCloudGate.isCloudDisabled()) {
+    if (debugLogger) debugLogger.info("[cloud-off] ignored an OpenWhispr sign-in link");
+    return;
+  }
   try {
     const parsed = new URL(deepLinkUrl);
     const bearerToken = parsed.searchParams.get("bearer_token");
@@ -1176,6 +1208,9 @@ async function startApp() {
     cliBridge = null;
   });
 
+  // Already installed by "session-created"; idempotent, and kept explicit so
+  // the cookie migration below can never run ahead of it.
+  openWhisprCloudGate.installCloudBlock(session.defaultSession);
   await migrateCookieToBearerToken();
 
   applyOpenWhisprOriginHeader(session.defaultSession);

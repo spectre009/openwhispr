@@ -5,6 +5,7 @@ import { useSettingsStore } from "../../stores/settingsStore";
 import { usePolicyModeOptions, usePolicySnapshot } from "../../hooks/usePolicy";
 import { isModeAllowedByPolicy } from "../../stores/policyRules";
 import { requestSignIn } from "../../utils/requestSignIn";
+import { useOpenWhisprCloudDisabled } from "../../stores/openWhisprCloudStore";
 import { Button } from "../ui/button";
 import { InferenceModeSelector, SettingsRow } from "../ui/SettingsSection";
 import type { InferenceModeOption } from "../ui/SettingsSection";
@@ -52,6 +53,7 @@ const noop = () => {};
 export function MeetingTranscriptionPanel() {
   const { t } = useTranslation();
   const policySnapshot = usePolicySnapshot();
+  const cloudDisabled = useOpenWhisprCloudDisabled();
 
   const {
     isSignedIn,
@@ -192,7 +194,7 @@ export function MeetingTranscriptionPanel() {
         onSelect={handleTranscriptionModeSelect}
       />
 
-      {effectiveTranscriptionMode === "openwhispr" && !isSignedIn && (
+      {effectiveTranscriptionMode === "openwhispr" && !isSignedIn && !cloudDisabled && (
         <p className="text-sm text-muted-foreground">
           {t("settingsPage.transcription.meetingCloudSignedOut")}{" "}
           <Button variant="link" className="h-auto p-0" onClick={requestSignIn}>

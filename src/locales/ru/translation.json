@@ -2673,6 +2673,17 @@
       "upgradeCta": "Обновить сейчас",
       "upgradedTitle": "План обновлён до Enterprise",
       "upgradedDescription": "{{workspace}} теперь на плане Enterprise."
+    },
+    "openWhisprCloud": {
+      "label": "Аккаунт и облако OpenWhispr",
+      "description": "Если выключить, скрываются вход, тарифы и модели OpenWhispr Cloud, а любые подключения к серверам OpenWhispr блокируются. Ваши собственные API-ключи и локальные модели продолжают работать.",
+      "signedInHint": "Сначала выйдите из аккаунта OpenWhispr.",
+      "signedInTitle": "Сначала выйдите",
+      "signedInBody": "Аккаунт и облако OpenWhispr нельзя выключить, пока вы вошли в аккаунт.",
+      "persistFailedTitle": "Не удалось сохранить настройку",
+      "persistFailedBody": "Она действует до перезапуска OpenWhispr. Попробуйте ещё раз.",
+      "modeBadge": "Выключено",
+      "modeDescription": "OpenWhispr Cloud выключен в разделе «Конфиденциальность и данные». Выберите другой режим."
     }
   },
   "models": {
@@ -4996,6 +5007,14 @@
     "details": {
       "provider": "Провайдер",
       "requestId": "ID запроса"
+    }
+  },
+  "calendarOAuth": {
+    "browser": {
+      "connectedTitle": "{{calendar}} подключён",
+      "connectedBody": "Можно закрыть эту вкладку и вернуться в OpenWhispr.",
+      "failedTitle": "{{calendar}} не подключён",
+      "failedBody": "Вернитесь в OpenWhispr, чтобы попробовать ещё раз."
     }
   }
 }

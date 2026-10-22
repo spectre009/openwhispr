@@ -2749,6 +2749,17 @@
       "upgradeCta": "Upgrade now",
       "upgradedTitle": "Upgraded to Enterprise",
       "upgradedDescription": "{{workspace}} is now on Enterprise."
+    },
+    "openWhisprCloud": {
+      "label": "OpenWhispr account & Cloud",
+      "description": "Off hides sign-in, plans and OpenWhispr Cloud models, and blocks every connection to OpenWhispr's servers. Your own API keys and local models keep working.",
+      "signedInHint": "Sign out of your OpenWhispr account first.",
+      "signedInTitle": "Sign out first",
+      "signedInBody": "OpenWhispr account & Cloud can't be turned off while you're signed in.",
+      "persistFailedTitle": "Couldn't save the setting",
+      "persistFailedBody": "It applies until OpenWhispr restarts. Try again.",
+      "modeBadge": "Turned off",
+      "modeDescription": "OpenWhispr Cloud is turned off in Privacy & Data. Choose another mode."
     }
   },
   "models": {
@@ -4948,6 +4959,14 @@
     "details": {
       "provider": "Provider",
       "requestId": "Request ID"
+    }
+  },
+  "calendarOAuth": {
+    "browser": {
+      "connectedTitle": "{{calendar}} is connected",
+      "connectedBody": "You can close this tab and return to OpenWhispr.",
+      "failedTitle": "{{calendar}} wasn't connected",
+      "failedBody": "Return to OpenWhispr to try again."
     }
   }
 }

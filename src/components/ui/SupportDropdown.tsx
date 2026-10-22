@@ -10,6 +10,7 @@ import {
 } from "./dropdown-menu";
 import { cn } from "../lib/utils";
 import logger from "../../utils/logger";
+import { useOpenWhisprCloudDisabled } from "../../stores/openWhisprCloudStore";
 
 function DiscordIcon({ className }: { className?: string }) {
   return (
@@ -37,6 +38,8 @@ const openExternal = async (url: string) => {
 
 export default function SupportDropdown({ className, trigger }: SupportDropdownProps) {
   const { t } = useTranslation();
+  // Docs and support mail are OpenWhispr's own services.
+  const showOpenWhisprServices = !useOpenWhisprCloudDisabled();
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -54,25 +57,31 @@ export default function SupportDropdown({ className, trigger }: SupportDropdownP
         )}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={() => openExternal("https://docs.openwhispr.com")}>
-          <BookOpen className="me-2 h-4 w-4" />
-          {t("support.documentation")}
-        </DropdownMenuItem>
+        {showOpenWhisprServices && (
+          <DropdownMenuItem onClick={() => openExternal("https://docs.openwhispr.com")}>
+            <BookOpen className="me-2 h-4 w-4" />
+            {t("support.documentation")}
+          </DropdownMenuItem>
+        )}
         <DropdownMenuItem onClick={() => openExternal("https://discord.gg/yZWC9WTtX7")}>
           <DiscordIcon className="me-2 h-4 w-4" />
           {t("support.joinDiscord")}
         </DropdownMenuItem>
-        <DropdownMenuItem
-          onClick={async () => {
-            const result = await window.electronAPI?.openExternal("mailto:support@openwhispr.com");
-            if (!result?.success) {
-              openExternal("https://mail.google.com/mail/?view=cm&to=support@openwhispr.com");
-            }
-          }}
-        >
-          <Mail className="me-2 h-4 w-4" />
-          {t("support.contactSupport")}
-        </DropdownMenuItem>
+        {showOpenWhisprServices && (
+          <DropdownMenuItem
+            onClick={async () => {
+              const result = await window.electronAPI?.openExternal(
+                "mailto:support@openwhispr.com"
+              );
+              if (!result?.success) {
+                openExternal("https://mail.google.com/mail/?view=cm&to=support@openwhispr.com");
+              }
+            }}
+          >
+            <Mail className="me-2 h-4 w-4" />
+            {t("support.contactSupport")}
+          </DropdownMenuItem>
+        )}
         <DropdownMenuItem
           onClick={() => openExternal("https://github.com/OpenWhispr/openwhispr/issues")}
         >

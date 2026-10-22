@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../hooks/useAuth";
+import { useOpenWhisprCloudDisabled } from "../stores/openWhisprCloudStore";
 import {
   authClient,
   AUTH_URL,
@@ -143,6 +144,7 @@ export default function AuthenticationStep({
   onResumeStateChange,
 }: AuthenticationStepProps) {
   const { t } = useTranslation();
+  const cloudDisabled = useOpenWhisprCloudDisabled();
   // The fixed top offsets centre content in the compact setup window;
   // inside the SignInDialog the dialog supplies its own padding.
   const frameInset = (topClass: string) => (embedded ? "pt-1" : `px-5 ${topClass}`);
@@ -417,18 +419,23 @@ export default function AuthenticationStep({
     setFullName("");
   }, []);
 
-  // Auth not configured state
-  if (!AUTH_URL || !authClient) {
+  // Auth not configured, or the OpenWhispr account & Cloud switch is off
+  if (!AUTH_URL || !authClient || cloudDisabled) {
     return (
       <CompactOnboardingFrame embedded={embedded}>
         <div className={`${frameInset("pt-48")} text-center`}>
           <h1 className={titleClass}>{t("auth.welcomeTitle")}</h1>
           <p className="mt-3 text-base text-muted-foreground">{t("auth.welcomeSubtitle")}</p>
-          <div className="mt-8 rounded-xl border border-warning/20 bg-warning/5 p-3 text-sm text-warning">
-            {t("auth.cloudNotConfigured")}
-          </div>
+          {!cloudDisabled && (
+            <div className="mt-8 rounded-xl border border-warning/20 bg-warning/5 p-3 text-sm text-warning">
+              {t("auth.cloudNotConfigured")}
+            </div>
+          )}
           {onContinueWithoutAccount && (
-            <Button onClick={onContinueWithoutAccount} className="mt-3 h-12 w-full">
+            <Button
+              onClick={onContinueWithoutAccount}
+              className={cloudDisabled ? "mt-8 h-12 w-full" : "mt-3 h-12 w-full"}
+            >
               {t("auth.getStarted")}
               <ArrowRight className="size-4 rtl:rotate-180" />
             </Button>

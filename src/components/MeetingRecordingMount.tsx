@@ -12,6 +12,7 @@ import {
 import { requestMeetingRecordingAutoEnd } from "../helpers/meetingRecordingSession";
 import logger from "../utils/logger";
 import { requestSignIn } from "../utils/requestSignIn";
+import { isOpenWhisprCloudDisabled } from "../stores/openWhisprCloudStore";
 
 const EMA_PREV = 0.5;
 const EMA_NEXT = 0.5;
@@ -79,7 +80,7 @@ export default function MeetingRecordingMount(): null {
     if (!error) return;
     const [sentinel, argument] = error.split(":");
     const errorKey = MEETING_ERROR_KEYS[sentinel];
-    const needsSignIn = sentinel === "signInRequired";
+    const needsSignIn = sentinel === "signInRequired" && !isOpenWhisprCloudDisabled();
     toast({
       title: t("notes.meeting.title"),
       description: errorKey ? t(errorKey, { provider: argument }) : error,

@@ -16,6 +16,7 @@ import { canOfferAnalyticsClaim } from "../services/syncPassPolicy";
 import { effectiveLocalHistoryEnabled } from "../stores/policyRules";
 import { useLeaderboardParticipationStore } from "../stores/leaderboardParticipationStore";
 import { usePolicyStore } from "../stores/policyStore";
+import { useOpenWhisprCloudDisabled } from "../stores/openWhisprCloudStore";
 import type { AnalyticsDailyBucket, AnalyticsSummary } from "../types/electron";
 import { cn } from "./lib/utils";
 import LeaderboardSkeleton from "./LeaderboardSkeleton";
@@ -477,7 +478,10 @@ export default function InsightsView({ onSignIn }: InsightsViewProps) {
   const participationError = useLeaderboardParticipationStore((state) => state.error);
   const participationReady = useLeaderboardParticipationStore((state) => state.ready);
   const participationLeavePending = useLeaderboardParticipationStore((state) => state.leavePending);
-  const [activeTab, setActiveTab] = useState("usage");
+  const [requestedTab, setActiveTab] = useState("usage");
+  // The leaderboard is an OpenWhispr service: gone with the account & Cloud switch off.
+  const showLeaderboard = !useOpenWhisprCloudDisabled();
+  const activeTab = showLeaderboard ? requestedTab : "usage";
   const [syncError, setSyncError] = useState(false);
   // A managed workspace that forbids cloud backup forbids these counters with
   // it, so the page stays device-scoped even with the preference left on.
@@ -511,9 +515,11 @@ export default function InsightsView({ onSignIn }: InsightsViewProps) {
             <TabsTrigger value="usage" variant="pill">
               {t("insights.yourUsage")}
             </TabsTrigger>
-            <TabsTrigger value="leaderboard" variant="pill">
-              {t("insights.leaderboard.title")}
-            </TabsTrigger>
+            {showLeaderboard && (
+              <TabsTrigger value="leaderboard" variant="pill">
+                {t("insights.leaderboard.title")}
+              </TabsTrigger>
+            )}
           </TabsList>
 
           {activeTab === "usage" ? (
@@ -567,16 +573,18 @@ export default function InsightsView({ onSignIn }: InsightsViewProps) {
             </p>
           )}
         </TabsContent>
-        <TabsContent value="leaderboard" className="mt-0">
-          <Suspense fallback={isSignedIn ? <LeaderboardSkeleton /> : null}>
-            <LeaderboardView
-              enableInsightsSync={enableInsightsSync}
-              insightsSyncEnabled={insightsSyncEnabled}
-              onSignIn={onSignIn}
-              syncAllowedByPolicy={syncAllowedByPolicy}
-            />
-          </Suspense>
-        </TabsContent>
+        {showLeaderboard && (
+          <TabsContent value="leaderboard" className="mt-0">
+            <Suspense fallback={isSignedIn ? <LeaderboardSkeleton /> : null}>
+              <LeaderboardView
+                enableInsightsSync={enableInsightsSync}
+                insightsSyncEnabled={insightsSyncEnabled}
+                onSignIn={onSignIn}
+                syncAllowedByPolicy={syncAllowedByPolicy}
+              />
+            </Suspense>
+          </TabsContent>
+        )}
       </Tabs>
       {optInDialog}
     </div>

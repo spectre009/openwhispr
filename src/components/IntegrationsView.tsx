@@ -4,6 +4,7 @@ import { Plus } from "./icons";
 import { Button } from "./ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { useSettingsStore } from "../stores/settingsStore";
+import { useOpenWhisprCloudDisabled } from "../stores/openWhisprCloudStore";
 import { ensureConnectorStatus, useConnectorStatusStore } from "../stores/connectorStatusStore";
 import { useConnectorAccess } from "../hooks/useConnectorAccess";
 import ApiKeysSection from "./ApiKeysSection";
@@ -18,6 +19,8 @@ import {
   INTEGRATIONS_SECTION_ICONS,
   INTEGRATIONS_SECTIONS,
   sectionMeta,
+  shownIntegrationsSection,
+  visibleIntegrationsSections,
   type IntegrationsSection,
   type SectionMeta,
 } from "./integrations/integrationsSections";
@@ -35,10 +38,13 @@ interface IntegrationsViewProps {
 export default function IntegrationsView({
   isPaid,
   onUpgrade,
-  section,
+  section: requestedSection,
   onSectionChange,
 }: IntegrationsViewProps): ReactElement {
   const { t } = useTranslation();
+  const cloudDisabled = useOpenWhisprCloudDisabled();
+  const section = shownIntegrationsSection(requestedSection, cloudDisabled);
+  const sections = visibleIntegrationsSections(cloudDisabled);
   const isMac = window.electronAPI?.getPlatform?.() === "darwin";
   const connectorAccess = useConnectorAccess();
   const readyConnectors = useConnectorStatusStore(
@@ -194,7 +200,7 @@ export default function IntegrationsView({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {INTEGRATIONS_SECTIONS.map((id) => (
+              {sections.map((id) => (
                 <SelectItem key={id} value={id}>
                   {titleOf(id)}
                 </SelectItem>
@@ -205,17 +211,19 @@ export default function IntegrationsView({
 
         <div ref={scroller} className="flex-1 min-h-0 overflow-y-auto px-8 pt-6 pb-6 @max-2xl:px-5">
           <div className="max-w-[760px]">
-            {INTEGRATIONS_SECTIONS.filter((id) => mounted.has(id)).map((id) => (
-              <div
-                key={id}
-                ref={(element) => {
-                  paneElements.current[id] = element;
-                }}
-                hidden={id !== section}
-              >
-                {panes[id]}
-              </div>
-            ))}
+            {sections
+              .filter((id) => mounted.has(id))
+              .map((id) => (
+                <div
+                  key={id}
+                  ref={(element) => {
+                    paneElements.current[id] = element;
+                  }}
+                  hidden={id !== section}
+                >
+                  {panes[id]}
+                </div>
+              ))}
           </div>
         </div>
       </div>

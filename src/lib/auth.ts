@@ -1,6 +1,7 @@
 import { createAuthClient } from "better-auth/react";
 import { ssoClient } from "@better-auth/sso/client";
 import { openExternalLink } from "../utils/externalLinks";
+import { useOpenWhisprCloudStore } from "../stores/openWhisprCloudStore";
 import {
   authContextFetch,
   handleAuthRequestError,
@@ -26,16 +27,24 @@ export const authClient = createAuthClient({
 });
 
 let authRefetchTimer: ReturnType<typeof setTimeout> | null = null;
-window.electronAPI?.onAuthTokenStateChanged?.((state) => {
-  observeAuthTokenStateEvent(state);
-  // Main broadcasts a successful compare-and-set rotation before the IPC
-  // invocation resolves. Deferring avoids aborting the exact session request
-  // that is about to bind the new generation.
+const scheduleSessionRefetch = () => {
   if (authRefetchTimer) clearTimeout(authRefetchTimer);
   authRefetchTimer = setTimeout(() => {
     authRefetchTimer = null;
     authClient.$store.notify("$sessionSignal");
   }, 0);
+};
+window.electronAPI?.onAuthTokenStateChanged?.((state) => {
+  observeAuthTokenStateEvent(state);
+  // Main broadcasts a successful compare-and-set rotation before the IPC
+  // invocation resolves. Deferring avoids aborting the exact session request
+  // that is about to bind the new generation.
+  scheduleSessionRefetch();
+});
+// The session atom doesn't watch the account & Cloud switch: re-check on every
+// change so turning it off settles as a guest and turning it on asks again.
+useOpenWhisprCloudStore.subscribe((state, previous) => {
+  if (state.disabled !== previous.disabled) scheduleSessionRefetch();
 });
 
 export type SocialProvider = "google" | "microsoft" | "apple";

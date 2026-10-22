@@ -9,6 +9,7 @@ const fs = require("fs");
 const os = require("os");
 const path = require("path");
 const debugLogger = require("./debugLogger");
+const { assertCloudAllowed, CLOUD_DISABLED_CODE } = require("./openWhisprCloudGate");
 const { getSafeTempDir } = require("./safeTempDir");
 const { getFFmpegPath } = require("./ffmpegUtils");
 
@@ -1011,6 +1012,8 @@ async function downloadYouTube(url, onProgress, abortSignal) {
 }
 
 function httpRequest(parsed, options) {
+  // Node https is invisible to the session blocker; every hop passes here.
+  assertCloudAllowed(parsed.href, "audio download");
   const mod = parsed.protocol === "https:" ? https : http;
   return new Promise((resolve, reject) => {
     // UA-less requests get bot-walled by common CDN fronts. `signal` lets a
@@ -1363,6 +1366,8 @@ async function downloadViaProxy(url, onProgress, abortSignal, redirectCount = 0)
 }
 
 async function downloadDirect(url, onProgress, abortSignal, redirectCount = 0) {
+  // Before the proxy lookup, so a refused host never reaches either transport.
+  assertCloudAllowed(url, "audio download");
   onProgress?.({ stage: "resolving", percent: 0 });
 
   const parsed = new URL(url);
@@ -1434,7 +1439,8 @@ async function downloadDirect(url, onProgress, abortSignal, redirectCount = 0) {
       e.code === "SSRF_BLOCKED" ||
       e.code === "INVALID_URL" ||
       e.code === "DOWNLOAD_FAILED" ||
-      e.code === "DOWNLOAD_CANCELLED"
+      e.code === "DOWNLOAD_CANCELLED" ||
+      e.code === CLOUD_DISABLED_CODE
     ) {
       throw e;
     }

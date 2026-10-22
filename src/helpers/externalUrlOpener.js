@@ -2,6 +2,7 @@ const { shell } = require("electron");
 const { spawn } = require("child_process");
 const path = require("path");
 const debugLogger = require("./debugLogger");
+const { assertCloudAllowed } = require("./openWhisprCloudGate");
 
 // On Windows, shell.openExternal runs ShellExecuteExW inside the Electron main
 // process, so a cold-started default browser (and any meeting client it
@@ -27,6 +28,9 @@ const debugLogger = require("./debugLogger");
 const EXPLORER_BREAKING_CHARS = /[?#=,]/;
 
 async function openExternalUrl(url) {
+  // The system browser is outside every in-app network hook: with the
+  // OpenWhispr account & Cloud switch off, OpenWhispr links never open.
+  assertCloudAllowed(url, "browser open");
   const { protocol, href } = new URL(url);
   if (
     process.platform === "win32" &&

@@ -1,4 +1,4 @@
-const WebSocket = require("ws");
+const WebSocket = require("./guardedWebSocket");
 
 const MAX_PENDING_BYTES = 2 * 1024 * 1024;
 // Mono 16 kHz PCM16.

@@ -7,8 +7,13 @@ function createCloudConfigRequestHandler({
   withPolicyHeaders,
   logger,
   configPath,
+  isCloudDisabled = () => false,
 }) {
   return async function handleCloudConfigRequest(event) {
+    // A deliberate "off", not a fault: answered quietly, nothing logged or sent.
+    if (isCloudDisabled()) {
+      return { success: false, error: "OpenWhispr Cloud is turned off", code: "CLOUD_DISABLED" };
+    }
     try {
       const apiUrl = getApiUrl();
       if (!apiUrl) throw new Error("OpenWhispr API URL not configured");

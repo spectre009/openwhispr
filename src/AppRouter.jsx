@@ -12,6 +12,7 @@ import { useControlPanelWindowDrag } from "./hooks/useControlPanelWindowDrag";
 import { useTheme } from "./hooks/useTheme";
 import { mirrorActiveAccountScope } from "./lib/accountScopeMirror";
 import { usePolicyStore } from "./stores/policyStore";
+import { useOpenWhisprCloudDisabled } from "./stores/openWhisprCloudStore";
 import { resolveSettledControlPanelWindowMode } from "./utils/controlPanelWindowMode.ts";
 import { resolveMacAccessibilityReadiness } from "./utils/macAccessibilityReadiness.ts";
 import { isControlPanelWindow } from "./utils/windowContext.ts";
@@ -44,6 +45,8 @@ export default function AppRouter() {
 
 function MainApp() {
   const { isSignedIn, isGracePeriodOnly, isLoaded: authLoaded } = useAuth();
+  // Off counts as "continue without account": no sign-in-again screen.
+  const cloudDisabled = useOpenWhisprCloudDisabled();
   const policyStatus = usePolicyStore((state) => state.status);
   const policyResolved =
     !isSignedIn ||
@@ -211,7 +214,7 @@ function MainApp() {
     );
   }
 
-  if (isControlPanel && needsReauth) {
+  if (isControlPanel && needsReauth && !cloudDisabled) {
     return (
       <ReauthenticationScreen
         onContinueWithoutAccount={() => {

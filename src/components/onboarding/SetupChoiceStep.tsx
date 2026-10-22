@@ -16,6 +16,7 @@ import {
 import { useTranslation } from "react-i18next";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "../ui/dialog";
 import { usePolicySnapshot } from "../../hooks/usePolicy";
+import { useOpenWhisprCloudDisabled } from "../../stores/openWhisprCloudStore";
 import {
   getParakeetModelInfo,
   getTranscriptionProviders,
@@ -124,6 +125,7 @@ export default function SetupChoiceStep({
   onRequestAuthentication,
 }: SetupChoiceStepProps) {
   const { t } = useTranslation();
+  const cloudDisabled = useOpenWhisprCloudDisabled();
   const policy = usePolicySnapshot();
   const [pending, setPending] = useState<WarningSetupMode | null>(null);
   const confirmRef = useRef<HTMLButtonElement>(null);
@@ -148,11 +150,12 @@ export default function SetupChoiceStep({
     llmProviders: modelRegistry.getCloudProviders(),
   });
   const {
-    cloud: cloudAllowed,
+    cloud: cloudAllowedByPolicy,
     local: localAllowed,
     byok: byokAllowed,
     selfHosted: selfHostedAllowed,
   } = availability;
+  const cloudAllowed = cloudAllowedByPolicy && !cloudDisabled;
   const moreOptionsAllowed = byokAllowed || selfHostedAllowed;
 
   const chooseCloud = () => {

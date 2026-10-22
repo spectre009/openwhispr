@@ -6,6 +6,7 @@
 
 export type UnavailableReason =
   | "signedOut"
+  | "cloudOff"
   | "policyOff"
   | "policyLoading"
   | "planRequired"
@@ -41,6 +42,8 @@ export interface UnavailableCapabilityInput {
   /** False when the selected model gets no tools at all (a small local model). */
   supportsTools: boolean;
   isSignedIn: boolean;
+  /** The user turned the OpenWhispr account & Cloud switch off: never suggest signing in. */
+  cloudDisabled?: boolean;
   webSearch: { allowed: boolean; blockedByOrg: boolean };
   calendarConnected: boolean;
   /** Omitted on surfaces that never offer connectors (container chat, onboarding demo). */
@@ -81,7 +84,9 @@ export function resolveUnavailableCapabilities(
 
   const unavailable: UnavailableCapability[] = [];
 
-  if (!input.isSignedIn) {
+  if (input.cloudDisabled) {
+    unavailable.push({ name: "Web search", reason: "cloudOff" });
+  } else if (!input.isSignedIn) {
     unavailable.push({ name: "Web search", reason: "signedOut", where: locations.account });
   } else if (!input.webSearch.allowed) {
     unavailable.push({
@@ -102,7 +107,9 @@ export function resolveUnavailableCapabilities(
     unavailable.push({ name, reason, ...(where ? { where } : {}), delivers: true });
   };
 
-  if (!input.isSignedIn) {
+  if (input.cloudDisabled) {
+    unavailableConnector(CONNECTORS_NAME, "cloudOff");
+  } else if (!input.isSignedIn) {
     unavailableConnector(CONNECTORS_NAME, "signedOut", locations.account);
   } else if (connectors.blockedByOrg) {
     // Before the plan: paying wouldn't help while the organization keeps them off.
@@ -133,6 +140,8 @@ function describeOne({ name, reason, where }: UnavailableCapability): string {
   switch (reason) {
     case "signedOut":
       return `${name}: needs the user to sign in to OpenWhispr${at}.`;
+    case "cloudOff":
+      return `${name}: turned off in this app, because the user turned off OpenWhispr account features. Don't suggest signing in or upgrading.`;
     case "policyOff":
       return `${name}: turned off by the user's organization; only their admin can turn it back on.`;
     case "policyLoading":

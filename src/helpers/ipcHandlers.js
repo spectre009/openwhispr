@@ -16,6 +16,7 @@ const { resolveFailedGpuBackends } = require("./whisper");
 const { WHISPER_GPU_FAILURE_REASON_KEYS } = require("./whisperGpuFailureReason");
 const { BYOK_API_KEYS } = require("../config/secretKeys");
 const tokenStore = require("./tokenStore");
+const openWhisprCloudGate = require("./openWhisprCloudGate");
 const accountScopeBinding = require("./accountScopeBinding");
 const { createCloudApiRequestHandler } = require("./cloudApiRequest");
 const { decodeLeaderboardPngDataUrl, leaderboardImageFilename } = require("./leaderboardImage");
@@ -6306,6 +6307,14 @@ class IPCHandlers {
     ipcMain.handle("auth-get-token", () => tokenStore.get());
     ipcMain.handle("auth-get-token-state", () => tokenStore.getState());
     ipcMain.handle("auth-set-token", (_event, token, expectedGeneration) => {
+      if (openWhisprCloudGate.isCloudDisabled()) {
+        debugLogger.info("[cloud-off] refused auth-set-token");
+        return {
+          success: false,
+          code: openWhisprCloudGate.CLOUD_DISABLED_CODE,
+          ...tokenStore.getState(),
+        };
+      }
       if (typeof token !== "string" || !token) {
         // Surface silent rotation-to-empty so we can spot regressions where the
         // renderer thinks it's persisting a token but the value never lands.
@@ -6333,17 +6342,73 @@ class IPCHandlers {
       return {};
     })();
 
+    // "" while the OpenWhispr account & Cloud switch is off: every cloud
+    // handler and Node-side client built on it then fails closed.
     const getApiUrl = () =>
-      process.env.OPENWHISPR_API_URL ||
-      process.env.VITE_OPENWHISPR_API_URL ||
-      runtimeEnv.VITE_OPENWHISPR_API_URL ||
-      "";
+      openWhisprCloudGate.isCloudDisabled()
+        ? ""
+        : process.env.OPENWHISPR_API_URL ||
+          process.env.VITE_OPENWHISPR_API_URL ||
+          runtimeEnv.VITE_OPENWHISPR_API_URL ||
+          "";
 
     const getAuthUrl = () =>
       process.env.AUTH_URL ||
       process.env.VITE_AUTH_URL ||
       runtimeEnv.VITE_AUTH_URL ||
       "https://auth.openwhispr.com";
+
+    // Preload reads this once, synchronously, so a window's first request
+    // already knows the switch.
+    ipcMain.on("get-openwhispr-cloud-disabled-sync", (event) => {
+      event.returnValue = openWhisprCloudGate.isCloudDisabled();
+    });
+    ipcMain.handle("get-openwhispr-cloud-disabled", () => openWhisprCloudGate.isCloudDisabled());
+    ipcMain.handle("set-openwhispr-cloud-disabled", async (_event, requested) => {
+      const disabled = requested === true;
+      // Decided from the stored credential, not the renderer's isSignedIn, which
+      // can read false while a token still exists.
+      if (disabled && tokenStore.get()) {
+        return { success: false, code: "SIGNED_IN", disabled: false };
+      }
+      openWhisprCloudGate.setCloudDisabled(disabled);
+      broadcastToWindows("openwhispr-cloud-disabled-changed", disabled);
+      if (disabled) await clearOpenWhisprCookies();
+      try {
+        await this.environmentManager.saveOpenWhisprCloudDisabled(disabled);
+      } catch (error) {
+        // The running app keeps what was asked for; only the restart value is stale.
+        debugLogger.error("Failed to persist the OpenWhispr account & Cloud switch", {
+          error: error.message,
+        });
+        return { success: false, code: "PERSIST_FAILED", disabled };
+      }
+      debugLogger.info("OpenWhispr account & Cloud switch changed", {
+        cloudDisabled: disabled,
+      });
+      return { success: true, disabled };
+    });
+
+    // Local only: the cookies are deleted, nothing is sent to sign out.
+    const clearOpenWhisprCookies = async () => {
+      const sessions = new Set([session.defaultSession]);
+      for (const win of BrowserWindow.getAllWindows()) {
+        if (!win.isDestroyed()) sessions.add(win.webContents.session);
+      }
+      for (const target of sessions) {
+        try {
+          const cookies = await target.cookies.get({});
+          for (const cookie of cookies) {
+            const host = String(cookie.domain || "").replace(/^\./, "");
+            const url = `https://${host}${cookie.path || "/"}`;
+            if (!openWhisprCloudGate.isBlockedUrl(url)) continue;
+            await target.cookies.remove(url, cookie.name);
+          }
+        } catch (error) {
+          debugLogger.warn("Could not clear OpenWhispr cookies", { error: error.message });
+        }
+      }
+    };
 
     const getSessionCookiesFromWindow = async (win) => {
       const scopedUrls = [getAuthUrl(), getApiUrl()].filter(Boolean);
@@ -6566,6 +6631,7 @@ class IPCHandlers {
       withPolicyHeaders,
       logger: debugLogger,
       configPath: "stt-config",
+      isCloudDisabled: openWhisprCloudGate.isCloudDisabled,
     });
     const handleNoteRecordingConfigRequest = createCloudConfigRequestHandler({
       getApiUrl,
@@ -6574,6 +6640,7 @@ class IPCHandlers {
       withPolicyHeaders,
       logger: debugLogger,
       configPath: "note-recording-config",
+      isCloudDisabled: openWhisprCloudGate.isCloudDisabled,
     });
 
     ipcMain.handle("cloud-transcribe", async (event, audioBuffer, opts = {}) => {

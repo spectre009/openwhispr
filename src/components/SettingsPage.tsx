@@ -117,6 +117,8 @@ import {
 import type { InferenceModeOption } from "./ui/SettingsSection";
 import { FloatingIconPlacementRows } from "./settings/FloatingIconPlacementRows";
 import { RecordingIndicatorRows } from "./settings/RecordingIndicatorRows";
+import { OpenWhisprCloudSwitch } from "./settings/OpenWhisprCloudSwitch";
+import { useOpenWhisprCloudDisabled } from "../stores/openWhisprCloudStore";
 import { useSettingsLayout } from "./ui/useSettingsLayout";
 import { useUsage } from "../hooks/useUsage";
 import { cn } from "./lib/utils";
@@ -1281,6 +1283,7 @@ export default function SettingsPage({
     setWhisperVadSamplesOverlap,
   } = useSettings();
 
+  const cloudDisabled = useOpenWhisprCloudDisabled();
   const meetingProcessDetection = useSettingsStore((state) => state.meetingProcessDetection);
   const voiceAgentKey = useSettingsStore((s) => s.voiceAgentKey);
   const setVoiceAgentKey = useSettingsStore((s) => s.setVoiceAgentKey);
@@ -3373,13 +3376,22 @@ export default function SettingsPage({
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="as-transcribed">
+                          <SelectItem
+                            value="as-transcribed"
+                            className="text-xs py-1.5 ps-2.5 pe-7 rounded-md"
+                          >
                             {t("settings.language.chineseScriptAsTranscribed")}
                           </SelectItem>
-                          <SelectItem value="simplified">
+                          <SelectItem
+                            value="simplified"
+                            className="text-xs py-1.5 ps-2.5 pe-7 rounded-md"
+                          >
                             {t("settings.language.chineseScriptSimplified")}
                           </SelectItem>
-                          <SelectItem value="traditional">
+                          <SelectItem
+                            value="traditional"
+                            className="text-xs py-1.5 ps-2.5 pe-7 rounded-md"
+                          >
                             {t("settings.language.chineseScriptTraditional")}
                           </SelectItem>
                         </SelectContent>
@@ -4193,6 +4205,8 @@ EOF`,
                 description={t("settingsPage.privacy.description")}
               />
 
+              <OpenWhisprCloudSwitch isSignedIn={isSignedIn} />
+
               {isSignedIn && (
                 <div className="mb-4">
                   <SettingsPanel className="mb-2">
@@ -4284,83 +4298,87 @@ EOF`,
                 </div>
               )}
 
-              <SettingsPanel>
-                <SettingsPanelRow>
-                  <SettingsRow
-                    label={t("settingsPage.privacy.insightsSync")}
-                    description={
-                      !isSignedIn
-                        ? t("settingsPage.privacy.insightsSyncRequiresAccount")
-                        : !insightsSyncAllowedByPolicy
-                          ? t("common.managedByOrg")
-                          : effectiveDataRetentionEnabled
-                            ? t("settingsPage.privacy.insightsSyncDescription")
-                            : t("settingsPage.privacy.insightsSyncRequiresHistory")
-                    }
-                  >
-                    {/* With history off nothing is counted anywhere: this
+              {/* Insights sync, the leaderboard and usage analytics all go to
+                  OpenWhispr: gone with the account & Cloud switch off. */}
+              {!cloudDisabled && (
+                <SettingsPanel>
+                  <SettingsPanelRow>
+                    <SettingsRow
+                      label={t("settingsPage.privacy.insightsSync")}
+                      description={
+                        !isSignedIn
+                          ? t("settingsPage.privacy.insightsSyncRequiresAccount")
+                          : !insightsSyncAllowedByPolicy
+                            ? t("common.managedByOrg")
+                            : effectiveDataRetentionEnabled
+                              ? t("settingsPage.privacy.insightsSyncDescription")
+                              : t("settingsPage.privacy.insightsSyncRequiresHistory")
+                      }
+                    >
+                      {/* With history off nothing is counted anywhere: this
                         device records no counter, and the cloud writes none
                         either, because analyticsSyncEnabled withholds the
                         localDate its analytics write requires. Turning this on
                         could therefore only promise a sync that never happens —
                         but an already-on toggle must stay switchable off. */}
-                    <Toggle
-                      checked={insightsSyncEnabled}
-                      disabled={
-                        !isSignedIn ||
-                        !canToggleInsightsSync ||
-                        (!effectiveDataRetentionEnabled && !insightsSyncEnabled)
+                      <Toggle
+                        checked={insightsSyncEnabled}
+                        disabled={
+                          !isSignedIn ||
+                          !canToggleInsightsSync ||
+                          (!effectiveDataRetentionEnabled && !insightsSyncEnabled)
+                        }
+                        onChange={(enabled) => {
+                          if (enabled) void enableInsightsSync();
+                          else disableInsightsSync();
+                        }}
+                      />
+                    </SettingsRow>
+                  </SettingsPanelRow>
+                  <SettingsPanelRow>
+                    <SettingsRow
+                      label={t("insights.leaderboard.title")}
+                      description={
+                        !isSignedIn
+                          ? t("settingsPage.privacy.leaderboardRequiresAccount")
+                          : leaderboardParticipationError === "read"
+                            ? t("insights.leaderboard.activationError")
+                            : leaderboardLeavePending
+                              ? t("insights.leaderboard.leavePending")
+                              : !insightsSyncAllowedByPolicy
+                                ? t("common.managedByOrg")
+                                : !effectiveDataRetentionEnabled
+                                  ? t("settingsPage.privacy.leaderboardRequiresHistory")
+                                  : t("settingsPage.privacy.leaderboardDescription")
                       }
-                      onChange={(enabled) => {
-                        if (enabled) void enableInsightsSync();
-                        else disableInsightsSync();
-                      }}
-                    />
-                  </SettingsRow>
-                </SettingsPanelRow>
-                <SettingsPanelRow>
-                  <SettingsRow
-                    label={t("insights.leaderboard.title")}
-                    description={
-                      !isSignedIn
-                        ? t("settingsPage.privacy.leaderboardRequiresAccount")
-                        : leaderboardParticipationError === "read"
-                          ? t("insights.leaderboard.activationError")
-                          : leaderboardLeavePending
-                            ? t("insights.leaderboard.leavePending")
-                            : !insightsSyncAllowedByPolicy
-                              ? t("common.managedByOrg")
-                              : !effectiveDataRetentionEnabled
-                                ? t("settingsPage.privacy.leaderboardRequiresHistory")
-                                : t("settingsPage.privacy.leaderboardDescription")
-                    }
-                  >
-                    <Toggle
-                      checked={isSignedIn && leaderboardParticipationEnabled}
-                      disabled={
-                        !isSignedIn ||
-                        !leaderboardParticipationReady ||
-                        leaderboardPreferencePending ||
-                        leaderboardParticipationUpdating ||
-                        leaderboardParticipationError === "read" ||
-                        (!leaderboardParticipationEnabled &&
-                          (!effectiveDataRetentionEnabled ||
-                            !insightsSyncAllowedByPolicy ||
-                            (!insightsSyncEnabled && !canToggleInsightsSync)))
-                      }
-                      onChange={(enabled) => void updateLeaderboardParticipation(enabled)}
-                    />
-                  </SettingsRow>
-                </SettingsPanelRow>
-                <SettingsPanelRow>
-                  <SettingsRow
-                    label={t("settingsPage.privacy.usageAnalytics")}
-                    description={t("settingsPage.privacy.usageAnalyticsDescription")}
-                  >
-                    <Toggle checked={telemetryEnabled} onChange={setTelemetryEnabled} />
-                  </SettingsRow>
-                </SettingsPanelRow>
-              </SettingsPanel>
+                    >
+                      <Toggle
+                        checked={isSignedIn && leaderboardParticipationEnabled}
+                        disabled={
+                          !isSignedIn ||
+                          !leaderboardParticipationReady ||
+                          leaderboardPreferencePending ||
+                          leaderboardParticipationUpdating ||
+                          leaderboardParticipationError === "read" ||
+                          (!leaderboardParticipationEnabled &&
+                            (!effectiveDataRetentionEnabled ||
+                              !insightsSyncAllowedByPolicy ||
+                              (!insightsSyncEnabled && !canToggleInsightsSync)))
+                        }
+                        onChange={(enabled) => void updateLeaderboardParticipation(enabled)}
+                      />
+                    </SettingsRow>
+                  </SettingsPanelRow>
+                  <SettingsPanelRow>
+                    <SettingsRow
+                      label={t("settingsPage.privacy.usageAnalytics")}
+                      description={t("settingsPage.privacy.usageAnalyticsDescription")}
+                    >
+                      <Toggle checked={telemetryEnabled} onChange={setTelemetryEnabled} />
+                    </SettingsRow>
+                  </SettingsPanelRow>
+                </SettingsPanel>
+              )}
             </div>
 
             {/* Audio Retention */}

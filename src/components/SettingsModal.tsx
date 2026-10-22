@@ -16,6 +16,12 @@ import {
 import SidebarModal, { type SidebarItem } from "./ui/SidebarModal";
 import SettingsPage, { AccountAvatar, SettingsSectionType } from "./SettingsPage";
 import { useAuth } from "../hooks/useAuth";
+import { useOpenWhisprCloudDisabled } from "../stores/openWhisprCloudStore";
+import {
+  resolveSettingsSection,
+  shownSettingsSection,
+  visibleSettingsSections,
+} from "./settingsSections";
 
 export type { SettingsSectionType };
 
@@ -60,6 +66,7 @@ interface SettingsModalProps {
 export default function SettingsModal({ open, onOpenChange, initialSection }: SettingsModalProps) {
   const { t } = useTranslation();
   const { isSignedIn, user } = useAuth();
+  const cloudDisabled = useOpenWhisprCloudDisabled();
   const policyManaged = usePolicyStore((s) => s.managed);
   const sidebarItems: SidebarItem<SettingsSectionType>[] = useMemo(() => {
     const items: SidebarItem<SettingsSectionType>[] = [
@@ -127,13 +134,11 @@ export default function SettingsModal({ open, onOpenChange, initialSection }: Se
         group: t("settingsModal.groups.system"),
       },
     ];
-    return isSignedIn ? items : items.filter((item) => item.id !== "workspace");
-  }, [t, isSignedIn]);
+    return visibleSettingsSections(items, { isSignedIn, cloudDisabled });
+  }, [t, isSignedIn, cloudDisabled]);
 
-  const resolveSection = (section: string | undefined): SettingsSectionType => {
-    if (!section) return "account";
-    return (SECTION_ALIASES[section] ?? section) as SettingsSectionType;
-  };
+  const resolveSection = (section: string | undefined): SettingsSectionType =>
+    resolveSettingsSection(section, SECTION_ALIASES, cloudDisabled);
 
   const [activeSection, setActiveSection] = React.useState<SettingsSectionType>(() =>
     resolveSection(initialSection)
@@ -156,6 +161,9 @@ export default function SettingsModal({ open, onOpenChange, initialSection }: Se
     setActiveSection(section);
     setInitialSubTab(undefined);
   };
+  // Turning the account & Cloud switch off while an account section is open
+  // moves the view off it without forgetting what was asked for.
+  const shownSection = shownSettingsSection(activeSection, cloudDisabled);
 
   return (
     <SidebarModal<SettingsSectionType>
@@ -163,7 +171,7 @@ export default function SettingsModal({ open, onOpenChange, initialSection }: Se
       onOpenChange={onOpenChange}
       title={t("settingsModal.title")}
       sidebarItems={sidebarItems}
-      activeSection={activeSection}
+      activeSection={shownSection}
       onSectionChange={handleSectionChange}
       header={
         isSignedIn && user ? (
@@ -191,7 +199,7 @@ export default function SettingsModal({ open, onOpenChange, initialSection }: Se
       }
     >
       <SettingsPage
-        activeSection={activeSection}
+        activeSection={shownSection}
         onNavigateToSection={handleSectionChange}
         initialSubTab={initialSubTab}
       />

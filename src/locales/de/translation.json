@@ -2749,6 +2749,17 @@
       "upgradeCta": "Jetzt upgraden",
       "upgradedTitle": "Upgrade auf Enterprise abgeschlossen",
       "upgradedDescription": "{{workspace}} ist jetzt auf Enterprise."
+    },
+    "openWhisprCloud": {
+      "label": "OpenWhispr-Konto und Cloud",
+      "description": "Aus blendet Anmeldung, Tarife und OpenWhispr-Cloud-Modelle aus und blockiert jede Verbindung zu den Servern von OpenWhispr. Ihre eigenen API-Schlüssel und lokalen Modelle funktionieren weiter.",
+      "signedInHint": "Melden Sie sich zuerst von Ihrem OpenWhispr-Konto ab.",
+      "signedInTitle": "Zuerst abmelden",
+      "signedInBody": "OpenWhispr-Konto und Cloud lässt sich nicht ausschalten, solange Sie angemeldet sind.",
+      "persistFailedTitle": "Einstellung konnte nicht gespeichert werden",
+      "persistFailedBody": "Sie gilt bis zum Neustart von OpenWhispr. Versuchen Sie es erneut.",
+      "modeBadge": "Ausgeschaltet",
+      "modeDescription": "OpenWhispr Cloud ist unter Datenschutz und Daten ausgeschaltet. Wählen Sie einen anderen Modus."
     }
   },
   "models": {
@@ -4948,6 +4959,14 @@
     "details": {
       "provider": "Anbieter",
       "requestId": "Anfrage-ID"
+    }
+  },
+  "calendarOAuth": {
+    "browser": {
+      "connectedTitle": "{{calendar}} ist verbunden",
+      "connectedBody": "Sie können diesen Tab schließen und zu OpenWhispr zurückkehren.",
+      "failedTitle": "{{calendar}} wurde nicht verbunden",
+      "failedBody": "Kehren Sie zu OpenWhispr zurück, um es erneut zu versuchen."
     }
   }
 }

@@ -2707,6 +2707,17 @@
       "upgradeCta": "Actualizar ahora",
       "upgradedTitle": "Actualizado a Enterprise",
       "upgradedDescription": "{{workspace}} ahora está en Enterprise."
+    },
+    "openWhisprCloud": {
+      "label": "Cuenta y nube de OpenWhispr",
+      "description": "Al desactivarlo se ocultan el inicio de sesión, los planes y los modelos de OpenWhispr Cloud, y se bloquea toda conexión con los servidores de OpenWhispr. Tus propias claves de API y los modelos locales siguen funcionando.",
+      "signedInHint": "Primero cierra la sesión de tu cuenta de OpenWhispr.",
+      "signedInTitle": "Cierra la sesión primero",
+      "signedInBody": "La cuenta y nube de OpenWhispr no se puede desactivar mientras tengas la sesión iniciada.",
+      "persistFailedTitle": "No se pudo guardar el ajuste",
+      "persistFailedBody": "Se aplica hasta que OpenWhispr se reinicie. Inténtalo de nuevo.",
+      "modeBadge": "Desactivado",
+      "modeDescription": "OpenWhispr Cloud está desactivado en Privacidad y datos. Elige otro modo."
     }
   },
   "models": {
@@ -4948,6 +4959,14 @@
     "details": {
       "provider": "Proveedor",
       "requestId": "ID de solicitud"
+    }
+  },
+  "calendarOAuth": {
+    "browser": {
+      "connectedTitle": "{{calendar}} está conectado",
+      "connectedBody": "Puedes cerrar esta pestaña y volver a OpenWhispr.",
+      "failedTitle": "{{calendar}} no se conectó",
+      "failedBody": "Vuelve a OpenWhispr para intentarlo de nuevo."
     }
   }
 }

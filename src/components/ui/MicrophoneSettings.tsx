@@ -9,6 +9,10 @@ import { resolveSystemDefaultMicDevice } from "../../helpers/microphoneSelection
 import { resolveMicDeviceSelection } from "../../helpers/micDeviceSelection";
 import { MIC_WARM_HOLD_CHOICES } from "../../stores/settingsStore";
 
+// Settings text is 12 px: these match the other compact Settings dropdowns.
+const COMPACT_TRIGGER_CLASS = "h-7 w-44 text-xs rounded-lg px-2.5 [&>svg]:h-3 [&>svg]:w-3";
+const COMPACT_ITEM_CLASS = "text-xs py-1.5 ps-2.5 pe-7 rounded-md";
+
 interface AudioDevice {
   kind: "audioinput";
   deviceId: string;
@@ -111,7 +115,7 @@ export const MicrophoneSettings: React.FC<MicrophoneSettingsProps> = ({
     <div className="space-y-4">
       <div className="space-y-3">
         <div className="flex items-center gap-2">
-          <label className="text-sm font-medium text-foreground">
+          <label className="text-xs font-medium text-foreground">
             {t("microphoneSettings.inputDevice")}
           </label>
           <Button
@@ -145,7 +149,7 @@ export const MicrophoneSettings: React.FC<MicrophoneSettingsProps> = ({
               onSelectionModeChange("specific");
             }}
           >
-            <SelectTrigger className="w-full">
+            <SelectTrigger className="h-8 w-full rounded-lg px-3 text-xs [&>svg]:h-3.5 [&>svg]:w-3.5">
               <SelectValue placeholder={t("microphoneSettings.selectPlaceholder")}>
                 {microphoneSelectionMode === "system"
                   ? `${t("microphoneSettings.systemDefault")}${systemDefaultLabel ? ` — ${systemDefaultLabel}` : ""}`
@@ -155,17 +159,23 @@ export const MicrophoneSettings: React.FC<MicrophoneSettingsProps> = ({
               </SelectValue>
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="__system__">{t("microphoneSettings.systemDefault")}</SelectItem>
-              <SelectItem value="__built-in__">
+              <SelectItem value="__system__" className={COMPACT_ITEM_CLASS}>
+                {t("microphoneSettings.systemDefault")}
+              </SelectItem>
+              <SelectItem value="__built-in__" className={COMPACT_ITEM_CLASS}>
                 {t("microphoneSettings.preferBuiltIn.label")}
               </SelectItem>
               {devices
                 .filter((device) => device.deviceId !== "default")
                 .map((device) => (
-                  <SelectItem key={device.deviceId} value={device.deviceId}>
+                  <SelectItem
+                    key={device.deviceId}
+                    value={device.deviceId}
+                    className={COMPACT_ITEM_CLASS}
+                  >
                     {device.label}
                     {device.isBuiltIn && (
-                      <span className="ml-2 text-xs text-muted-foreground">
+                      <span className="ml-2 text-[11px] text-muted-foreground">
                         {t("microphoneSettings.builtIn")}
                       </span>
                     )}
@@ -205,14 +215,14 @@ export const MicrophoneSettings: React.FC<MicrophoneSettingsProps> = ({
           value={String(micWarmHoldSeconds)}
           onValueChange={(value) => onMicWarmHoldSecondsChange(Number(value))}
         >
-          <SelectTrigger className="w-40">
+          <SelectTrigger className={COMPACT_TRIGGER_CLASS}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
             {/* Derived from the store's whitelist so a new option can't silently
                 snap to 0 in the setter; its label key is the value itself. */}
             {MIC_WARM_HOLD_CHOICES.map((seconds) => (
-              <SelectItem key={seconds} value={String(seconds)}>
+              <SelectItem key={seconds} value={String(seconds)} className={COMPACT_ITEM_CLASS}>
                 {t(`microphoneSettings.warmHold.options.${seconds}`)}
               </SelectItem>
             ))}

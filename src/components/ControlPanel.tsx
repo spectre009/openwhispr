@@ -36,6 +36,7 @@ import {
   useSettingsStore,
 } from "../stores/settingsStore";
 import { usePolicyStore } from "../stores/policyStore";
+import { useOpenWhisprCloudDisabled } from "../stores/openWhisprCloudStore";
 import { usePolicySnapshot } from "../hooks/usePolicy";
 import {
   isAgentAllowed,
@@ -194,12 +195,15 @@ export default function ControlPanel({ initialSettingsSection }: ControlPanelPro
     null
   );
   const usage = useUsage();
-  const upsell = decideUpsell({
-    authLoaded,
-    isSignedIn,
-    hasPaidAccess: usage?.hasPaidAccess ?? null,
-    isPastDue: usage?.isPastDue ?? false,
-  });
+  const cloudDisabled = useOpenWhisprCloudDisabled();
+  const upsell = cloudDisabled
+    ? "hide"
+    : decideUpsell({
+        authLoaded,
+        isSignedIn,
+        hasPaidAccess: usage?.hasPaidAccess ?? null,
+        isPastDue: usage?.isPastDue ?? false,
+      });
 
   const {
     status: updateStatus,

@@ -2655,6 +2655,17 @@
       "upgradeCta": "今すぐアップグレード",
       "upgradedTitle": "Enterpriseにアップグレードしました",
       "upgradedDescription": "{{workspace}}はEnterpriseになりました。"
+    },
+    "openWhisprCloud": {
+      "label": "OpenWhispr アカウントとクラウド",
+      "description": "オフにすると、サインイン、プラン、OpenWhispr Cloud のモデルが非表示になり、OpenWhispr のサーバーへの接続がすべてブロックされます。ご自身の API キーとローカルモデルは引き続き使えます。",
+      "signedInHint": "先に OpenWhispr アカウントからサインアウトしてください。",
+      "signedInTitle": "先にサインアウトしてください",
+      "signedInBody": "サインイン中は OpenWhispr アカウントとクラウドをオフにできません。",
+      "persistFailedTitle": "設定を保存できませんでした",
+      "persistFailedBody": "OpenWhispr を再起動するまで適用されます。もう一度お試しください。",
+      "modeBadge": "オフ",
+      "modeDescription": "OpenWhispr Cloud はプライバシーとデータでオフになっています。別のモードを選んでください。"
     }
   },
   "models": {
@@ -4948,6 +4959,14 @@
     "details": {
       "provider": "プロバイダー",
       "requestId": "リクエストID"
+    }
+  },
+  "calendarOAuth": {
+    "browser": {
+      "connectedTitle": "{{calendar}} に接続しました",
+      "connectedBody": "このタブを閉じて OpenWhispr に戻ってください。",
+      "failedTitle": "{{calendar}} に接続できませんでした",
+      "failedBody": "OpenWhispr に戻ってもう一度お試しください。"
     }
   }
 }

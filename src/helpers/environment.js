@@ -62,6 +62,7 @@ const PERSISTED_KEYS = [
   "AZURE_OPENAI_API_VERSION",
   "VERTEX_PROJECT",
   "VERTEX_LOCATION",
+  "OPENWHISPR_CLOUD_DISABLED",
 ];
 
 // Module-level so writes are serialized across all instances — hotkeyManager
@@ -458,6 +459,18 @@ class EnvironmentManager {
     const result = this._saveKey("START_MINIMIZED", String(enabled));
     this.saveAllKeysToEnvFile().catch(() => {});
     return result;
+  }
+
+  getOpenWhisprCloudDisabled() {
+    return this._getKey("OPENWHISPR_CLOUD_DISABLED") === "true";
+  }
+
+  // Unlike the other setters this awaits the write: a switch that reads "off"
+  // must still be off after a restart, so a failed write has to surface.
+  async saveOpenWhisprCloudDisabled(disabled) {
+    this._saveKey("OPENWHISPR_CLOUD_DISABLED", disabled ? "true" : "");
+    await this.saveAllKeysToEnvFile();
+    return { success: true };
   }
 
   getPanelStartPosition() {

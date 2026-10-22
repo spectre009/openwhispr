@@ -1,4 +1,4 @@
-const WebSocket = require("ws");
+const WebSocket = require("./guardedWebSocket");
 const OpenAIRealtimeStreaming = require("./openaiRealtimeStreaming");
 const { createTinfoilRealtimeSocket } = require("./tinfoilSecureClient");
 const debugLogger = require("./debugLogger");

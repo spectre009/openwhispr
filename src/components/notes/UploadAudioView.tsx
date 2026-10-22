@@ -76,6 +76,7 @@ import { generateNoteTitle } from "../../utils/generateTitle";
 import { getBaseLanguageCode } from "../../utils/languageSupport";
 import { isTranscriptionContextAllowed } from "../../stores/policyRules";
 import { usePolicyStore } from "../../stores/policyStore";
+import { useOpenWhisprCloudDisabled } from "../../stores/openWhisprCloudStore";
 import { usePolicySnapshot, useTranscriptionContextAllowed } from "../../hooks/usePolicy";
 import { byokFileSizeLimit, resolveTranscriptionRoute } from "../../helpers/transcriptionRoute";
 import { saveUploadNote, uploadTitleFallback } from "../../services/uploadNotes";
@@ -332,6 +333,7 @@ export default function UploadAudioView({ onNoteCreated, onOpenSettings }: Uploa
 
   const isOpenWhisprCloud =
     isSignedIn && cloudTranscriptionMode === "openwhispr" && !useLocalWhisper;
+  const cloudDisabled = useOpenWhisprCloudDisabled();
 
   // Mode detection
   const isSelfHosted = transcriptionMode === "self-hosted" && !useLocalWhisper;
@@ -1154,6 +1156,7 @@ export default function UploadAudioView({ onNoteCreated, onOpenSettings }: Uploa
             byokMaxFileSizeMb={byokMaxFileSizeMb}
             requiresAccount={requiresAccount}
             isProUser={!!isProUser}
+            offerCloud={!cloudDisabled}
             onUpgrade={() => usage?.openCheckout()}
             onCreateAccount={requestSignIn}
             onSwitchToCloud={switchToCloud}
@@ -1553,6 +1556,8 @@ interface SelectedViewProps {
   byokMaxFileSizeMb: number;
   requiresAccount: boolean;
   isProUser: boolean;
+  /** False while the OpenWhispr account & Cloud switch is off: no account, upgrade or Cloud offers. */
+  offerCloud: boolean;
   onUpgrade: () => void;
   onCreateAccount: () => void;
   onSwitchToCloud: () => void;
@@ -1574,6 +1579,7 @@ function SelectedView({
   byokMaxFileSizeMb,
   requiresAccount,
   isProUser,
+  offerCloud,
   onUpgrade,
   onCreateAccount,
   onSwitchToCloud,
@@ -1633,13 +1639,15 @@ function SelectedView({
           <p className="mt-1.5 text-[13px] leading-relaxed text-muted-foreground">
             {t("notes.upload.byokTooLargeDetail", { size: byokMaxFileSizeMb })}
           </p>
-          <p className="mt-1.5 text-[13px] font-medium leading-relaxed text-foreground">
-            {requiresAccount
-              ? t("notes.upload.byokTooLargeNeedsAccount")
-              : isProUser
-                ? t("notes.upload.switchToCloudForLargeFiles")
-                : t("notes.upload.byokTooLargeNeedsUpgrade")}
-          </p>
+          {offerCloud && (
+            <p className="mt-1.5 text-[13px] font-medium leading-relaxed text-foreground">
+              {requiresAccount
+                ? t("notes.upload.byokTooLargeNeedsAccount")
+                : isProUser
+                  ? t("notes.upload.switchToCloudForLargeFiles")
+                  : t("notes.upload.byokTooLargeNeedsUpgrade")}
+            </p>
+          )}
         </div>
       )}
 
@@ -1661,21 +1669,21 @@ function SelectedView({
 
       <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
         {/* BYOK too large — not signed in: Create Account */}
-        {byokTooLarge && requiresAccount && (
+        {offerCloud && byokTooLarge && requiresAccount && (
           <Button onClick={onCreateAccount} className={PRIMARY_ACTION_CLASS}>
             {t("notes.upload.createAccount")}
           </Button>
         )}
 
         {/* BYOK too large — signed in, Pro: Switch to Cloud */}
-        {byokTooLarge && !requiresAccount && isProUser && (
+        {offerCloud && byokTooLarge && !requiresAccount && isProUser && (
           <Button onClick={onSwitchToCloud} className={PRIMARY_ACTION_CLASS}>
             {t("notes.upload.switchToCloud")}
           </Button>
         )}
 
         {/* BYOK too large — signed in, Free: Upgrade */}
-        {byokTooLarge && !requiresAccount && !isProUser && (
+        {offerCloud && byokTooLarge && !requiresAccount && !isProUser && (
           <Button onClick={onUpgrade} className={PRIMARY_ACTION_CLASS}>
             {t("notes.upload.upgrade")}
           </Button>

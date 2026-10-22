@@ -1,5 +1,6 @@
 const { net } = require("electron");
 const { runOAuthLoopbackFlow, OAuthFlowError } = require("./oauthLoopbackFlow");
+const { calendarResultPage } = require("./connectors/oauthResultPage");
 
 // The "common" tenant covers both work/school (M365) and personal
 // (outlook.com) accounts. Desktop apps are public clients: PKCE, no secret.
@@ -43,6 +44,7 @@ class MicrosoftCalendarOAuth {
     }
     return runOAuthLoopbackFlow({
       errorParam: "mcal_error",
+      renderResultPage: calendarResultPage("Outlook Calendar"),
       buildAuthUrl: (redirectUri, state, codeChallenge) => {
         const params = new URLSearchParams({
           client_id: this.getClientId(),

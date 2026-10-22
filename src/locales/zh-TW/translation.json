@@ -2655,6 +2655,17 @@
       "upgradeCta": "立即升級",
       "upgradedTitle": "已升級至 Enterprise",
       "upgradedDescription": "{{workspace}} 現已升級至 Enterprise。"
+    },
+    "openWhisprCloud": {
+      "label": "OpenWhispr 帳號與雲端服務",
+      "description": "關閉後，將隱藏登入、方案和 OpenWhispr Cloud 模型，並封鎖與 OpenWhispr 伺服器的所有連線。你自己的 API 金鑰和本機模型仍可正常使用。",
+      "signedInHint": "請先登出你的 OpenWhispr 帳號。",
+      "signedInTitle": "請先登出",
+      "signedInBody": "登入狀態下無法關閉 OpenWhispr 帳號與雲端服務。",
+      "persistFailedTitle": "無法儲存此設定",
+      "persistFailedBody": "在 OpenWhispr 重新啟動前有效。請再試一次。",
+      "modeBadge": "已關閉",
+      "modeDescription": "OpenWhispr Cloud 已在「隱私與資料」中關閉。請選擇其他模式。"
     }
   },
   "models": {
@@ -4948,6 +4959,14 @@
     "details": {
       "provider": "服務商",
       "requestId": "請求 ID"
+    }
+  },
+  "calendarOAuth": {
+    "browser": {
+      "connectedTitle": "{{calendar}} 已連線",
+      "connectedBody": "你可以關閉此分頁並返回 OpenWhispr。",
+      "failedTitle": "{{calendar}} 未連線",
+      "failedBody": "請返回 OpenWhispr 再試一次。"
     }
   }
 }

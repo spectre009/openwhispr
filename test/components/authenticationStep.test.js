@@ -142,6 +142,9 @@ async function createAuthenticationRenderer(t) {
           return { isLoaded: true, isSignedIn: false, user: null };
         }
       `,
+      "/stores/openWhisprCloudStore": `
+        export function useOpenWhisprCloudDisabled() { return false; }
+      `,
       "/lib/auth": `
         export const AUTH_URL = "https://auth.example.test";
         export const authClient = {

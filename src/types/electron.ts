@@ -2593,6 +2593,14 @@ declare global {
         callback: (state: { generation: number; hasToken: boolean }) => void
       ) => () => void;
 
+      // OpenWhispr account & Cloud switch (main owns it; see openWhisprCloudGate.js)
+      openWhisprCloudDisabledAtLoad?: boolean;
+      getOpenWhisprCloudDisabled?: () => Promise<boolean>;
+      setOpenWhisprCloudDisabled?: (
+        disabled: boolean
+      ) => Promise<{ success: boolean; code?: string; disabled: boolean }>;
+      onOpenWhisprCloudDisabledChanged?: (callback: (disabled: boolean) => void) => () => void;
+
       // OpenWhispr Cloud API
       cloudTranscribe?: (
         audioBuffer: ArrayBuffer,

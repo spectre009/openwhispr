@@ -1,6 +1,12 @@
 import { useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { useShallow } from "zustand/react/shallow";
 import { usePolicyStore } from "../stores/policyStore";
+import { useOpenWhisprCloudDisabled } from "../stores/openWhisprCloudStore";
+import {
+  applyCloudSwitchToModeOptions,
+  isModeAllowedWithCloudSwitch,
+} from "../utils/openWhisprCloudModes";
 import { selectPolicyEffectiveSettings, useSettingsStore } from "../stores/settingsStore";
 import {
   filterModeOptionsByPolicy,
@@ -53,8 +59,14 @@ export function usePolicyModeOptions<T extends { id: InferenceMode; disabled?: b
     enterpriseProviders?: readonly string[];
   }
 ): PolicyModeOptions<T> {
+  const { t } = useTranslation();
   const snapshot = usePolicySnapshot();
-  const modes = filterModeOptionsByPolicy(options, scope, snapshot, providerCatalog);
+  const cloudDisabled = useOpenWhisprCloudDisabled();
+  const switchedOptions = applyCloudSwitchToModeOptions(options, cloudDisabled, selectedMode, {
+    badge: t("settingsPage.openWhisprCloud.modeBadge"),
+    description: t("settingsPage.openWhisprCloud.modeDescription"),
+  });
+  const modes = filterModeOptionsByPolicy(switchedOptions, scope, snapshot, providerCatalog);
   const selectionIsVisible = modes.some((option) => option.id === selectedMode && !option.disabled);
   const preservesRawSelection = snapshot.status === "idle" || snapshot.status === "unmanaged";
   return {
@@ -63,6 +75,8 @@ export function usePolicyModeOptions<T extends { id: InferenceMode; disabled?: b
       preservesRawSelection || selectionIsVisible
         ? selectedMode
         : reconcilePolicyModeSelection(options, scope, snapshot, selectedMode, providerCatalog),
-    isModeAllowed: (mode: InferenceMode) => isModeAllowedByPolicy(snapshot, scope, mode),
+    isModeAllowed: (mode: InferenceMode) =>
+      isModeAllowedWithCloudSwitch(mode, cloudDisabled) &&
+      isModeAllowedByPolicy(snapshot, scope, mode),
   };
 }

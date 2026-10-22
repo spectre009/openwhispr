@@ -30,4 +30,19 @@ function connectorResultPage(
     });
 }
 
-module.exports = { renderOAuthResultPage, connectorResultPage };
+// The page after a calendar sign-in. Served from the loopback server, never
+// the hosted openwhispr.com callback, so connecting a calendar sends the
+// browser nowhere but Google or Microsoft.
+function calendarResultPage(calendarName, { render = renderOAuthResultPage } = {}) {
+  return ({ ok }) => {
+    const { i18nMain } = require("../i18nMain");
+    const copy = (key) => i18nMain.t(`calendarOAuth.browser.${key}`, { calendar: calendarName });
+    return render({
+      ok,
+      title: copy(ok ? "connectedTitle" : "failedTitle"),
+      body: copy(ok ? "connectedBody" : "failedBody"),
+    });
+  };
+}
+
+module.exports = { renderOAuthResultPage, connectorResultPage, calendarResultPage };

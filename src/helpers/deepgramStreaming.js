@@ -1,4 +1,4 @@
-const WebSocket = require("ws");
+const WebSocket = require("./guardedWebSocket");
 const debugLogger = require("./debugLogger");
 
 const SAMPLE_RATE = 16000;

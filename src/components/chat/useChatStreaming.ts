@@ -16,6 +16,7 @@ import {
   isWebSearchBlockedByOrg,
 } from "../../stores/policyRules";
 import { usePolicyStore } from "../../stores/policyStore";
+import { isOpenWhisprCloudDisabled } from "../../stores/openWhisprCloudStore";
 import { useAuth } from "../../hooks/useAuth";
 import { getUsageState } from "../../lib/usageStore";
 import { readIsSubscribed } from "../../lib/subscriptionFlag";
@@ -466,6 +467,7 @@ export function useChatStreaming({
         const unavailable = resolveUnavailableCapabilities({
           supportsTools,
           isSignedIn: settings.isSignedIn,
+          cloudDisabled: isOpenWhisprCloudDisabled(),
           webSearch: { allowed: webSearchEnabled, blockedByOrg: isWebSearchBlockedByOrg(policy) },
           calendarConnected,
           connectors: allowConnectors

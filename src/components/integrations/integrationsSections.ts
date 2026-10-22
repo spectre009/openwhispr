@@ -59,3 +59,33 @@ export function sectionMeta(
 
 export const INTEGRATIONS_SECTIONS: readonly IntegrationsSection[] =
   INTEGRATIONS_SECTION_GROUPS.flatMap((group) => group.sections);
+
+/** Sections built on an OpenWhispr account: gone while the account & Cloud switch is off. */
+const ACCOUNT_SECTIONS: ReadonlySet<IntegrationsSection> = new Set<IntegrationsSection>([
+  "connectors",
+  "api",
+  "mcp",
+  "cli",
+]);
+
+export function visibleIntegrationsSectionGroups(
+  cloudDisabled: boolean
+): typeof INTEGRATIONS_SECTION_GROUPS {
+  if (!cloudDisabled) return INTEGRATIONS_SECTION_GROUPS;
+  return INTEGRATIONS_SECTION_GROUPS.map((group) => ({
+    ...group,
+    sections: group.sections.filter((section) => !ACCOUNT_SECTIONS.has(section)),
+  })).filter((group) => group.sections.length > 0);
+}
+
+export function visibleIntegrationsSections(cloudDisabled: boolean): IntegrationsSection[] {
+  return visibleIntegrationsSectionGroups(cloudDisabled).flatMap((group) => [...group.sections]);
+}
+
+/** The section actually shown: a hidden one falls back to the default. */
+export function shownIntegrationsSection(
+  section: IntegrationsSection,
+  cloudDisabled: boolean
+): IntegrationsSection {
+  return cloudDisabled && ACCOUNT_SECTIONS.has(section) ? DEFAULT_INTEGRATIONS_SECTION : section;
+}

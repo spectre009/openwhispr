@@ -4126,6 +4126,17 @@
       "upgradeCta": "الترقية الآن",
       "upgradedTitle": "تمت الترقية إلى Enterprise",
       "upgradedDescription": "أصبحت {{workspace}} الآن على Enterprise."
+    },
+    "openWhisprCloud": {
+      "label": "حساب OpenWhispr والسحابة",
+      "description": "عند إيقافه، يُخفى تسجيل الدخول والخطط ونماذج OpenWhispr Cloud، ويُحظر أي اتصال بخوادم OpenWhispr. تظل مفاتيح API الخاصة بك والنماذج المحلية تعمل.",
+      "signedInHint": "سجّل الخروج من حساب OpenWhispr أولًا.",
+      "signedInTitle": "سجّل الخروج أولًا",
+      "signedInBody": "لا يمكن إيقاف حساب OpenWhispr والسحابة أثناء تسجيل دخولك.",
+      "persistFailedTitle": "تعذّر حفظ الإعداد",
+      "persistFailedBody": "يبقى ساريًا حتى إعادة تشغيل OpenWhispr. حاول مرة أخرى.",
+      "modeBadge": "متوقف",
+      "modeDescription": "تم إيقاف OpenWhispr Cloud في الخصوصية والبيانات. اختر وضعًا آخر."
     }
   },
   "settings": {
@@ -5074,6 +5085,14 @@
     "details": {
       "provider": "المزوّد",
       "requestId": "معرّف الطلب"
+    }
+  },
+  "calendarOAuth": {
+    "browser": {
+      "connectedTitle": "تم توصيل {{calendar}}",
+      "connectedBody": "يمكنك إغلاق علامة التبويب هذه والعودة إلى OpenWhispr.",
+      "failedTitle": "لم يتم توصيل {{calendar}}",
+      "failedBody": "عُد إلى OpenWhispr للمحاولة مرة أخرى."
     }
   }
 }

@@ -40,6 +40,14 @@ for (const k of BYOK_KEY_BRIDGES) {
   secretKeyApi[k.save] = (key) => ipcRenderer.invoke(`save-${k.base}-key`, key);
 }
 
+const readOpenWhisprCloudDisabled = () => {
+  try {
+    return ipcRenderer.sendSync("get-openwhispr-cloud-disabled-sync") === true;
+  } catch {
+    return false;
+  }
+};
+
 /**
  * Helper to register an IPC listener and return a cleanup function.
  * Ensures renderer code can easily remove listeners to avoid leaks.
@@ -788,6 +796,17 @@ contextBridge.exposeInMainWorld("electronAPI", {
   onAuthTokenStateChanged: registerListener(
     "auth-token-state-changed",
     (callback) => (_event, state) => callback(state)
+  ),
+
+  // OpenWhispr account & Cloud switch. The initial value is read once,
+  // synchronously, so the first frame and first request already know it.
+  openWhisprCloudDisabledAtLoad: readOpenWhisprCloudDisabled(),
+  getOpenWhisprCloudDisabled: () => ipcRenderer.invoke("get-openwhispr-cloud-disabled"),
+  setOpenWhisprCloudDisabled: (disabled) =>
+    ipcRenderer.invoke("set-openwhispr-cloud-disabled", disabled),
+  onOpenWhisprCloudDisabledChanged: registerListener(
+    "openwhispr-cloud-disabled-changed",
+    (callback) => (_event, disabled) => callback(disabled === true)
   ),
 
   // OpenWhispr Cloud API
