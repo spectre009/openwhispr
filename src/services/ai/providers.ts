@@ -6,6 +6,8 @@ import type { LanguageModel } from "ai";
 import { getTinfoilLanguageModel } from "./tinfoilClient";
 import { API_ENDPOINTS } from "../../config/constants";
 import { openCodeSessionHeaders } from "./openCodeSession";
+import { COPILOT_PROVIDER_ID } from "../../config/copilot";
+import { copilotUnsupportedRequestError } from "../../helpers/providerHttpErrors.js";
 
 // Renderer-side AI SDK factory. Cloud + local only — enterprise providers
 // (bedrock/azure/vertex) run in the main process via the
@@ -71,6 +73,9 @@ export async function getAIModel(
       }).chat(model);
     case "local":
       return createOpenAI({ apiKey: apiKey || "no-key", baseURL }).chat(model);
+    case COPILOT_PROVIDER_ID:
+      // Copilot runs in main and answers plain text only; it has no chat model.
+      throw copilotUnsupportedRequestError("chat");
     default:
       throw new Error(`Unsupported AI SDK provider for renderer: ${provider}`);
   }

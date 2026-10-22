@@ -25,6 +25,7 @@ import {
   type CloudProviderData,
   type TranscriptionProviderData,
 } from "../../models/ModelRegistry";
+import { COPILOT_PROVIDER_ID } from "../../config/copilot";
 import {
   LOCAL_ASR_ORGANIZATIONS,
   getASRModelOrganization,
@@ -336,7 +337,12 @@ export function ByokProviderStep({
   const providers = useMemo(
     () =>
       filterByokProviderOptionsByPolicy<HostedProvider>(
-        assistant ? modelRegistry.getCloudProviders() : getTranscriptionProviders(),
+        assistant
+          ? // GitHub Copilot signs in rather than taking a key, and can't run the assistant.
+            modelRegistry
+              .getCloudProviders()
+              .filter((provider) => provider.id !== COPILOT_PROVIDER_ID)
+          : getTranscriptionProviders(),
         scope,
         policy
       ),

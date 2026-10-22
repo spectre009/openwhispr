@@ -306,7 +306,12 @@
         "corti_corti_s1": "النموذج السريري الأكثر قدرة مع الاستنتاج",
         "corti_corti_s1_mini_instant": "نموذج رعاية صحية مدمج، الأسرع والأقل تكلفة",
         "corti_corti_s1_mini": "نموذج سريري مدمج مع استنتاج بنصف السعر",
-        "tinfoil_glm_5_3": "نموذج خاص للهندسة البرمجية بقدرات وكيلية في بيئات معزولة وآمنة، سياق 1M"
+        "tinfoil_glm_5_3": "نموذج خاص للهندسة البرمجية بقدرات وكيلية في بيئات معزولة وآمنة، سياق 1M",
+        "copilot_claude_haiku_5_5": "سريع ومنخفض التكلفة، موصى به لتنظيف الإملاء",
+        "copilot_mai_code_2_flash": "نموذج سريع من Microsoft",
+        "copilot_gpt_6_luna": "نموذج سريع ومنخفض التكلفة من OpenAI",
+        "copilot_claude_sonnet_5_5": "نموذج Claude أكثر قدرة للملاحظات الطويلة",
+        "copilot_live": "متاح ضمن خطة GitHub Copilot الخاصة بك"
       },
       "enterprise": {
         "bedrock_claude_fable_5": "نموذج Claude الأكثر قدرة. الأفضل لأصعب مهام المساعد.",
@@ -493,6 +498,45 @@
     },
     "corti": {
       "euOnly": "نماذج Corti متوفرة فقط في منطقة الاتحاد الأوروبي."
+    },
+    "copilot": {
+      "description": "استخدم النماذج المتاحة في اشتراك GitHub Copilot الخاص بك للتنظيف وتنسيق الملاحظات والترجمة.",
+      "signIn": "تسجيل الدخول باستخدام GitHub",
+      "loading": "جارٍ التحقق من تسجيل الدخول إلى GitHub Copilot…",
+      "codeInstructions": "أدخل هذا الرمز على GitHub:",
+      "copyCode": "نسخ الرمز",
+      "copyLink": "نسخ الرابط",
+      "openInBrowser": "فتح في المتصفح",
+      "copied": "تم النسخ",
+      "waiting": "في انتظار موافقتك على GitHub…",
+      "expiresIn": "تنتهي صلاحية الرمز خلال {{time}}",
+      "cancel": "إلغاء",
+      "checking": "تم استلام التفويض — جارٍ التحقق من الوصول إلى Copilot…",
+      "signedInAs": "تم تسجيل الدخول باسم @{{login}}",
+      "signedIn": "تم تسجيل الدخول إلى GitHub Copilot",
+      "signOut": "تسجيل الخروج",
+      "signOutHint": "تسجيل الخروج يزيل تسجيل الدخول من هذا الكمبيوتر فقط.",
+      "revoke": "إبطال الوصول على GitHub",
+      "tokenRejected": "لم يعد تسجيل دخولك إلى GitHub Copilot صالحًا — سجّل الدخول مرة أخرى.",
+      "tryAgain": "حاول مرة أخرى",
+      "retry": "إعادة المحاولة",
+      "refreshingModels": "جارٍ تحميل النماذج…",
+      "modelsFailed": "تعذر تحميل النماذج.",
+      "errors": {
+        "notConfigured": "تسجيل الدخول عبر GitHub غير مُعدّ في هذا الإصدار.",
+        "codeExpired": "انتهت صلاحية الرمز.",
+        "oauthDenied": "تم رفض تسجيل الدخول على GitHub.",
+        "deviceFlowDisabled": "تسجيل الدخول برمز الجهاز معطّل لتطبيق GitHub هذا.",
+        "tokenExchangeFailed": "تعذر على GitHub إكمال تسجيل الدخول.",
+        "rateLimited": "يحدّ GitHub من محاولات تسجيل الدخول. انتظر دقيقة ثم حاول مرة أخرى.",
+        "network": "تعذر الوصول إلى GitHub. تحقق من اتصالك.",
+        "noAccess": "لا يملك حساب GitHub هذا حق الوصول إلى Copilot.",
+        "policyBlocked": "سياسة مؤسستك تمنع ذلك.",
+        "checkFailed": "تعذر التحقق من الوصول إلى Copilot.",
+        "runtimeFailed": "تعذر تشغيل GitHub Copilot على هذا الكمبيوتر.",
+        "persistFailed": "تعذر حفظ تسجيل الدخول على هذا الكمبيوتر.",
+        "unknown": "فشل تسجيل الدخول."
+      }
     }
   },
   "controlPanel": {
@@ -5085,6 +5129,12 @@
     "details": {
       "provider": "المزوّد",
       "requestId": "معرّف الطلب"
+    },
+    "copilot": {
+      "authFailed": "لم يعد تسجيل دخولك إلى GitHub Copilot صالحًا. سجّل الدخول مرة أخرى من الإعدادات ← النماذج اللغوية.",
+      "accessDenied": "رفض GitHub Copilot هذا الطلب. قد لا تسمح خطتك أو سياسة مؤسستك بهذا النموذج.",
+      "notSignedIn": "لم تسجّل الدخول إلى GitHub Copilot. سجّل الدخول من الإعدادات ← النماذج اللغوية.",
+      "unsupportedRequest": "يقتصر GitHub Copilot على تنظيف الإملاء وتنسيق الملاحظات والترجمة. اختر نموذجًا آخر للدردشة والمساعد الصوتي من الإعدادات ← النماذج اللغوية."
     }
   },
   "calendarOAuth": {

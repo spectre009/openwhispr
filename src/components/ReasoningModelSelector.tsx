@@ -22,6 +22,10 @@ import {
   isProviderValidForMode,
 } from "../models/ModelRegistry";
 import { useTinfoilModels } from "../hooks/useTinfoilModels";
+import { useCopilotModels } from "../hooks/useCopilotModels";
+import { useCopilotStore } from "../stores/copilotStore";
+import CopilotSignIn from "./settings/CopilotSignIn";
+import { COPILOT_PROVIDER_ID } from "../config/copilot";
 import { getRemoteProviderIcon } from "../utils/providerIcons";
 import { GetApiKeyLink } from "./ui/GetApiKeyLink";
 import { getCachedPlatform } from "../utils/platform";
@@ -55,6 +59,7 @@ const CLOUD_PROVIDER_IDS = [
   OPENROUTER_TAB,
   "tinfoil",
   "corti",
+  COPILOT_PROVIDER_ID,
   "custom",
 ];
 
@@ -69,6 +74,8 @@ interface ReasoningModelSelectorProps {
   setCustomReasoningApiKey?: (key: string) => void;
   setReasoningMode?: (mode: InferenceMode) => void;
   mode?: "cloud" | "local";
+  /** Provider tabs this scope can't use (GitHub Copilot on chat and assistant scopes). */
+  hiddenProviderIds?: readonly string[];
 }
 
 function GpuStatusBadge() {
@@ -343,6 +350,7 @@ export default function ReasoningModelSelector({
   setCustomReasoningApiKey,
   setReasoningMode: setReasoningModeProp,
   mode,
+  hiddenProviderIds,
 }: ReasoningModelSelectorProps) {
   const { t } = useTranslation();
   const openaiApiKey = useSettingsStore((s) => s.openaiApiKey);
@@ -371,19 +379,21 @@ export default function ReasoningModelSelector({
   const cloudProviderTabs = useMemo(
     () =>
       filterByokProviderOptionsByPolicy(
-        CLOUD_PROVIDER_IDS.map((id): ProviderTabItem => ({
-          id,
-          name:
-            id === "custom"
-              ? t("reasoning.custom.providerName")
-              : id === OPENROUTER_TAB
-                ? "OpenRouter"
-                : REASONING_PROVIDERS[id as keyof typeof REASONING_PROVIDERS]?.name || id,
-        })),
+        CLOUD_PROVIDER_IDS.filter((id) => !hiddenProviderIds?.includes(id)).map(
+          (id): ProviderTabItem => ({
+            id,
+            name:
+              id === "custom"
+                ? t("reasoning.custom.providerName")
+                : id === OPENROUTER_TAB
+                  ? "OpenRouter"
+                  : REASONING_PROVIDERS[id as keyof typeof REASONING_PROVIDERS]?.name || id,
+          })
+        ),
         "llm",
         policyState
       ),
-    [policyState, t]
+    [hiddenProviderIds, policyState, t]
   );
   const cloudProviders = cloudProviderTabs;
   const cloudProviderFallback = reconcileProviderSelection(selectedCloudProvider, cloudProviders);
@@ -393,6 +403,14 @@ export default function ReasoningModelSelector({
     loading: tinfoilModelsLoading,
     error: tinfoilModelsError,
   } = useTinfoilModels(displayedCloudProvider === "tinfoil");
+  const showingCopilot = displayedCloudProvider === COPILOT_PROVIDER_ID;
+  const copilotSignedIn = useCopilotStore((state) => state.status.state === "signedIn");
+  const {
+    models: copilotModels,
+    loading: copilotModelsLoading,
+    error: copilotModelsError,
+    retry: retryCopilotModels,
+  } = useCopilotModels(showingCopilot);
   const modeTabs = [
     ...(isModeAllowedByPolicy(policyState, "llm", "providers") && cloudProviders.length > 0
       ? [{ id: "cloud", name: t("reasoning.mode.cloud") }]
@@ -445,7 +463,9 @@ export default function ReasoningModelSelector({
     const models =
       displayedCloudProvider === "tinfoil"
         ? tinfoilModels.map(toReasoningModel)
-        : REASONING_PROVIDERS[displayedCloudProvider as keyof typeof REASONING_PROVIDERS]?.models;
+        : displayedCloudProvider === COPILOT_PROVIDER_ID
+          ? copilotModels.map(toReasoningModel)
+          : REASONING_PROVIDERS[displayedCloudProvider as keyof typeof REASONING_PROVIDERS]?.models;
 
     if (!models) return [];
 
@@ -457,7 +477,7 @@ export default function ReasoningModelSelector({
       icon: iconUrl,
       invertInDark,
     }));
-  }, [displayedCloudProvider, openaiModelOptions, tinfoilModels, t]);
+  }, [displayedCloudProvider, openaiModelOptions, tinfoilModels, copilotModels, t]);
 
   useEffect(() => {
     const localProviderIds = localProviders.map((p) => p.id);
@@ -679,32 +699,63 @@ export default function ReasoningModelSelector({
                     </div>
                   )}
 
-                  <div className="pt-3 space-y-2">
-                    <h4 className="text-sm font-medium text-foreground">
-                      {t("reasoning.selectModel")}
-                    </h4>
-                    <ModelCardList
-                      models={selectedCloudModels}
-                      selectedModel={
-                        localReasoningProvider === displayedCloudProvider ? reasoningModel : ""
-                      }
-                      onModelSelect={handleModelSelect}
-                    />
-                    {displayedCloudProvider === "tinfoil" && (
-                      <>
-                        {tinfoilModelsLoading && (
-                          <p className="text-xs text-muted-foreground">
-                            {t("reasoning.tinfoil.refreshingModels")}
-                          </p>
-                        )}
-                        {!tinfoilModelsLoading && tinfoilModelsError && (
-                          <p className="text-xs text-destructive">
-                            {t("reasoning.custom.unableToLoadModels")}
-                          </p>
-                        )}
-                      </>
-                    )}
-                  </div>
+                  {/* Copilot signs in with GitHub instead of taking a key. */}
+                  {showingCopilot && <CopilotSignIn />}
+
+                  {(!showingCopilot || copilotSignedIn) && (
+                    <div className="pt-3 space-y-2">
+                      <h4 className="text-sm font-medium text-foreground">
+                        {t("reasoning.selectModel")}
+                      </h4>
+                      <ModelCardList
+                        models={selectedCloudModels}
+                        selectedModel={
+                          localReasoningProvider === displayedCloudProvider ? reasoningModel : ""
+                        }
+                        onModelSelect={handleModelSelect}
+                      />
+                      {displayedCloudProvider === "tinfoil" && (
+                        <>
+                          {tinfoilModelsLoading && (
+                            <p className="text-xs text-muted-foreground">
+                              {t("reasoning.tinfoil.refreshingModels")}
+                            </p>
+                          )}
+                          {!tinfoilModelsLoading && tinfoilModelsError && (
+                            <p className="text-xs text-destructive">
+                              {t("reasoning.custom.unableToLoadModels")}
+                            </p>
+                          )}
+                        </>
+                      )}
+                      {showingCopilot && (
+                        <>
+                          {copilotModelsLoading && (
+                            <p className="text-xs text-muted-foreground">
+                              {t("reasoning.copilot.refreshingModels")}
+                            </p>
+                          )}
+                          {/* A list that won't load is never "no access": that verdict is the sign-in's. */}
+                          {!copilotModelsLoading && copilotModelsError && (
+                            <div className="flex items-center gap-2">
+                              <p className="text-xs text-destructive">
+                                {t("reasoning.copilot.modelsFailed")}
+                              </p>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => void retryCopilotModels()}
+                                className="h-6 px-2 text-xs"
+                              >
+                                {t("reasoning.copilot.retry")}
+                              </Button>
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  )}
                 </>
               )}
             </div>

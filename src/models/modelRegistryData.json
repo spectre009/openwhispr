@@ -788,6 +788,41 @@
           "supportsTemperature": true
         }
       ]
+    },
+    {
+      "id": "copilot",
+      "name": "GitHub Copilot",
+      "defaultModel": "claude-haiku-5.5",
+      "models": [
+        {
+          "id": "claude-haiku-5.5",
+          "name": "Claude Haiku 5.5",
+          "description": "Fast and low-cost, recommended for dictation cleanup",
+          "descriptionKey": "models.descriptions.cloud.copilot_claude_haiku_5_5",
+          "supportsThinking": true
+        },
+        {
+          "id": "mai-code-2-flash",
+          "name": "MAI-Code-2-Flash",
+          "description": "Fast Microsoft model",
+          "descriptionKey": "models.descriptions.cloud.copilot_mai_code_2_flash",
+          "supportsThinking": true
+        },
+        {
+          "id": "gpt-6-luna",
+          "name": "GPT-6 Luna",
+          "description": "Fast, low-cost OpenAI model",
+          "descriptionKey": "models.descriptions.cloud.copilot_gpt_6_luna",
+          "supportsThinking": true
+        },
+        {
+          "id": "claude-sonnet-5.5",
+          "name": "Claude Sonnet 5.5",
+          "description": "More capable Claude model for long notes",
+          "descriptionKey": "models.descriptions.cloud.copilot_claude_sonnet_5_5",
+          "supportsThinking": true
+        }
+      ]
     }
   ],
   "enterpriseProviders": [

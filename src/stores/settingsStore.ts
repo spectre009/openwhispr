@@ -54,6 +54,8 @@ import { pickDefaultModelId } from "../models/providerDefaultModel";
 // the switch store only zustand, so neither reopens the ModelRegistry cycle.
 import { readCachedTinfoilModels } from "../models/tinfoilModelCache";
 import { recordTinfoilModelSwitch } from "./tinfoilModelSwitchStore";
+import { COPILOT_FALLBACK_MODELS, readCachedCopilotModels } from "../models/copilotModelCache";
+import { COPILOT_PROVIDER_ID, isCopilotScopeSupported } from "../config/copilot";
 import { MEETING_STREAMING_PROVIDER_IDS } from "../helpers/meetingTranscriptionRouting";
 import { STREAMING_ONLY_PROVIDERS } from "../helpers/transcriptionRoute";
 import {
@@ -99,6 +101,19 @@ export const LLM_POLICY_PROVIDER_IDS = [
   "custom",
 ] as const;
 
+// GitHub Copilot serves only plain-text scopes (cleanup, note formatting,
+// translation), so policy never offers or picks it for chat or the assistant.
+const NON_COPILOT_LLM_POLICY_PROVIDER_IDS = LLM_POLICY_PROVIDER_IDS.filter(
+  (id) => id !== COPILOT_PROVIDER_ID
+);
+
+/** The BYOK providers a scope's policy choice may land on. */
+export function llmPolicyProviderIds(scope: InferenceScope): readonly string[] {
+  return isCopilotScopeSupported(scope)
+    ? LLM_POLICY_PROVIDER_IDS
+    : NON_COPILOT_LLM_POLICY_PROVIDER_IDS;
+}
+
 // Azure and Vertex remain intentionally unavailable in the desktop picker.
 export const LLM_ENTERPRISE_POLICY_PROVIDER_IDS = ["bedrock"] as const;
 
@@ -128,6 +143,15 @@ const LLM_POLICY_CATALOG = {
   byokProviders: LLM_POLICY_PROVIDER_IDS,
   enterpriseProviders: LLM_ENTERPRISE_POLICY_PROVIDER_IDS,
 };
+
+const NON_COPILOT_LLM_POLICY_CATALOG = {
+  ...LLM_POLICY_CATALOG,
+  byokProviders: NON_COPILOT_LLM_POLICY_PROVIDER_IDS,
+};
+
+function llmPolicyCatalog(scope: InferenceScope) {
+  return isCopilotScopeSupported(scope) ? LLM_POLICY_CATALOG : NON_COPILOT_LLM_POLICY_CATALOG;
+}
 
 const localLlmProviderIds = new Set(
   modelRegistryData.localProviders.map((provider) => provider.id)
@@ -166,11 +190,24 @@ function canonicalTranscriptionBaseUrl(providerId: string): string | null {
   );
 }
 
+// GitHub Copilot's ids: the live list the registry entry is refreshed with (or
+// the last one cached), plus the shipped fallback list.
+function isCopilotModelId(modelId: string): boolean {
+  const lists = [
+    modelRegistryData.cloudProviders.find((provider) => provider.id === COPILOT_PROVIDER_ID)
+      ?.models ?? [],
+    readCachedCopilotModels().models,
+    COPILOT_FALLBACK_MODELS,
+  ];
+  return lists.some((models) => models.some((model) => model.id === modelId));
+}
+
 function reasoningModelBelongsToProvider(providerId: string, modelId: string): boolean {
   if (!modelId) return false;
   // Custom and OpenRouter ids are free-form; any remembered id is valid.
   // Tinfoil's registry entry is refreshed in place from its live catalog.
   if (providerId === "custom" || providerId === "openrouter") return true;
+  if (providerId === COPILOT_PROVIDER_ID) return isCopilotModelId(modelId);
   return (
     modelRegistryData.cloudProviders
       .find((provider) => provider.id === providerId)
@@ -3246,11 +3283,22 @@ export function selectPolicyEffectiveSettings(
     const rawModel = state[definition.storeKeys.model] as string | undefined;
     if (definition.optional && !rawModel?.trim()) continue;
     const config = resolvedConfigs[scope];
+    // A Copilot pick left on a scope Copilot can't serve (an import, an older
+    // build) is unconfigured there: no other provider answers in its place.
+    if (
+      config.mode === "providers" &&
+      config.provider === COPILOT_PROVIDER_ID &&
+      !isCopilotScopeSupported(scope)
+    ) {
+      writable[definition.storeKeys.provider] = "";
+      writable[definition.storeKeys.model] = "";
+      continue;
+    }
     const selection = resolveEffectivePolicySelection(
       policyState,
       "llm",
       { mode: config.mode, provider: config.provider },
-      LLM_POLICY_CATALOG
+      llmPolicyCatalog(scope)
     );
     if (!selection) continue;
 
@@ -3337,16 +3385,18 @@ export async function reconcileLocalModelSelections(): Promise<void> {
 /**
  * Repoints any scope still selecting a cloud model the registry no longer ships
  * (e.g. a retired Groq id) at that provider's current default — otherwise every
- * request 404s with an error the user can't act on. Custom, OpenRouter and
- * Tinfoil ids are skipped: they're free-form or reconciled from the live
- * catalog in tinfoilModels.ts.
+ * request 404s with an error the user can't act on. Custom, OpenRouter,
+ * Tinfoil and GitHub Copilot ids are skipped: they're free-form or reconciled
+ * from a live catalog (tinfoilModels.ts, copilotModels.ts) once it has loaded.
  */
 export function reconcileRetiredCloudModelSelections(): void {
   const state = useSettingsStore.getState() as unknown as Record<string, unknown>;
   for (const scope of Object.values(INFERENCE_SCOPES)) {
     const provider = state[scope.storeKeys.provider] as string;
     const model = state[scope.storeKeys.model] as string;
-    if (!provider || !model || provider === "tinfoil") continue;
+    if (!provider || !model || provider === "tinfoil" || provider === COPILOT_PROVIDER_ID) {
+      continue;
+    }
     const providerDef = modelRegistryData.cloudProviders.find((p) => p.id === provider);
     if (!providerDef || reasoningModelBelongsToProvider(provider, model)) continue;
     const replacement = pickDefaultModelId(providerDef);

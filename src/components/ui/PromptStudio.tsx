@@ -42,6 +42,7 @@ const PROVIDER_CONFIG: Record<string, ProviderConfig> = {
   groq: { label: "Groq", apiKeyStorageKey: "groqApiKey" },
   openrouter: { label: "OpenRouter", apiKeyStorageKey: "openrouterApiKey" },
   tinfoil: { label: "Tinfoil", apiKeyStorageKey: "tinfoilApiKey" },
+  copilot: { label: "GitHub Copilot" },
   openwhispr: { label: "OpenWhispr Cloud" },
   custom: {
     label: "Custom endpoint",

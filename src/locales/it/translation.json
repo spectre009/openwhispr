@@ -861,6 +861,45 @@
     },
     "corti": {
       "euOnly": "I modelli Corti sono disponibili solo nella regione UE."
+    },
+    "copilot": {
+      "description": "Usa i modelli del tuo abbonamento GitHub Copilot per la pulizia, la formattazione delle note e la traduzione.",
+      "signIn": "Accedi con GitHub",
+      "loading": "Verifica dell'accesso a GitHub Copilot…",
+      "codeInstructions": "Inserisci questo codice su GitHub:",
+      "copyCode": "Copia codice",
+      "copyLink": "Copia link",
+      "openInBrowser": "Apri nel browser",
+      "copied": "Copiato",
+      "waiting": "In attesa della tua approvazione su GitHub…",
+      "expiresIn": "Il codice scade tra {{time}}",
+      "cancel": "Annulla",
+      "checking": "Autorizzazione ricevuta — verifica dell'accesso a Copilot…",
+      "signedInAs": "Accesso effettuato come @{{login}}",
+      "signedIn": "Accesso a GitHub Copilot effettuato",
+      "signOut": "Esci",
+      "signOutHint": "Uscendo, l'accesso viene rimosso solo da questo computer.",
+      "revoke": "Revoca su GitHub",
+      "tokenRejected": "Il tuo accesso a GitHub Copilot non è più valido — accedi di nuovo.",
+      "tryAgain": "Ricomincia",
+      "retry": "Riprova",
+      "refreshingModels": "Caricamento dei modelli…",
+      "modelsFailed": "Impossibile caricare i modelli.",
+      "errors": {
+        "notConfigured": "L'accesso con GitHub non è configurato in questa build.",
+        "codeExpired": "Il codice è scaduto.",
+        "oauthDenied": "L'accesso è stato rifiutato su GitHub.",
+        "deviceFlowDisabled": "L'accesso con codice dispositivo è disattivato per questa app GitHub.",
+        "tokenExchangeFailed": "GitHub non è riuscito a completare l'accesso.",
+        "rateLimited": "GitHub sta limitando i tentativi di accesso. Attendi un minuto e riprova.",
+        "network": "Impossibile raggiungere GitHub. Controlla la connessione.",
+        "noAccess": "Questo account GitHub non ha accesso a Copilot.",
+        "policyBlocked": "I criteri della tua organizzazione lo bloccano.",
+        "checkFailed": "Impossibile verificare l'accesso a Copilot.",
+        "runtimeFailed": "GitHub Copilot non è riuscito ad avviarsi su questo computer.",
+        "persistFailed": "Impossibile salvare l'accesso su questo computer.",
+        "unknown": "Accesso non riuscito."
+      }
     }
   },
   "transcription": {
@@ -2750,7 +2789,12 @@
         "corti_corti_s1_instant": "Modello sanitario veloce, senza traccia di ragionamento",
         "corti_corti_s1": "Modello clinico più capace con ragionamento",
         "corti_corti_s1_mini_instant": "Modello sanitario compatto, il più veloce ed economico",
-        "corti_corti_s1_mini": "Modello clinico compatto con ragionamento a metà prezzo"
+        "corti_corti_s1_mini": "Modello clinico compatto con ragionamento a metà prezzo",
+        "copilot_claude_haiku_5_5": "Veloce ed economico, consigliato per la pulizia della dettatura",
+        "copilot_mai_code_2_flash": "Modello veloce di Microsoft",
+        "copilot_gpt_6_luna": "Modello OpenAI veloce ed economico",
+        "copilot_claude_sonnet_5_5": "Modello Claude più capace per note lunghe",
+        "copilot_live": "Disponibile nel tuo piano GitHub Copilot"
       },
       "enterprise": {
         "bedrock_claude_fable_5": "Il modello Claude più capace. Ideale per i compiti di assistente più difficili.",
@@ -4959,6 +5003,12 @@
     "details": {
       "provider": "Provider",
       "requestId": "ID richiesta"
+    },
+    "copilot": {
+      "authFailed": "Il tuo accesso a GitHub Copilot non è più valido. Accedi di nuovo in Impostazioni → Modelli linguistici.",
+      "accessDenied": "GitHub Copilot ha rifiutato questa richiesta. Il tuo piano o i criteri della tua organizzazione potrebbero non consentire questo modello.",
+      "notSignedIn": "Non hai effettuato l'accesso a GitHub Copilot. Accedi in Impostazioni → Modelli linguistici.",
+      "unsupportedRequest": "GitHub Copilot può solo pulire le dettature, formattare le note e tradurre. Scegli un altro modello per la chat e l'assistente vocale in Impostazioni → Modelli linguistici."
     }
   },
   "calendarOAuth": {

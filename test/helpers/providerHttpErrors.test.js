@@ -432,3 +432,41 @@ test("a model name is inserted literally, even with $ patterns", async () => {
   });
   assert.equal(error.message, "OpenAI doesn't recognize the model “we$&ird-$'model”.");
 });
+
+// GitHub Copilot signs in rather than taking a key, so its own sentences
+// replace the API-key ones; each is the en translation, in every locale.
+test("Copilot's sign-in sentences are the en translations and exist in every locale", async () => {
+  const { providerError, copilotUnsupportedRequestError, PROVIDER_ERROR_CODES: C } = await load();
+  const ctx = { provider: "GitHub Copilot", providerId: "copilot", surface: "llm" };
+  const errors = [
+    providerError(C.AUTH_FAILED, ctx),
+    providerError(C.ACCESS_DENIED, ctx),
+    providerError(C.KEY_MISSING, ctx),
+    copilotUnsupportedRequestError("scope"),
+  ];
+  assert.deepEqual(
+    errors.map((error) => error.messageKey),
+    [
+      "providerErrors.copilot.authFailed",
+      "providerErrors.copilot.accessDenied",
+      "providerErrors.copilot.notSignedIn",
+      "providerErrors.copilot.unsupportedRequest",
+    ]
+  );
+  for (const error of errors) {
+    assert.equal(error.message, lookup(en, error.messageKey), error.messageKey);
+    assert.equal(error.settingsTarget, "llms", error.messageKey);
+    for (const locale of LOCALES) {
+      const sentence = lookup(
+        require(`../../src/locales/${locale}/translation.json`),
+        error.messageKey
+      );
+      assert.equal(typeof sentence, "string", `${locale}: ${error.messageKey}`);
+    }
+  }
+  const refused = errors[3];
+  assert.equal(refused.code, "PROVIDER_BAD_REQUEST");
+  assert.equal(refused.reason, "scope");
+  assert.equal(refused.technicalDetails.underlyingError, "scope");
+  assert.equal(refused.technicalDetails.provider, "GitHub Copilot");
+});

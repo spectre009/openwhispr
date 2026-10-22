@@ -48,3 +48,15 @@ test("local catalog ids never shadow an inference provider id", () => {
     );
   }
 });
+
+// GitHub Copilot is text-only in this app: its handler must never claim it can
+// send a screenshot, or the assistant's image gate would route one to it.
+test("the GitHub Copilot handler is registered and takes no images", () => {
+  assert.ok(cloudIds.includes("copilot"), "copilot is a selectable cloud provider");
+  assert.ok(inferenceProviderIds().includes("copilot"));
+  const src = fs.readFileSync(
+    path.join(__dirname, "../../src/services/ai/inferenceProviders/copilot.ts"),
+    "utf8"
+  );
+  assert.doesNotMatch(src, /supportsImages\s*:/);
+});

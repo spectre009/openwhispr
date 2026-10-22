@@ -19,6 +19,8 @@ const SECRET_KEYS = [
   "BEDROCK_SESSION_TOKEN",
   "AZURE_OPENAI_API_KEY",
   "VERTEX_API_KEY",
+  // The GitHub Copilot sign-in. Main-only: no get IPC returns it.
+  "GITHUB_COPILOT_TOKEN",
 ];
 
 const SECRET_KEY_SET = new Set(SECRET_KEYS);
@@ -63,6 +65,7 @@ const PERSISTED_KEYS = [
   "VERTEX_PROJECT",
   "VERTEX_LOCATION",
   "OPENWHISPR_CLOUD_DISABLED",
+  "GITHUB_COPILOT_LOGIN",
 ];
 
 // Module-level so writes are serialized across all instances — hotkeyManager
@@ -469,6 +472,41 @@ class EnvironmentManager {
   // must still be off after a restart, so a failed write has to surface.
   async saveOpenWhisprCloudDisabled(disabled) {
     this._saveKey("OPENWHISPR_CLOUD_DISABLED", disabled ? "true" : "");
+    await this.saveAllKeysToEnvFile();
+    return { success: true };
+  }
+
+  getGithubCopilotToken() {
+    return this._getKey("GITHUB_COPILOT_TOKEN");
+  }
+
+  getGithubCopilotLogin() {
+    return this._getKey("GITHUB_COPILOT_LOGIN");
+  }
+
+  // Awaited, like the cloud switch: a sign-in that reports success must
+  // survive a restart. A failure is coded PERSIST_FAILED for copilotAuth.
+  async saveGithubCopilotToken(token, login) {
+    try {
+      if (this._encryptionAvailable()) {
+        await this._saveSecretKey("GITHUB_COPILOT_TOKEN", token);
+      } else {
+        process.env.GITHUB_COPILOT_TOKEN = token;
+      }
+      this._saveKey("GITHUB_COPILOT_LOGIN", typeof login === "string" ? login : "");
+      await this.saveAllKeysToEnvFile();
+    } catch (error) {
+      throw Object.assign(new Error("Couldn't save the GitHub Copilot sign-in"), {
+        code: "PERSIST_FAILED",
+        cause: error,
+      });
+    }
+    return { success: true };
+  }
+
+  async clearGithubCopilotToken() {
+    await this._deleteSecretKey("GITHUB_COPILOT_TOKEN");
+    this._saveKey("GITHUB_COPILOT_LOGIN", "");
     await this.saveAllKeysToEnvFile();
     return { success: true };
   }

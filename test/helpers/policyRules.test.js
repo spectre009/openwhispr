@@ -1091,3 +1091,42 @@ test("the local-history policy is resolved only once the fetch has settled", asy
   assert.equal(isLocalHistoryPolicyResolved(snapshot("loading")), false);
   assert.equal(isLocalHistoryPolicyResolved(snapshot("error")), false);
 });
+
+// GitHub Copilot is a registry LLM provider, so an org can allow or deny it
+// like any other; a catalog without it (chat and the assistant) never lands
+// a selection on it even when the policy allows it.
+test("a policy can name GitHub Copilot, and a catalog without it never selects it", async () => {
+  const { isProviderAllowedByPolicy, resolveEffectivePolicySelection } = await load();
+  const managed = {
+    status: "managed",
+    appVersion: "1.8.1",
+    policy: {
+      ...policy,
+      llm: {
+        allowedModes: ["openwhispr", "providers"],
+        allowedByokProviders: ["copilot", "openai"],
+        allowedEnterpriseProviders: [],
+      },
+    },
+  };
+
+  assert.equal(isProviderAllowedByPolicy(managed, "llm", "copilot"), true);
+  assert.deepEqual(
+    resolveEffectivePolicySelection(
+      managed,
+      "llm",
+      { mode: "providers", provider: "anthropic" },
+      { modes: ["openwhispr", "providers"], byokProviders: ["copilot", "openai"] }
+    ),
+    { mode: "providers", provider: "copilot" }
+  );
+  assert.deepEqual(
+    resolveEffectivePolicySelection(
+      managed,
+      "llm",
+      { mode: "providers", provider: "anthropic" },
+      { modes: ["openwhispr", "providers"], byokProviders: ["openai", "openrouter", "custom"] }
+    ),
+    { mode: "providers", provider: "openai" }
+  );
+});

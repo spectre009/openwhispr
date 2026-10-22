@@ -861,6 +861,45 @@
     },
     "corti": {
       "euOnly": "Los modelos de Corti solo están disponibles en la región de la UE."
+    },
+    "copilot": {
+      "description": "Usa los modelos de tu suscripción a GitHub Copilot para la limpieza, el formato de notas y la traducción.",
+      "signIn": "Iniciar sesión con GitHub",
+      "loading": "Comprobando tu sesión de GitHub Copilot…",
+      "codeInstructions": "Introduce este código en GitHub:",
+      "copyCode": "Copiar código",
+      "copyLink": "Copiar enlace",
+      "openInBrowser": "Abrir en el navegador",
+      "copied": "Copiado",
+      "waiting": "Esperando a que lo apruebes en GitHub…",
+      "expiresIn": "El código caduca en {{time}}",
+      "cancel": "Cancelar",
+      "checking": "Autorización recibida — comprobando el acceso a Copilot…",
+      "signedInAs": "Sesión iniciada como @{{login}}",
+      "signedIn": "Sesión iniciada en GitHub Copilot",
+      "signOut": "Cerrar sesión",
+      "signOutHint": "Al cerrar sesión, solo se quita el inicio de sesión de este equipo.",
+      "revoke": "Revocar en GitHub",
+      "tokenRejected": "Tu sesión de GitHub Copilot ya no es válida — vuelve a iniciar sesión.",
+      "tryAgain": "Intentar de nuevo",
+      "retry": "Reintentar",
+      "refreshingModels": "Cargando modelos…",
+      "modelsFailed": "No se pudieron cargar los modelos.",
+      "errors": {
+        "notConfigured": "El inicio de sesión con GitHub no está configurado en esta compilación.",
+        "codeExpired": "El código ha caducado.",
+        "oauthDenied": "Se rechazó el inicio de sesión en GitHub.",
+        "deviceFlowDisabled": "El inicio de sesión con código de dispositivo está desactivado para esta aplicación de GitHub.",
+        "tokenExchangeFailed": "GitHub no pudo completar el inicio de sesión.",
+        "rateLimited": "GitHub está limitando los intentos de inicio de sesión. Espera un minuto y vuelve a intentarlo.",
+        "network": "No se pudo conectar con GitHub. Comprueba tu conexión.",
+        "noAccess": "Esta cuenta de GitHub no tiene acceso a Copilot.",
+        "policyBlocked": "La política de tu organización lo bloquea.",
+        "checkFailed": "No se pudo comprobar el acceso a Copilot.",
+        "runtimeFailed": "GitHub Copilot no pudo iniciarse en este equipo.",
+        "persistFailed": "No se pudo guardar el inicio de sesión en este equipo.",
+        "unknown": "No se pudo iniciar sesión."
+      }
     }
   },
   "transcription": {
@@ -2802,7 +2841,12 @@
         "corti_corti_s1_instant": "Modelo sanitario rápido, sin traza de razonamiento",
         "corti_corti_s1": "Modelo clínico más capaz con razonamiento",
         "corti_corti_s1_mini_instant": "Modelo sanitario compacto, el más rápido y económico",
-        "corti_corti_s1_mini": "Modelo clínico compacto con razonamiento a mitad de precio"
+        "corti_corti_s1_mini": "Modelo clínico compacto con razonamiento a mitad de precio",
+        "copilot_claude_haiku_5_5": "Rápido y económico, recomendado para la limpieza de dictado",
+        "copilot_mai_code_2_flash": "Modelo rápido de Microsoft",
+        "copilot_gpt_6_luna": "Modelo de OpenAI rápido y económico",
+        "copilot_claude_sonnet_5_5": "Modelo Claude más capaz para notas largas",
+        "copilot_live": "Disponible en tu plan de GitHub Copilot"
       },
       "enterprise": {
         "bedrock_claude_fable_5": "El modelo Claude más capaz. Ideal para las tareas de asistente más difíciles.",
@@ -4959,6 +5003,12 @@
     "details": {
       "provider": "Proveedor",
       "requestId": "ID de solicitud"
+    },
+    "copilot": {
+      "authFailed": "Tu sesión de GitHub Copilot ya no es válida. Vuelve a iniciar sesión en Ajustes → Modelos de lenguaje.",
+      "accessDenied": "GitHub Copilot rechazó esta solicitud. Puede que tu plan o la política de tu organización no permitan este modelo.",
+      "notSignedIn": "No has iniciado sesión en GitHub Copilot. Inicia sesión en Ajustes → Modelos de lenguaje.",
+      "unsupportedRequest": "GitHub Copilot solo puede limpiar dictados, dar formato a notas y traducir. Elige otro modelo para el chat y el asistente de voz en Ajustes → Modelos de lenguaje."
     }
   },
   "calendarOAuth": {

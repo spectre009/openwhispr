@@ -840,6 +840,45 @@
     },
     "corti": {
       "euOnly": "Os modelos da Corti estão disponíveis apenas na região da UE."
+    },
+    "copilot": {
+      "description": "Use os modelos da sua assinatura do GitHub Copilot para limpeza, formatação de notas e tradução.",
+      "signIn": "Entrar com o GitHub",
+      "loading": "Verificando seu login no GitHub Copilot…",
+      "codeInstructions": "Digite este código no GitHub:",
+      "copyCode": "Copiar código",
+      "copyLink": "Copiar link",
+      "openInBrowser": "Abrir no navegador",
+      "copied": "Copiado",
+      "waiting": "Aguardando sua aprovação no GitHub…",
+      "expiresIn": "O código expira em {{time}}",
+      "cancel": "Cancelar",
+      "checking": "Autorização recebida — verificando o acesso ao Copilot…",
+      "signedInAs": "Conectado como @{{login}}",
+      "signedIn": "Conectado ao GitHub Copilot",
+      "signOut": "Sair",
+      "signOutHint": "Sair remove o login apenas deste computador.",
+      "revoke": "Revogar no GitHub",
+      "tokenRejected": "Seu login no GitHub Copilot não é mais válido — entre novamente.",
+      "tryAgain": "Tentar de novo",
+      "retry": "Tentar novamente",
+      "refreshingModels": "Carregando modelos…",
+      "modelsFailed": "Não foi possível carregar os modelos.",
+      "errors": {
+        "notConfigured": "O login com o GitHub não está configurado nesta versão.",
+        "codeExpired": "O código expirou.",
+        "oauthDenied": "O login foi recusado no GitHub.",
+        "deviceFlowDisabled": "O login por código de dispositivo está desativado para este app do GitHub.",
+        "tokenExchangeFailed": "O GitHub não conseguiu concluir o login.",
+        "rateLimited": "O GitHub está limitando as tentativas de login. Aguarde um minuto e tente novamente.",
+        "network": "Não foi possível acessar o GitHub. Verifique sua conexão.",
+        "noAccess": "Esta conta do GitHub não tem acesso ao Copilot.",
+        "policyBlocked": "A política da sua organização bloqueia isso.",
+        "checkFailed": "Não foi possível verificar o acesso ao Copilot.",
+        "runtimeFailed": "O GitHub Copilot não conseguiu iniciar neste computador.",
+        "persistFailed": "Não foi possível salvar o login neste computador.",
+        "unknown": "Não foi possível entrar."
+      }
     }
   },
   "transcription": {
@@ -2729,7 +2768,12 @@
         "corti_corti_s1_instant": "Modelo de saúde rápido, sem rastro de raciocínio",
         "corti_corti_s1": "Modelo clínico mais capaz com raciocínio",
         "corti_corti_s1_mini_instant": "Modelo de saúde compacto, o mais rápido e econômico",
-        "corti_corti_s1_mini": "Modelo clínico compacto com raciocínio pela metade do preço"
+        "corti_corti_s1_mini": "Modelo clínico compacto com raciocínio pela metade do preço",
+        "copilot_claude_haiku_5_5": "Rápido e econômico, recomendado para a limpeza do ditado",
+        "copilot_mai_code_2_flash": "Modelo rápido da Microsoft",
+        "copilot_gpt_6_luna": "Modelo da OpenAI rápido e econômico",
+        "copilot_claude_sonnet_5_5": "Modelo Claude mais capaz para notas longas",
+        "copilot_live": "Disponível no seu plano do GitHub Copilot"
       },
       "enterprise": {
         "bedrock_claude_fable_5": "O modelo Claude mais capaz. Ideal para as tarefas de assistente mais difíceis.",
@@ -4959,6 +5003,12 @@
     "details": {
       "provider": "Provedor",
       "requestId": "ID da solicitação"
+    },
+    "copilot": {
+      "authFailed": "Seu login no GitHub Copilot não é mais válido. Entre novamente em Configurações → Modelos de linguagem.",
+      "accessDenied": "O GitHub Copilot recusou esta solicitação. Seu plano ou a política da sua organização pode não permitir este modelo.",
+      "notSignedIn": "Você não está conectado ao GitHub Copilot. Entre em Configurações → Modelos de linguagem.",
+      "unsupportedRequest": "O GitHub Copilot só pode limpar ditados, formatar notas e traduzir. Escolha outro modelo para o chat e o assistente de voz em Configurações → Modelos de linguagem."
     }
   },
   "calendarOAuth": {

@@ -50,6 +50,7 @@ const {
   createConnectorAuthLookup,
 } = require("./connectors/connectorIpc");
 const { createNoteAttendeesLookup, searchContacts } = require("./connectors/contactSearch");
+const { registerCopilotIpc } = require("./copilot/copilotIpc");
 // The renderer's ModelRegistry is not main-loadable; the raw registry data is
 // packaged, and the route resolver only needs {id, baseUrl} per provider.
 const transcriptionProviderBaseUrls = () =>
@@ -643,6 +644,7 @@ class IPCHandlers {
     this.whisperVulkanManager = managers.whisperVulkanManager;
     this.googleCalendarManager = managers.googleCalendarManager;
     this.connectorManager = managers.connectorManager;
+    this.copilot = managers.copilot || null;
     this.microsoftCalendarManager = managers.microsoftCalendarManager;
     this.appleCalendarManager = managers.appleCalendarManager;
     this.meetingDetectionEngine = managers.meetingDetectionEngine;
@@ -6496,6 +6498,9 @@ class IPCHandlers {
       broadcast: (snapshot) => broadcastToWindows("workspace-policy-changed", snapshot),
       logger: debugLogger,
     });
+    if (this.copilot) {
+      registerCopilotIpc({ ipcMain, copilot: this.copilot, logger: debugLogger });
+    }
     if (this.connectorManager) {
       registerConnectorIpc({
         ipcMain,

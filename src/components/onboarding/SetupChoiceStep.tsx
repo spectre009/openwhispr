@@ -22,6 +22,7 @@ import {
   getTranscriptionProviders,
   modelRegistry,
 } from "../../models/ModelRegistry";
+import { COPILOT_PROVIDER_ID } from "../../config/copilot";
 import type { OnboardingSetupMode } from "./flow";
 import { getOnboardingSetupAvailability, hasAvailableOnboardingSetup } from "./setupEligibility";
 import { BrandMark } from "./OnboardingShell";
@@ -147,7 +148,10 @@ export default function SetupChoiceStep({
     policy,
     agentAllowed,
     transcriptionProviders: getTranscriptionProviders(),
-    llmProviders: modelRegistry.getCloudProviders(),
+    // The BYOK assistant step can't offer GitHub Copilot (see ByokProviderStep).
+    llmProviders: modelRegistry
+      .getCloudProviders()
+      .filter((provider) => provider.id !== COPILOT_PROVIDER_ID),
   });
   const {
     cloud: cloudAllowedByPolicy,

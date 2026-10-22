@@ -101,6 +101,46 @@ export type ChineseScriptPreference = "simplified" | "traditional" | "as-transcr
 
 export type InferenceMode = "openwhispr" | "providers" | "local" | "self-hosted" | "enterprise";
 
+export type CopilotAuthState = "signedOut" | "waiting" | "checking" | "signedIn" | "error";
+
+export type CopilotAuthError =
+  | "not_configured"
+  | "code_expired"
+  | "oauth_denied"
+  | "device_flow_disabled"
+  | "token_exchange_failed"
+  | "rate_limited"
+  | "network"
+  | "no_access"
+  | "policy_blocked"
+  | "check_failed"
+  | "runtime_failed"
+  | "persist_failed";
+
+export interface CopilotAuthStatus {
+  configured: boolean;
+  state: CopilotAuthState;
+  login: string;
+  error?: CopilotAuthError;
+  tokenRejected?: boolean;
+  flowId?: string;
+  userCode?: string;
+  verificationUri?: string;
+  expiresAt?: number;
+  canRetry?: boolean;
+}
+
+export interface CopilotModel {
+  id: string;
+  name: string;
+  supportsVision: boolean;
+  reasoningEfforts: string[];
+  defaultReasoningEffort: string | null;
+  policyState: string | null;
+  inputPrice: number | null;
+  outputPrice: number | null;
+}
+
 /** Each LLM scope's resolved mode and model, from which the main process decides the shared llama-server. */
 export interface LocalServerPrefs {
   useCleanupModel: boolean;
@@ -2114,6 +2154,23 @@ declare global {
         agentName: string | null,
         config: any
       ) => Promise<{ success: boolean; text?: string } & Partial<IpcErrorFields>>;
+
+      // GitHub Copilot (main-process sign-in; the token never reaches the renderer)
+      processCopilotReasoning?: (
+        text: string,
+        modelId: string,
+        agentName: string | null,
+        config: any
+      ) => Promise<{ success: boolean; text?: string } & Partial<IpcErrorFields>>;
+      getCopilotAuthStatus?: () => Promise<CopilotAuthStatus>;
+      startCopilotSignIn?: () => Promise<CopilotAuthStatus>;
+      cancelCopilotSignIn?: (flowId: string) => Promise<CopilotAuthStatus>;
+      retryCopilotSignIn?: (flowId: string) => Promise<CopilotAuthStatus>;
+      signOutOfCopilot?: () => Promise<CopilotAuthStatus>;
+      listCopilotModels?: (options?: {
+        refresh?: boolean;
+      }) => Promise<{ success: boolean; models?: CopilotModel[] } & Partial<IpcErrorFields>>;
+      onCopilotAuthChanged?: (callback: (status: CopilotAuthStatus) => void) => () => void;
 
       // Enterprise reasoning (Bedrock, Azure, Vertex)
       processEnterpriseReasoning: (

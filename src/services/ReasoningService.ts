@@ -46,6 +46,7 @@ import { extractApiErrorMessage } from "./ai/apiErrorMessage";
 import {
   PROVIDER_ERROR_CODES,
   asProviderError,
+  copilotUnsupportedRequestError,
   providerError,
   providerHttpError,
   redactProviderBody,
@@ -53,6 +54,7 @@ import {
 import { clearTinfoilClientCache } from "./ai/tinfoilClient";
 import { resolveChatRoute } from "../helpers/chatRouting";
 import { assertAgentAllowedByPolicy, assertReasoningAllowedByPolicy } from "./reasoningPolicy";
+import { COPILOT_PROVIDER_ID, copilotRequestRefusal } from "../config/copilot";
 import type { InferenceMode } from "../types/electron";
 
 export type ToolMetadata = Record<string, unknown> | Array<Record<string, unknown>>;
@@ -77,6 +79,8 @@ const BYOK_STREAM_PROVIDERS = [
 type ByokStreamProvider = (typeof BYOK_STREAM_PROVIDERS)[number];
 
 function toByokStreamProvider(provider: string): ByokStreamProvider {
+  // Copilot answers plain text only: chat and the assistant stream elsewhere.
+  if (provider === COPILOT_PROVIDER_ID) throw copilotUnsupportedRequestError("chat");
   if (!(BYOK_STREAM_PROVIDERS as readonly string[]).includes(provider)) {
     throw new Error(`Unsupported reasoning provider: ${provider}`);
   }
@@ -518,6 +522,23 @@ class ReasoningService extends BaseReasoningService {
     }
     if (dispatchConfig.requiresAgent) assertAgentAllowedByPolicy();
     assertReasoningAllowedByPolicy(providerId, resolveLlmDispatchMode(providerId, dispatchConfig));
+
+    // Copilot serves cleanup, note formatting and translation only; a selection
+    // edit or assistant command (dictationAgent) or a screenshot never reaches it.
+    if (providerId === COPILOT_PROVIDER_ID) {
+      const refusal = copilotRequestRefusal({
+        scope: dispatchConfig.inferenceScope,
+        requiresAgent: dispatchConfig.requiresAgent === true,
+        hasImage: !!dispatchConfig.screenContext,
+      });
+      if (refusal) {
+        logger.logReasoning("COPILOT_REFUSED", {
+          reason: refusal,
+          scope: dispatchConfig.inferenceScope,
+        });
+        throw copilotUnsupportedRequestError(refusal);
+      }
+    }
 
     if (!trimmedModel && providerId !== "openwhispr" && providerId !== "lan") {
       throw new Error("No reasoning model selected");
@@ -1351,6 +1372,14 @@ class ReasoningService extends BaseReasoningService {
           hasCustomEndpoint: true,
         });
         return true;
+      }
+
+      // Copilot takes no key: it is ready when main holds a working sign-in.
+      if (settings.cleanupProvider === COPILOT_PROVIDER_ID) {
+        const status = await window.electronAPI?.getCopilotAuthStatus?.();
+        const signedIn = status?.state === "signedIn";
+        logger.logReasoning("API_KEY_CHECK", { copilot: true, signedIn });
+        return signedIn;
       }
 
       // Enterprise providers: detect credentials by provider, short-circuit.

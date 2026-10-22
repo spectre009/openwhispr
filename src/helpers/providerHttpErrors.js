@@ -99,6 +99,24 @@ const ENGLISH = {
     "{{provider}} rate-limited the request. Wait a moment and try again.",
   "hooks.audioRecording.errorDescriptions.providerKeyMissing":
     "No API key is set for {{provider}}.",
+  "providerErrors.copilot.authFailed":
+    "Your GitHub Copilot sign-in is no longer valid. Sign in again in Settings → Language Models.",
+  "providerErrors.copilot.accessDenied":
+    "GitHub Copilot refused this request. Your plan or your organization's policy may not allow this model.",
+  "providerErrors.copilot.notSignedIn":
+    "You're not signed in to GitHub Copilot. Sign in under Settings → Language Models.",
+  "providerErrors.copilot.unsupportedRequest":
+    "GitHub Copilot can only clean up dictation, format notes and translate. Choose another model for chat and the voice assistant in Settings → Language Models.",
+};
+
+// Providers that sign in rather than take an API key word some failures their
+// own way.
+const PROVIDER_MESSAGE_KEYS = {
+  copilot: {
+    [C.AUTH_FAILED]: "providerErrors.copilot.authFailed",
+    [C.ACCESS_DENIED]: "providerErrors.copilot.accessDenied",
+    [C.KEY_MISSING]: "providerErrors.copilot.notSignedIn",
+  },
 };
 
 export const SELF_HOSTED_NAME = "Your server";
@@ -145,6 +163,8 @@ const SECRET_PATTERNS = [
   [/\bgsk_[A-Za-z0-9*]{4,}/g, "[redacted]"],
   [/\bAIza[A-Za-z0-9_-]{4,}/g, "[redacted]"],
   [/\bxai-[A-Za-z0-9*]{4,}/g, "[redacted]"],
+  [/\bgh[opusr]_[A-Za-z0-9_]{4,}/g, "[redacted]"],
+  [/\bgithub_pat_[A-Za-z0-9_]{4,}/g, "[redacted]"],
 ];
 
 function bodyToText(body) {
@@ -196,7 +216,10 @@ function codeForStatus(status, text, selfHosted) {
   return C.ERROR;
 }
 
-function buildClassification(code, { provider, model, surface, selfHosted, technicalDetails }) {
+function buildClassification(
+  code,
+  { provider, providerId, model, surface, selfHosted, technicalDetails }
+) {
   const providerName = selfHosted ? SELF_HOSTED_NAME : provider;
   const messageParams = { provider: providerName };
   let messageKey = MESSAGE_KEYS[code];
@@ -221,6 +244,8 @@ function buildClassification(code, { provider, model, surface, selfHosted, techn
   if (selfHosted && messageKey.startsWith("providerErrors.")) {
     messageKey = messageKey.replace("providerErrors.", "providerErrors.selfHosted.");
   }
+  const providerKey = PROVIDER_MESSAGE_KEYS[providerId]?.[code];
+  if (providerKey) messageKey = providerKey;
   const settingsTarget = FIXABLE.has(code) ? SETTINGS_TARGET_BY_SURFACE[surface] : undefined;
   return {
     code,
@@ -241,13 +266,14 @@ function toError(classification, extra = {}) {
 }
 
 export function providerHttpError(args) {
-  const { provider, status, body, headers, model, surface, selfHosted = false } = args;
+  const { provider, providerId, status, body, headers, model, surface, selfHosted = false } = args;
   const text = bodyToText(body);
   const underlyingError = redactProviderBody(text);
   const requestId = requestIdFrom(headers);
   return toError(
     buildClassification(codeForStatus(status, text, selfHosted), {
       provider,
+      providerId,
       model,
       surface,
       selfHosted,
@@ -263,6 +289,26 @@ export function providerHttpError(args) {
 
 export function providerError(code, ctx) {
   return toError(buildClassification(code, ctx), { provider: ctx.provider });
+}
+
+// A request GitHub Copilot can't serve (chat, the voice assistant, an image),
+// refused before anything is sent. `reason` is copilotRequestRefusal's, kept
+// for Copy details.
+export function copilotUnsupportedRequestError(reason) {
+  const ctx = {
+    provider: "GitHub Copilot",
+    providerId: "copilot",
+    surface: "llm",
+    ...(reason ? { technicalDetails: { underlyingError: reason } } : {}),
+  };
+  return toError(
+    {
+      ...buildClassification(C.BAD_REQUEST, ctx),
+      messageKey: "providerErrors.copilot.unsupportedRequest",
+      settingsTarget: SETTINGS_TARGET_BY_SURFACE.llm,
+    },
+    { provider: ctx.provider, ...(reason ? { reason } : {}) }
+  );
 }
 
 export function asProviderError(err, ctx) {

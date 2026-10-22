@@ -1,6 +1,8 @@
 import modelDataRaw from "./modelRegistryData.json";
 import { isCloudCleanupMode, getSettings } from "../stores/settingsStore";
 import { readCachedTinfoilModels } from "./tinfoilModelCache";
+import { COPILOT_FALLBACK_MODELS, readCachedCopilotModels } from "./copilotModelCache";
+import { COPILOT_PROVIDER_ID } from "../config/copilot";
 import { filterMeetingStreamingProviders } from "../helpers/meetingTranscriptionRouting";
 import type { InferenceMode } from "../types/electron";
 
@@ -142,6 +144,19 @@ if (cachedTinfoilModels.length > 0) {
   const tinfoilProvider = getTinfoilCloudProvider();
   if (tinfoilProvider) {
     tinfoilProvider.models = cachedTinfoilModels;
+  }
+}
+
+function getCopilotCloudProvider(): CloudProviderData | undefined {
+  return modelData.cloudProviders.find((provider) => provider.id === COPILOT_PROVIDER_ID);
+}
+
+// The last list this account's GitHub Copilot plan served; cleared on sign-out.
+const cachedCopilotModels = readCachedCopilotModels().models;
+if (cachedCopilotModels.length > 0) {
+  const copilotProvider = getCopilotCloudProvider();
+  if (copilotProvider) {
+    copilotProvider.models = cachedCopilotModels;
   }
 }
 
@@ -329,6 +344,27 @@ export function applyTinfoilModels(models: CloudModelDefinition[]): void {
   }
 }
 
+export function getCopilotModels(): CloudModelDefinition[] {
+  return getCopilotCloudProvider()?.models ?? [];
+}
+
+/** Replaces GitHub Copilot's models with the list the signed-in plan serves. */
+export function applyCopilotModels(models: CloudModelDefinition[]): void {
+  const provider = getCopilotCloudProvider();
+  if (provider) {
+    provider.models = models;
+  }
+  const reasoningProvider = REASONING_PROVIDERS[COPILOT_PROVIDER_ID];
+  if (reasoningProvider) {
+    reasoningProvider.models = models.map(toReasoningModel);
+  }
+}
+
+/** Back to the shipped list, for when no account is signed in. */
+export function resetCopilotModels(): void {
+  applyCopilotModels([...COPILOT_FALLBACK_MODELS]);
+}
+
 export interface ReasoningModelWithProvider extends ReasoningModel {
   provider: string;
   fullLabel: string;
@@ -379,6 +415,12 @@ export function getModelProvider(modelId: string): string {
 
   if (isEnterpriseProvider(storedProvider)) {
     return storedProvider;
+  }
+
+  // Copilot serves ids that OpenAI and Anthropic list too, so the id alone
+  // can't name it.
+  if (storedProvider === COPILOT_PROVIDER_ID) {
+    return COPILOT_PROVIDER_ID;
   }
 
   const model = getAllReasoningModels().find((m) => m.value === modelId);
@@ -479,6 +521,16 @@ export function getCloudModel(
   modelId: string,
   providerId?: string
 ): CloudModelDefinition | undefined {
+  // A registry provider answers for its own ids only: GitHub Copilot serves ids
+  // OpenAI and Anthropic list too, with different capabilities. Free-form
+  // providers (custom, OpenRouter, local, LAN) keep the catalog-wide lookup.
+  const scoped =
+    providerId &&
+    (modelData.cloudProviders.find((provider) => provider.id === providerId) ??
+      modelData.enterpriseProviders.find((provider) => provider.id === providerId));
+  if (scoped) {
+    return scoped.models.find((m) => m.id === modelId);
+  }
   for (const provider of modelData.cloudProviders) {
     const model = provider.models.find((m) => m.id === modelId);
     if (model) return model;
@@ -505,7 +557,9 @@ export interface OpenAiApiConfig {
 }
 
 export function getOpenAiApiConfig(modelId: string, provider?: string): OpenAiApiConfig {
-  const model = getCloudModel(modelId);
+  // OpenRouter's vendor-prefixed ids get their own request shape below, so
+  // only its exact ids may match a registry entry here.
+  const model = getCloudModel(modelId, provider === "openrouter" ? undefined : provider);
   if (model?.tokenParam) {
     return {
       tokenParam: model.tokenParam,

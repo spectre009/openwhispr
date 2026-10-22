@@ -5,6 +5,7 @@ import { isEnterpriseProvider } from "../../models/ModelRegistry";
 import { providerSupportsImages } from "../../services/ai/inferenceProviders";
 import { getSettings, useSettingsStore } from "../../stores/settingsStore";
 import { resolveChatStreamingInference } from "../../helpers/dictationAgentInference.js";
+import { isChatUnsupportedProvider, isLocalChatProvider } from "../../helpers/chatRouting";
 import { describeProviderError } from "../../utils/describeProviderError";
 import logger from "../../utils/logger";
 import {
@@ -389,22 +390,29 @@ export function useChatStreaming({
           return;
         }
 
+        // A scope left on a text-only provider (GitHub Copilot) has no chat
+        // transport: say so instead of falling through to the local model.
+        if (llmMode === "providers" && isChatUnsupportedProvider(llmConfig.provider)) {
+          announceResponse();
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: crypto.randomUUID(),
+              role: "assistant",
+              content: t("providerErrors.copilot.unsupportedRequest"),
+              isStreaming: false,
+            },
+          ]);
+          return;
+        }
+
         setAgentState("thinking");
         const isCloudAgent = llmMode === "openwhispr" && settings.isSignedIn;
         const isLanAgent = llmMode === "self-hosted" && !!llmConfig.remoteUrl;
         const isCustomAgent = llmMode === "providers" && llmConfig.provider === "custom";
-        const isLocalProvider =
-          !isEnterpriseProvider(llmConfig.provider) &&
-          ![
-            "openai",
-            "groq",
-            "custom",
-            "anthropic",
-            "gemini",
-            "tinfoil",
-            "openrouter",
-            "corti",
-          ].includes(llmConfig.provider);
+        const isLocalProvider = isLocalChatProvider(llmConfig.provider, {
+          isEnterpriseProvider: isEnterpriseProvider(llmConfig.provider),
+        });
         const localModelCanUseTool =
           isLocalProvider && estimateModelSizeB(llmConfig.model) >= LOCAL_TOOL_MIN_PARAMS_B;
         const supportsTools = isCloudAgent || !isLocalProvider || localModelCanUseTool;

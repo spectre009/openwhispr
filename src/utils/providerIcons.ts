@@ -23,6 +23,8 @@ import openrouterIcon from "@/assets/icons/providers/openrouter.svg";
 import tinfoilIcon from "@/assets/icons/providers/tinfoil.svg";
 import deepgramIcon from "@/assets/icons/providers/deepgram.svg";
 import assemblyaiIcon from "@/assets/icons/providers/assemblyai.svg";
+// The GitHub mark the GitHub connector shows; GitHub Copilot signs in with it.
+import githubIcon from "@/assets/icons/github.svg";
 
 export const PROVIDER_ICONS: Record<string, string> = {
   oruk: orukIcon,
@@ -48,6 +50,7 @@ export const PROVIDER_ICONS: Record<string, string> = {
   tinfoil: tinfoilIcon,
   deepgram: deepgramIcon,
   assemblyai: assemblyaiIcon,
+  copilot: githubIcon,
 };
 
 export function getProviderIcon(provider: string): string | undefined {
@@ -65,6 +68,7 @@ export const MONOCHROME_PROVIDERS = [
   "openrouter",
   "tinfoil",
   "assemblyai",
+  "copilot",
 ] as const;
 
 export function isMonochromeProvider(provider: string): boolean {

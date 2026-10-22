@@ -706,6 +706,21 @@ contextBridge.exposeInMainWorld("electronAPI", {
   processAnthropicReasoning: (text, modelId, agentName, config) =>
     ipcRenderer.invoke("process-anthropic-reasoning", text, modelId, agentName, config),
 
+  // GitHub Copilot: sign-in (device flow) and text-only requests. The token
+  // stays in the main process.
+  processCopilotReasoning: (text, modelId, agentName, config) =>
+    ipcRenderer.invoke("process-copilot-reasoning", text, modelId, agentName, config),
+  getCopilotAuthStatus: () => ipcRenderer.invoke("copilot-auth-status"),
+  startCopilotSignIn: () => ipcRenderer.invoke("copilot-auth-start"),
+  cancelCopilotSignIn: (flowId) => ipcRenderer.invoke("copilot-auth-cancel", flowId),
+  retryCopilotSignIn: (flowId) => ipcRenderer.invoke("copilot-auth-retry", flowId),
+  signOutOfCopilot: () => ipcRenderer.invoke("copilot-sign-out"),
+  listCopilotModels: (options) => ipcRenderer.invoke("copilot-list-models", options),
+  onCopilotAuthChanged: registerListener(
+    "copilot-auth-changed",
+    (callback) => (_event, status) => callback(status)
+  ),
+
   // Enterprise reasoning (Bedrock, Azure, Vertex) — runs in main process so
   // Node-only SDKs (AWS/Azure/Google credential providers) can resolve.
   processEnterpriseReasoning: (text, modelId, agentName, config) =>

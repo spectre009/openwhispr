@@ -861,6 +861,45 @@
     },
     "corti": {
       "euOnly": "Corti-Modelle sind nur in der EU-Region verfügbar."
+    },
+    "copilot": {
+      "description": "Nutzen Sie die Modelle Ihres GitHub-Copilot-Abonnements für Bereinigung, Notizformatierung und Übersetzung.",
+      "signIn": "Mit GitHub anmelden",
+      "loading": "GitHub-Copilot-Anmeldung wird geprüft…",
+      "codeInstructions": "Geben Sie diesen Code auf GitHub ein:",
+      "copyCode": "Code kopieren",
+      "copyLink": "Link kopieren",
+      "openInBrowser": "Im Browser öffnen",
+      "copied": "Kopiert",
+      "waiting": "Warten auf Ihre Bestätigung auf GitHub…",
+      "expiresIn": "Der Code läuft in {{time}} ab",
+      "cancel": "Abbrechen",
+      "checking": "Autorisierung erhalten — Copilot-Zugriff wird geprüft…",
+      "signedInAs": "Angemeldet als @{{login}}",
+      "signedIn": "Bei GitHub Copilot angemeldet",
+      "signOut": "Abmelden",
+      "signOutHint": "Die Abmeldung entfernt die Anmeldung nur auf diesem Computer.",
+      "revoke": "Auf GitHub widerrufen",
+      "tokenRejected": "Ihre GitHub-Copilot-Anmeldung ist nicht mehr gültig — melden Sie sich erneut an.",
+      "tryAgain": "Erneut versuchen",
+      "retry": "Wiederholen",
+      "refreshingModels": "Modelle werden geladen…",
+      "modelsFailed": "Modelle konnten nicht geladen werden.",
+      "errors": {
+        "notConfigured": "Die GitHub-Anmeldung ist in diesem Build nicht eingerichtet.",
+        "codeExpired": "Der Code ist abgelaufen.",
+        "oauthDenied": "Die Anmeldung wurde auf GitHub abgelehnt.",
+        "deviceFlowDisabled": "Die Anmeldung per Gerätecode ist für diese GitHub-App deaktiviert.",
+        "tokenExchangeFailed": "GitHub konnte die Anmeldung nicht abschließen.",
+        "rateLimited": "GitHub begrenzt die Anmeldeversuche. Warten Sie eine Minute und versuchen Sie es erneut.",
+        "network": "GitHub ist nicht erreichbar. Prüfen Sie Ihre Verbindung.",
+        "noAccess": "Dieses GitHub-Konto hat keinen Zugriff auf Copilot.",
+        "policyBlocked": "Die Richtlinie Ihrer Organisation blockiert dies.",
+        "checkFailed": "Der Copilot-Zugriff konnte nicht geprüft werden.",
+        "runtimeFailed": "GitHub Copilot konnte auf diesem Computer nicht starten.",
+        "persistFailed": "Die Anmeldung konnte auf diesem Computer nicht gespeichert werden.",
+        "unknown": "Die Anmeldung ist fehlgeschlagen."
+      }
     }
   },
   "transcription": {
@@ -2848,7 +2887,12 @@
         "corti_corti_s1_instant": "Schnelles Gesundheitsmodell, ohne Reasoning-Spur",
         "corti_corti_s1": "Leistungsfähigstes klinisches Modell mit Reasoning",
         "corti_corti_s1_mini_instant": "Kompaktes Gesundheitsmodell, am schnellsten und günstigsten",
-        "corti_corti_s1_mini": "Kompaktes klinisches Modell mit Reasoning zum halben Preis"
+        "corti_corti_s1_mini": "Kompaktes klinisches Modell mit Reasoning zum halben Preis",
+        "copilot_claude_haiku_5_5": "Schnell und günstig, empfohlen für die Diktat-Bereinigung",
+        "copilot_mai_code_2_flash": "Schnelles Modell von Microsoft",
+        "copilot_gpt_6_luna": "Schnelles, günstiges Modell von OpenAI",
+        "copilot_claude_sonnet_5_5": "Leistungsfähigeres Claude-Modell für lange Notizen",
+        "copilot_live": "In Ihrem GitHub-Copilot-Tarif verfügbar"
       },
       "enterprise": {
         "bedrock_claude_fable_5": "Leistungsstärkstes Claude-Modell. Ideal für die schwierigsten Assistenten-Aufgaben.",
@@ -4959,6 +5003,12 @@
     "details": {
       "provider": "Anbieter",
       "requestId": "Anfrage-ID"
+    },
+    "copilot": {
+      "authFailed": "Ihre GitHub-Copilot-Anmeldung ist nicht mehr gültig. Melden Sie sich unter Einstellungen → Sprachmodelle erneut an.",
+      "accessDenied": "GitHub Copilot hat diese Anfrage abgelehnt. Ihr Tarif oder die Richtlinie Ihrer Organisation erlaubt dieses Modell möglicherweise nicht.",
+      "notSignedIn": "Sie sind nicht bei GitHub Copilot angemeldet. Melden Sie sich unter Einstellungen → Sprachmodelle an.",
+      "unsupportedRequest": "GitHub Copilot kann nur Diktate bereinigen, Notizen formatieren und übersetzen. Wählen Sie für Chat und Sprachassistent unter Einstellungen → Sprachmodelle ein anderes Modell."
     }
   },
   "calendarOAuth": {

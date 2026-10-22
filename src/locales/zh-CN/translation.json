@@ -861,6 +861,45 @@
     },
     "corti": {
       "euOnly": "Corti 模型仅在欧盟地区可用。"
+    },
+    "copilot": {
+      "description": "使用您的 GitHub Copilot 订阅中的模型进行清理、笔记格式化和翻译。",
+      "signIn": "使用 GitHub 登录",
+      "loading": "正在检查 GitHub Copilot 登录状态…",
+      "codeInstructions": "请在 GitHub 上输入此代码：",
+      "copyCode": "复制代码",
+      "copyLink": "复制链接",
+      "openInBrowser": "在浏览器中打开",
+      "copied": "已复制",
+      "waiting": "正在等待您在 GitHub 上批准…",
+      "expiresIn": "代码将在 {{time}} 后过期",
+      "cancel": "取消",
+      "checking": "已收到授权 — 正在检查 Copilot 访问权限…",
+      "signedInAs": "已登录为 @{{login}}",
+      "signedIn": "已登录 GitHub Copilot",
+      "signOut": "退出登录",
+      "signOutHint": "退出登录只会移除此电脑上的登录。",
+      "revoke": "在 GitHub 上撤销",
+      "tokenRejected": "您的 GitHub Copilot 登录已失效 — 请重新登录。",
+      "tryAgain": "再试一次",
+      "retry": "重试",
+      "refreshingModels": "正在加载模型…",
+      "modelsFailed": "无法加载模型。",
+      "errors": {
+        "notConfigured": "此版本未配置 GitHub 登录。",
+        "codeExpired": "代码已过期。",
+        "oauthDenied": "登录已在 GitHub 上被拒绝。",
+        "deviceFlowDisabled": "此 GitHub 应用已关闭设备代码登录。",
+        "tokenExchangeFailed": "GitHub 无法完成登录。",
+        "rateLimited": "GitHub 正在限制登录尝试。请等待一分钟后再试。",
+        "network": "无法连接到 GitHub。请检查您的网络连接。",
+        "noAccess": "此 GitHub 账号没有 Copilot 访问权限。",
+        "policyBlocked": "您所在组织的策略禁止此操作。",
+        "checkFailed": "无法检查 Copilot 访问权限。",
+        "runtimeFailed": "GitHub Copilot 无法在此电脑上启动。",
+        "persistFailed": "无法在此电脑上保存登录信息。",
+        "unknown": "登录失败。"
+      }
     }
   },
   "transcription": {
@@ -2750,7 +2789,12 @@
         "corti_corti_s1_instant": "快速医疗模型，无推理过程",
         "corti_corti_s1": "功能最强的临床模型，带推理",
         "corti_corti_s1_mini_instant": "紧凑型医疗模型，最快且成本最低",
-        "corti_corti_s1_mini": "紧凑型临床模型，半价提供推理"
+        "corti_corti_s1_mini": "紧凑型临床模型，半价提供推理",
+        "copilot_claude_haiku_5_5": "快速且低成本，推荐用于听写清理",
+        "copilot_mai_code_2_flash": "快速的 Microsoft 模型",
+        "copilot_gpt_6_luna": "快速、低成本的 OpenAI 模型",
+        "copilot_claude_sonnet_5_5": "能力更强的 Claude 模型，适合长笔记",
+        "copilot_live": "包含在您的 GitHub Copilot 套餐中"
       },
       "enterprise": {
         "bedrock_claude_fable_5": "最强大的 Claude 模型。最适合最具挑战性的助手任务。",
@@ -4959,6 +5003,12 @@
     "details": {
       "provider": "服务商",
       "requestId": "请求 ID"
+    },
+    "copilot": {
+      "authFailed": "您的 GitHub Copilot 登录已失效。请在“设置 → 语言模型”中重新登录。",
+      "accessDenied": "GitHub Copilot 拒绝了此请求。您的套餐或组织策略可能不允许使用此模型。",
+      "notSignedIn": "您尚未登录 GitHub Copilot。请在“设置 → 语言模型”中登录。",
+      "unsupportedRequest": "GitHub Copilot 只能清理听写、格式化笔记和翻译。请在“设置 → 语言模型”中为聊天和语音助手选择其他模型。"
     }
   },
   "calendarOAuth": {

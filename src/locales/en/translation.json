@@ -861,6 +861,45 @@
     },
     "corti": {
       "euOnly": "Corti's models are only available in the EU region."
+    },
+    "copilot": {
+      "description": "Use the models from your GitHub Copilot subscription for cleanup, note formatting and translation.",
+      "signIn": "Sign in with GitHub",
+      "loading": "Checking your GitHub Copilot sign-in…",
+      "codeInstructions": "Enter this code on GitHub:",
+      "copyCode": "Copy code",
+      "copyLink": "Copy link",
+      "openInBrowser": "Open in browser",
+      "copied": "Copied",
+      "waiting": "Waiting for you to approve on GitHub…",
+      "expiresIn": "Code expires in {{time}}",
+      "cancel": "Cancel",
+      "checking": "Authorization received — checking Copilot access…",
+      "signedInAs": "Signed in as @{{login}}",
+      "signedIn": "Signed in to GitHub Copilot",
+      "signOut": "Sign out",
+      "signOutHint": "Signing out removes the sign-in from this computer only.",
+      "revoke": "Revoke on GitHub",
+      "tokenRejected": "Your GitHub Copilot sign-in is no longer valid — sign in again.",
+      "tryAgain": "Try again",
+      "retry": "Retry",
+      "refreshingModels": "Loading models…",
+      "modelsFailed": "Couldn't load models.",
+      "errors": {
+        "notConfigured": "GitHub sign-in isn't set up in this build.",
+        "codeExpired": "The code expired.",
+        "oauthDenied": "The sign-in was declined on GitHub.",
+        "deviceFlowDisabled": "Device sign-in is turned off for this GitHub app.",
+        "tokenExchangeFailed": "GitHub couldn't complete the sign-in.",
+        "rateLimited": "GitHub is limiting sign-in attempts. Wait a minute and try again.",
+        "network": "Couldn't reach GitHub. Check your connection.",
+        "noAccess": "This GitHub account has no Copilot access.",
+        "policyBlocked": "Your organization's policy blocks this.",
+        "checkFailed": "Couldn't check Copilot access.",
+        "runtimeFailed": "GitHub Copilot couldn't start on this computer.",
+        "persistFailed": "Couldn't save the sign-in on this computer.",
+        "unknown": "Sign-in failed."
+      }
     }
   },
   "transcription": {
@@ -2848,7 +2887,12 @@
         "corti_corti_s1_instant": "Fast healthcare model, no reasoning trace",
         "corti_corti_s1": "Most capable clinical model with reasoning",
         "corti_corti_s1_mini_instant": "Compact healthcare model, fastest and lowest cost",
-        "corti_corti_s1_mini": "Compact clinical model with reasoning at half the price"
+        "corti_corti_s1_mini": "Compact clinical model with reasoning at half the price",
+        "copilot_claude_haiku_5_5": "Fast and low-cost, recommended for dictation cleanup",
+        "copilot_mai_code_2_flash": "Fast Microsoft model",
+        "copilot_gpt_6_luna": "Fast, low-cost OpenAI model",
+        "copilot_claude_sonnet_5_5": "More capable Claude model for long notes",
+        "copilot_live": "Available on your GitHub Copilot plan"
       },
       "enterprise": {
         "bedrock_claude_fable_5": "Most capable Claude model. Best for the hardest Assistant tasks.",
@@ -4959,6 +5003,12 @@
     "details": {
       "provider": "Provider",
       "requestId": "Request ID"
+    },
+    "copilot": {
+      "authFailed": "Your GitHub Copilot sign-in is no longer valid. Sign in again in Settings → Language Models.",
+      "accessDenied": "GitHub Copilot refused this request. Your plan or your organization's policy may not allow this model.",
+      "notSignedIn": "You're not signed in to GitHub Copilot. Sign in under Settings → Language Models.",
+      "unsupportedRequest": "GitHub Copilot can only clean up dictation, format notes and translate. Choose another model for chat and the voice assistant in Settings → Language Models."
     }
   },
   "calendarOAuth": {

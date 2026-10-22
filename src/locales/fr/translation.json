@@ -861,6 +861,45 @@
     },
     "corti": {
       "euOnly": "Les modèles Corti ne sont disponibles que dans la région UE."
+    },
+    "copilot": {
+      "description": "Utilisez les modèles de votre abonnement GitHub Copilot pour le nettoyage, la mise en forme des notes et la traduction.",
+      "signIn": "Se connecter avec GitHub",
+      "loading": "Vérification de votre connexion à GitHub Copilot…",
+      "codeInstructions": "Saisissez ce code sur GitHub :",
+      "copyCode": "Copier le code",
+      "copyLink": "Copier le lien",
+      "openInBrowser": "Ouvrir dans le navigateur",
+      "copied": "Copié",
+      "waiting": "En attente de votre approbation sur GitHub…",
+      "expiresIn": "Le code expire dans {{time}}",
+      "cancel": "Annuler",
+      "checking": "Autorisation reçue — vérification de l’accès à Copilot…",
+      "signedInAs": "Connecté en tant que @{{login}}",
+      "signedIn": "Connecté à GitHub Copilot",
+      "signOut": "Se déconnecter",
+      "signOutHint": "La déconnexion ne supprime la connexion que sur cet ordinateur.",
+      "revoke": "Révoquer sur GitHub",
+      "tokenRejected": "Votre connexion à GitHub Copilot n’est plus valide — reconnectez-vous.",
+      "tryAgain": "Recommencer",
+      "retry": "Réessayer",
+      "refreshingModels": "Chargement des modèles…",
+      "modelsFailed": "Impossible de charger les modèles.",
+      "errors": {
+        "notConfigured": "La connexion GitHub n’est pas configurée dans cette version.",
+        "codeExpired": "Le code a expiré.",
+        "oauthDenied": "La connexion a été refusée sur GitHub.",
+        "deviceFlowDisabled": "La connexion par code d’appareil est désactivée pour cette application GitHub.",
+        "tokenExchangeFailed": "GitHub n’a pas pu finaliser la connexion.",
+        "rateLimited": "GitHub limite les tentatives de connexion. Patientez une minute, puis réessayez.",
+        "network": "Impossible de joindre GitHub. Vérifiez votre connexion.",
+        "noAccess": "Ce compte GitHub n’a pas accès à Copilot.",
+        "policyBlocked": "La politique de votre organisation le bloque.",
+        "checkFailed": "Impossible de vérifier l’accès à Copilot.",
+        "runtimeFailed": "GitHub Copilot n’a pas pu démarrer sur cet ordinateur.",
+        "persistFailed": "Impossible d’enregistrer la connexion sur cet ordinateur.",
+        "unknown": "La connexion a échoué."
+      }
     }
   },
   "transcription": {
@@ -2848,7 +2887,12 @@
         "corti_corti_s1_instant": "Modèle de santé rapide, sans trace de raisonnement",
         "corti_corti_s1": "Modèle clinique le plus performant avec raisonnement",
         "corti_corti_s1_mini_instant": "Modèle de santé compact, le plus rapide et le moins cher",
-        "corti_corti_s1_mini": "Modèle clinique compact avec raisonnement à moitié prix"
+        "corti_corti_s1_mini": "Modèle clinique compact avec raisonnement à moitié prix",
+        "copilot_claude_haiku_5_5": "Rapide et économique, recommandé pour le nettoyage de la dictée",
+        "copilot_mai_code_2_flash": "Modèle rapide de Microsoft",
+        "copilot_gpt_6_luna": "Modèle OpenAI rapide et économique",
+        "copilot_claude_sonnet_5_5": "Modèle Claude plus performant pour les longues notes",
+        "copilot_live": "Disponible dans votre forfait GitHub Copilot"
       },
       "enterprise": {
         "bedrock_claude_fable_5": "Le modèle Claude le plus performant. Idéal pour les tâches d'assistant les plus difficiles.",
@@ -4959,6 +5003,12 @@
     "details": {
       "provider": "Fournisseur",
       "requestId": "ID de requête"
+    },
+    "copilot": {
+      "authFailed": "Votre connexion à GitHub Copilot n’est plus valide. Reconnectez-vous dans Réglages → Modèles de langage.",
+      "accessDenied": "GitHub Copilot a refusé cette requête. Votre forfait ou la politique de votre organisation n’autorise peut-être pas ce modèle.",
+      "notSignedIn": "Vous n’êtes pas connecté à GitHub Copilot. Connectez-vous dans Réglages → Modèles de langage.",
+      "unsupportedRequest": "GitHub Copilot sait seulement nettoyer les dictées, mettre en forme les notes et traduire. Choisissez un autre modèle pour le chat et l’assistant vocal dans Réglages → Modèles de langage."
     }
   },
   "calendarOAuth": {

@@ -861,6 +861,45 @@
     },
     "corti": {
       "euOnly": "Corti 模型僅在歐盟地區可用。"
+    },
+    "copilot": {
+      "description": "使用您的 GitHub Copilot 訂閱中的模型進行清理、筆記格式化和翻譯。",
+      "signIn": "使用 GitHub 登入",
+      "loading": "正在檢查 GitHub Copilot 登入狀態…",
+      "codeInstructions": "請在 GitHub 上輸入此代碼：",
+      "copyCode": "複製代碼",
+      "copyLink": "複製連結",
+      "openInBrowser": "在瀏覽器中開啟",
+      "copied": "已複製",
+      "waiting": "正在等待您在 GitHub 上核准…",
+      "expiresIn": "代碼將在 {{time}} 後到期",
+      "cancel": "取消",
+      "checking": "已收到授權 — 正在檢查 Copilot 存取權限…",
+      "signedInAs": "已登入為 @{{login}}",
+      "signedIn": "已登入 GitHub Copilot",
+      "signOut": "登出",
+      "signOutHint": "登出只會移除這台電腦上的登入。",
+      "revoke": "在 GitHub 上撤銷",
+      "tokenRejected": "您的 GitHub Copilot 登入已失效 — 請重新登入。",
+      "tryAgain": "再試一次",
+      "retry": "重試",
+      "refreshingModels": "正在載入模型…",
+      "modelsFailed": "無法載入模型。",
+      "errors": {
+        "notConfigured": "此版本未設定 GitHub 登入。",
+        "codeExpired": "代碼已到期。",
+        "oauthDenied": "登入已在 GitHub 上遭到拒絕。",
+        "deviceFlowDisabled": "此 GitHub 應用程式已關閉裝置代碼登入。",
+        "tokenExchangeFailed": "GitHub 無法完成登入。",
+        "rateLimited": "GitHub 正在限制登入嘗試。請稍候一分鐘再試。",
+        "network": "無法連線到 GitHub。請檢查您的網路連線。",
+        "noAccess": "此 GitHub 帳號沒有 Copilot 存取權限。",
+        "policyBlocked": "您所屬組織的政策禁止此操作。",
+        "checkFailed": "無法檢查 Copilot 存取權限。",
+        "runtimeFailed": "GitHub Copilot 無法在這台電腦上啟動。",
+        "persistFailed": "無法在這台電腦上儲存登入資訊。",
+        "unknown": "登入失敗。"
+      }
     }
   },
   "transcription": {
@@ -2750,7 +2789,12 @@
         "corti_corti_s1_instant": "快速醫療模型，無推理過程",
         "corti_corti_s1": "功能最強的臨床模型，帶推理",
         "corti_corti_s1_mini_instant": "精簡型醫療模型，最快且成本最低",
-        "corti_corti_s1_mini": "精簡型臨床模型，半價提供推理"
+        "corti_corti_s1_mini": "精簡型臨床模型，半價提供推理",
+        "copilot_claude_haiku_5_5": "快速且低成本，建議用於聽寫清理",
+        "copilot_mai_code_2_flash": "快速的 Microsoft 模型",
+        "copilot_gpt_6_luna": "快速、低成本的 OpenAI 模型",
+        "copilot_claude_sonnet_5_5": "能力更強的 Claude 模型，適合長筆記",
+        "copilot_live": "包含在您的 GitHub Copilot 方案中"
       },
       "enterprise": {
         "bedrock_claude_fable_5": "最強大的 Claude 模型。最適合最具挑戰性的助理任務。",
@@ -4959,6 +5003,12 @@
     "details": {
       "provider": "服務商",
       "requestId": "請求 ID"
+    },
+    "copilot": {
+      "authFailed": "您的 GitHub Copilot 登入已失效。請在「設定 → 語言模型」中重新登入。",
+      "accessDenied": "GitHub Copilot 拒絕了此請求。您的方案或組織政策可能不允許使用此模型。",
+      "notSignedIn": "您尚未登入 GitHub Copilot。請在「設定 → 語言模型」中登入。",
+      "unsupportedRequest": "GitHub Copilot 只能清理聽寫、格式化筆記和翻譯。請在「設定 → 語言模型」中為聊天和語音助理選擇其他模型。"
     }
   },
   "calendarOAuth": {

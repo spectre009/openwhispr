@@ -861,6 +861,45 @@
     },
     "corti": {
       "euOnly": "Corti のモデルは EU リージョンでのみ利用できます。"
+    },
+    "copilot": {
+      "description": "GitHub Copilot のサブスクリプションのモデルを、クリーンアップ、ノートのフォーマット、翻訳に使用します。",
+      "signIn": "GitHub でサインイン",
+      "loading": "GitHub Copilot のサインインを確認しています…",
+      "codeInstructions": "GitHub でこのコードを入力してください:",
+      "copyCode": "コードをコピー",
+      "copyLink": "リンクをコピー",
+      "openInBrowser": "ブラウザーで開く",
+      "copied": "コピーしました",
+      "waiting": "GitHub での承認を待っています…",
+      "expiresIn": "コードの有効期限まで残り {{time}}",
+      "cancel": "キャンセル",
+      "checking": "認可を受け取りました — Copilot へのアクセスを確認しています…",
+      "signedInAs": "@{{login}} としてサインイン中",
+      "signedIn": "GitHub Copilot にサインイン済み",
+      "signOut": "サインアウト",
+      "signOutHint": "サインアウトしても、削除されるのはこのコンピューター上のサインインだけです。",
+      "revoke": "GitHub で取り消す",
+      "tokenRejected": "GitHub Copilot のサインインが無効になりました — もう一度サインインしてください。",
+      "tryAgain": "もう一度試す",
+      "retry": "再試行",
+      "refreshingModels": "モデルを読み込んでいます…",
+      "modelsFailed": "モデルを読み込めませんでした。",
+      "errors": {
+        "notConfigured": "このビルドでは GitHub サインインが設定されていません。",
+        "codeExpired": "コードの有効期限が切れました。",
+        "oauthDenied": "GitHub でサインインが拒否されました。",
+        "deviceFlowDisabled": "この GitHub アプリでは、デバイスコードによるサインインが無効になっています。",
+        "tokenExchangeFailed": "GitHub がサインインを完了できませんでした。",
+        "rateLimited": "GitHub がサインインの試行を制限しています。1 分ほど待ってから、もう一度お試しください。",
+        "network": "GitHub に接続できませんでした。接続を確認してください。",
+        "noAccess": "この GitHub アカウントには Copilot へのアクセス権がありません。",
+        "policyBlocked": "組織のポリシーによってブロックされています。",
+        "checkFailed": "Copilot へのアクセスを確認できませんでした。",
+        "runtimeFailed": "このコンピューターで GitHub Copilot を起動できませんでした。",
+        "persistFailed": "このコンピューターにサインインを保存できませんでした。",
+        "unknown": "サインインに失敗しました。"
+      }
     }
   },
   "transcription": {
@@ -2750,7 +2789,12 @@
         "corti_corti_s1_instant": "高速なヘルスケアモデル、推論トレースなし",
         "corti_corti_s1": "推論対応の最も高性能な臨床モデル",
         "corti_corti_s1_mini_instant": "コンパクトなヘルスケアモデル、最速かつ最も低コスト",
-        "corti_corti_s1_mini": "推論対応のコンパクトな臨床モデルを半額で"
+        "corti_corti_s1_mini": "推論対応のコンパクトな臨床モデルを半額で",
+        "copilot_claude_haiku_5_5": "高速・低コスト、ディクテーションのクリーンアップにおすすめ",
+        "copilot_mai_code_2_flash": "Microsoft の高速モデル",
+        "copilot_gpt_6_luna": "OpenAI の高速・低コストモデル",
+        "copilot_claude_sonnet_5_5": "長いノート向けの、より高性能な Claude モデル",
+        "copilot_live": "GitHub Copilot プランで利用可能"
       },
       "enterprise": {
         "bedrock_claude_fable_5": "最も高性能な Claude モデル。最も難しいアシスタントタスクに最適です。",
@@ -4959,6 +5003,12 @@
     "details": {
       "provider": "プロバイダー",
       "requestId": "リクエストID"
+    },
+    "copilot": {
+      "authFailed": "GitHub Copilot のサインインが無効になりました。設定 → 言語モデル からもう一度サインインしてください。",
+      "accessDenied": "GitHub Copilot がこのリクエストを拒否しました。プランまたは組織のポリシーで、このモデルが許可されていない可能性があります。",
+      "notSignedIn": "GitHub Copilot にサインインしていません。設定 → 言語モデル からサインインしてください。",
+      "unsupportedRequest": "GitHub Copilot で使えるのは、ディクテーションのクリーンアップ、ノートのフォーマット、翻訳だけです。チャットと音声アシスタントには、設定 → 言語モデル で別のモデルを選択してください。"
     }
   },
   "calendarOAuth": {

@@ -355,6 +355,7 @@ let hotkeyManager = null;
 let databaseManager = null;
 let clipboardManager = null;
 let connectorManager = null;
+let copilotServices = null;
 let whisperManager = null;
 let parakeetManager = null;
 let diarizationManager = null;
@@ -680,6 +681,12 @@ function initializeCoreManagers() {
     windowManager.hotkeyManager.nativeListenerProbe = () => windowsKeyManager.checkAvailability();
   }
 
+  // GitHub Copilot as a language-model provider. Its sign-in reads the saved
+  // token in startApp, once the encrypted secrets have loaded.
+  copilotServices = require("./src/helpers/copilot").createCopilotServices({
+    environmentManager,
+  });
+
   // IPC handlers must be registered before window content loads
   ipcHandlers = new IPCHandlers({
     environmentManager,
@@ -700,6 +707,7 @@ function initializeCoreManagers() {
     microsoftCalendarManager,
     appleCalendarManager,
     connectorManager,
+    copilot: copilotServices,
     meetingDetectionEngine,
     audioTapManager,
     linuxPortalAudioManager,
@@ -722,6 +730,7 @@ function registerSidecars() {
   sidecarRegistry.register("llama", () => modelManager.stopServer());
   const onnxWorkerClient = require("./src/helpers/onnxWorkerClient");
   sidecarRegistry.register("onnx", () => onnxWorkerClient.stop());
+  if (copilotServices) sidecarRegistry.register("copilot", () => copilotServices.runtime.stop());
 }
 
 // Phase 2: Non-critical setup after windows are visible
@@ -1196,6 +1205,7 @@ async function startApp() {
   // Phase 1: Core managers + IPC handlers before windows
   initializeCoreManagers();
   await environmentManager.init();
+  copilotServices?.auth.init();
   // After any upgrade the GPU gets one fresh attempt: clear the remembered
   // failure before the whisper pre-warm below resolves its GPU backend.
   resetWhisperGpuFailureOnUpgrade(environmentManager);

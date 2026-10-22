@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Cloud, Key, Cpu, Network, Building2, ShieldCheck, AlertTriangle } from "../icons";
 import {
   LLM_ENTERPRISE_POLICY_PROVIDER_IDS,
-  LLM_POLICY_PROVIDER_IDS,
+  llmPolicyProviderIds,
   useSettingsStore,
   selectPolicyEffectiveSettings,
   selectResolvedLLMConfig,
@@ -35,6 +35,10 @@ import { requestSignIn } from "../../utils/requestSignIn";
 import TestConnectionButton from "../TestConnectionButton";
 import { getEnterpriseCallSettings } from "../../services/ai/enterpriseSettings";
 import { Button } from "../ui/button";
+import { COPILOT_PROVIDER_ID, isCopilotScopeSupported } from "../../config/copilot";
+
+// GitHub Copilot can't run chat or the assistant's tools, so their scopes don't offer it.
+const COPILOT_HIDDEN: readonly string[] = [COPILOT_PROVIDER_ID];
 
 const MODE_LABEL_PREFIX: Record<InferenceScope, string> = {
   dictationCleanup: "settingsPage.aiModels.modes",
@@ -119,7 +123,7 @@ export default function InferenceConfigEditor({
     "llm",
     config.mode,
     {
-      byokProviders: LLM_POLICY_PROVIDER_IDS,
+      byokProviders: llmPolicyProviderIds(scope),
       enterpriseProviders: LLM_ENTERPRISE_POLICY_PROVIDER_IDS,
     }
   );
@@ -171,6 +175,7 @@ export default function InferenceConfigEditor({
       setCustomReasoningApiKey={setField("customApiKey")}
       setReasoningMode={setMode}
       mode={mode}
+      hiddenProviderIds={isCopilotScopeSupported(scope) ? undefined : COPILOT_HIDDEN}
     />
   );
 
@@ -179,7 +184,7 @@ export default function InferenceConfigEditor({
     (effectiveMode === "providers" &&
       (config.provider === "custom" ||
         config.provider === "openrouter" ||
-        !!getCloudModel(config.model)?.supportsThinking)) ||
+        !!getCloudModel(config.model, config.provider)?.supportsThinking)) ||
     (effectiveMode === "local" && !!getLocalModel(config.model)?.supportsThinking);
 
   if (managed.kind === "error") {

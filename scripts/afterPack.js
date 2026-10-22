@@ -266,6 +266,36 @@ function verifyWindowsKeyListener(binDir) {
   }
 }
 
+// The GitHub Copilot provider spawns the Copilot SDK's runtime, which only runs
+// from app.asar.unpacked (see src/helpers/copilot/index.js).
+function verifyCopilotRuntime(context) {
+  const platform = context.electronPlatformName;
+  const archName = Arch[context.arch];
+  if (!["darwin", "linux", "win32"].includes(platform) || archName === "universal") return;
+
+  const target = `${platform}-${archName}`;
+  const prebuildDir = path.join(
+    resolveResourcesDir(context),
+    "app.asar.unpacked",
+    "node_modules",
+    "@github",
+    `copilot-sdk-${target}`,
+    "prebuilds",
+    target
+  );
+  const runtimeExe = path.join(
+    prebuildDir,
+    platform === "win32" ? "copilot-runtime.exe" : "copilot-runtime"
+  );
+  for (const required of [runtimeExe, path.join(prebuildDir, "runtime.node")]) {
+    if (!fs.existsSync(required)) {
+      throw new Error(
+        `afterPack: missing ${required} — the Copilot SDK runtime was not unpacked from app.asar (asarUnpack/packaging failure, or @github/copilot-sdk-${target} isn't installed); the GitHub Copilot provider couldn't start`
+      );
+    }
+  }
+}
+
 function verifyUnpackedBinaries(context) {
   const unpackedDir = path.join(resolveResourcesDir(context), "app.asar.unpacked");
   const unpackedModulesDir = path.join(unpackedDir, "node_modules");
@@ -306,6 +336,7 @@ function verifyUnpackedBinaries(context) {
     verifyWindowsOnnxRuntimePrivatized(binDir);
     verifyWindowsKeyListener(binDir);
   }
+  verifyCopilotRuntime(context);
 
   console.log("  afterPack: verified unpacked bundled binaries");
 }
@@ -324,3 +355,4 @@ exports.default = async function (context) {
 
 exports.verifyWindowsOnnxRuntimePrivatized = verifyWindowsOnnxRuntimePrivatized;
 exports.verifyWindowsKeyListener = verifyWindowsKeyListener;
+exports.verifyCopilotRuntime = verifyCopilotRuntime;
