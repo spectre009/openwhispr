@@ -6,12 +6,15 @@ import { Toggle } from "../ui/toggle";
 import { cn } from "../lib/utils";
 import { VoicePill } from "../dictation/VoicePill";
 import { SELECT_CLASS } from "./FloatingIconPlacementRows";
+import { useSettingsStore } from "../../stores/settingsStore";
 import {
   RECORDING_INDICATOR_COLORS,
   RECORDING_INDICATOR_STYLES,
+  RECORDING_REMINDER_MINUTES,
   recordingIndicatorCssVars,
   resolveRecordingAccent,
 } from "../../helpers/recordingIndicator";
+import { resolveRecordingLayout } from "../../helpers/voicePillPresentation";
 import type {
   RecordingEdgeStripDisplays,
   RecordingEdgeStripMode,
@@ -34,6 +37,10 @@ const STYLE_KEYS: Record<RecordingIndicatorStyle, { label: string; description: 
   beacon: {
     label: "settingsPage.general.floatingIcon.recordingStyleBeacon",
     description: "settingsPage.general.floatingIcon.recordingStyleBeaconDescription",
+  },
+  rec: {
+    label: "settingsPage.general.floatingIcon.recordingStyleRec",
+    description: "settingsPage.general.floatingIcon.recordingStyleRecDescription",
   },
 };
 
@@ -66,6 +73,78 @@ const EDGE_STRIP_DISPLAY_KEYS: Record<RecordingEdgeStripDisplays, string> = {
   pill: "settingsPage.general.floatingIcon.edgeStripDisplaysPill",
   all: "settingsPage.general.floatingIcon.edgeStripDisplaysAll",
 };
+
+// The Settings preview pill shows a recording that has been running a while,
+// so the elapsed time reads like a real one.
+const PREVIEW_ELAPSED_MS = 7_000;
+
+interface ColorSwatchesProps {
+  label: string;
+  value: string;
+  onChange: (color: string) => void;
+  disabled: boolean;
+}
+
+/** The curated colors plus a custom picker, as one radio group. */
+function ColorSwatches({ label, value, onChange, disabled }: ColorSwatchesProps) {
+  const { t } = useTranslation();
+  const customSelected = value.startsWith("#");
+  return (
+    <div
+      role="radiogroup"
+      aria-label={label}
+      aria-disabled={disabled || undefined}
+      className={cn("flex items-center gap-1.5", disabled && "opacity-45")}
+    >
+      {COLOR_IDS.map((id) => {
+        const selected = value === id;
+        const colorLabel = t(COLOR_LABEL_KEYS[id]);
+        return (
+          <button
+            key={id}
+            type="button"
+            role="radio"
+            aria-checked={selected}
+            aria-label={colorLabel}
+            title={colorLabel}
+            disabled={disabled}
+            onClick={() => onChange(id)}
+            className={cn(
+              SWATCH_CLASS,
+              selected ? "border-foreground" : "border-transparent hover:scale-110"
+            )}
+            style={{ backgroundColor: RECORDING_INDICATOR_COLORS[id] }}
+          />
+        );
+      })}
+      <label
+        title={t("settingsPage.general.floatingIcon.colorCustom")}
+        className={cn(
+          SWATCH_CLASS,
+          "relative overflow-hidden",
+          disabled ? "cursor-not-allowed" : "cursor-pointer",
+          customSelected ? "border-foreground" : "border-transparent hover:scale-110"
+        )}
+        style={{
+          background: customSelected
+            ? resolveRecordingAccent(value)
+            : "conic-gradient(#ef3b3b, #f5a524, #22c55e, #06b6d4, #3466e2, #8b5cf6, #ec4899, #ef3b3b)",
+        }}
+      >
+        <input
+          type="color"
+          role="radio"
+          aria-checked={customSelected}
+          aria-label={t("settingsPage.general.floatingIcon.colorCustom")}
+          disabled={disabled}
+          value={resolveRecordingAccent(value)}
+          onChange={(e) => onChange(e.target.value)}
+          className="absolute inset-0 cursor-[inherit] opacity-0"
+        />
+      </label>
+    </div>
+  );
+}
 
 interface RecordingIndicatorRowsProps {
   recordingIndicatorStyle: RecordingIndicatorStyle;
@@ -116,16 +195,33 @@ export function RecordingIndicatorRows({
   const { t } = useTranslation();
   const getLevel = useSyntheticLevel();
   const [previewingStrip, setPreviewingStrip] = useState(false);
+  const [previewStartedAt] = useState(() => Date.now() - PREVIEW_ELAPSED_MS);
+  const recordingShowElapsed = useSettingsStore((s) => s.recordingShowElapsed);
+  const setRecordingShowElapsed = useSettingsStore((s) => s.setRecordingShowElapsed);
+  const recordingColorByMode = useSettingsStore((s) => s.recordingColorByMode);
+  const setRecordingColorByMode = useSettingsStore((s) => s.setRecordingColorByMode);
+  const recordingAssistantColor = useSettingsStore((s) => s.recordingAssistantColor);
+  const setRecordingAssistantColor = useSettingsStore((s) => s.setRecordingAssistantColor);
+  const recordingTranslationColor = useSettingsStore((s) => s.recordingTranslationColor);
+  const setRecordingTranslationColor = useSettingsStore((s) => s.setRecordingTranslationColor);
+  const recordingReminderMinutes = useSettingsStore((s) => s.recordingReminderMinutes);
+  const setRecordingReminderMinutes = useSettingsStore((s) => s.setRecordingReminderMinutes);
   const previewVars = useMemo(
     () => recordingIndicatorCssVars(recordingIndicatorColor) as CSSProperties,
     [recordingIndicatorColor]
   );
+  const previewLayout = resolveRecordingLayout({
+    style: recordingIndicatorStyle,
+    showElapsed: recordingShowElapsed,
+    recording: true,
+  });
   const stripOff = recordingEdgeStrip === "off";
   // A frame only ever outlines the floating icon's monitor.
   const frame = recordingEdgeStrip === "frame";
   const colorDisabled =
     recordingIndicatorStyle === "classic" && stripOff && !recordingTrayIndicator;
-  const customSelected = recordingIndicatorColor.startsWith("#");
+  // REC always shows the time.
+  const elapsedForced = recordingIndicatorStyle === "rec";
 
   // The preview carries the settings as shown here, so it never waits for the
   // dictation window to hear about a change made a moment ago.
@@ -157,6 +253,8 @@ export function RecordingIndicatorRows({
                 expanded
                 getAudioLevel={getLevel}
                 recordingStyle={recordingIndicatorStyle}
+                recordingLayout={previewLayout}
+                recordingStartedAt={previewStartedAt}
                 className="pointer-events-none"
               />
             </div>
@@ -179,64 +277,65 @@ export function RecordingIndicatorRows({
       </SettingsPanelRow>
       <SettingsPanelRow>
         <SettingsRow
+          label={t("settingsPage.general.floatingIcon.recordingShowElapsed")}
+          description={t(
+            elapsedForced
+              ? "settingsPage.general.floatingIcon.recordingShowElapsedRec"
+              : "settingsPage.general.floatingIcon.recordingShowElapsedDescription"
+          )}
+        >
+          <Toggle
+            checked={elapsedForced || recordingShowElapsed}
+            onChange={setRecordingShowElapsed}
+            disabled={elapsedForced}
+          />
+        </SettingsRow>
+      </SettingsPanelRow>
+      <SettingsPanelRow>
+        <SettingsRow
           label={t("settingsPage.general.floatingIcon.recordingColor")}
           description={t("settingsPage.general.floatingIcon.recordingColorDescription")}
         >
-          <div
-            role="radiogroup"
-            aria-label={t("settingsPage.general.floatingIcon.recordingColor")}
-            aria-disabled={colorDisabled || undefined}
-            className={cn("flex items-center gap-1.5", colorDisabled && "opacity-45")}
-          >
-            {COLOR_IDS.map((id) => {
-              const selected = recordingIndicatorColor === id;
-              const label = t(COLOR_LABEL_KEYS[id]);
-              return (
-                <button
-                  key={id}
-                  type="button"
-                  role="radio"
-                  aria-checked={selected}
-                  aria-label={label}
-                  title={label}
-                  disabled={colorDisabled}
-                  onClick={() => setRecordingIndicatorColor(id)}
-                  className={cn(
-                    SWATCH_CLASS,
-                    selected ? "border-foreground" : "border-transparent hover:scale-110"
-                  )}
-                  style={{ backgroundColor: RECORDING_INDICATOR_COLORS[id] }}
-                />
-              );
-            })}
-            <label
-              title={t("settingsPage.general.floatingIcon.colorCustom")}
-              className={cn(
-                SWATCH_CLASS,
-                "relative overflow-hidden",
-                colorDisabled ? "cursor-not-allowed" : "cursor-pointer",
-                customSelected ? "border-foreground" : "border-transparent hover:scale-110"
-              )}
-              style={{
-                background: customSelected
-                  ? resolveRecordingAccent(recordingIndicatorColor)
-                  : "conic-gradient(#ef3b3b, #f5a524, #22c55e, #06b6d4, #3466e2, #8b5cf6, #ec4899, #ef3b3b)",
-              }}
-            >
-              <input
-                type="color"
-                role="radio"
-                aria-checked={customSelected}
-                aria-label={t("settingsPage.general.floatingIcon.colorCustom")}
-                disabled={colorDisabled}
-                value={resolveRecordingAccent(recordingIndicatorColor)}
-                onChange={(e) => setRecordingIndicatorColor(e.target.value)}
-                className="absolute inset-0 cursor-[inherit] opacity-0"
-              />
-            </label>
-          </div>
+          <ColorSwatches
+            label={t("settingsPage.general.floatingIcon.recordingColor")}
+            value={recordingIndicatorColor}
+            onChange={setRecordingIndicatorColor}
+            disabled={colorDisabled}
+          />
         </SettingsRow>
       </SettingsPanelRow>
+      <SettingsPanelRow>
+        <SettingsRow
+          label={t("settingsPage.general.floatingIcon.recordingColorByMode")}
+          description={t("settingsPage.general.floatingIcon.recordingColorByModeDescription")}
+        >
+          <Toggle checked={recordingColorByMode} onChange={setRecordingColorByMode} />
+        </SettingsRow>
+      </SettingsPanelRow>
+      {recordingColorByMode && (
+        <>
+          <SettingsPanelRow>
+            <SettingsRow label={t("settingsPage.general.floatingIcon.recordingAssistantColor")}>
+              <ColorSwatches
+                label={t("settingsPage.general.floatingIcon.recordingAssistantColor")}
+                value={recordingAssistantColor}
+                onChange={setRecordingAssistantColor}
+                disabled={colorDisabled}
+              />
+            </SettingsRow>
+          </SettingsPanelRow>
+          <SettingsPanelRow>
+            <SettingsRow label={t("settingsPage.general.floatingIcon.recordingTranslationColor")}>
+              <ColorSwatches
+                label={t("settingsPage.general.floatingIcon.recordingTranslationColor")}
+                value={recordingTranslationColor}
+                onChange={setRecordingTranslationColor}
+                disabled={colorDisabled}
+              />
+            </SettingsRow>
+          </SettingsPanelRow>
+        </>
+      )}
       <SettingsPanelRow>
         <SettingsRow
           label={t("settingsPage.general.floatingIcon.edgeStrip")}
@@ -290,6 +389,29 @@ export function RecordingIndicatorRows({
           description={t("settingsPage.general.floatingIcon.recordingTrayDescription")}
         >
           <Toggle checked={recordingTrayIndicator} onChange={setRecordingTrayIndicator} />
+        </SettingsRow>
+      </SettingsPanelRow>
+      <SettingsPanelRow>
+        <SettingsRow
+          label={t("settingsPage.general.floatingIcon.recordingReminder")}
+          description={t("settingsPage.general.floatingIcon.recordingReminderDescription")}
+        >
+          <select
+            value={recordingReminderMinutes}
+            onChange={(e) => setRecordingReminderMinutes(Number(e.target.value))}
+            className={SELECT_CLASS}
+            aria-label={t("settingsPage.general.floatingIcon.recordingReminder")}
+          >
+            {RECORDING_REMINDER_MINUTES.map((minutes: number) => (
+              <option key={minutes} value={minutes}>
+                {minutes === 0
+                  ? t("settingsPage.general.floatingIcon.recordingReminderOff")
+                  : t("settingsPage.general.floatingIcon.recordingReminderEvery", {
+                      count: minutes,
+                    })}
+              </option>
+            ))}
+          </select>
         </SettingsRow>
       </SettingsPanelRow>
     </>

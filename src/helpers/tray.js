@@ -4,7 +4,7 @@ const fs = require("fs");
 const debugLogger = require("./debugLogger");
 const { i18nMain } = require("./i18nMain");
 const { drawRecordingBadge, formatRecordingElapsed } = require("./trayRecordingBadge");
-const { resolveRecordingAccent } = require("./recordingIndicator");
+const { resolveRecordingAccent, resolveRecordingModeColor } = require("./recordingIndicator");
 const { windowsTrayIdentity } = require("../../package.json");
 
 // Permanent identity for signed production Windows builds; keep across releases.
@@ -348,14 +348,28 @@ class TrayManager {
   _recordingIndicatorWanted() {
     const recording = this.windowManager?.isDictating?.() ?? false;
     const settings = this.windowManager?.getRecordingIndicatorSettings?.();
-    return { recording, enabled: recording && settings?.tray === true, settings };
+    const inputKind = this.windowManager?.getDictationInputKind?.();
+    return {
+      recording,
+      enabled: recording && settings?.tray === true,
+      settings,
+      color: resolveRecordingModeColor(settings, inputKind),
+    };
+  }
+
+  // The window manager keeps one start time for every surface that shows the
+  // elapsed time; the tray's own clock only fills in without one.
+  _recordingStart() {
+    const shared = this.windowManager?.getRecordingStartedAt?.();
+    return Number.isFinite(shared) ? shared : this._recordingStartedAt;
   }
 
   _tooltip() {
     const { enabled } = this._recordingIndicatorWanted();
-    if (!enabled || !this._recordingStartedAt) return i18nMain.t("tray.tooltip");
+    const startedAt = this._recordingStart();
+    if (!enabled || !startedAt) return i18nMain.t("tray.tooltip");
     return i18nMain.t("tray.recordingTooltip", {
-      elapsed: formatRecordingElapsed(Date.now() - this._recordingStartedAt),
+      elapsed: formatRecordingElapsed(Date.now() - startedAt),
     });
   }
 
@@ -366,7 +380,7 @@ class TrayManager {
    * (stop, cancel, a crashed or reloaded renderer) puts the icon back.
    */
   updateRecordingIndicator() {
-    const { recording, enabled, settings } = this._recordingIndicatorWanted();
+    const { recording, enabled, color } = this._recordingIndicatorWanted();
     if (!recording) this._recordingStartedAt = null;
     else if (!this._recordingStartedAt) this._recordingStartedAt = Date.now();
 
@@ -374,7 +388,7 @@ class TrayManager {
       this._stopTooltipTimer();
       return;
     }
-    const badge = enabled ? this._badgedIcon(settings.color) : null;
+    const badge = enabled ? this._badgedIcon(color) : null;
     if (badge) {
       this.tray.setImage(badge);
       if (!this._badgeShown) {

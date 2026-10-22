@@ -3,9 +3,12 @@ const assert = require("node:assert/strict");
 
 const {
   EDGE_FRAME_IDLE_RELEASE_MS,
+  EDGE_STRIP_FLASH_MS,
   EDGE_STRIP_IDLE_RELEASE_MS,
   EDGE_STRIP_PREVIEW_MS,
+  EDGE_STRIP_PULSE_MS,
   RecordingEdgeStrip,
+  buildEdgeStripAnimation,
   buildEdgeStripPage,
   edgeStripUrl,
 } = require("../../src/helpers/recordingEdgeStrip");
@@ -18,12 +21,19 @@ const G95 = {
 const PG = { id: 2373425187, bounds: { x: -16, y: -1596, width: 2836, height: 1596 } };
 const M32 = { id: 1564834236, bounds: { x: 2820, y: -1602, width: 2837, height: 1596 } };
 
-// Lets the strip's loadURL promise callbacks run.
+// Lets the strip's loadURL and insertCSS promise callbacks run.
 const settle = () => new Promise((resolve) => setImmediate(resolve));
 
+// Like Electron's: inserted sheets are keyed, live until removed, and a new
+// document drops them all.
 class FakeContents {
   constructor() {
     this.listeners = new Map();
+    this.sheets = new Map();
+    this.inserted = [];
+    this.removed = [];
+    this.nextKey = 0;
+    this.failInsert = false;
   }
   on(event, listener) {
     if (!this.listeners.has(event)) this.listeners.set(event, []);
@@ -32,7 +42,31 @@ class FakeContents {
   emit(event, ...args) {
     for (const listener of this.listeners.get(event) || []) listener(...args);
   }
+  insertCSS(css) {
+    if (this.failInsert) return Promise.reject(new Error("insertCSS failed"));
+    this.nextKey += 1;
+    const key = `k${this.nextKey}`;
+    this.sheets.set(key, css);
+    this.inserted.push(css);
+    return Promise.resolve(key);
+  }
+  removeInsertedCSS(key) {
+    this.sheets.delete(key);
+    this.removed.push(key);
+    return Promise.resolve();
+  }
 }
+
+// The color the page paints in now: the last inserted --a, else the one the
+// page loaded with.
+function paintedAccent(win) {
+  const rules = [...win.webContents.sheets.values()].filter((css) => css.startsWith(":root{--a:"));
+  const source = rules.at(-1) ?? decodeURIComponent(win.committedUrl);
+  return source.match(/--a:(#[0-9a-f]{6})/)[1];
+}
+
+const animations = (win, prefix) =>
+  win.webContents.inserted.filter((css) => css.startsWith(`@keyframes ${prefix}`));
 
 function harness({ displays = [PG, G95, M32], pill = G95, autoLoad = true, supported } = {}) {
   const env = { displays, pill, windows: [], timers: [], onTop: 0 };
@@ -71,6 +105,7 @@ function harness({ displays = [PG, G95, M32], pill = G95, autoLoad = true, suppo
       if (!load || this.destroyed) return;
       this.pending = null;
       this.committedUrl = load.url;
+      this.webContents.sheets.clear();
       load.resolve();
     }
     setBounds(bounds) {
@@ -189,10 +224,20 @@ test("strip windows are click-through, focusless, protected and transparent", as
   assert.ok(win.log.some(([kind]) => kind === "showInactive"));
 });
 
-test("the page is a steady, script-free bar in the accent, as an encoded data URL", () => {
+test("the page is a steady, script-free bar in --a, as an encoded data URL", () => {
   const page = buildEdgeStripPage({ accent: "#ef3b3b", mode: "short" });
-  assert.ok(page.includes("#ef3b3b"));
-  assert.ok(!/animation|@keyframes|transition/.test(page), "steady: every frame recomposites");
+  assert.ok(
+    page.includes("html{--a:#ef3b3b}"),
+    "the accent it loads with, less specific than the inserted :root colors"
+  );
+  assert.ok(page.includes("background:var(--a)"));
+  assert.ok(!/@keyframes|transition/.test(page), "steady: every frame recomposites");
+  assert.deepEqual(
+    page.match(/animation:[^;}]*/g),
+    ["animation:none!important"],
+    "only reduced motion's rule, which silences inserted flashes"
+  );
+  assert.ok(page.includes("@media (prefers-reduced-motion:reduce)"));
   assert.ok(!/<script/i.test(page));
   const url = edgeStripUrl(page);
   assert.ok(url.startsWith("data:text/html;charset=utf-8,"));
@@ -310,19 +355,149 @@ test("a window destroyed before its page loads stays gone", async () => {
   assert.equal(env.windows.length, 1, "nothing recreated");
 });
 
-test("a settings change while recording reloads the page in place", async () => {
+test("a color change while recording recolors the loaded page without reloading it", async () => {
   const { strip, env, shown } = harness();
   strip.configure(ON);
   strip.setRecording(true);
   await settle();
-  const before = env.windows[0].committedUrl;
+  const [win] = env.windows;
+  const url = win.committedUrl;
+  const loads = win.log.filter(([kind]) => kind === "load").length;
   strip.configure({ ...ON, color: "#22c55e" });
   await settle();
-  const after = env.windows[0].committedUrl;
-  assert.notEqual(after, before);
-  assert.ok(decodeURIComponent(after).includes("#22c55e"));
+  assert.equal(win.committedUrl, url, "the URL never changes for a color");
+  assert.equal(win.log.filter(([kind]) => kind === "load").length, loads);
+  assert.equal(paintedAccent(win), "#22c55e");
+  strip.configure({ ...ON, color: "blue" });
+  await settle();
+  assert.equal(paintedAccent(win), "#3466e2");
+  const colorRules = [...win.webContents.sheets.values()].filter((css) =>
+    css.startsWith(":root{--a:")
+  );
+  assert.equal(colorRules.length, 1, "the previous color's rule is removed");
   assert.equal(shown().length, 1);
   assert.equal(env.windows.length, 1);
+});
+
+test("with color by mode, the strip takes each recording's mode color", async () => {
+  const { strip, env, shown } = harness();
+  strip.configure({ ...ON, colorByMode: true, assistantColor: "purple" });
+  strip.setRecording(true, "assistant");
+  await settle();
+  const [win] = env.windows;
+  assert.equal(paintedAccent(win), "#8b5cf6");
+  strip.setRecording(false);
+  strip.setRecording(true, "dictation");
+  assert.equal(shown().length, 0, "a hidden strip waits for its new color");
+  await settle();
+  assert.equal(shown().length, 1);
+  assert.equal(paintedAccent(win), "#ef3b3b", "dictation keeps the main color");
+  strip.setRecording(true, "translation");
+  await settle();
+  assert.equal(paintedAccent(win), "#06b6d4", "translation's default is cyan");
+  assert.equal(env.windows.length, 1);
+  assert.equal(win.log.filter(([kind]) => kind === "load").length, 1, "never reloaded");
+});
+
+test("without color by mode, every mode shows the main color", async () => {
+  const { strip, env } = harness();
+  strip.configure({ ...ON, assistantColor: "purple" });
+  strip.setRecording(true, "assistant");
+  await settle();
+  assert.equal(paintedAccent(env.windows[0]), "#ef3b3b");
+});
+
+test("a recolor that fails reloads the page with the color baked in", async () => {
+  const { strip, env, shown } = harness();
+  strip.configure(ON);
+  strip.setRecording(true);
+  await settle();
+  const [win] = env.windows;
+  win.webContents.failInsert = true;
+  strip.configure({ ...ON, color: "#22c55e" });
+  await settle();
+  await settle();
+  assert.ok(decodeURIComponent(win.committedUrl).includes("--a:#22c55e"));
+  assert.equal(shown().length, 1);
+});
+
+test("a recording's start flashes each strip once; refreshes and previews don't", async () => {
+  const { strip, env, runTimers, pendingTimers } = harness();
+  strip.configure(ON);
+  strip.setRecording(true);
+  await settle();
+  const [win] = env.windows;
+  const flashes = animations(win, "f");
+  assert.equal(flashes.length, 1);
+  assert.match(flashes[0], new RegExp(`animation:f\\d+ ${EDGE_STRIP_FLASH_MS}ms ease-out`));
+  strip.refresh("drag");
+  strip.configure({ ...ON, color: "#22c55e" });
+  await settle();
+  assert.equal(animations(win, "f").length, 1, "a refresh or a recolor never flashes");
+  assert.equal(pendingTimers(EDGE_STRIP_FLASH_MS + 100).length, 1);
+  runTimers(EDGE_STRIP_FLASH_MS + 100);
+  await settle();
+  assert.ok(
+    ![...win.webContents.sheets.values()].some((css) => css.startsWith("@keyframes")),
+    "the flash's rule goes once it ends"
+  );
+
+  strip.setRecording(false);
+  strip.preview(ON);
+  await settle();
+  assert.equal(animations(win, "f").length, 1, "a preview never flashes");
+  strip.setRecording(true);
+  await settle();
+  const again = animations(win, "f");
+  assert.equal(again.length, 2, "the next recording flashes again");
+  assert.notEqual(again[0].match(/@keyframes (\w+)/)[1], again[1].match(/@keyframes (\w+)/)[1]);
+});
+
+test("a strip still loading when the recording starts flashes once it shows", async () => {
+  const { strip, env } = harness({ autoLoad: false });
+  strip.configure(ON);
+  strip.setRecording(true);
+  await settle();
+  const [win] = env.windows;
+  assert.equal(animations(win, "f").length, 0);
+  win.finishLoad();
+  await settle();
+  assert.equal(animations(win, "f").length, 1);
+});
+
+test("a reminder pulses a visible recording strip, and nothing else", async () => {
+  const { strip, env } = harness();
+  strip.configure({ ...ON, displays: "all" });
+  strip.pulse();
+  strip.preview(ON);
+  await settle();
+  strip.pulse();
+  await settle();
+  assert.equal(
+    env.windows.reduce((n, win) => n + animations(win, "p").length, 0),
+    0,
+    "no recording, no pulse"
+  );
+  strip.setRecording(true);
+  await settle();
+  strip.pulse();
+  await settle();
+  for (const win of env.windows.filter((w) => !w.destroyed)) {
+    const pulses = animations(win, "p");
+    assert.equal(pulses.length, 1);
+    assert.match(pulses[0], new RegExp(`animation:p\\d+ ${EDGE_STRIP_PULSE_MS}ms ease-in-out`));
+  }
+});
+
+test("flash and pulse rules: a strip swells and brightens; a frame widens its ring", () => {
+  const stripFlash = buildEdgeStripAnimation({ mode: "short", kind: "flash", name: "f1" });
+  assert.equal(
+    stripFlash,
+    "@keyframes f1{from{transform:scaleY(1.75);filter:brightness(1.6)}}.s{animation:f1 500ms ease-out}"
+  );
+  const framePulse = buildEdgeStripAnimation({ mode: "frame", kind: "pulse", name: "p2" });
+  assert.match(framePulse, /^@keyframes p2\{40%\{box-shadow:inset 0 0 0 6px var\(--a\)/);
+  assert.ok(framePulse.endsWith(".s{animation:p2 1200ms ease-in-out}"));
 });
 
 test("turning the strip off destroys its windows, even mid-recording", async () => {
@@ -438,11 +613,15 @@ test("a frame covers the work area of the floating icon's monitor only, whatever
   assert.deepEqual(shown()[0].getBounds(), { x: 0, y: 0, width: 5672, height: 1548 });
 });
 
-test("the frame page is a steady ring in the accent, hidden from assistive tech", () => {
+test("the frame page is a steady ring in --a, hidden from assistive tech", () => {
   const page = buildEdgeStripPage({ accent: "#ef3b3b", mode: "frame" });
-  assert.ok(page.includes("inset 0 0 0 3px #ef3b3b"));
-  assert.ok(page.includes("#ef3b3b8c"), "the soft glow is the accent at partial alpha");
-  assert.ok(!/animation|@keyframes|transition/.test(page));
+  assert.ok(page.includes("html{--a:#ef3b3b}"));
+  assert.ok(page.includes("inset 0 0 0 3px var(--a)"));
+  assert.ok(
+    page.includes("color-mix(in srgb,var(--a) 55%,transparent)"),
+    "the soft glow is the accent at partial alpha"
+  );
+  assert.ok(!/@keyframes|transition/.test(page));
   assert.ok(page.includes('aria-hidden="true"'));
 });
 

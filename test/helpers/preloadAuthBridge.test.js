@@ -113,11 +113,11 @@ test("assistant busy state is forwarded to the main-process hotkey guard", async
 test("dictation lifecycle and audio levels preserve companion routing metadata", () => {
   const { api, sends } = loadPreloadApi();
 
-  api.dictationLifecycleStateChanged("recording", "assistant");
+  api.dictationLifecycleStateChanged("recording", "assistant", 1_800_000_000_000);
   api.dictationAudioLevelChanged(0.42);
 
   assert.deepEqual(sends, [
-    ["dictation-lifecycle-state-changed", "recording", "assistant"],
+    ["dictation-lifecycle-state-changed", "recording", "assistant", 1_800_000_000_000],
     ["dictation-audio-level-changed", 0.42],
   ]);
 });

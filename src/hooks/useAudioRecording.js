@@ -57,6 +57,10 @@ export const useAudioRecording = (toast, options = {}) => {
   const [isPasting, setIsPasting] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
   const [isAssistantVoice, setIsAssistantVoice] = useState(false);
+  // The running recording's mode and start (ms since epoch), for the pill's
+  // per-mode color and elapsed time; null while not recording.
+  const [recordingInputKind, setRecordingInputKind] = useState(null);
+  const [recordingStartedAt, setRecordingStartedAt] = useState(null);
   const [isPreparing, setIsPreparing] = useState(false);
   const [isStopping, setIsStopping] = useState(false);
   const [micCaptureStatus, setMicCaptureStatus] = useState("inactive");
@@ -136,7 +140,12 @@ export const useAudioRecording = (toast, options = {}) => {
     const signature = `${state}:${inputKind}`;
     if (reportedLifecycleRef.current === signature) return;
     reportedLifecycleRef.current = signature;
-    window.electronAPI?.dictationLifecycleStateChanged?.(state, inputKind);
+    // The audio manager sets its start (back-dated over adopted pre-roll)
+    // before announcing the recording, so main's tray and reminders count
+    // from the same moment as the pill.
+    const startedAt =
+      state === "recording" ? (audioManagerRef.current?.recordingStartTime ?? null) : null;
+    window.electronAPI?.dictationLifecycleStateChanged?.(state, inputKind, startedAt);
   }, []);
 
   const performStartRecording = useCallback(
@@ -569,6 +578,18 @@ export const useAudioRecording = (toast, options = {}) => {
         setIsRecording(isRecording);
         setIsProcessing(isProcessing);
         setIsStreaming(isStreaming ?? false);
+        if (isRecording) {
+          setRecordingStartedAt(audioManagerRef.current?.recordingStartTime ?? Date.now());
+          setRecordingInputKind(
+            resolveLifecycleInputKind({
+              voiceAgentRequested: audioManagerRef.current?.voiceAgentRequested,
+              translationRequested: audioManagerRef.current?.translationRequested,
+            })
+          );
+        } else {
+          setRecordingStartedAt(null);
+          setRecordingInputKind(null);
+        }
         if (isRecording) setIsPreparing(false);
         if (!isRecording) setIsStopping(false);
         // The panel only mirrors assistant-routed recordings; a plain
@@ -1207,6 +1228,8 @@ export const useAudioRecording = (toast, options = {}) => {
     isProcessing: isProcessing || (isPasting && !isRecording),
     isStreaming,
     isAssistantVoice,
+    recordingInputKind,
+    recordingStartedAt,
     isPreparing,
     isStopping,
     micCaptureStatus,

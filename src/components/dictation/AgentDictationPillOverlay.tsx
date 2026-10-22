@@ -12,10 +12,11 @@ import { useLiveTranscriptPanel } from "../../hooks/useLiveTranscriptPanel";
 import { useRecordingIndicator } from "../../hooks/useRecordingIndicator";
 import {
   LIVE_TRANSCRIPT_ENTRANCE_TIMING,
-  VOICE_PILL_FOOTPRINT,
   resolveCompanionPillInteractive,
   resolveListeningEntrancePresentation,
   resolveLiveTranscriptEntrancePresentation,
+  resolvePillFootprint,
+  resolveRecordingLayout,
   resolveVoiceActivityPresentation,
   resolveVoicePillDock,
   resolveVoicePillInteraction,
@@ -33,22 +34,33 @@ type CompanionState = {
   lifecycle: DictationLifecycle;
   interactive: boolean;
   horizontalDirection: HorizontalDirection;
+  // The recording's start, from main, so this pill's time matches the tray's.
+  startedAt?: number | null;
 };
 
 const DEFAULT_STATE: CompanionState = {
   lifecycle: "idle",
   interactive: true,
   horizontalDirection: "left",
+  startedAt: null,
 };
 const UNAVAILABLE_RESIZE = { success: false, message: "Window not available" };
 
 export default function AgentDictationPillOverlay() {
   const { t } = useTranslation();
-  const { recordingStyle, recordingVars } = useRecordingIndicator();
+  // This pill only ever shows plain dictation, so it keeps the dictation color.
+  const { recordingStyle, recordingShowElapsed, recordingVars } =
+    useRecordingIndicator("dictation");
   const [companionState, setCompanionState] = useState(DEFAULT_STATE);
+  const [reminderPulseKey, setReminderPulseKey] = useState(0);
   const [hovered, setHovered] = useState(false);
   const audioLevelRef = useRef<number | null>(null);
   const assistantOpenRef = useRef(false);
+
+  useEffect(
+    () => window.electronAPI.onRecordingReminder?.(() => setReminderPulseKey((key) => key + 1)),
+    []
+  );
 
   useEffect(() => {
     let disposed = false;
@@ -173,11 +185,17 @@ export default function AgentDictationPillOverlay() {
         ? "hover"
         : "idle")) as VoicePillState;
   const expanded = isRecording ? listeningEntrance.compactPill : voiceActivity.compactPill;
+  const recordingLayout = resolveRecordingLayout({
+    style: recordingStyle,
+    showElapsed: recordingShowElapsed,
+    recording: state === "recording",
+    inPanel: liveTranscript.open,
+  });
   // Same liquid cancel as the main pill (App.jsx): footprint targets for the
   // skin's geometry tween, and the pill goes headless while the skin owns the
   // fused surface.
   const [cancelSkinActive, setCancelSkinActive] = useState(false);
-  const cancelPillFootprint = expanded ? VOICE_PILL_FOOTPRINT.recording : VOICE_PILL_FOOTPRINT.idle;
+  const cancelPillFootprint = resolvePillFootprint({ compact: expanded, layout: recordingLayout });
   // The shared rule (a mounted transcript locks the pill except while
   // recording) comes from the tested helper; the companion additionally
   // requires main-process consent and no transcript still processing.
@@ -241,6 +259,9 @@ export default function AgentDictationPillOverlay() {
             getAudioLevel={getAudioLevel}
             horizontalDirection={horizontalDirection}
             recordingStyle={recordingStyle}
+            recordingLayout={recordingLayout}
+            recordingStartedAt={companionState.startedAt ?? null}
+            reminderPulseKey={reminderPulseKey}
             role={pillInteractive ? "button" : "status"}
             aria-label={label}
             aria-disabled={!pillInteractive}

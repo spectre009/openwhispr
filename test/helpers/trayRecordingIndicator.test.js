@@ -142,6 +142,35 @@ test("the badge is drawn in the recording color and cached per size and color", 
   after();
 });
 
+test("the tooltip counts from the window manager's start time when it has one", () => {
+  const { state, log, trayManager, after } = harness({ platform: "win32" });
+  state.dictating = true;
+  trayManager.windowManager.getRecordingStartedAt = () => Date.now() - 125_000;
+  trayManager.updateRecordingIndicator();
+  assert.match(lastOf(log, "tooltip")[1], /"elapsed":"2:05"/);
+  after();
+});
+
+test("with color by mode, the badge takes the recording's mode color", () => {
+  const { state, trayManager, after } = harness({ platform: "win32" });
+  const drawn = [];
+  trayManager._badgedIcon = (color) => {
+    drawn.push(color);
+    return new FakeImage("badged", 22);
+  };
+  state.dictating = true;
+  state.settings = { color: "red", tray: true, colorByMode: true, assistantColor: "pink" };
+  trayManager.windowManager.getDictationInputKind = () => "assistant";
+  trayManager.updateRecordingIndicator();
+  trayManager.windowManager.getDictationInputKind = () => "dictation";
+  trayManager.updateRecordingIndicator();
+  state.settings = { ...state.settings, colorByMode: false };
+  trayManager.windowManager.getDictationInputKind = () => "assistant";
+  trayManager.updateRecordingIndicator();
+  assert.deepEqual(drawn, ["pink", "red", "red"]);
+  after();
+});
+
 test("macOS keeps its template icon and gets the tooltip only", () => {
   const { state, log, trayManager, after } = harness({ platform: "darwin" });
   state.dictating = true;

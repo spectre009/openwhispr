@@ -96,7 +96,11 @@ const { centeredBounds, clampedBounds } = require("./onboardingWindowBounds");
 const { ONBOARDING_DEMO_KINDS, isOnboardingInputAllowed } = require("./onboardingInputPolicy");
 const { createHotkeyRepeatGate } = require("./hotkeyRepeatGate");
 const { RecordingEdgeStrip } = require("./recordingEdgeStrip");
-const { normalizeRecordingIndicatorSettings } = require("./recordingIndicator");
+const {
+  nextRecordingReminderDelay,
+  normalizeRecordingIndicatorSettings,
+  resolveRecordingStartedAt,
+} = require("./recordingIndicator");
 const { getLinuxSessionInfo } = require("./linuxSession");
 
 class WindowManager {
@@ -166,6 +170,8 @@ class WindowManager {
     this._pendingNoteNavigation = null;
     this._pendingSettingsSection = null;
     this._recordingIndicatorSettings = normalizeRecordingIndicatorSettings(null);
+    this._recordingStartedAt = null;
+    this._recordingReminderTimer = null;
     this.recordingEdgeStrip = new RecordingEdgeStrip({
       BrowserWindow,
       screen,
@@ -181,6 +187,7 @@ class WindowManager {
     app.on("before-quit", () => {
       this.isQuitting = true;
       this.hotkeyManager.unregisterAll();
+      this._clearRecordingReminder();
       this.recordingEdgeStrip.destroy();
     });
   }
@@ -1179,20 +1186,89 @@ class WindowManager {
     }
   }
 
-  setDictationLifecycleState(state, inputKind = DICTATION_INPUT_KIND.DICTATION) {
+  setDictationLifecycleState(state, inputKind = DICTATION_INPUT_KIND.DICTATION, startedAt) {
     const nextState = normalizeDictationLifecycle(state);
     const nextInputKind = normalizeDictationInputKind(inputKind);
     if (nextState === this._dictationLifecycleState && nextInputKind === this._dictationInputKind) {
       return;
     }
 
+    const wasRecording = this._isDictatingToggle;
     this._dictationLifecycleState = nextState;
     this._dictationInputKind = nextInputKind;
     this._isDictatingToggle = isDictationRecording(nextState);
-    this.recordingEdgeStrip.setRecording(this._isDictatingToggle);
+    // One start time for every surface that shows the elapsed time (both
+    // pills, the tray) and for the reminders, set once per recording.
+    if (!this._isDictatingToggle) this._recordingStartedAt = null;
+    else if (!wasRecording)
+      this._recordingStartedAt = resolveRecordingStartedAt(startedAt, Date.now());
+    this.recordingEdgeStrip.setRecording(this._isDictatingToggle, nextInputKind);
+    this._scheduleRecordingReminder();
     this.meetingDetectionEngine?.setUserRecording(this._isDictatingToggle);
     this._sendAgentDictationPillState();
     this.onDictationStateChanged?.();
+  }
+
+  getRecordingStartedAt() {
+    return this._recordingStartedAt;
+  }
+
+  getDictationInputKind() {
+    return this._dictationInputKind;
+  }
+
+  // "Remind me while recording": at each whole interval since the start, the
+  // strip or frame pulses and the pill that shows the recording pulses too.
+  _scheduleRecordingReminder(now = Date.now()) {
+    this._clearRecordingReminder();
+    if (!this._isDictatingToggle || this._recordingStartedAt === null) return;
+    const delay = nextRecordingReminderDelay({
+      startedAt: this._recordingStartedAt,
+      now,
+      minutes: this._recordingIndicatorSettings.reminderMinutes,
+    });
+    if (delay === null) return;
+    const mark = now + delay;
+    this._recordingReminderTimer = setTimeout(() => {
+      this._recordingReminderTimer = null;
+      this._fireRecordingReminder();
+      // A timer may fire a little early; counting from the mark keeps it from
+      // firing twice for the same one.
+      this._scheduleRecordingReminder(Math.max(Date.now(), mark));
+    }, delay);
+  }
+
+  _clearRecordingReminder() {
+    if (!this._recordingReminderTimer) return;
+    clearTimeout(this._recordingReminderTimer);
+    this._recordingReminderTimer = null;
+  }
+
+  _fireRecordingReminder() {
+    this.recordingEdgeStrip.pulse?.();
+    const owner = this._recordingPillOwner();
+    if (!owner) return;
+    owner.webContents.send("recording-reminder", {
+      startedAt: this._recordingStartedAt,
+      inputKind: this._dictationInputKind,
+    });
+  }
+
+  // Plain dictation shows on the companion pill while the assistant panel is
+  // open; everything else shows on the dictation window's own pill.
+  _recordingPillOwner() {
+    const companion = this.agentDictationPillWindow;
+    if (
+      this._assistantPanelOpen &&
+      this._dictationInputKind === DICTATION_INPUT_KIND.DICTATION &&
+      this._agentDictationPillReady &&
+      companion &&
+      !companion.isDestroyed()
+    ) {
+      return companion;
+    }
+    const main = this.mainWindow;
+    return main && !main.isDestroyed() ? main : null;
   }
 
   // The dictation renderer reports the lifecycle, so one that crashes, reloads
@@ -1235,6 +1311,7 @@ class WindowManager {
     const normalized = normalizeRecordingIndicatorSettings(settings);
     this._recordingIndicatorSettings = normalized;
     this.recordingEdgeStrip.configure(normalized);
+    this._scheduleRecordingReminder();
     this.onRecordingIndicatorSettings?.(normalized);
   }
 
@@ -1273,9 +1350,15 @@ class WindowManager {
   }
 
   getAgentDictationPillState() {
+    const pillState = resolveAgentDictationPillState(
+      this._dictationLifecycleState,
+      this._dictationInputKind
+    );
     return {
-      ...resolveAgentDictationPillState(this._dictationLifecycleState, this._dictationInputKind),
+      ...pillState,
       horizontalDirection: this._agentDictationPillHorizontalDirection,
+      startedAt:
+        pillState.lifecycle === DICTATION_LIFECYCLE.RECORDING ? this._recordingStartedAt : null,
     };
   }
 

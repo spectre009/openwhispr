@@ -12,7 +12,37 @@ export const VOICE_PILL_FOOTPRINT = Object.freeze({
   // 98 = 6px edge inset + 22px icon + 6px gap + 52px waveform + 12px edge
   // inset (the waveform side keeps extra air; insets include the 1px border).
   recording: Object.freeze({ width: 98, height: 36 }),
+  // REC: 6 + 10px dot + 6 + elapsed slot + 6 + 52px waveform + 12.
+  rec: Object.freeze({ width: 92 + 32, height: 36 }),
+  // Any other style with the elapsed time: today's row + 6 + elapsed slot.
+  elapsed: Object.freeze({ width: 104 + 32, height: 36 }),
 });
+
+// The elapsed-time slot (px): fixed, so the pill never changes width as the
+// time ticks. It fits "59:59" and, past an hour, "1h02" in the pill's 12px
+// semibold tabular numerals: 30.8px in Noto Sans, the widest of Yowza, Noto
+// Sans and Segoe UI (measured in the dictation window).
+export const VOICE_PILL_ELAPSED_SLOT = 32;
+export const VOICE_PILL_REC_DOT = 10;
+
+/**
+ * Which wide recording row a floating pill shows: "rec" (dot, time,
+ * waveform), "elapsed" (the usual row plus the time) or null for today's row.
+ * Pills inside a panel keep today's row, which the panel chrome is sized for.
+ */
+export function resolveRecordingLayout({ style, showElapsed, recording, inPanel = false }) {
+  if (!recording || inPanel) return null;
+  if (style === "rec") return "rec";
+  return showElapsed ? "elapsed" : null;
+}
+
+/** The footprint target for a pill, compact or not, in a given layout. */
+export function resolvePillFootprint({ compact, layout = null }) {
+  if (!compact) return VOICE_PILL_FOOTPRINT.idle;
+  if (layout === "rec") return VOICE_PILL_FOOTPRINT.rec;
+  if (layout === "elapsed") return VOICE_PILL_FOOTPRINT.elapsed;
+  return VOICE_PILL_FOOTPRINT.recording;
+}
 
 // The hover cancel control that emerges beside the pill (px). Same contract:
 // WINDOW_SIZES.RECORDING must fit pill + gap + cancel inside its dock insets,

@@ -13,6 +13,20 @@ test("the recording window fits the compact listening pill footprint", async () 
   assert.ok(WINDOW_SIZES.RECORDING.height >= VOICE_PILL_FOOTPRINT.recording.height);
 });
 
+test("every recording row plus the hover cancel fits inside the window's dock insets", async () => {
+  const { WINDOW_SIZES } = require("../../src/helpers/windowConfig");
+  const { VOICE_PILL_FOOTPRINT, VOICE_PILL_CANCEL } =
+    await import("../../src/helpers/voicePillPresentation.js");
+  // The pill docks 12px in from each side edge (dictation-panel.css).
+  const usable = WINDOW_SIZES.RECORDING.width - 2 * 12;
+  for (const name of ["recording", "rec", "elapsed"]) {
+    const footprint = VOICE_PILL_FOOTPRINT[name];
+    const reach = footprint.width + VOICE_PILL_CANCEL.gap + VOICE_PILL_CANCEL.size;
+    assert.ok(reach <= usable, `${name}: ${reach}px must fit in ${usable}px`);
+    assert.ok(footprint.height <= WINDOW_SIZES.RECORDING.height - 2 * 12);
+  }
+});
+
 test("dictation error windows share the assistant width and grow for the transcript action", () => {
   const { WINDOW_SIZES } = require("../../src/helpers/windowConfig");
   assert.equal(WINDOW_SIZES.DICTATION_ERROR.width, WINDOW_SIZES.ASSISTANT.width);

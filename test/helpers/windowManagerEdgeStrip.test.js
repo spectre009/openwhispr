@@ -102,26 +102,32 @@ function managerWithStripSpy() {
   const manager = new WindowManager();
   const calls = [];
   manager.recordingEdgeStrip = {
-    setRecording: (recording) => calls.push(["setRecording", recording]),
+    setRecording: (recording, kind) => calls.push(["setRecording", recording, kind]),
     refresh: (reason) => calls.push(["refresh", reason]),
     handleDisplaysChanged: () => calls.push(["displays"]),
     configure: (settings) => calls.push(["configure", settings]),
     preview: () => true,
+    pulse: () => calls.push(["pulse"]),
     release: () => calls.push(["release"]),
     destroy: () => calls.push(["destroy"]),
   };
   return { manager, calls };
 }
 
-test("the strip follows the main process's recording state", () => {
+test("the strip follows the main process's recording state and mode", () => {
   const { manager, calls } = managerWithStripSpy();
   manager.setDictationLifecycleState("recording", "assistant");
   manager.setDictationLifecycleState("processing", "assistant");
   manager.setDictationLifecycleState("recording", "translation");
   manager.setDictationLifecycleState("idle");
   assert.deepEqual(
-    calls.filter(([kind]) => kind === "setRecording").map(([, value]) => value),
-    [true, false, true, false]
+    calls.filter(([kind]) => kind === "setRecording").map(([, value, mode]) => [value, mode]),
+    [
+      [true, "assistant"],
+      [false, "assistant"],
+      [true, "translation"],
+      [false, "dictation"],
+    ]
   );
 });
 
@@ -149,6 +155,7 @@ for (const [name, trigger] of [
     assert.deepEqual(calls.filter(([kind]) => kind === "setRecording").at(-1), [
       "setRecording",
       false,
+      "dictation",
     ]);
   });
 }
@@ -221,15 +228,139 @@ test("settings reach the strip normalized", () => {
     color: "RED",
     strip: "huge",
     displays: "all",
+    colorByMode: "yes",
+    assistantColor: "#ABCDEF",
+    translationColor: "nope",
+    reminderMinutes: 4,
   });
-  assert.deepEqual(calls.at(-1), [
-    "configure",
-    { color: "red", strip: "off", displays: "all", tray: false },
-  ]);
-  assert.deepEqual(manager.getRecordingIndicatorSettings(), {
+  const expected = {
     color: "red",
     strip: "off",
     displays: "all",
     tray: false,
-  });
+    colorByMode: false,
+    assistantColor: "#abcdef",
+    translationColor: "cyan",
+    reminderMinutes: 0,
+  };
+  assert.deepEqual(calls.at(-1), ["configure", expected]);
+  assert.deepEqual(manager.getRecordingIndicatorSettings(), expected);
+});
+
+const NOW = 1_800_000_000_000;
+
+function pillWindow() {
+  const sent = [];
+  return {
+    sent,
+    isDestroyed: () => false,
+    webContents: { send: (channel, payload) => sent.push([channel, payload]) },
+  };
+}
+
+test("main keeps the renderer's start time only when it is near the present", (t) => {
+  t.mock.timers.enable({ apis: ["Date", "setTimeout"], now: NOW });
+  for (const [reported, kept] of [
+    [NOW - 1500, NOW - 1500],
+    [NOW - 60_000, NOW],
+    [NOW + 5000, NOW],
+    [NOW + 500, NOW],
+    [Number.NaN, NOW],
+    ["soon", NOW],
+    [undefined, NOW],
+  ]) {
+    const { manager } = managerWithStripSpy();
+    manager.setDictationLifecycleState("recording", "dictation", reported);
+    assert.equal(manager.getRecordingStartedAt(), kept, `reported ${reported}`);
+  }
+});
+
+test("the start time is set once per recording and cleared when it ends", (t) => {
+  t.mock.timers.enable({ apis: ["Date", "setTimeout"], now: NOW });
+  const { manager } = managerWithStripSpy();
+  manager.setDictationLifecycleState("recording", "dictation", NOW - 1000);
+  t.mock.timers.tick(3000);
+  manager.setDictationLifecycleState("recording", "assistant", Date.now());
+  assert.equal(manager.getRecordingStartedAt(), NOW - 1000, "a mode change keeps the start");
+  manager.setDictationLifecycleState("processing", "assistant");
+  assert.equal(manager.getRecordingStartedAt(), null);
+  assert.equal(manager.getDictationInputKind(), "assistant");
+});
+
+test("the companion pill learns when its dictation started", (t) => {
+  t.mock.timers.enable({ apis: ["Date", "setTimeout"], now: NOW });
+  const { manager } = managerWithStripSpy();
+  manager.setDictationLifecycleState("recording", "dictation", NOW - 800);
+  assert.equal(manager.getAgentDictationPillState().startedAt, NOW - 800);
+  manager.setDictationLifecycleState("recording", "assistant");
+  assert.equal(
+    manager.getAgentDictationPillState().startedAt,
+    null,
+    "an assistant recording isn't the companion's"
+  );
+});
+
+test("reminders fire at each whole interval from the start until the recording stops", (t) => {
+  t.mock.timers.enable({ apis: ["Date", "setTimeout"], now: NOW });
+  const { manager, calls } = managerWithStripSpy();
+  const main = pillWindow();
+  manager.mainWindow = main;
+  manager.setRecordingIndicatorSettings({ reminderMinutes: 2 });
+  manager.setDictationLifecycleState("recording", "translation", NOW - 8000);
+  const reminders = () => main.sent.filter(([channel]) => channel === "recording-reminder");
+
+  t.mock.timers.tick(111_999);
+  assert.equal(reminders().length, 0);
+  t.mock.timers.tick(1);
+  assert.equal(reminders().length, 1, "2 minutes after the start, not after the report");
+  assert.deepEqual(reminders()[0][1], { startedAt: NOW - 8000, inputKind: "translation" });
+  assert.equal(calls.filter(([kind]) => kind === "pulse").length, 1);
+  t.mock.timers.tick(120_000);
+  assert.equal(reminders().length, 2);
+
+  manager.setDictationLifecycleState("processing", "translation");
+  t.mock.timers.tick(600_000);
+  assert.equal(reminders().length, 2, "none after the recording stops");
+});
+
+test("changing or clearing the interval reschedules a running recording's reminder", (t) => {
+  t.mock.timers.enable({ apis: ["Date", "setTimeout"], now: NOW });
+  const { manager } = managerWithStripSpy();
+  const main = pillWindow();
+  manager.mainWindow = main;
+  manager.setDictationLifecycleState("recording", "dictation", NOW);
+  t.mock.timers.tick(150_000);
+  manager.setRecordingIndicatorSettings({ reminderMinutes: 2 });
+  t.mock.timers.tick(89_999);
+  assert.equal(main.sent.length, 0, "the next mark is 4 minutes; 2 already passed");
+  t.mock.timers.tick(1);
+  assert.equal(main.sent.length, 1);
+  manager.setRecordingIndicatorSettings({ reminderMinutes: 0 });
+  t.mock.timers.tick(600_000);
+  assert.equal(main.sent.length, 1);
+});
+
+test("a dictation shown on the companion pill gets its reminders there", (t) => {
+  t.mock.timers.enable({ apis: ["Date", "setTimeout"], now: NOW });
+  const { manager } = managerWithStripSpy();
+  const main = pillWindow();
+  const companion = pillWindow();
+  manager.mainWindow = main;
+  manager.agentDictationPillWindow = companion;
+  manager._agentDictationPillReady = true;
+  manager._assistantPanelOpen = true;
+  manager.setRecordingIndicatorSettings({ reminderMinutes: 2 });
+  manager.setDictationLifecycleState("recording", "dictation", NOW);
+  t.mock.timers.tick(120_000);
+  assert.equal(companion.sent.filter(([c]) => c === "recording-reminder").length, 1);
+  assert.equal(main.sent.filter(([c]) => c === "recording-reminder").length, 0);
+
+  manager.setDictationLifecycleState("idle");
+  manager.setDictationLifecycleState("recording", "assistant", Date.now());
+  t.mock.timers.tick(120_000);
+  assert.equal(
+    main.sent.filter(([c]) => c === "recording-reminder").length,
+    1,
+    "the assistant's own recording shows on the main pill"
+  );
 });

@@ -1,18 +1,23 @@
-import { forwardRef, type HTMLAttributes } from "react";
+import { forwardRef, useEffect, useState, type HTMLAttributes } from "react";
 import { ChevronUp } from "../icons";
 import { cn } from "../lib/utils";
 import { PillWaveform } from "./PillWaveform";
 import { VoiceIdentityIcon } from "./VoiceIdentityIcon";
 import { RESTING_WAVE_SILHOUETTE, WAVEFORM_BAR_COUNT } from "./waveformMath";
 import {
+  VOICE_PILL_ELAPSED_SLOT,
   VOICE_PILL_FOOTPRINT,
   VOICE_PILL_GROW_TRANSITION,
+  VOICE_PILL_REC_DOT,
+  resolvePillFootprint,
 } from "../../helpers/voicePillPresentation";
-import { resolveRecordingChromeStyle } from "../../helpers/recordingIndicator";
+import { formatPillElapsed, resolveRecordingChromeStyle } from "../../helpers/recordingIndicator";
 import type { RecordingIndicatorStyle } from "../../types/electron";
 
 export type VoicePillState =
   "idle" | "hover" | "recording" | "processing" | "thinking" | "unavailable";
+
+export type VoicePillRecordingLayout = "rec" | "elapsed" | null;
 
 interface VoicePillProps extends Omit<HTMLAttributes<HTMLDivElement>, "children"> {
   variant: "floating" | "panel";
@@ -32,6 +37,37 @@ interface VoicePillProps extends Omit<HTMLAttributes<HTMLDivElement>, "children"
   /** Settings → Floating icon → While recording. Colors come from
    *  recordingIndicatorCssVars on an ancestor shared with the cancel skin. */
   recordingStyle?: RecordingIndicatorStyle;
+  /** The wide recording row (resolveRecordingLayout); the parent sizes the
+   *  cancel skin from the same value. */
+  recordingLayout?: VoicePillRecordingLayout;
+  /** When the recording started (ms since epoch), for the elapsed time. */
+  recordingStartedAt?: number | null;
+  /** Bumped by the "still recording" reminder; each change pulses the pill. */
+  reminderPulseKey?: number;
+}
+
+// Ticks once a second from the recording's own start time, so a slow render
+// never drifts the readout.
+function useElapsedLabel(startedAt: number | null | undefined, active: boolean) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!active || !startedAt) return;
+    setNow(Date.now());
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [active, startedAt]);
+  return formatPillElapsed(active && startedAt ? now - startedAt : 0);
+}
+
+function useReminderPulse(key: number) {
+  const [pulsing, setPulsing] = useState(false);
+  useEffect(() => {
+    if (!key) return;
+    setPulsing(true);
+    const timer = setTimeout(() => setPulsing(false), 1300);
+    return () => clearTimeout(timer);
+  }, [key]);
+  return pulsing;
 }
 
 // Sized from WAVEFORM_BAR_COUNT so a bar-count change can never silently
@@ -76,6 +112,9 @@ export const VoicePill = forwardRef<HTMLDivElement, VoicePillProps>(function Voi
     isDragging = false,
     horizontalDirection = "right",
     recordingStyle = "classic",
+    recordingLayout = null,
+    recordingStartedAt = null,
+    reminderPulseKey = 0,
     className,
     style,
     ...props
@@ -108,12 +147,19 @@ export const VoicePill = forwardRef<HTMLDivElement, VoicePillProps>(function Voi
   const showCompactPill =
     !collapseToIdentity && (isRecording || expanded || (isPanel && !waveformOnlyWhileRecording));
   const showDivider = showCompactPill && waveformVisible && !isRecording;
+  // The wide recording rows only exist on a compact, recording pill.
+  const layout = showCompactPill && isRecording ? recordingLayout : null;
+  const isRecLayout = layout === "rec";
+  const elapsedLabel = useElapsedLabel(recordingStartedAt, layout !== null);
+  const reminderPulsing = useReminderPulse(reminderPulseKey);
   // The hidden divider's margins are what carry the compact pill's 6px
   // icon↔waveform gap; a visible divider keeps 4px flanking its 1px rule.
   const dividerMargin = showCompactPill ? (showDivider ? 4 : COMPACT_CONTENT_GAP_PX / 2) : 0;
   const identitySize = 22;
   const floatingHover = !isPanel && state === "hover";
-  const footprint = showCompactPill ? VOICE_PILL_FOOTPRINT.recording : VOICE_PILL_FOOTPRINT.idle;
+  const footprint = showCompactPill
+    ? resolvePillFootprint({ compact: true, layout })
+    : VOICE_PILL_FOOTPRINT.idle;
 
   const pill = (
     <div
@@ -146,6 +192,8 @@ export const VoicePill = forwardRef<HTMLDivElement, VoicePillProps>(function Voi
       data-agent-beam-active={(agentMode && isThinking) || undefined}
       data-expand-chevron={showExpandChevron || undefined}
       data-recording-style={recordingChromeStyle ?? undefined}
+      data-recording-layout={layout ?? undefined}
+      data-reminder-pulse={reminderPulsing || undefined}
       {...props}
     >
       <div
@@ -154,8 +202,32 @@ export const VoicePill = forwardRef<HTMLDivElement, VoicePillProps>(function Voi
       />
 
       <span
-        className="voice-pill-identity-slot relative inline-block shrink-0 transition-[width,height] duration-200"
-        style={{ width: identitySize, height: identitySize }}
+        aria-hidden="true"
+        className="voice-pill-rec-dot shrink-0 rounded-full"
+        style={{
+          width: isRecLayout ? VOICE_PILL_REC_DOT : 0,
+          height: VOICE_PILL_REC_DOT,
+          marginRight: isRecLayout ? COMPACT_CONTENT_GAP_PX : 0,
+          opacity: isRecLayout ? 1 : 0,
+          transition: `width ${VOICE_PILL_GROW_TRANSITION}, margin ${VOICE_PILL_GROW_TRANSITION}, opacity 180ms ease-out`,
+        }}
+      />
+      {isRecLayout && (
+        <span
+          className="voice-pill-elapsed shrink-0 text-center text-[12px] font-semibold leading-none tabular-nums"
+          style={{ width: VOICE_PILL_ELAPSED_SLOT }}
+        >
+          {elapsedLabel}
+        </span>
+      )}
+
+      <span
+        className="voice-pill-identity-slot relative inline-block shrink-0 transition-[width,height,opacity] duration-200"
+        style={{
+          width: isRecLayout ? 0 : identitySize,
+          height: identitySize,
+          opacity: isRecLayout ? 0 : 1,
+        }}
         aria-hidden="true"
       >
         <span
@@ -225,6 +297,15 @@ export const VoicePill = forwardRef<HTMLDivElement, VoicePillProps>(function Voi
           )}
         />
       </div>
+
+      {layout === "elapsed" && (
+        <span
+          className="voice-pill-elapsed shrink-0 text-center text-[12px] font-semibold leading-none tabular-nums"
+          style={{ width: VOICE_PILL_ELAPSED_SLOT, marginLeft: COMPACT_CONTENT_GAP_PX }}
+        >
+          {elapsedLabel}
+        </span>
+      )}
 
       {isUnavailable && (
         <div className="pointer-events-none absolute inset-0 rounded-full border-2 border-foreground/30 animate-pulse" />

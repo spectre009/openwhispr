@@ -21,8 +21,11 @@ test("styles normalize to the known set, defaulting to classic", async () => {
   for (const style of RECORDING_INDICATOR_STYLES) {
     assert.equal(normalizeRecordingIndicatorStyle(style), style);
   }
-  assert.deepEqual([...RECORDING_INDICATOR_STYLES], ["classic", "tinted", "solid", "beacon"]);
-  for (const value of [undefined, null, "", "Beacon", "rec", 3]) {
+  assert.deepEqual(
+    [...RECORDING_INDICATOR_STYLES],
+    ["classic", "tinted", "solid", "beacon", "rec"]
+  );
+  for (const value of [undefined, null, "", "Beacon", "REC", 3]) {
     assert.equal(normalizeRecordingIndicatorStyle(value), "classic");
   }
 });
@@ -168,12 +171,17 @@ test("edge strip settings normalize to the known values, defaulting to off on th
   for (const value of [undefined, "primary", "ALL", 0]) {
     assert.equal(normalizeRecordingEdgeStripDisplays(value), "pill");
   }
-  assert.deepEqual(normalizeRecordingIndicatorSettings(null), {
+  const DEFAULTS = {
     color: "red",
     strip: "off",
     displays: "pill",
     tray: false,
-  });
+    colorByMode: false,
+    assistantColor: "purple",
+    translationColor: "cyan",
+    reminderMinutes: 0,
+  };
+  assert.deepEqual(normalizeRecordingIndicatorSettings(null), DEFAULTS);
   assert.deepEqual(
     normalizeRecordingIndicatorSettings({
       style: "beacon",
@@ -182,7 +190,7 @@ test("edge strip settings normalize to the known values, defaulting to off on th
       displays: "all",
       extra: 1,
     }),
-    { color: "#abcdef", strip: "short", displays: "all", tray: false }
+    { ...DEFAULTS, color: "#abcdef", strip: "short", displays: "all" }
   );
 });
 
@@ -259,4 +267,78 @@ test("the tray setting reaches main only when it is exactly true", async () => {
     assert.equal(normalizeRecordingIndicatorSettings({ tray }).tray, false);
   }
   assert.equal(normalizeRecordingIndicatorSettings({ strip: "frame" }).strip, "frame");
+});
+
+test("color by mode picks the assistant and translation colors, never dictation's", async () => {
+  const { resolveRecordingModeColor, normalizeRecordingModeColor } = await load();
+  const on = {
+    color: "green",
+    colorByMode: true,
+    assistantColor: "pink",
+    translationColor: "#0A0B0C",
+  };
+  assert.equal(resolveRecordingModeColor(on, "assistant"), "pink");
+  assert.equal(resolveRecordingModeColor(on, "translation"), "#0a0b0c");
+  assert.equal(resolveRecordingModeColor(on, "dictation"), "green");
+  assert.equal(resolveRecordingModeColor(on, null), "green");
+  assert.equal(resolveRecordingModeColor({ ...on, colorByMode: "true" }, "assistant"), "green");
+  assert.equal(
+    resolveRecordingModeColor({ color: "green", colorByMode: true }, "assistant"),
+    "purple",
+    "an unset mode color falls back to its default"
+  );
+  assert.equal(resolveRecordingModeColor(undefined, "assistant"), "red");
+  assert.equal(normalizeRecordingModeColor("bogus", "translation"), "cyan");
+  assert.equal(normalizeRecordingModeColor(" Amber ", "assistant"), "amber");
+});
+
+test("reminder intervals are off or 2, 3, 5 or 10 minutes", async () => {
+  const { normalizeRecordingReminderMinutes, RECORDING_REMINDER_MINUTES } = await load();
+  assert.deepEqual([...RECORDING_REMINDER_MINUTES], [0, 2, 3, 5, 10]);
+  for (const minutes of [2, "3", 5, "10"]) {
+    assert.equal(normalizeRecordingReminderMinutes(minutes), Number(minutes));
+  }
+  for (const value of [undefined, null, "", 1, 4, -2, "x", 2.5]) {
+    assert.equal(normalizeRecordingReminderMinutes(value), 0);
+  }
+});
+
+test("the next reminder lands on the next whole interval from the start", async () => {
+  const { nextRecordingReminderDelay } = await load();
+  const start = 1_000_000;
+  const at = (elapsed, minutes = 3) =>
+    nextRecordingReminderDelay({ startedAt: start, now: start + elapsed, minutes });
+  assert.equal(at(0), 180_000);
+  assert.equal(at(179_999), 1);
+  assert.equal(at(180_000), 180_000, "exactly on a mark schedules the following one");
+  assert.equal(at(1_000_000), 80_000, "marks missed during sleep are skipped, not replayed");
+  assert.equal(at(-5000), 180_000, "a clock behind the start waits a whole interval");
+  assert.equal(at(1000, 0), null);
+  assert.equal(nextRecordingReminderDelay({ startedAt: null, now: start, minutes: 3 }), null);
+});
+
+test("the pill's elapsed time reads m:ss, then h + minutes past an hour", async () => {
+  const { formatPillElapsed } = await load();
+  assert.equal(formatPillElapsed(0), "0:00");
+  assert.equal(formatPillElapsed(7_900), "0:07");
+  assert.equal(formatPillElapsed(65_000), "1:05");
+  assert.equal(formatPillElapsed(3_599_999), "59:59");
+  assert.equal(formatPillElapsed(3_600_000), "1h00");
+  assert.equal(formatPillElapsed(3_720_000), "1h02");
+  assert.equal(formatPillElapsed(-5), "0:00");
+  assert.equal(formatPillElapsed(Number.NaN), "0:00");
+});
+
+test("a reported start time is kept only when it is near the present", async () => {
+  const { resolveRecordingStartedAt } = await load();
+  const now = 5_000_000;
+  assert.equal(resolveRecordingStartedAt(now - 2000, now), now - 2000);
+  assert.equal(resolveRecordingStartedAt(now - 10_000, now), now - 10_000);
+  assert.equal(resolveRecordingStartedAt(now - 10_001, now), now);
+  assert.equal(resolveRecordingStartedAt(now + 800, now), now, "never in the future");
+  assert.equal(resolveRecordingStartedAt(now + 1001, now), now);
+  for (const value of [undefined, null, Number.NaN, Infinity, "x"]) {
+    assert.equal(resolveRecordingStartedAt(value, now), now);
+  }
+  assert.equal(resolveRecordingStartedAt(String(now - 500), now), now - 500);
 });

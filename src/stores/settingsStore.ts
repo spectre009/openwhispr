@@ -14,6 +14,7 @@ import type {
   RecordingEdgeStripDisplays,
   RecordingEdgeStripMode,
   RecordingIndicatorStyle,
+  RecordingReminderMinutes,
   SelfHostedType,
 } from "../types/electron";
 import {
@@ -25,6 +26,8 @@ import {
   normalizeRecordingEdgeStripDisplays,
   normalizeRecordingIndicatorColor,
   normalizeRecordingIndicatorStyle,
+  normalizeRecordingModeColor,
+  normalizeRecordingReminderMinutes,
 } from "../helpers/recordingIndicator";
 import type { CalendarAccount, MicrosoftCalendarAccount } from "../types/calendar";
 import { normalizeEmailDraftTarget, type EmailDraftTargetSetting } from "../utils/emailDraftTarget";
@@ -302,6 +305,8 @@ const BOOLEAN_SETTINGS = new Set([
   "pauseMediaOnDictation",
   "floatingIconAutoHide",
   "recordingTrayIndicator",
+  "recordingShowElapsed",
+  "recordingColorByMode",
   "startMinimized",
   "meetingProcessDetection",
   "speakerDiarizationEnabled",
@@ -938,6 +943,11 @@ export interface SettingsState
   recordingEdgeStrip: RecordingEdgeStripMode;
   recordingEdgeStripDisplays: RecordingEdgeStripDisplays;
   recordingTrayIndicator: boolean;
+  recordingShowElapsed: boolean;
+  recordingColorByMode: boolean;
+  recordingAssistantColor: string;
+  recordingTranslationColor: string;
+  recordingReminderMinutes: RecordingReminderMinutes;
   showTranscriptionPreview: boolean;
   autoPasteEnabled: boolean;
   keepTranscriptionInClipboard: boolean;
@@ -1262,6 +1272,11 @@ export interface SettingsState
   setRecordingEdgeStrip: (mode: RecordingEdgeStripMode) => void;
   setRecordingEdgeStripDisplays: (displays: RecordingEdgeStripDisplays) => void;
   setRecordingTrayIndicator: (value: boolean) => void;
+  setRecordingShowElapsed: (value: boolean) => void;
+  setRecordingColorByMode: (value: boolean) => void;
+  setRecordingAssistantColor: (color: string) => void;
+  setRecordingTranslationColor: (color: string) => void;
+  setRecordingReminderMinutes: (minutes: number) => void;
   setShowTranscriptionPreview: (value: boolean) => void;
   setAutoPasteEnabled: (value: boolean) => void;
   setKeepTranscriptionInClipboard: (value: boolean) => void;
@@ -1739,6 +1754,19 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
     readString("recordingEdgeStripDisplays", "pill")
   ) as RecordingEdgeStripDisplays,
   recordingTrayIndicator: readBoolean("recordingTrayIndicator", false),
+  recordingShowElapsed: readBoolean("recordingShowElapsed", false),
+  recordingColorByMode: readBoolean("recordingColorByMode", false),
+  recordingAssistantColor: normalizeRecordingModeColor(
+    readString("recordingAssistantColor", "purple"),
+    "assistant"
+  ),
+  recordingTranslationColor: normalizeRecordingModeColor(
+    readString("recordingTranslationColor", "cyan"),
+    "translation"
+  ),
+  recordingReminderMinutes: normalizeRecordingReminderMinutes(
+    readString("recordingReminderMinutes", "0")
+  ) as RecordingReminderMinutes,
   showTranscriptionPreview: readBoolean("showTranscriptionPreview", false),
   autoPasteEnabled: readBoolean("autoPasteEnabled", true),
   keepTranscriptionInClipboard: readBoolean("keepTranscriptionInClipboard", false),
@@ -2623,6 +2651,26 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
     set({ recordingEdgeStripDisplays: next });
   },
   setRecordingTrayIndicator: createBooleanSetter("recordingTrayIndicator"),
+  setRecordingShowElapsed: createBooleanSetter("recordingShowElapsed"),
+  setRecordingColorByMode: createBooleanSetter("recordingColorByMode"),
+  setRecordingAssistantColor: (color: string) => {
+    const next = normalizeRecordingModeColor(color, "assistant");
+    if (get().recordingAssistantColor === next) return;
+    if (isBrowser) localStorage.setItem("recordingAssistantColor", next);
+    set({ recordingAssistantColor: next });
+  },
+  setRecordingTranslationColor: (color: string) => {
+    const next = normalizeRecordingModeColor(color, "translation");
+    if (get().recordingTranslationColor === next) return;
+    if (isBrowser) localStorage.setItem("recordingTranslationColor", next);
+    set({ recordingTranslationColor: next });
+  },
+  setRecordingReminderMinutes: (minutes: number) => {
+    const next = normalizeRecordingReminderMinutes(minutes) as RecordingReminderMinutes;
+    if (get().recordingReminderMinutes === next) return;
+    if (isBrowser) localStorage.setItem("recordingReminderMinutes", String(next));
+    set({ recordingReminderMinutes: next });
+  },
 
   setShowTranscriptionPreview: createBooleanSetter("showTranscriptionPreview"),
   setAutoPasteEnabled: createBooleanSetter("autoPasteEnabled"),
@@ -3881,6 +3929,12 @@ export async function initializeSettings(): Promise<void> {
       value = normalizeRecordingEdgeStrip(newValue);
     } else if (key === "recordingEdgeStripDisplays") {
       value = normalizeRecordingEdgeStripDisplays(newValue);
+    } else if (key === "recordingAssistantColor") {
+      value = normalizeRecordingModeColor(newValue, "assistant");
+    } else if (key === "recordingTranslationColor") {
+      value = normalizeRecordingModeColor(newValue, "translation");
+    } else if (key === "recordingReminderMinutes") {
+      value = normalizeRecordingReminderMinutes(newValue);
     } else {
       value = newValue;
     }

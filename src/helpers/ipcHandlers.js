@@ -2026,7 +2026,7 @@ class IPCHandlers {
     // in the dictation renderer. Only confirmed renderer state may change the
     // main-process recording gate; raw key presses are merely requests and can
     // be declined while a transcript is still being finalized.
-    ipcMain.on("dictation-lifecycle-state-changed", (event, state, inputKind) => {
+    ipcMain.on("dictation-lifecycle-state-changed", (event, state, inputKind, startedAt) => {
       const dictationWindow = this.windowManager.mainWindow;
       if (
         !dictationWindow ||
@@ -2035,7 +2035,7 @@ class IPCHandlers {
       ) {
         return;
       }
-      this.windowManager.setDictationLifecycleState(state, inputKind);
+      this.windowManager.setDictationLifecycleState(state, inputKind, startedAt);
     });
 
     ipcMain.on("show-agent-dictation-final-transcript", (event, text) => {

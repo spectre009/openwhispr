@@ -42,7 +42,8 @@ import {
   resolveVoicePanelCorePresentation,
   resolveVoicePillDock,
   resolveVoicePillInteraction,
-  VOICE_PILL_FOOTPRINT,
+  resolvePillFootprint,
+  resolveRecordingLayout,
   isVoicePillActivationKey,
   shouldActivateVoicePill,
   shouldOfferLiveTranscriptReopen,
@@ -78,11 +79,15 @@ export default function App() {
 
   // Floating icon auto-hide setting (read from store, synced via IPC)
   const floatingIconAutoHide = useSettingsStore((s) => s.floatingIconAutoHide);
-  const { recordingStyle, recordingVars } = useRecordingIndicator();
   const recordingIndicatorColor = useSettingsStore((s) => s.recordingIndicatorColor);
   const recordingEdgeStrip = useSettingsStore((s) => s.recordingEdgeStrip);
   const recordingEdgeStripDisplays = useSettingsStore((s) => s.recordingEdgeStripDisplays);
   const recordingTrayIndicator = useSettingsStore((s) => s.recordingTrayIndicator);
+  const recordingColorByMode = useSettingsStore((s) => s.recordingColorByMode);
+  const recordingAssistantColor = useSettingsStore((s) => s.recordingAssistantColor);
+  const recordingTranslationColor = useSettingsStore((s) => s.recordingTranslationColor);
+  const recordingReminderMinutes = useSettingsStore((s) => s.recordingReminderMinutes);
+  const [reminderPulseKey, setReminderPulseKey] = useState(0);
   const panelStartPosition = useSettingsStore((s) => s.panelStartPosition);
   const floatingIconDisplay = useSettingsStore((s) => s.floatingIconDisplay);
   const floatingIconDisplayLabel = useSettingsStore((s) => s.floatingIconDisplayLabel);
@@ -107,22 +112,37 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Main draws the edge strip and the tray dot. Settings changes reach this
-  // window as storage events, which update the store without calling its
-  // setters, so only an effect over the values themselves sees them.
+  // Main draws the edge strip and the tray dot, and runs the reminder clock.
+  // Settings changes reach this window as storage events, which update the
+  // store without calling its setters, so only an effect over the values
+  // themselves sees them.
   useEffect(() => {
     window.electronAPI?.notifyRecordingIndicatorChanged?.({
       color: recordingIndicatorColor,
       strip: recordingEdgeStrip,
       displays: recordingEdgeStripDisplays,
       tray: recordingTrayIndicator,
+      colorByMode: recordingColorByMode,
+      assistantColor: recordingAssistantColor,
+      translationColor: recordingTranslationColor,
+      reminderMinutes: recordingReminderMinutes,
     });
   }, [
     recordingIndicatorColor,
     recordingEdgeStrip,
     recordingEdgeStripDisplays,
     recordingTrayIndicator,
+    recordingColorByMode,
+    recordingAssistantColor,
+    recordingTranslationColor,
+    recordingReminderMinutes,
   ]);
+
+  // Main sends a reminder only to the pill that shows the recording.
+  useEffect(
+    () => window.electronAPI?.onRecordingReminder?.(() => setReminderPulseKey((key) => key + 1)),
+    []
+  );
 
   useEffect(() => {
     let timer;
@@ -272,6 +292,8 @@ export default function App() {
     cancelRecording,
     cancelProcessing,
     getAudioLevel,
+    recordingInputKind,
+    recordingStartedAt,
   } = useAudioRecording(toast, {
     onToggle: handleDictationToggle,
     onDemoEvent: publishOnboardingDemoEvent,
@@ -292,6 +314,9 @@ export default function App() {
     assistantOpenRef,
   });
   const isVisuallyProcessing = isProcessing || isPreparing || isStopping;
+  // With "Color by mode" on, the pill takes the color of the recording's mode.
+  const { recordingStyle, recordingShowElapsed, recordingVars } =
+    useRecordingIndicator(recordingInputKind);
 
   useLayoutEffect(() => {
     recordingControlsRef.current = {
@@ -601,10 +626,8 @@ export default function App() {
   // (logo-collapsed thinking renders 40×40 even while recording). These are
   // targets, not rendered sizes: the pill transitions between footprints over
   // GROW_TRANSITION, and the skin tweens its geometry to match
-  // (usePillFootprintTween in LiquidCancelButton).
-  const cancelPillFootprint = isCompactPill
-    ? VOICE_PILL_FOOTPRINT.recording
-    : VOICE_PILL_FOOTPRINT.idle;
+  // (usePillFootprintTween in LiquidCancelButton). The footprint itself comes
+  // from resolvePillFootprint once the pill's state is known, below.
   const activateVoicePill = () => {
     if (!pillIsInteractive) return;
     if (canReopenLiveTranscript) {
@@ -647,6 +670,16 @@ export default function App() {
       : listeningEntrance.activeState ||
         voiceActivity.activeState ||
         (assistant.open ? (isHovered ? "hover" : "idle") : micState);
+  const recordingLayout = resolveRecordingLayout({
+    style: recordingStyle,
+    showElapsed: recordingShowElapsed,
+    recording: commonPillState === "recording",
+    inPanel: anyPanelOpen,
+  });
+  const cancelPillFootprint = resolvePillFootprint({
+    compact: isCompactPill,
+    layout: recordingLayout,
+  });
   const voicePillDock = resolveVoicePillDock({
     liveTranscriptOpen: liveTranscript.open,
     liveTranscriptEntrancePhase: liveTranscript.entrancePhase,
@@ -756,6 +789,9 @@ export default function App() {
               isDragging={isDragging}
               horizontalDirection={voiceHorizontalDirection}
               recordingStyle={recordingStyle}
+              recordingLayout={recordingLayout}
+              recordingStartedAt={recordingStartedAt}
+              reminderPulseKey={reminderPulseKey}
               role={pillIsInteractive ? "button" : "status"}
               tabIndex={pillIsInteractive ? 0 : undefined}
               aria-label={

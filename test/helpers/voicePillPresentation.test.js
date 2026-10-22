@@ -871,3 +871,32 @@ test("activity handed back at close intent stays visible through the content fad
     true
   );
 });
+
+test("only a floating, recording pill takes a wide row: REC, or the elapsed time", async () => {
+  const { resolveRecordingLayout } = await load();
+  const layout = (overrides) =>
+    resolveRecordingLayout({ style: "classic", showElapsed: false, recording: true, ...overrides });
+  assert.equal(layout({}), null);
+  assert.equal(layout({ showElapsed: true }), "elapsed");
+  assert.equal(layout({ style: "rec" }), "rec");
+  assert.equal(layout({ style: "rec", showElapsed: true }), "rec", "REC always shows the time");
+  assert.equal(layout({ style: "rec", recording: false }), null);
+  assert.equal(layout({ showElapsed: true, inPanel: true }), null, "panels keep today's row");
+});
+
+test("the footprint follows the row: idle, today's, REC or elapsed", async () => {
+  const { resolvePillFootprint, VOICE_PILL_FOOTPRINT, VOICE_PILL_ELAPSED_SLOT } = await load();
+  assert.equal(resolvePillFootprint({ compact: false, layout: "rec" }), VOICE_PILL_FOOTPRINT.idle);
+  assert.equal(resolvePillFootprint({ compact: true }), VOICE_PILL_FOOTPRINT.recording);
+  assert.equal(resolvePillFootprint({ compact: true, layout: "rec" }), VOICE_PILL_FOOTPRINT.rec);
+  assert.equal(
+    resolvePillFootprint({ compact: true, layout: "elapsed" }),
+    VOICE_PILL_FOOTPRINT.elapsed
+  );
+  // The rows are built from the same slots as today's 98px row.
+  assert.equal(VOICE_PILL_FOOTPRINT.rec.width, 6 + 10 + 6 + VOICE_PILL_ELAPSED_SLOT + 6 + 52 + 12);
+  assert.equal(
+    VOICE_PILL_FOOTPRINT.elapsed.width,
+    VOICE_PILL_FOOTPRINT.recording.width + 6 + VOICE_PILL_ELAPSED_SLOT
+  );
+});

@@ -312,17 +312,29 @@ test("the Agent companion ignores Agent voice lifecycle and mirrors plain dictat
     webContents: { send: (channel, payload) => messages.push({ channel, payload }) },
   };
 
-  manager.setDictationLifecycleState("recording", "assistant");
+  // The start time is kept from the first report of this recording.
+  const startedAt = Date.now() - 1000;
+  manager.setDictationLifecycleState("recording", "assistant", startedAt);
   manager.setDictationLifecycleState("recording", "dictation");
 
   assert.deepEqual(messages, [
     {
       channel: "agent-dictation-pill-state-changed",
-      payload: { lifecycle: "idle", interactive: false, horizontalDirection: "left" },
+      payload: {
+        lifecycle: "idle",
+        interactive: false,
+        horizontalDirection: "left",
+        startedAt: null,
+      },
     },
     {
       channel: "agent-dictation-pill-state-changed",
-      payload: { lifecycle: "recording", interactive: true, horizontalDirection: "left" },
+      payload: {
+        lifecycle: "recording",
+        interactive: true,
+        horizontalDirection: "left",
+        startedAt,
+      },
     },
   ]);
 });
@@ -347,7 +359,12 @@ test("the companion receives live audio levels only for ordinary dictation", () 
     { channel: "agent-dictation-pill-audio-level-changed", payload: 0.42 },
     {
       channel: "agent-dictation-pill-state-changed",
-      payload: { lifecycle: "idle", interactive: false, horizontalDirection: "left" },
+      payload: {
+        lifecycle: "idle",
+        interactive: false,
+        horizontalDirection: "left",
+        startedAt: null,
+      },
     },
   ]);
 });
@@ -682,7 +699,12 @@ test("did-finish-load marks the companion ready, pushes state, and shows it", ()
   assert.deepEqual(pill.sent, [
     {
       channel: "agent-dictation-pill-state-changed",
-      payload: { lifecycle: "idle", interactive: true, horizontalDirection: "left" },
+      payload: {
+        lifecycle: "idle",
+        interactive: true,
+        horizontalDirection: "left",
+        startedAt: null,
+      },
     },
   ]);
   assert.equal(pill.visible, true);
@@ -766,7 +788,12 @@ test("mic preparation reaches the companion as its own lifecycle", () => {
   assert.deepEqual(messages, [
     {
       channel: "agent-dictation-pill-state-changed",
-      payload: { lifecycle: "preparing", interactive: true, horizontalDirection: "left" },
+      payload: {
+        lifecycle: "preparing",
+        interactive: true,
+        horizontalDirection: "left",
+        startedAt: null,
+      },
     },
   ]);
 });

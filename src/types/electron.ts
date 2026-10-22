@@ -60,15 +60,21 @@ export interface FloatingIconDisplayInfo {
 
 // How OpenWhispr shows that the microphone is live. Values come from
 // src/helpers/recordingIndicator.js.
-export type RecordingIndicatorStyle = "classic" | "tinted" | "solid" | "beacon";
+export type RecordingIndicatorStyle = "classic" | "tinted" | "solid" | "beacon" | "rec";
 export type RecordingEdgeStripMode = "off" | "short" | "full" | "frame";
 export type RecordingEdgeStripDisplays = "pill" | "all";
+export type RecordingInputKind = "dictation" | "assistant" | "translation";
+export type RecordingReminderMinutes = 0 | 2 | 3 | 5 | 10;
 
 export interface RecordingIndicatorSettings {
   color: string;
   strip: RecordingEdgeStripMode;
   displays: RecordingEdgeStripDisplays;
   tray?: boolean;
+  colorByMode?: boolean;
+  assistantColor?: string;
+  translationColor?: string;
+  reminderMinutes?: RecordingReminderMinutes;
 }
 
 export interface MainWindowInputRegion {
@@ -1409,7 +1415,8 @@ declare global {
       micWarmHoldChanged?: (active: boolean) => void;
       dictationLifecycleStateChanged: (
         state: "idle" | "preparing" | "recording" | "processing",
-        inputKind?: "dictation" | "assistant" | "translation"
+        inputKind?: RecordingInputKind,
+        startedAt?: number | null
       ) => void;
       dictationAudioLevelChanged?: (level: number) => void;
       toggleAgentPanelDictation?: () => Promise<{ success: boolean }>;
@@ -1418,6 +1425,7 @@ declare global {
         lifecycle: "idle" | "preparing" | "recording" | "processing";
         interactive: boolean;
         horizontalDirection: "left" | "right";
+        startedAt?: number | null;
       }>;
       resizeAgentDictationPillToContent?: (surfaceHeight: number | null) => Promise<{
         success: boolean;
@@ -1431,7 +1439,11 @@ declare global {
           lifecycle: "idle" | "preparing" | "recording" | "processing";
           interactive: boolean;
           horizontalDirection: "left" | "right";
+          startedAt?: number | null;
         }) => void
+      ) => () => void;
+      onRecordingReminder?: (
+        callback: (payload: { startedAt: number | null; inputKind: RecordingInputKind }) => void
       ) => () => void;
       onAgentDictationPillAudioLevelChanged?: (callback: (level: number) => void) => () => void;
       showAgentDictationFinalTranscript?: (text: string) => void;

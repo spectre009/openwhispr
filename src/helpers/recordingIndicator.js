@@ -1,10 +1,17 @@
 // How OpenWhispr shows that the microphone is live: the floating icon's style
-// and color, and an optional strip along the top edge of the screen. Pure and
-// dependency-free so main (via require), the renderer and the tests share one
-// parser and one set of contrast rules.
+// and color (per recording mode, optionally), an elapsed-time readout, an
+// optional glow at the screen edge and a reminder while a recording runs
+// long. Pure and dependency-free so main (via require), the renderer and the
+// tests share one parser and one set of contrast rules.
 
 export const DEFAULT_RECORDING_INDICATOR_STYLE = "classic";
-export const RECORDING_INDICATOR_STYLES = Object.freeze(["classic", "tinted", "solid", "beacon"]);
+export const RECORDING_INDICATOR_STYLES = Object.freeze([
+  "classic",
+  "tinted",
+  "solid",
+  "beacon",
+  "rec",
+]);
 
 export function normalizeRecordingIndicatorStyle(value) {
   return RECORDING_INDICATOR_STYLES.includes(value) ? value : DEFAULT_RECORDING_INDICATOR_STYLE;
@@ -35,6 +42,86 @@ export function normalizeRecordingIndicatorColor(value) {
 export function resolveRecordingAccent(value) {
   const color = normalizeRecordingIndicatorColor(value);
   return RECORDING_INDICATOR_COLORS[color] ?? color;
+}
+
+// With "Color by mode" on, the voice assistant and translation recordings get
+// their own colors; dictation always keeps the main recording color.
+export const DEFAULT_RECORDING_MODE_COLORS = Object.freeze({
+  assistant: "purple",
+  translation: "cyan",
+});
+
+export function normalizeRecordingModeColor(value, mode) {
+  const fallback = DEFAULT_RECORDING_MODE_COLORS[mode] ?? DEFAULT_RECORDING_INDICATOR_COLOR;
+  if (typeof value !== "string") return fallback;
+  const color = value.trim().toLowerCase();
+  if (Object.hasOwn(RECORDING_INDICATOR_COLORS, color) || HEX_COLOR.test(color)) return color;
+  return fallback;
+}
+
+/** The color setting a recording of `inputKind` shows in. */
+export function resolveRecordingModeColor(settings, inputKind) {
+  const color = normalizeRecordingIndicatorColor(settings?.color);
+  if (settings?.colorByMode !== true) return color;
+  if (inputKind === "assistant") {
+    return normalizeRecordingModeColor(settings.assistantColor, "assistant");
+  }
+  if (inputKind === "translation") {
+    return normalizeRecordingModeColor(settings.translationColor, "translation");
+  }
+  return color;
+}
+
+// How often a running recording reminds you it is still on.
+export const RECORDING_REMINDER_MINUTES = Object.freeze([0, 2, 3, 5, 10]);
+
+// The renderer back-dates a recording's start by its pre-roll (up to 2 s). A
+// start time further off than this is a broken report, and main's own clock
+// is used instead.
+export const RECORDING_START_MAX_AGE_MS = 10_000;
+export const RECORDING_START_MAX_AHEAD_MS = 1_000;
+
+/** The start time main keeps for a recording the renderer reported at `now`. */
+export function resolveRecordingStartedAt(value, now) {
+  const startedAt = Number(value);
+  if (
+    value === null ||
+    value === undefined ||
+    !Number.isFinite(startedAt) ||
+    startedAt < now - RECORDING_START_MAX_AGE_MS ||
+    startedAt > now + RECORDING_START_MAX_AHEAD_MS
+  ) {
+    return now;
+  }
+  return Math.min(startedAt, now);
+}
+
+export function normalizeRecordingReminderMinutes(value) {
+  const minutes = Number(value);
+  return RECORDING_REMINDER_MINUTES.includes(minutes) ? minutes : 0;
+}
+
+/**
+ * Delay until the next reminder: the next whole multiple of `minutes` after
+ * `startedAt` that is still ahead of `now`. Marks missed while the computer
+ * slept are skipped, never replayed in a burst. Null when reminders are off.
+ */
+export function nextRecordingReminderDelay({ startedAt, now, minutes }) {
+  const interval = normalizeRecordingReminderMinutes(minutes) * 60_000;
+  if (!interval || !Number.isFinite(startedAt) || !Number.isFinite(now)) return null;
+  const elapsed = Math.max(0, now - startedAt);
+  const nextMark = (Math.floor(elapsed / interval) + 1) * interval;
+  return nextMark - elapsed;
+}
+
+/** The pill's elapsed time: "0:07", "59:59", then "1h02" past an hour. */
+export function formatPillElapsed(ms) {
+  const total = Math.max(0, Math.floor((Number(ms) || 0) / 1000));
+  if (total >= 3600) {
+    const hours = Math.floor(total / 3600);
+    return `${hours}h${String(Math.floor((total % 3600) / 60)).padStart(2, "0")}`;
+  }
+  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
 }
 
 function channels(hex) {
@@ -139,6 +226,10 @@ export function normalizeRecordingIndicatorSettings(value) {
     strip: normalizeRecordingEdgeStrip(settings.strip),
     displays: normalizeRecordingEdgeStripDisplays(settings.displays),
     tray: settings.tray === true,
+    colorByMode: settings.colorByMode === true,
+    assistantColor: normalizeRecordingModeColor(settings.assistantColor, "assistant"),
+    translationColor: normalizeRecordingModeColor(settings.translationColor, "translation"),
+    reminderMinutes: normalizeRecordingReminderMinutes(settings.reminderMinutes),
   };
 }
 

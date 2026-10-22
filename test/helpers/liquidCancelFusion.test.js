@@ -9,9 +9,8 @@ const GAP = 8;
 const SIZE = 28;
 
 test("the fusion fixtures still match the shared pill contract", async () => {
-  const { VOICE_PILL_FOOTPRINT, VOICE_PILL_CANCEL } = await import(
-    "../../src/helpers/voicePillPresentation.js"
-  );
+  const { VOICE_PILL_FOOTPRINT, VOICE_PILL_CANCEL } =
+    await import("../../src/helpers/voicePillPresentation.js");
   assert.deepEqual(
     { w: VOICE_PILL_FOOTPRINT.recording.width, h: VOICE_PILL_FOOTPRINT.recording.height },
     PILL
@@ -35,9 +34,8 @@ function pathPoints(d) {
 }
 
 test("swallowed cancel (t=0) leaves the pill outline untouched", async () => {
-  const { traceFusedOutline, emergenceBlend } = await import(
-    "../../src/components/dictation/liquidFusion.ts"
-  );
+  const { traceFusedOutline, emergenceBlend } =
+    await import("../../src/components/dictation/liquidFusion.ts");
   const out = traceFusedOutline({ pill: PILL, circle: circleAt(0) }, { k: emergenceBlend(0) });
   assert.equal(out.loops, 1);
   const pts = pathPoints(out.d);
@@ -49,9 +47,8 @@ test("swallowed cancel (t=0) leaves the pill outline untouched", async () => {
 });
 
 test("swallowed cancel stays pill-shaped at in-between footprints", async () => {
-  const { traceFusedOutline, emergenceBlend } = await import(
-    "../../src/components/dictation/liquidFusion.ts"
-  );
+  const { traceFusedOutline, emergenceBlend } =
+    await import("../../src/components/dictation/liquidFusion.ts");
   // The skin tweens through these while the pill's own width/height
   // transition runs (40×40 idle ⇄ 98×36 recording), so the t=0 tangency must
   // hold for every in-between capsule, not just the resting footprints.
@@ -74,9 +71,8 @@ test("swallowed cancel stays pill-shaped at in-between footprints", async () => 
 });
 
 test("resting cancel (t=1) stays fused to the pill by a single neck", async () => {
-  const { traceFusedOutline, emergenceBlend } = await import(
-    "../../src/components/dictation/liquidFusion.ts"
-  );
+  const { traceFusedOutline, emergenceBlend } =
+    await import("../../src/components/dictation/liquidFusion.ts");
   const out = traceFusedOutline({ pill: PILL, circle: circleAt(1) }, { k: emergenceBlend(1) });
   // one loop = the 8px gap is bridged by the smin fillet, not two islands
   assert.equal(out.loops, 1);
@@ -96,9 +92,8 @@ test("resting cancel (t=1) stays fused to the pill by a single neck", async () =
 });
 
 test("emergence is monotonic: the outline's reach grows with t", async () => {
-  const { traceFusedOutline, emergenceBlend } = await import(
-    "../../src/components/dictation/liquidFusion.ts"
-  );
+  const { traceFusedOutline, emergenceBlend } =
+    await import("../../src/components/dictation/liquidFusion.ts");
   const reach = (t) => {
     const pts = pathPoints(
       traceFusedOutline({ pill: PILL, circle: circleAt(t) }, { k: emergenceBlend(t) }).d
@@ -115,4 +110,21 @@ test("smin degrades to a hard min at k=0", async () => {
   const { smin } = await import("../../src/components/dictation/liquidFusion.ts");
   assert.equal(smin(3, 7, 0), 3);
   assert.equal(smin(-2, 5, 0), -2);
+});
+
+test("the wide recording rows (REC, elapsed time) fuse with the cancel the same way", async () => {
+  const { traceFusedOutline, emergenceBlend } =
+    await import("../../src/components/dictation/liquidFusion.ts");
+  const { VOICE_PILL_FOOTPRINT } = await import("../../src/helpers/voicePillPresentation.js");
+  for (const name of ["rec", "elapsed"]) {
+    const pill = { w: VOICE_PILL_FOOTPRINT[name].width, h: VOICE_PILL_FOOTPRINT[name].height };
+    for (const t of [0, 1]) {
+      const circle = { cx: pill.w + t * (GAP + SIZE) - SIZE / 2, cy: pill.h / 2, r: R };
+      const out = traceFusedOutline({ pill, circle }, { k: emergenceBlend(t) });
+      assert.equal(out.loops, 1, `${name} at t=${t} should trace one loop`);
+      const maxX = Math.max(...pathPoints(out.d).map((p) => p.x));
+      const want = t === 0 ? pill.w : pill.w + GAP + SIZE;
+      assert.ok(Math.abs(maxX - want) < 1.5, `${name} at t=${t}: maxX ${maxX}, want ${want}`);
+    }
+  }
 });

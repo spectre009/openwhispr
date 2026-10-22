@@ -2,9 +2,16 @@ const {
   normalizeRecordingIndicatorSettings,
   resolveEdgeStripBounds,
   resolveRecordingAccent,
+  resolveRecordingModeColor,
 } = require("./recordingIndicator");
 
 const EDGE_STRIP_PREVIEW_MS = 3000;
+// A recording's start flashes the strip brighter and thicker; a reminder
+// swells it and lets it settle. Both are one-shot rules inserted into the
+// loaded page and removed once they end, so nothing reloads or keeps
+// animating.
+const EDGE_STRIP_FLASH_MS = 500;
+const EDGE_STRIP_PULSE_MS = 1200;
 // Strip windows stay for a while after the strip last hid, so back-to-back
 // dictations reuse them, then go: each holds its own renderer (~20 MB private,
 // measured on Windows). A frame covers the work area, and a hidden window keeps
@@ -49,15 +56,23 @@ const EDGE_STRIP_WINDOW_OPTIONS = Object.freeze({
  * in the accent with a dark hairline under it (so it still reads on a
  * background of its own color) and a glow that fades out within the window.
  * A frame is a 3 DIP ring around the window's edge with a dark hairline
- * inside and a soft inner glow. The accent is a validated #rrggbb.
+ * inside and a soft inner glow. Everything draws in `--a`, which starts as
+ * the accent the page loaded with (a validated #rrggbb); later colors are
+ * inserted as CSS, so the page never reloads for one.
  */
 function buildEdgeStripPage({ accent, mode }) {
-  const base = "html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent}";
+  // The default sits on `html`, below the `:root` rules main inserts: inserted
+  // sheets cascade before the page's own, so an equally specific default
+  // would win over every later color.
+  const base =
+    `html{--a:${accent}}` +
+    "html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent}" +
+    "@media (prefers-reduced-motion:reduce){.s{animation:none!important}}";
   if (mode === "frame") {
     return page(
       base +
-        `.s{position:absolute;inset:0;box-shadow:inset 0 0 0 3px ${accent},` +
-        `inset 0 0 0 4px rgba(0,0,0,.35),inset 0 0 26px 6px ${accent}8c}`
+        ".s{position:absolute;inset:0;box-shadow:inset 0 0 0 3px var(--a)," +
+        "inset 0 0 0 4px rgba(0,0,0,.35),inset 0 0 26px 6px color-mix(in srgb,var(--a) 55%,transparent)}"
     );
   }
   const inset = mode === "short" ? 6 : 0;
@@ -65,12 +80,43 @@ function buildEdgeStripPage({ accent, mode }) {
   return page(
     base +
       `.s{position:absolute;top:0;left:${inset}px;right:${inset}px;height:4px;border-radius:${radius};` +
-      `background:${accent};box-shadow:0 1px 0 rgba(0,0,0,.35),0 0 6px 1px ${accent}}`
+      "transform-origin:top;background:var(--a);box-shadow:0 1px 0 rgba(0,0,0,.35),0 0 6px 1px var(--a)}"
   );
+}
+
+// The look at a flash's or pulse's peak: a brighter, thicker bar, or a ring
+// twice as wide with a stronger glow.
+function edgeStripPeak(mode) {
+  if (mode === "frame") {
+    return (
+      "box-shadow:inset 0 0 0 6px var(--a),inset 0 0 0 7px rgba(0,0,0,.35)," +
+      "inset 0 0 44px 14px color-mix(in srgb,var(--a) 70%,transparent);filter:brightness(1.25)"
+    );
+  }
+  return "transform:scaleY(1.75);filter:brightness(1.6)";
+}
+
+/**
+ * A one-shot animation rule for the loaded page. A flash starts at the peak
+ * and settles; a pulse swells to it and back. Each rule names fresh keyframes,
+ * so inserting one plays it again even while the previous is still applied.
+ */
+function buildEdgeStripAnimation({ mode, kind, name }) {
+  const peak = edgeStripPeak(mode);
+  if (kind === "pulse") {
+    return `@keyframes ${name}{40%{${peak}}}.s{animation:${name} ${EDGE_STRIP_PULSE_MS}ms ease-in-out}`;
+  }
+  return `@keyframes ${name}{from{${peak}}}.s{animation:${name} ${EDGE_STRIP_FLASH_MS}ms ease-out}`;
 }
 
 function page(css) {
   return `<!doctype html><html><head><meta charset="utf-8"><style>${css}</style></head><body><div class="s" aria-hidden="true"></div></body></html>`;
+}
+
+// insertCSS throws outright on a destroyed page; as a rejection it takes the
+// same path as any other failure.
+function insertCss(contents, css) {
+  return Promise.resolve().then(() => contents.insertCSS(css));
 }
 
 // Encoded whole: a literal "#" in the CSS would otherwise start a fragment.
@@ -106,6 +152,10 @@ class RecordingEdgeStrip {
     this._timers = timers;
     this._settings = normalizeRecordingIndicatorSettings(null);
     this._recording = false;
+    this._inputKind = "dictation";
+    // Bumped when a recording starts; each window flashes once per start.
+    this._startGeneration = 0;
+    this._animationSeq = 0;
     this._preview = null;
     this._idleTimer = null;
     this._lastShownMode = null;
@@ -119,11 +169,27 @@ class RecordingEdgeStrip {
     this._apply("settings");
   }
 
-  setRecording(recording) {
+  // The mode picks the color when "Color by mode" is on.
+  setRecording(recording, inputKind = "dictation") {
     const next = Boolean(recording);
-    if (next === this._recording) return;
+    const kind = typeof inputKind === "string" ? inputKind : "dictation";
+    if (next === this._recording && kind === this._inputKind) return;
+    const starting = next && !this._recording;
     this._recording = next;
-    this._apply(next ? "recording" : "stopped");
+    this._inputKind = kind;
+    if (starting) this._startGeneration += 1;
+    this._apply(starting ? "recording" : next ? "mode" : "stopped");
+  }
+
+  // "Remind me while recording": a visible recording strip swells once.
+  pulse() {
+    const active = this._active();
+    if (this._destroyed || !active?.recording) return;
+    for (const [id, entry] of this._windows) {
+      if (entry.loaded && !entry.recoloring && entry.win.isVisible()) {
+        this._animate(id, entry, "pulse");
+      }
+    }
   }
 
   // Shows the strip with `settings` for a moment. The preview carries its own
@@ -160,6 +226,7 @@ class RecordingEdgeStrip {
   release() {
     this._clearPreview();
     this._recording = false;
+    this._inputKind = "dictation";
     this._settings = normalizeRecordingIndicatorSettings(null);
     this._destroyAll();
   }
@@ -188,16 +255,26 @@ class RecordingEdgeStrip {
     return false;
   }
 
-  // The settings the strip shows with now, or null when it is hidden.
-  _activeSettings() {
-    if (this._recording && this._settings.strip !== "off") return this._settings;
-    if (this._preview) return this._preview.settings;
+  // What the strip shows now, or null when it is hidden: the settings, the
+  // accent and whether a recording (not a preview) owns it.
+  _active() {
+    if (this._recording && this._settings.strip !== "off") {
+      return {
+        settings: this._settings,
+        accent: resolveRecordingAccent(resolveRecordingModeColor(this._settings, this._inputKind)),
+        recording: true,
+      };
+    }
+    if (this._preview) {
+      const settings = this._preview.settings;
+      return { settings, accent: resolveRecordingAccent(settings.color), recording: false };
+    }
     return null;
   }
 
   _apply(reason) {
     if (this._destroyed) return;
-    const active = this._activeSettings();
+    const active = this._active();
     if (!active) {
       if (this._settings.strip === "off") {
         this._destroyAll();
@@ -211,46 +288,70 @@ class RecordingEdgeStrip {
     if (!this._isSupported()) return;
     this._cancelIdleRelease();
 
+    const { settings, accent } = active;
+    const mode = settings.strip;
     const displays = this._screen.getAllDisplays();
     this._pruneDisconnected(displays);
-    const targets = this._targetDisplays(active, displays);
+    const targets = this._targetDisplays(settings, displays);
     const targetIds = new Set(targets.map((display) => String(display.id)));
-    const url = edgeStripUrl(
-      buildEdgeStripPage({ accent: resolveRecordingAccent(active.color), mode: active.strip })
-    );
 
     for (const display of targets) {
       const id = String(display.id);
-      const bounds = resolveEdgeStripBounds(display, active.strip);
+      const bounds = resolveEdgeStripBounds(display, mode);
       const entry = this._windows.get(id) || this._createWindow(id, bounds);
       if (!entry) continue;
-      if (entry.url !== url) this._load(id, entry, url);
+      // The page loads once per mode. A page still loading is simply
+      // replaced; a loaded one takes a new color as inserted CSS.
+      if (entry.mode !== mode || (!entry.loaded && entry.loadedAccent !== accent)) {
+        this._load(id, entry, mode, accent);
+      } else if (entry.loaded && entry.accent !== accent) {
+        this._recolor(id, entry, accent);
+      }
       // The exact box on every show: at fractional scaling each setBounds
       // rounds, so reported bounds are never fed back.
       entry.win.setBounds(bounds);
-      if (entry.loaded && !entry.win.isVisible()) {
+      // A hidden window waits for its color, so it never shows the old one.
+      if (!entry.loaded || entry.recoloring) continue;
+      if (!entry.win.isVisible()) {
         this._setupAlwaysOnTop(entry.win);
         entry.win.showInactive();
         this._logger?.debug?.(
           "[RecordingEdgeStrip] Showing strip",
-          { reason, displayId: id, mode: active.strip, bounds, actual: entry.win.getBounds() },
+          { reason, displayId: id, mode, accent, bounds, actual: entry.win.getBounds() },
           "window"
         );
+      }
+      if (active.recording && entry.flashGeneration !== this._startGeneration) {
+        entry.flashGeneration = this._startGeneration;
+        this._animate(id, entry, "flash");
       }
     }
 
     for (const [id, entry] of [...this._windows]) {
       if (targetIds.has(id)) continue;
       // A frame left behind on another monitor holds a work-area surface.
-      if (active.strip === "frame") this._destroyWindow(id);
+      if (mode === "frame") this._destroyWindow(id);
       else if (entry.win.isVisible()) entry.win.hide();
     }
-    this._lastShownMode = active.strip;
+    this._lastShownMode = mode;
   }
 
-  _load(id, entry, url) {
+  _load(id, entry, mode, accent) {
+    const url = edgeStripUrl(buildEdgeStripPage({ accent, mode }));
     entry.url = url;
+    entry.document += 1;
+    entry.mode = mode;
+    entry.loadedAccent = accent;
+    entry.accent = accent;
     entry.loaded = false;
+    // A new document drops every inserted rule.
+    entry.colorKey = null;
+    entry.recoloring = null;
+    this._logger?.debug?.(
+      "[RecordingEdgeStrip] Loading strip page",
+      { displayId: id, mode, accent },
+      "window"
+    );
     // The promise settles for this load only: Electron rejects it with
     // ERR_ABORTED when a newer page replaces it. Comparing getURL() instead
     // would depend on how Chromium canonicalizes a long data: URL.
@@ -271,6 +372,77 @@ class RecordingEdgeStrip {
             "window"
           );
         }
+      }
+    );
+  }
+
+  // Sets --a in the loaded page, then removes the previous color's rule, so
+  // the page never paints without one.
+  _recolor(id, entry, accent) {
+    const token = { accent };
+    const previous = entry.colorKey;
+    const documentId = entry.document;
+    entry.accent = accent;
+    entry.recoloring = token;
+    const contents = entry.win.webContents;
+    const current = () =>
+      this._windows.get(id) === entry && entry.document === documentId && !entry.win.isDestroyed();
+    insertCss(contents, `:root{--a:${accent}}`).then(
+      (key) => {
+        if (!current() || entry.recoloring !== token) {
+          if (current()) contents.removeInsertedCSS(key).catch(() => undefined);
+          return;
+        }
+        entry.recoloring = null;
+        entry.colorKey = key;
+        if (previous) contents.removeInsertedCSS(previous).catch(() => undefined);
+        this._logger?.debug?.(
+          "[RecordingEdgeStrip] Recolored strip",
+          { displayId: id, accent },
+          "window"
+        );
+        this._apply("recolored");
+      },
+      (error) => {
+        if (!current() || entry.recoloring !== token) return;
+        this._logger?.warn?.(
+          "[RecordingEdgeStrip] Could not recolor the strip; reloading it",
+          { displayId: id, error: error?.message },
+          "window"
+        );
+        // Loading the page with the color baked in never fails the same way.
+        entry.recoloring = null;
+        entry.mode = null;
+        this._apply("recolor-failed");
+      }
+    );
+  }
+
+  _animate(id, entry, kind) {
+    this._animationSeq += 1;
+    const name = `${kind === "pulse" ? "p" : "f"}${this._animationSeq}`;
+    const duration = kind === "pulse" ? EDGE_STRIP_PULSE_MS : EDGE_STRIP_FLASH_MS;
+    const contents = entry.win.webContents;
+    const documentId = entry.document;
+    insertCss(contents, buildEdgeStripAnimation({ mode: entry.mode, kind, name })).then(
+      (key) => {
+        this._timers.setTimeout(() => {
+          if (
+            this._windows.get(id) !== entry ||
+            entry.document !== documentId ||
+            entry.win.isDestroyed()
+          ) {
+            return;
+          }
+          contents.removeInsertedCSS(key).catch(() => undefined);
+        }, duration + 100);
+      },
+      (error) => {
+        this._logger?.debug?.(
+          "[RecordingEdgeStrip] Could not animate the strip",
+          { displayId: id, kind, error: error?.message },
+          "window"
+        );
       }
     );
   }
@@ -297,7 +469,7 @@ class RecordingEdgeStrip {
       this._lastShownMode === "frame" ? EDGE_FRAME_IDLE_RELEASE_MS : EDGE_STRIP_IDLE_RELEASE_MS;
     this._idleTimer = this._timers.setTimeout(() => {
       this._idleTimer = null;
-      if (this._activeSettings()) return;
+      if (this._active()) return;
       this._logger?.debug?.("[RecordingEdgeStrip] Releasing idle strip windows", {}, "window");
       this._destroyAll();
     }, delay);
@@ -329,7 +501,20 @@ class RecordingEdgeStrip {
     win.setContentProtection(true);
     this._setupAlwaysOnTop(win);
 
-    const entry = { win, url: null, loaded: false };
+    // `document` counts loads, so inserted-CSS callbacks from a replaced page
+    // never touch the new one.
+    const entry = {
+      win,
+      url: null,
+      document: 0,
+      mode: null,
+      loadedAccent: null,
+      accent: null,
+      loaded: false,
+      colorKey: null,
+      recoloring: null,
+      flashGeneration: 0,
+    };
     win.webContents.on("render-process-gone", (_event, details) => {
       this._logger?.warn?.(
         "[RecordingEdgeStrip] Strip renderer gone",
@@ -365,10 +550,13 @@ class RecordingEdgeStrip {
 
 module.exports = {
   EDGE_FRAME_IDLE_RELEASE_MS,
+  EDGE_STRIP_FLASH_MS,
   EDGE_STRIP_IDLE_RELEASE_MS,
   EDGE_STRIP_PREVIEW_MS,
+  EDGE_STRIP_PULSE_MS,
   EDGE_STRIP_WINDOW_OPTIONS,
   RecordingEdgeStrip,
+  buildEdgeStripAnimation,
   buildEdgeStripPage,
   edgeStripUrl,
 };

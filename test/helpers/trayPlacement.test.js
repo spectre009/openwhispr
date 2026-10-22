@@ -42,7 +42,10 @@ async function createTrayOn(platform, { channel = "production", metadata = {} } 
     "./dockManager": {},
     "./i18nMain": { i18nMain: { t: (key) => key } },
     "./trayRecordingBadge": require("../../src/helpers/trayRecordingBadge"),
-    "./recordingIndicator": { resolveRecordingAccent: (color) => color },
+    "./recordingIndicator": {
+      resolveRecordingAccent: (color) => color,
+      resolveRecordingModeColor: (settings) => settings?.color,
+    },
   };
   const loadedModule = { exports: {} };
   vm.runInNewContext(
