@@ -33,6 +33,18 @@ const readArgLogLevel = () => {
 
 const hasConsoleLogOptIn = () => (process.argv || []).includes("--console-logs");
 
+// Debug logs are one file per app start (debug-<timestamp>.log) in
+// <userData>/logs. Kept bounded: at start and whenever the current file grows
+// past maxFileBytes (it then continues in a new file), files older than
+// maxAgeMs are deleted, then the oldest until the folder fits in maxDirBytes.
+// The file being written is never deleted.
+const LOG_RETENTION = {
+  maxAgeMs: 30 * 24 * 60 * 60 * 1000,
+  maxDirBytes: 100 * 1024 * 1024,
+  maxFileBytes: 20 * 1024 * 1024,
+};
+const LOG_FILE_PATTERN = /^debug-.*\.log$/;
+
 // Set by local fork builds (electron-builder.local-win.json + selfhost.js).
 const readSelfBuiltCommit = () => {
   try {
@@ -49,6 +61,8 @@ class DebugLogger {
     this.debugMode = this.isDebugEnabled();
     this.logFile = null;
     this.logStream = null;
+    this.logBytes = 0;
+    this.retention = { ...LOG_RETENTION };
     this.fileLoggingEnabled = false;
     this.fileLoggingPending = this.debugMode; // Track if we need to initialize file logging later
     this.consoleLoggingEnabled = this.resolveConsoleLogging();
@@ -74,10 +88,8 @@ class DebugLogger {
         fs.mkdirSync(logsDir, { recursive: true });
       }
 
-      const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-      this.logFile = path.join(logsDir, `debug-${timestamp}.log`);
-
-      this.logStream = fs.createWriteStream(this.logFile, { flags: "a" });
+      this.pruneLogs(logsDir);
+      this.openLogFile(logsDir);
       this.fileLoggingEnabled = true;
       this.fileLoggingPending = false;
 
@@ -107,6 +119,105 @@ class DebugLogger {
   ensureFileLogging() {
     if (this.fileLoggingPending && !this.fileLoggingEnabled) {
       this.initializeFileLogging();
+    }
+  }
+
+  // `previous` is the file just left by a rotation: a new name never reuses it,
+  // even within the same millisecond (its stream may not have created it yet).
+  openLogFile(logsDir, previous = null) {
+    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+    let candidate = path.join(logsDir, `debug-${timestamp}.log`);
+    for (let n = 1; candidate === previous || fs.existsSync(candidate); n += 1) {
+      candidate = path.join(logsDir, `debug-${timestamp}-${n}.log`);
+    }
+    this.logFile = candidate;
+    this.logStream = fs.createWriteStream(this.logFile, { flags: "a" });
+    this.logBytes = 0;
+  }
+
+  /**
+   * Deletes this logger's files (debug-*.log) older than retention.maxAgeMs,
+   * then the oldest until the rest fit in retention.maxDirBytes. Never the
+   * file being written. Returns the names it deleted; a file it can't delete
+   * (another instance holds it) is skipped.
+   */
+  pruneLogs(logsDir, { now = Date.now() } = {}) {
+    const removed = [];
+    let entries;
+    try {
+      entries = fs
+        .readdirSync(logsDir)
+        .filter((name) => LOG_FILE_PATTERN.test(name))
+        .map((name) => {
+          const filePath = path.join(logsDir, name);
+          try {
+            const stats = fs.statSync(filePath);
+            return stats.isFile()
+              ? { name, filePath, size: stats.size, mtimeMs: stats.mtimeMs }
+              : null;
+          } catch {
+            return null;
+          }
+        })
+        .filter((entry) => entry && entry.filePath !== this.logFile);
+    } catch {
+      return removed;
+    }
+
+    const remove = (entry) => {
+      try {
+        fs.unlinkSync(entry.filePath);
+        removed.push(entry.name);
+        return true;
+      } catch {
+        return false;
+      }
+    };
+
+    const kept = [];
+    for (const entry of entries) {
+      if (now - entry.mtimeMs > this.retention.maxAgeMs && remove(entry)) continue;
+      kept.push(entry);
+    }
+
+    let currentBytes = 0;
+    if (this.logFile) {
+      try {
+        currentBytes = fs.statSync(this.logFile).size;
+      } catch {
+        currentBytes = this.logBytes;
+      }
+    }
+    let total = currentBytes + kept.reduce((sum, entry) => sum + entry.size, 0);
+    kept.sort((a, b) => a.mtimeMs - b.mtimeMs);
+    for (const entry of kept) {
+      if (total <= this.retention.maxDirBytes) break;
+      if (remove(entry)) total -= entry.size;
+    }
+    return removed;
+  }
+
+  // The current file reached retention.maxFileBytes: continue in a new one and
+  // apply retention again, so a long-running app stays within its budget.
+  rotateLogFile() {
+    const previous = this.logFile;
+    const stream = this.logStream;
+    if (!previous || !stream) return;
+    try {
+      const logsDir = path.dirname(previous);
+      this.logStream = null;
+      stream.end();
+      this.logFile = null;
+      const removed = this.pruneLogs(logsDir);
+      this.openLogFile(logsDir, previous);
+      this.info("Log file continued", {
+        previous: path.basename(previous),
+        ...(removed.length ? { removedOldLogs: removed.length } : {}),
+      });
+    } catch (error) {
+      this.logStream = null;
+      this.fileLoggingEnabled = false;
+      console.error("Failed to rotate the debug log:", error);
     }
   }
 
@@ -228,6 +339,8 @@ class DebugLogger {
 
     if (this.logStream) {
       this.logStream.write(logLine);
+      this.logBytes += Buffer.byteLength(logLine);
+      if (this.logBytes > this.retention.maxFileBytes) this.rotateLogFile();
     }
   }
 

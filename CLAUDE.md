@@ -449,6 +449,7 @@ Non-secret env vars persisted to `.env` (via `saveAllKeysToEnvFile()`):
 - `OPENWHISPR_CLOUD_DISABLED`: The "OpenWhispr account & Cloud" switch (`true` = off). The only copy: main owns it (see `openWhisprCloudGate.js`)
 - `GITHUB_COPILOT_LOGIN`: The GitHub login signed in to Copilot (its token is the secret `GITHUB_COPILOT_TOKEN`)
 - `DICTATION_STYLE_KEYS`: The style hotkeys (13g), a JSON object of hotkey → style id (`#` escaped as `\u0023`, since unquoted values end at `#`). Main owns it and reads it at boot, before any window exists
+- `OPENWHISPR_LOG_LEVEL`: The log level (`debug` turns on file logging, see section 11)
 
 ### 6. Language Support
 
@@ -585,9 +586,10 @@ The app can open OS-level settings for microphone permissions, sound input selec
 
 ### 11. Debug Mode
 
-Enable with `--log-level=debug` or `OPENWHISPR_LOG_LEVEL=debug` (can be set in `.env`):
+Enable with `--log-level=debug` or `OPENWHISPR_LOG_LEVEL=debug` (can be set in `.env`, which keeps it across rewrites: it is in `PERSISTED_KEYS`):
 
-- Logs saved to platform-specific app data directory
+- Logs saved to `<userData>/logs/debug-<timestamp>.log`, one file per app start
+- Kept bounded by `debugLogger.js` (`LOG_RETENTION`): at start, and whenever the current file passes 20 MB (logging continues in a new file that names the previous one), files older than 30 days are deleted, then the oldest until the folder is under 100 MB. Only `debug-*.log` files are touched, never the one being written
 - Comprehensive logging of audio pipeline
 - FFmpeg path resolution details
 - Audio level analysis

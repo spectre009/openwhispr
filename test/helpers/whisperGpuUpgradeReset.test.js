@@ -141,7 +141,7 @@ test("reset removes only the WHISPER_GPU_FAILED line; hand-added .env lines surv
       envPath,
       [
         "# OpenWhispr Environment Variables",
-        "OPENWHISPR_LOG_LEVEL=debug", // hand-added: not in PERSISTED_KEYS
+        "OPENWHISPR_LOG_LEVEL=debug", // a line this removal must leave alone
         "WHISPER_GPU_FAILED=cuda",
         "WHISPER_CUDA_ENABLED=true",
         "",
@@ -219,4 +219,19 @@ test("a saved reason survives a full .env rewrite and reads back unchanged", asy
     assert.equal(saved.WHISPER_GPU_FAILED_REASON_CUDA, KERNEL_IMAGE);
     assert.equal(saved.WHISPER_GPU_FAILED_REASON_VULKAN, DEVICE_LOST);
   });
+});
+
+test("the debug log level survives a full .env rewrite", async () => {
+  const original = process.env.OPENWHISPR_LOG_LEVEL;
+  process.env.OPENWHISPR_LOG_LEVEL = "debug";
+  try {
+    await withRealEnvironmentManager(async (envManager, envPath) => {
+      await envManager.saveAllKeysToEnvFile();
+      const saved = parseDotenv(fs.readFileSync(envPath, "utf8"));
+      assert.equal(saved.OPENWHISPR_LOG_LEVEL, "debug");
+    });
+  } finally {
+    if (original === undefined) delete process.env.OPENWHISPR_LOG_LEVEL;
+    else process.env.OPENWHISPR_LOG_LEVEL = original;
+  }
 });

@@ -69,6 +69,9 @@ const PERSISTED_KEYS = [
   "VERTEX_LOCATION",
   "OPENWHISPR_CLOUD_DISABLED",
   "GITHUB_COPILOT_LOGIN",
+  // Debug logging (debugLogger.js). Persisted so a full rewrite of .env keeps
+  // it; the logger bounds its own files.
+  "OPENWHISPR_LOG_LEVEL",
 ];
 
 // Module-level so writes are serialized across all instances — hotkeyManager
@@ -587,7 +590,7 @@ class EnvironmentManager {
 
   // Removes a single key's line from .env, preserving every other line
   // verbatim. saveAllKeysToEnvFile() would instead regenerate the file from
-  // PERSISTED_KEYS, dropping hand-added lines (e.g. OPENWHISPR_LOG_LEVEL) and
+  // PERSISTED_KEYS, dropping hand-added lines and
   // materializing session/shell env values into the file.
   removeKeyFromEnvFile(key) {
     const envPath = path.join(app.getPath("userData"), ".env");
