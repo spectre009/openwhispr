@@ -484,6 +484,9 @@ class ReasoningService extends BaseReasoningService {
     agentName: string | null = null,
     config: ReasoningConfig = {}
   ): Promise<string> {
+    // A callback must never reach a provider: some cross IPC with the config.
+    const { onDispatch, ...configWithoutHook } = config;
+    config = configWithoutHook;
     const managed = this.resolveManagedScope(model, config.provider, config, "dictationCleanup");
     ({ model, config } = managed);
     const trimmedModel = model?.trim?.() || "";
@@ -555,6 +558,12 @@ class ReasoningService extends BaseReasoningService {
     const handler = PROVIDER_REGISTRY[providerId];
     if (!handler) {
       throw new Error(`Unsupported reasoning provider: ${providerId}`);
+    }
+
+    try {
+      onDispatch?.({ provider: providerId, model: trimmedModel });
+    } catch {
+      // Recording what was dispatched must never cost the request.
     }
 
     const startTime = Date.now();

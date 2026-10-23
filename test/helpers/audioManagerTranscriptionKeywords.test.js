@@ -49,7 +49,7 @@ test("the custom dictionary rides gpt-transcribe's keywords[] channel, legacy mo
       getCustomDictionaryPrompt: () => DICTIONARY,
       getKeyterms: () => [],
       isDictionaryEcho: () => false,
-      processTranscription: async (text) => text,
+      processTranscription: async (text) => ({ text }),
       isReasoningAvailable: async () => false,
       ...overrides,
     });

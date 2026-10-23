@@ -39,7 +39,7 @@ for (const streamingCommit of [false, true]) {
       _shouldAbandonProcessingPipeline: () => false,
       shouldShowPreviewCleanupState: () => false,
       getEffectiveSttLanguage: () => "en",
-      processTranscription: async (text) => text,
+      processTranscription: async (text) => ({ text }),
       async processAudio(blob, metadata) {
         assert.strictEqual(blob, recording);
         assert.equal(metadata.streamedText, undefined);

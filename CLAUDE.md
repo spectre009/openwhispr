@@ -649,6 +649,20 @@ Improve transcription accuracy for specific words, names, or technical terms:
 - Words in the prompt are more likely to be recognized correctly
 - Useful for: uncommon names, technical jargon, brand names, domain-specific terms
 
+**One hint-list builder** (`src/utils/dictionaryHints.ts`, `buildDictionaryHints` + `resolveHintTarget`):
+
+- Selects by priority within the provider's request budget: typed (`manual`) words, then the glossary's canonical forms, then snippet triggers, then auto-learned words (`custom_dictionary.source`, mirrored by `stores/dictionarySourcesStore.ts`).
+- Whisper-family decoders keep only the prompt's **tail** (~223 tokens, `WHISPER_DECODER_PROMPT_CHARS`), so "tail" order emits the highest priority last; keyword channels, Mistral's `contextBias` and the gpt-4o transcribers get "head" order.
+- The request, the dictionary-echo check (`isDictionaryEcho(text, sent)` compares against what was actually sent) and the Dictionary page's estimated coverage ("sent, likely read / likely not read / not sent") all read the same output. Never reorder the stored dictionary by deleting and re-adding words: it syncs to OpenWhispr Cloud.
+
+### 13b. Glossary Corrections and the Post-Speech-to-Text Boundary
+
+- **Rules** live in main's local-only `glossary_rules` table (history DB, `glossary_meta` holds the set revision and the one-time seed flag), never synced. `src/helpers/glossaryRules.js` validates and seeds; IPC `glossary-get-rules` / `glossary-save-rule` / `glossary-delete-rule`, broadcast `glossary-rules-updated`; the renderer mirrors them in `stores/glossaryStore.ts`. Editor: Dictionary page → Glossary tab (`GlossaryView.tsx`).
+- **Matching** (`src/utils/glossary.ts`, pure): `anywhere` spellings everywhere; `start` spellings only as the dictation's first word(s), optionally after a kept greeting, and only when the recording's target app (Windows `exeName`, case-insensitive) is on the rule's app list. Unknown app ⇒ `anywhere` only. Snippet trigger spans win. Only canonical forms join hint lists.
+- **Target app**: `capture-dictation-target` (called from `performStartRecording` for Hold and Tap) freezes the start probe in `selectionManager.freezeRecordingTarget()`; the renderer fetches it once via `get-dictation-target-app` (`audioManager.beginRecordingTargetCapture`). `lastTarget` stays the paste path's.
+- **Boundary** (`src/helpers/postTranscription.ts`, `runPostTranscription`): exactly once per ordinary dictation (batch incl. the no-model early return, Cloud, streaming, streaming→batch fallback, retry from history, translation's source side); never meetings, note uploads, the CLI's raw transcribe or inside STT engines. Intent and routing read the raw transcript; models get the glossary-corrected working text; a failed model call keeps the corrected text; Chinese script last. Returns `{ text, trace }` (contract in the file header); the trace holds dictated text, so logs carry only rule ids and counts (`summarizeGlossaryTrace`).
+- **Auto-learn** never learns a glossary word (`_withoutGlossaryWords` in `ipcHandlers.js`).
+
 ### 14. GNOME Wayland Global Hotkeys
 
 On GNOME Wayland, Electron's `globalShortcut` API doesn't work due to Wayland's security model. OpenWhispr uses native GNOME shortcuts:

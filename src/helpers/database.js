@@ -24,6 +24,12 @@ const {
   summarizeAnalyticsDays,
 } = require("./analytics");
 const { app } = require("electron");
+const {
+  SEED_RULES: GLOSSARY_SEED_RULES,
+  newGlossaryRuleId,
+  normalizeGlossaryRuleInput,
+  glossaryRuleFromRow,
+} = require("./glossaryRules");
 
 // Server-enforced trigger cap (openwhispr-api); enforced here so one oversized
 // trigger can't 400 the whole sync batch.
@@ -1499,6 +1505,14 @@ class DatabaseManager {
       `);
       this._initVectorChangeJournal();
       try {
+        this._initGlossaryRules();
+      } catch (error) {
+        // Glossary corrections are a convenience: they must never keep the
+        // history database from opening. Without the table, dictation runs
+        // with no corrections and the editor reports it can't load them.
+        debugLogger.error("Glossary rules unavailable", { error: error.message }, "database");
+      }
+      try {
         noteUndo.initializeNoteUndo(this.db);
         this.noteUndoReady = true;
       } catch (error) {
@@ -2373,6 +2387,169 @@ class DatabaseManager {
       debugLogger.error("Error getting dictionary", { error: error.message }, "database");
       throw error;
     }
+  }
+
+  // Words with their source ('manual' typed by the user, 'learned' by
+  // auto-learn), in stored order. The speech-to-text hint list puts typed
+  // words first, and the Dictionary page lists learned ones for review.
+  getDictionaryEntries() {
+    try {
+      if (!this.db) {
+        throw new Error("Database not initialized");
+      }
+      return this.db
+        .prepare(
+          "SELECT word, source FROM custom_dictionary WHERE deleted_at IS NULL ORDER BY id ASC"
+        )
+        .all()
+        .map((row) => ({
+          word: row.word,
+          source: row.source === "learned" ? "learned" : "manual",
+        }));
+    } catch (error) {
+      debugLogger.error("Error getting dictionary entries", { error: error.message }, "database");
+      throw error;
+    }
+  }
+
+  // ─── Glossary rules ────────────────────────────────────────────────────
+  // Corrections applied to the speech-to-text output before cleanup (see
+  // glossaryRules.js). Device-wide like settings, local-only, never synced;
+  // separate from custom_dictionary, which syncs words and has no rules.
+  // glossary_meta holds one row: the set-wide revision (bumped by every
+  // create, edit and delete) and whether the first-run seed already ran, so
+  // a seed rule the user deleted never comes back.
+  _initGlossaryRules() {
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS glossary_rules (
+        id TEXT PRIMARY KEY,
+        canonical TEXT NOT NULL,
+        spellings TEXT NOT NULL DEFAULT '[]',
+        apps TEXT NOT NULL DEFAULT '[]',
+        enabled INTEGER NOT NULL DEFAULT 1,
+        revision INTEGER NOT NULL DEFAULT 1,
+        position INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE TABLE IF NOT EXISTS glossary_meta (
+        id INTEGER PRIMARY KEY CHECK (id = 1),
+        revision INTEGER NOT NULL DEFAULT 0,
+        seeded_at TEXT
+      );
+    `);
+    this.db.transaction(() => {
+      const meta = this.db.prepare("SELECT seeded_at FROM glossary_meta WHERE id = 1").get();
+      if (meta?.seeded_at) return;
+      const insert = this.db.prepare(
+        `INSERT INTO glossary_rules (id, canonical, spellings, apps, enabled, revision, position)
+         VALUES (?, ?, ?, ?, ?, 1, ?)`
+      );
+      GLOSSARY_SEED_RULES.forEach((seed, position) => {
+        const rule = normalizeGlossaryRuleInput(seed);
+        insert.run(
+          newGlossaryRuleId(),
+          rule.canonical,
+          JSON.stringify(rule.spellings),
+          JSON.stringify(rule.apps),
+          rule.enabled ? 1 : 0,
+          position
+        );
+      });
+      this.db
+        .prepare(
+          `INSERT INTO glossary_meta (id, revision, seeded_at) VALUES (1, 1, datetime('now'))
+           ON CONFLICT(id) DO UPDATE SET seeded_at = datetime('now'), revision = revision + 1`
+        )
+        .run();
+    })();
+  }
+
+  _glossaryRevision() {
+    return this.db.prepare("SELECT revision FROM glossary_meta WHERE id = 1").get()?.revision ?? 0;
+  }
+
+  _bumpGlossaryRevision() {
+    this.db
+      .prepare(
+        `INSERT INTO glossary_meta (id, revision) VALUES (1, 1)
+         ON CONFLICT(id) DO UPDATE SET revision = revision + 1`
+      )
+      .run();
+  }
+
+  /** `{ revision, rules }`: the whole rule set as one versioned snapshot. */
+  getGlossaryRules() {
+    if (!this.db) throw new Error("Database not initialized");
+    const rows = this.db
+      .prepare("SELECT * FROM glossary_rules ORDER BY position ASC, created_at ASC, id ASC")
+      .all();
+    return { revision: this._glossaryRevision(), rules: rows.map(glossaryRuleFromRow) };
+  }
+
+  /**
+   * Creates a rule (no id) or replaces an existing one's fields. Every saved
+   * change bumps the rule's revision and the set's. Throws GlossaryRuleError
+   * (with a code) on invalid input or an unknown id.
+   */
+  saveGlossaryRule(input) {
+    if (!this.db) throw new Error("Database not initialized");
+    const rule = normalizeGlossaryRuleInput(input);
+    const id = typeof input?.id === "string" && input.id ? input.id : null;
+    let savedId = id;
+    this.db.transaction(() => {
+      if (id) {
+        const result = this.db
+          .prepare(
+            `UPDATE glossary_rules
+             SET canonical = ?, spellings = ?, apps = ?, enabled = ?,
+                 revision = revision + 1, updated_at = datetime('now')
+             WHERE id = ?`
+          )
+          .run(
+            rule.canonical,
+            JSON.stringify(rule.spellings),
+            JSON.stringify(rule.apps),
+            rule.enabled ? 1 : 0,
+            id
+          );
+        if (result.changes === 0) {
+          const error = new Error("Glossary rule not found");
+          error.code = "GLOSSARY_NOT_FOUND";
+          throw error;
+        }
+      } else {
+        savedId = newGlossaryRuleId();
+        const position =
+          (this.db.prepare("SELECT MAX(position) AS max FROM glossary_rules").get()?.max ?? -1) + 1;
+        this.db
+          .prepare(
+            `INSERT INTO glossary_rules (id, canonical, spellings, apps, enabled, revision, position)
+             VALUES (?, ?, ?, ?, ?, 1, ?)`
+          )
+          .run(
+            savedId,
+            rule.canonical,
+            JSON.stringify(rule.spellings),
+            JSON.stringify(rule.apps),
+            rule.enabled ? 1 : 0,
+            position
+          );
+      }
+      this._bumpGlossaryRevision();
+    })();
+    const row = this.db.prepare("SELECT * FROM glossary_rules WHERE id = ?").get(savedId);
+    return { rule: glossaryRuleFromRow(row), snapshot: this.getGlossaryRules() };
+  }
+
+  deleteGlossaryRule(id) {
+    if (!this.db) throw new Error("Database not initialized");
+    let deleted = false;
+    this.db.transaction(() => {
+      deleted = this.db.prepare("DELETE FROM glossary_rules WHERE id = ?").run(id).changes > 0;
+      if (deleted) this._bumpGlossaryRevision();
+    })();
+    return { deleted, snapshot: this.getGlossaryRules() };
   }
 
   // Every dictionary mutation rule lives here once, so the whole-list and

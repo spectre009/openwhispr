@@ -1241,6 +1241,21 @@ class IPCHandlers {
     }
   }
 
+  // Auto-learn compares the pasted text (already glossary-corrected) with the
+  // user's edit, so undoing a correction would learn the mishearing itself
+  // ("everybody") into the hint list. No glossary word is ever learned.
+  _withoutGlossaryWords(words) {
+    if (!Array.isArray(words) || words.length === 0) return [];
+    let excluded;
+    try {
+      const { glossaryLearnExclusions } = require("./glossaryRules");
+      excluded = glossaryLearnExclusions(this.databaseManager.getGlossaryRules()?.rules);
+    } catch {
+      return words;
+    }
+    return words.filter((word) => !excluded.has(String(word).trim().toLowerCase()));
+  }
+
   _cleanupTextEditMonitor() {
     if (this._autoLearnDebounceTimer) {
       clearTimeout(this._autoLearnDebounceTimer);
@@ -1350,9 +1365,11 @@ class IPCHandlers {
     try {
       const { extractCorrections } = require("../utils/correctionLearner");
       const currentDict = this._getDictionarySafe();
-      const corrections = extractCorrections(originalText, newFieldValue, currentDict);
+      const learned = extractCorrections(originalText, newFieldValue, currentDict);
+      const corrections = this._withoutGlossaryWords(learned);
       debugLogger.debug("[AutoLearn] Corrections result", {
         corrections,
+        skippedGlossaryWords: learned.length - corrections.length,
         dictSize: currentDict.length,
       });
 
@@ -1710,8 +1727,21 @@ class IPCHandlers {
       // runs in the background: a stalled AT-SPI peer would otherwise hold the
       // microphone for seconds (#1944). Its consumers wait for it themselves.
       void this.selectionManager?.captureTarget?.();
+      // Freeze this recording's target app now: captureTarget() runs again on
+      // the stop press, and the glossary must use the app dictated into.
+      this.selectionManager?.freezeRecordingTarget?.();
       const pid = (await this.textEditMonitor?.captureTargetPid?.()) ?? null;
       return { success: true, pid };
+    });
+
+    // The frozen target app of the recording that is starting, once its probe
+    // lands: `{ exeName }`, or null when unknown (non-Windows today).
+    ipcMain.handle("get-dictation-target-app", async () => {
+      try {
+        return (await this.selectionManager?.getRecordingTargetApp?.()) ?? null;
+      } catch {
+        return null;
+      }
     });
 
     ipcMain.handle("force-stop-dictation", () => {
@@ -2084,6 +2114,43 @@ class IPCHandlers {
 
     ipcMain.handle("db-get-dictionary", async () => {
       return this.databaseManager.getDictionary();
+    });
+
+    ipcMain.handle("db-get-dictionary-entries", async () => {
+      return this.databaseManager.getDictionaryEntries();
+    });
+
+    // Glossary rules: main owns them; every window mirrors the broadcast.
+    ipcMain.handle("glossary-get-rules", async () => {
+      return this.databaseManager.getGlossaryRules();
+    });
+
+    ipcMain.handle("glossary-save-rule", async (_event, input) => {
+      try {
+        const { rule, snapshot } = this.databaseManager.saveGlossaryRule(input);
+        broadcastToWindows("glossary-rules-updated", snapshot);
+        debugLogger.debug(
+          "Glossary rule saved",
+          { ruleId: rule.id, revision: snapshot.revision, enabled: rule.enabled },
+          "glossary"
+        );
+        return { success: true, rule, snapshot };
+      } catch (error) {
+        return { success: false, error: error.message, code: error.code || null };
+      }
+    });
+
+    ipcMain.handle("glossary-delete-rule", async (_event, id) => {
+      try {
+        if (typeof id !== "string" || !id) {
+          return { success: false, error: "id must be a string", code: "GLOSSARY_INVALID" };
+        }
+        const { deleted, snapshot } = this.databaseManager.deleteGlossaryRule(id);
+        if (deleted) broadcastToWindows("glossary-rules-updated", snapshot);
+        return { success: deleted, snapshot, ...(deleted ? {} : { code: "GLOSSARY_NOT_FOUND" }) };
+      } catch (error) {
+        return { success: false, error: error.message, code: error.code || null };
+      }
     });
 
     ipcMain.handle("db-set-dictionary", async (event, words) => {

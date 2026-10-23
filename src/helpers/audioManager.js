@@ -136,6 +136,11 @@ import {
   usesTranscriptionKeywords,
 } from "../utils/dictionaryKeywords.js";
 import { getDictionaryHintWords } from "../utils/snippets";
+import { buildDictionaryHints, resolveHintTarget } from "../utils/dictionaryHints";
+import { getGlossaryCanonicalTerms } from "../utils/glossaryTerms";
+import { getGlossarySnapshot } from "../stores/glossaryStore";
+import { getLearnedDictionaryWords } from "../stores/dictionarySourcesStore";
+import { passthroughStep, runPostTranscription, summarizeGlossaryTrace } from "./postTranscription";
 import { normalizeAgentSelectionContext } from "../utils/agentSelectionContext";
 import { getAgentName } from "../utils/agentName";
 import { shouldDisplayDictationPreview } from "../utils/transcriptionPreview";
@@ -170,6 +175,14 @@ const PREVIEW_FLUSH_WATCHDOG_MS = 1000;
 const neverCancelled = () => false;
 const MIN_SPARSE_RECORDING_DURATION_SECONDS = 3;
 const MIN_UNIQUE_WORD_GAIN = 2;
+// The target-app probe gives up after 700 ms (selectionManager), so a frozen
+// target is known long before transcription ends; this only bounds a lost reply.
+const RECORDING_TARGET_WAIT_MS = 1000;
+
+// Same guard processTranscriptionCore has always used: node test harnesses
+// run without localStorage.
+const currentAgentName = () =>
+  typeof window !== "undefined" && window.localStorage ? getAgentName() : "OpenWhispr";
 
 const cleanupFailureFromError = (error) => ({
   message: error?.message || String(error),
@@ -687,6 +700,7 @@ class AudioManager {
     this.assistantSelectionContext = null;
     this.screenContextPromise = null;
     this.selectionCapturePromise = null;
+    this.recordingTargetPromise = null;
     this.sttConfig = null;
     this.sttConfigFetchedAt = null;
     this.streamingFallbackReason = null;
@@ -790,9 +804,50 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     return this.workletBlobUrl;
   }
 
-  getCustomDictionaryPrompt() {
-    const words = getDictionaryHintWords(getSettings());
-    return words.length > 0 ? words.join(", ") : null;
+  // The speech-to-text hint list. One builder (utils/dictionaryHints) for the
+  // request, the echo check and the Dictionary page: manual entries, then the
+  // glossary's canonical forms, then snippet triggers, then auto-learned
+  // entries, within the request budget and in the order the model reads.
+  getDictionaryHints({ settings = getSettings(), maxChars, order, includeSnippets } = {}) {
+    return buildDictionaryHints({
+      dictionary: settings?.customDictionary,
+      learnedWords: getLearnedDictionaryWords(),
+      glossaryTerms: getGlossaryCanonicalTerms(),
+      snippets: settings?.snippets,
+      includeSnippets,
+      maxChars,
+      order,
+    });
+  }
+
+  // Unbudgeted and in Whisper's tail order unless a request says otherwise.
+  getCustomDictionaryPrompt(options = {}) {
+    return this.getDictionaryHints(options).prompt;
+  }
+
+  // The Chinese script bias leads the prompt (mergeWhisperPrompt); a budgeted
+  // request leaves room for it before choosing terms, so a trim never drops
+  // the tail entries Whisper reads.
+  getScriptBiasReserve(settings = getSettings()) {
+    const bias = mergeWhisperPrompt(
+      null,
+      resolveChineseScriptTarget(
+        this.getEffectiveSttLanguage(settings),
+        settings.chineseScriptPreference
+      )
+    );
+    return bias ? bias.length + 1 : 0;
+  }
+
+  // The exact prompt a budgeted request sends, and its dictionary part, which
+  // the echo check compares against.
+  getSttHintPrompt(settings = getSettings(), { maxChars = Infinity, order = "tail" } = {}) {
+    const dictionaryPrompt = this.getCustomDictionaryPrompt({
+      settings,
+      maxChars: maxChars - this.getScriptBiasReserve(settings),
+      order,
+    });
+    return { dictionaryPrompt, prompt: this.getWhisperPrompt(settings, dictionaryPrompt) };
   }
 
   // Script conversion targets whatever the user ends up pasting: the translation
@@ -813,7 +868,10 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
 
   // Whisper only accepts language "zh"; script (简体/繁體) is applied here. See #975.
   // No transcript exists yet, so only an explicit zh-CN/zh-TW may bias the prompt.
-  getWhisperPrompt(settings = getSettings(), dictionaryPrompt = this.getCustomDictionaryPrompt()) {
+  getWhisperPrompt(
+    settings = getSettings(),
+    dictionaryPrompt = this.getCustomDictionaryPrompt({ settings })
+  ) {
     return mergeWhisperPrompt(
       dictionaryPrompt,
       resolveChineseScriptTarget(
@@ -845,11 +903,12 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
   // Check the dictionary on its own as well as the full prompt: the echo filter needs
   // 70% of the prompt's words to appear, and a Chinese script bias counts as one more
   // word, which alone pushes a one- or two-term dictionary under the threshold.
-  isDictionaryEcho(text) {
-    return (
-      matchesDictionaryPrompt(text, this.getCustomDictionaryPrompt()) ||
-      matchesDictionaryPrompt(text, this.getWhisperPrompt())
-    );
+  // A budgeted request passes what it actually sent (`sent`): an echo of a capped
+  // prompt only clears the 70% bar measured against that same capped list.
+  isDictionaryEcho(text, sent = null) {
+    const dictionaryPrompt = sent ? sent.dictionaryPrompt : this.getCustomDictionaryPrompt();
+    const prompt = sent ? sent.prompt : this.getWhisperPrompt();
+    return matchesDictionaryPrompt(text, dictionaryPrompt) || matchesDictionaryPrompt(text, prompt);
   }
 
   setCallbacks({
@@ -943,6 +1002,36 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     // Same for a prefetched selection: bounded to one recording, so a read taken
     // in an earlier app can never be edited in place by this command.
     this.selectionCapturePromise = null;
+    // And for the target app: a recording that never asked for its own (the
+    // agent overlay) must not inherit an earlier recording's app.
+    this.recordingTargetPromise = null;
+  }
+
+  // Asks main for the target app it froze when this recording started (see
+  // capture-dictation-target). Never awaited at start: the probe resolves while
+  // the user speaks, and the post-transcription boundary reads it.
+  beginRecordingTargetCapture() {
+    const request = window.electronAPI?.getDictationTargetApp?.();
+    this.recordingTargetPromise = request ? Promise.resolve(request).catch(() => null) : null;
+  }
+
+  // The recording's frozen target app (exe name), or null when unknown.
+  async getRecordingTargetApp() {
+    const pending = this.recordingTargetPromise;
+    if (!pending) return null;
+    let timer;
+    try {
+      const target = await Promise.race([
+        pending,
+        new Promise((resolve) => {
+          timer = setTimeout(() => resolve(null), RECORDING_TARGET_WAIT_MS);
+        }),
+      ]);
+      const exeName = typeof target?.exeName === "string" ? target.exeName.trim() : "";
+      return exeName || null;
+    } finally {
+      clearTimeout(timer);
+    }
   }
 
   setAssistantSelectionContext(context) {
@@ -2416,7 +2505,12 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
         }
         const rawText = result.text;
         const reasoningStart = performance.now();
-        const text = await this.processTranscription(result.text, "local", wasCancelled);
+        const post = await this.processTranscription(result.text, "local", wasCancelled, {
+          provider: "local-whisper",
+          model,
+          ms: timings.transcriptionProcessingDurationMs,
+        });
+        const text = post.text;
         timings.reasoningProcessingDurationMs = Math.round(performance.now() - reasoningStart);
 
         if (text !== null && text !== undefined) {
@@ -2426,6 +2520,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
             rawText,
             source: "local",
             timings,
+            trace: post.trace,
             ...(metadata.rawWav ? { decodedRawWav: true } : {}),
           };
         } else {
@@ -2526,7 +2621,12 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       if (result.success && result.text) {
         const rawText = result.text;
         const reasoningStart = performance.now();
-        const text = await this.processTranscription(result.text, "local-parakeet", wasCancelled);
+        const post = await this.processTranscription(result.text, "local-parakeet", wasCancelled, {
+          provider: "local-parakeet",
+          model,
+          ms: timings.transcriptionProcessingDurationMs,
+        });
+        const text = post.text;
         timings.reasoningProcessingDurationMs = Math.round(performance.now() - reasoningStart);
 
         if (text !== null && text !== undefined) {
@@ -2536,6 +2636,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
             rawText,
             source: "local-parakeet",
             timings,
+            trace: post.trace,
             ...(result.warning ? { warning: result.warning } : {}),
             ...(metadata.rawWav ? { decodedRawWav: true } : {}),
           };
@@ -3095,47 +3196,63 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
 
   // Cleanup-then-translate chain shared by batch, cloud, and streaming paths: Step 1
   // (optional cleanup) soft-fails to input; Step 2 translates unless source === target.
-  async runTranslationChain({ text, settings, agentName, route, cleanup }) {
+  // `recordStep` (from the post-transcription boundary) records each call it makes.
+  async runTranslationChain({
+    text,
+    settings,
+    agentName,
+    route,
+    cleanup,
+    recordStep = passthroughStep,
+  }) {
     const runCleanup = async (currentText) => {
       if (cleanup.mode === "cloudReason") {
-        const customPrompt = this.getCustomPrompt();
-        const reasonResult = await withSessionRefresh(async () => {
-          const res = await window.electronAPI.cloudReason(currentText, {
-            agentName,
-            promptMode: "cleanup",
-            purpose: "cleanup",
-            customDictionary: getDictionaryHintWords(settings),
-            customPrompt,
-            language: this.getCleanupLanguage(settings),
-            locale: settings.uiLanguage || "en",
-            ...(cleanup.meta || {}),
+        return recordStep("cleanup", { provider: "openwhispr" }, async (dispatched) => {
+          const customPrompt = this.getCustomPrompt();
+          const reasonResult = await withSessionRefresh(async () => {
+            const res = await window.electronAPI.cloudReason(currentText, {
+              agentName,
+              promptMode: "cleanup",
+              purpose: "cleanup",
+              customDictionary: getDictionaryHintWords(settings),
+              customPrompt,
+              language: this.getCleanupLanguage(settings),
+              locale: settings.uiLanguage || "en",
+              ...(cleanup.meta || {}),
+            });
+            if (!res.success) {
+              const err = new Error(res.error || "Cloud reasoning failed");
+              err.code = res.code;
+              throw err;
+            }
+            return res;
           });
-          if (!res.success) {
-            const err = new Error(res.error || "Cloud reasoning failed");
-            err.code = res.code;
-            throw err;
+          dispatched({ model: reasonResult.model });
+          if (!customPrompt && hasTextContent(reasonResult.text)) {
+            assertValidCleanupOutput(currentText, reasonResult.text);
           }
-          return res;
+          return reasonResult.success && reasonResult.text ? reasonResult.text : null;
         });
-        if (!customPrompt && hasTextContent(reasonResult.text)) {
-          assertValidCleanupOutput(currentText, reasonResult.text);
-        }
-        return reasonResult.success && reasonResult.text ? reasonResult.text : null;
       }
       const cleanupModel = cleanup.model;
       if (cleanupModel) {
-        return this.processWithReasoningModel(
-          currentText,
-          cleanupModel,
-          agentName,
-          route.cleanupConfig
+        return recordStep("cleanup", {}, (dispatched) =>
+          this.processWithReasoningModel(currentText, cleanupModel, agentName, {
+            ...route.cleanupConfig,
+            onDispatch: dispatched,
+          })
         );
       }
       return null;
     };
 
     const runTranslate = async (currentText) =>
-      this.processWithReasoningModel(currentText, route.model, agentName, route.config);
+      recordStep("translation", {}, (dispatched) =>
+        this.processWithReasoningModel(currentText, route.model, agentName, {
+          ...route.config,
+          onDispatch: dispatched,
+        })
+      );
 
     try {
       const chainResult = await executeTranslationChain({
@@ -3181,14 +3298,87 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     }
   }
 
-  async processTranscription(text, source, wasCancelled = neverCancelled) {
-    const result = await this.processTranscriptionCore(text, source, wasCancelled);
-    if (wasCancelled()) return result;
-    return this.finalizeChineseScript(result);
+  // The post-speech-to-text boundary for this manager's dictations (see
+  // helpers/postTranscription.ts for the contract). `run` routes on `rawText`
+  // and works on `workingText`; it returns the text to paste before the
+  // Chinese script pass, which the boundary applies last. Returns
+  // `{ text, trace }`; the trace travels on the result object.
+  async postTranscribe(
+    rawText,
+    {
+      source,
+      settings = getSettings(),
+      wasCancelled = neverCancelled,
+      stt = null,
+      detectedLanguage,
+      run,
+    }
+  ) {
+    const agentName = currentAgentName();
+    const targetApp = await this.getRecordingTargetApp();
+    const result = await runPostTranscription(rawText, {
+      context: {
+        targetApp,
+        voiceAgentRequested: this.voiceAgentRequested,
+        translationRequested: this.translationRequested,
+      },
+      glossary: getGlossarySnapshot(),
+      snippets: settings?.snippets,
+      stt,
+      detectWakeWord: (text) =>
+        !!agentName &&
+        detectAgentName(
+          text,
+          agentName,
+          resolveWakeWordLanguage(settings, detectedLanguage, text),
+          settings?.snippets
+        ),
+      run,
+      finalize: (text) => this.finalizeChineseScript(text, settings),
+      wasCancelled,
+    });
+    // Rule ids and counts only: the trace holds dictated text and never reaches a log.
+    const glossary = summarizeGlossaryTrace(result.trace);
+    if (glossary.fired > 0) {
+      logger.info("Glossary corrections applied", { source, ...glossary }, "transcription");
+    } else {
+      logger.debug(
+        "Glossary: no corrections",
+        { source, ...glossary, targetApp: result.trace.context.targetApp },
+        "transcription"
+      );
+    }
+    return result;
   }
 
-  async processTranscriptionCore(text, source, wasCancelled = neverCancelled) {
+  // Batch dictation's boundary call: local, BYOK, proxied and local-fallback
+  // transcripts. Returns `{ text, trace }`.
+  async processTranscription(text, source, wasCancelled = neverCancelled, stt = null) {
+    return this.postTranscribe(text, {
+      source,
+      wasCancelled,
+      stt,
+      run: ({ rawText, workingText, recordStep, setRoute }) =>
+        this.processTranscriptionCore(rawText, source, wasCancelled, {
+          workingText,
+          recordStep,
+          setRoute,
+        }),
+    });
+  }
+
+  // Routes on `text` (the raw transcript: wake word, voice assistant,
+  // translation) and runs cleanup, translation or the agent on `workingText`
+  // (the glossary-corrected transcript; the raw one when called directly).
+  // Every fallback keeps the working text.
+  async processTranscriptionCore(
+    text,
+    source,
+    wasCancelled = neverCancelled,
+    { workingText, recordStep = passthroughStep, setRoute = () => {} } = {}
+  ) {
     const normalizedText = typeof text === "string" ? text.trim() : "";
+    const input = typeof workingText === "string" ? workingText.trim() : normalizedText;
 
     if (!normalizedText) {
       logger.logReasoning("TRANSCRIPTION_EMPTY_SKIPPING_REASONING", {
@@ -3197,7 +3387,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       });
       return normalizedText;
     }
-    if (wasCancelled()) return normalizedText;
+    if (wasCancelled()) return input;
 
     logger.logReasoning("TRANSCRIPTION_RECEIVED", {
       source,
@@ -3212,8 +3402,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     const cleanupProvider = settings.cleanupProvider || "auto";
     const cleanupReachable = !!settings.useCleanupModel && (!!cleanupModel || isCloud);
     const agentReachable = dictationAgentReachable(settings);
-    const agentName =
-      typeof window !== "undefined" && window.localStorage ? getAgentName() : "OpenWhispr";
+    const agentName = currentAgentName();
     if (
       !cleanupReachable &&
       !agentReachable &&
@@ -3225,11 +3414,12 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       logger.logReasoning("REASONING_SKIPPED", {
         reason: "No cleanup or dictation-agent model available",
       });
-      return normalizedText;
+      setRoute("none");
+      return input;
     }
 
     const useReasoning = this.voiceAgentRequested || (await this.isReasoningAvailable());
-    if (wasCancelled()) return normalizedText;
+    if (wasCancelled()) return input;
 
     logger.logReasoning("REASONING_CHECK", {
       useReasoning,
@@ -3250,14 +3440,15 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
           this.translationRequested,
           screenContext
         );
+        setRoute(route.kind);
         if (this.translationRequested && route.kind !== "translation") {
           this.notifyTranslationFallback("unreachable");
         }
-        if (route.kind === "skip") return normalizedText;
+        if (route.kind === "skip") return input;
 
         if (route.kind === "translation") {
           const { text: translatedText } = await this.runTranslationChain({
-            text: normalizedText,
+            text: input,
             settings,
             agentName,
             route,
@@ -3266,6 +3457,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
               model: cleanupModel,
               log: { level: "warn", channel: "notes", extra: { source } },
             },
+            recordStep,
           });
 
           logger.logReasoning("REASONING_SUCCESS", {
@@ -3282,7 +3474,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
         const reasoningConfig = route.config;
 
         logger.logReasoning("SENDING_TO_REASONING", {
-          preparedTextLength: normalizedText.length,
+          preparedTextLength: input.length,
           model: targetModel,
           provider: route.config?.provider || cleanupProvider,
           path: route.kind,
@@ -3291,21 +3483,24 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
 
         const result =
           route.kind === "agent"
-            ? await this.processAgentCommand(
-                normalizedText,
-                targetModel,
-                agentName,
-                {
-                  ...reasoningConfig,
-                  requiresAgent: true,
-                },
-                wasCancelled
+            ? await recordStep("agent", {}, (dispatched) =>
+                this.processAgentCommand(
+                  input,
+                  targetModel,
+                  agentName,
+                  {
+                    ...reasoningConfig,
+                    requiresAgent: true,
+                    onDispatch: dispatched,
+                  },
+                  wasCancelled
+                )
               )
-            : await this.processWithReasoningModel(
-                normalizedText,
-                targetModel,
-                agentName,
-                reasoningConfig
+            : await recordStep("cleanup", {}, (dispatched) =>
+                this.processWithReasoningModel(input, targetModel, agentName, {
+                  ...reasoningConfig,
+                  onDispatch: dispatched,
+                })
               );
 
         logger.logReasoning("REASONING_SUCCESS", {
@@ -3315,10 +3510,10 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
         });
 
         // A blank reply must not wipe the dictation — keep the transcript (#1616).
-        return hasTextContent(result) ? result : normalizedText;
+        return hasTextContent(result) ? result : input;
       } catch (error) {
         if (error.selectionEditFatal) throw error;
-        if (wasCancelled()) return normalizedText;
+        if (wasCancelled()) return input;
         logger.logReasoning("REASONING_FAILED", {
           error: error.message,
           stack: error.stack,
@@ -3328,13 +3523,16 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
         if (route?.kind === "cleanup") this.pendingCleanupFailure = cleanupFailureFromError(error);
         if (route?.kind === "agent") this._notifyAgentReasoningFailed();
       }
+    } else {
+      setRoute("none");
     }
 
     logger.logReasoning("USING_STANDARD_CLEANUP", {
       reason: useReasoning ? "Reasoning failed" : "Reasoning not enabled",
     });
 
-    return normalizedText;
+    // The corrected transcript is the floor: a failed call never undoes the glossary.
+    return input;
   }
 
   shouldStreamTranscription(model, provider) {
@@ -3538,8 +3736,14 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       opts.sendLogs = "false";
     }
 
-    const dictionaryPrompt = this.getWhisperPrompt(settings);
-    if (dictionaryPrompt) opts.prompt = dictionaryPrompt;
+    // Cloud picks its model server-side, so the hint list is budgeted to the
+    // tightest cap a Whisper backend applies (see resolveHintTarget).
+    const hintTarget = resolveHintTarget({ engine: "cloud" });
+    const sentHints = this.getSttHintPrompt(settings, {
+      maxChars: hintTarget.maxChars,
+      order: hintTarget.order,
+    });
+    if (sentHints.prompt) opts.prompt = sentHints.prompt;
 
     // Use withSessionRefresh to handle AUTH_EXPIRED automatically
     const transcriptionStart = performance.now();
@@ -3560,140 +3764,165 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     timings.transcriptionProcessingDurationMs = Math.round(performance.now() - transcriptionStart);
 
     const rawText = result.text;
-    if (this.isDictionaryEcho(rawText)) {
+    if (this.isDictionaryEcho(rawText, sentHints)) {
       throw dictionaryEchoError();
     }
-    let processedText = result.text;
-    if (processedText) {
-      const reasoningStart = performance.now();
-      const agentName = getAgentName();
-      const screenContext = this.voiceAgentRequested ? await this.consumeScreenContext() : null;
-      const route = resolveReasoningRoute(
-        processedText,
-        settings,
-        agentName,
-        this.voiceAgentRequested,
-        this.translationRequested,
-        screenContext,
-        result.sttLanguage
-      );
-      if (this.translationRequested && route.kind !== "translation") {
-        this.notifyTranslationFallback("unreachable");
-      }
-      const cleanupCloudMode = settings.cleanupCloudMode || "openwhispr";
+    const post = await this.postTranscribe(rawText, {
+      source: "openwhispr",
+      settings,
+      wasCancelled,
+      detectedLanguage: result.sttLanguage,
+      stt: {
+        provider: result.sttProvider || "openwhispr",
+        model: result.sttModel || null,
+        ms: timings.transcriptionProcessingDurationMs,
+      },
+      run: async ({ rawText: routeText, workingText, recordStep, setRoute }) => {
+        let processedText = workingText;
+        if (!processedText) return processedText;
+        const reasoningStart = performance.now();
+        const agentName = getAgentName();
+        const screenContext = this.voiceAgentRequested ? await this.consumeScreenContext() : null;
+        const route = resolveReasoningRoute(
+          routeText,
+          settings,
+          agentName,
+          this.voiceAgentRequested,
+          this.translationRequested,
+          screenContext,
+          result.sttLanguage
+        );
+        setRoute(route.kind);
+        if (this.translationRequested && route.kind !== "translation") {
+          this.notifyTranslationFallback("unreachable");
+        }
 
-      try {
-        if (route.kind === "agent") {
-          const reasoned = await this.processAgentCommand(
-            processedText,
-            route.model,
-            agentName,
-            {
-              ...route.config,
-              requiresAgent: true,
-            },
-            wasCancelled
-          );
-          if (hasTextContent(reasoned)) processedText = reasoned;
-        } else if (route.kind === "cleanup" && cleanupCloudMode === "openwhispr") {
-          const customPrompt = this.getCustomPrompt();
-          const reasonResult = await withSessionRefresh(async () => {
-            const res = await window.electronAPI.cloudReason(processedText, {
-              agentName,
-              promptMode: "cleanup",
-              purpose: "cleanup",
-              customDictionary: getDictionaryHintWords(settings),
-              customPrompt,
-              language: this.getCleanupLanguage(settings),
-              locale: settings.uiLanguage || "en",
-              streamingFallbackReason,
-              ...detectedLanguageFields,
-              sttProvider: result.sttProvider,
-              sttModel: result.sttModel,
-              sttProcessingMs: result.sttProcessingMs,
-              sttWordCount: result.sttWordCount,
-              sttLanguage: result.sttLanguage,
-              audioDurationMs: result.audioDurationMs,
-              audioSizeBytes,
-              audioFormat,
-            });
-            if (!res.success) {
-              const err = new Error(res.error || "Cloud reasoning failed");
-              err.code = res.code;
-              throw err;
-            }
-            return res;
-          });
-
-          // Cloud cleanup can return success with empty text; keep the raw transcription instead of wiping it.
-          if (reasonResult.success && hasTextContent(reasonResult.text)) {
-            if (!customPrompt) assertValidCleanupOutput(processedText, reasonResult.text);
-            processedText = reasonResult.text;
-          }
-        } else if (route.kind === "cleanup") {
-          const effectiveModel = getEffectiveCleanupModel();
-          if (effectiveModel) {
-            const reasoned = await this.processWithReasoningModel(
-              processedText,
-              effectiveModel,
-              agentName,
-              route.config
+        try {
+          if (route.kind === "agent") {
+            const reasoned = await recordStep("agent", {}, (dispatched) =>
+              this.processAgentCommand(
+                processedText,
+                route.model,
+                agentName,
+                {
+                  ...route.config,
+                  requiresAgent: true,
+                  onDispatch: dispatched,
+                },
+                wasCancelled
+              )
             );
             if (hasTextContent(reasoned)) processedText = reasoned;
-          }
-        } else if (route.kind === "translation") {
-          const chainResult = await this.runTranslationChain({
-            text: processedText,
-            settings,
-            agentName,
-            route,
-            cleanup:
-              cleanupCloudMode === "openwhispr"
-                ? {
-                    mode: "cloudReason",
-                    meta: {
-                      streamingFallbackReason,
-                      ...detectedLanguageFields,
-                      sttProvider: result.sttProvider,
-                      sttModel: result.sttModel,
-                      sttProcessingMs: result.sttProcessingMs,
-                      sttWordCount: result.sttWordCount,
-                      sttLanguage: result.sttLanguage,
-                      audioDurationMs: result.audioDurationMs,
-                      audioSizeBytes,
-                      audioFormat,
-                    },
-                    log: { level: "error", channel: "transcription" },
+          } else if (route.kind === "cleanup" && cleanupCloudMode === "openwhispr") {
+            const cleaned = await recordStep(
+              "cleanup",
+              { provider: "openwhispr" },
+              async (dispatched) => {
+                const customPrompt = this.getCustomPrompt();
+                const reasonResult = await withSessionRefresh(async () => {
+                  const res = await window.electronAPI.cloudReason(processedText, {
+                    agentName,
+                    promptMode: "cleanup",
+                    purpose: "cleanup",
+                    customDictionary: getDictionaryHintWords(settings),
+                    customPrompt,
+                    language: this.getCleanupLanguage(settings),
+                    locale: settings.uiLanguage || "en",
+                    streamingFallbackReason,
+                    ...detectedLanguageFields,
+                    sttProvider: result.sttProvider,
+                    sttModel: result.sttModel,
+                    sttProcessingMs: result.sttProcessingMs,
+                    sttWordCount: result.sttWordCount,
+                    sttLanguage: result.sttLanguage,
+                    audioDurationMs: result.audioDurationMs,
+                    audioSizeBytes,
+                    audioFormat,
+                  });
+                  if (!res.success) {
+                    const err = new Error(res.error || "Cloud reasoning failed");
+                    err.code = res.code;
+                    throw err;
                   }
-                : {
-                    mode: "model",
-                    model: getEffectiveCleanupModel(),
-                    log: { level: "error", channel: "transcription" },
-                  },
-          });
-          processedText = resolveTranslatedText(processedText, chainResult);
-        }
-      } catch (reasonError) {
-        if (reasonError.selectionEditFatal) throw reasonError;
-        if (!wasCancelled()) {
-          logger.error(
-            "Cloud reasoning failed, using raw transcription",
-            { error: reasonError.message },
-            "transcription"
-          );
-          if (route.kind === "cleanup") {
-            this.pendingCleanupFailure = cleanupFailureFromError(reasonError);
-          }
-          if (route.kind === "agent") this._notifyAgentReasoningFailed();
-        }
-      }
-      timings.reasoningProcessingDurationMs = Math.round(performance.now() - reasoningStart);
-    }
+                  return res;
+                });
+                dispatched({ model: reasonResult.model });
 
+                // Cloud cleanup can return success with empty text; keep the
+                // transcription instead of wiping it.
+                if (!(reasonResult.success && hasTextContent(reasonResult.text))) return null;
+                if (!customPrompt) assertValidCleanupOutput(processedText, reasonResult.text);
+                return reasonResult.text;
+              }
+            );
+            if (hasTextContent(cleaned)) processedText = cleaned;
+          } else if (route.kind === "cleanup") {
+            const effectiveModel = getEffectiveCleanupModel();
+            if (effectiveModel) {
+              const reasoned = await recordStep("cleanup", {}, (dispatched) =>
+                this.processWithReasoningModel(processedText, effectiveModel, agentName, {
+                  ...route.config,
+                  onDispatch: dispatched,
+                })
+              );
+              if (hasTextContent(reasoned)) processedText = reasoned;
+            }
+          } else if (route.kind === "translation") {
+            const chainResult = await this.runTranslationChain({
+              text: processedText,
+              settings,
+              agentName,
+              route,
+              cleanup:
+                cleanupCloudMode === "openwhispr"
+                  ? {
+                      mode: "cloudReason",
+                      meta: {
+                        streamingFallbackReason,
+                        ...detectedLanguageFields,
+                        sttProvider: result.sttProvider,
+                        sttModel: result.sttModel,
+                        sttProcessingMs: result.sttProcessingMs,
+                        sttWordCount: result.sttWordCount,
+                        sttLanguage: result.sttLanguage,
+                        audioDurationMs: result.audioDurationMs,
+                        audioSizeBytes,
+                        audioFormat,
+                      },
+                      log: { level: "error", channel: "transcription" },
+                    }
+                  : {
+                      mode: "model",
+                      model: getEffectiveCleanupModel(),
+                      log: { level: "error", channel: "transcription" },
+                    },
+              recordStep,
+            });
+            processedText = resolveTranslatedText(processedText, chainResult);
+          }
+        } catch (reasonError) {
+          if (reasonError.selectionEditFatal) throw reasonError;
+          if (!wasCancelled()) {
+            logger.error(
+              "Cloud reasoning failed, using the corrected transcription",
+              { error: reasonError.message },
+              "transcription"
+            );
+            if (route.kind === "cleanup") {
+              this.pendingCleanupFailure = cleanupFailureFromError(reasonError);
+            }
+            if (route.kind === "agent") this._notifyAgentReasoningFailed();
+          }
+        }
+        timings.reasoningProcessingDurationMs = Math.round(performance.now() - reasoningStart);
+        return processedText;
+      },
+    });
     return {
       success: true,
-      text: await this.finalizeChineseScript(processedText, settings),
+      text: post.text,
       rawText,
+      trace: post.trace,
       source: "openwhispr",
       timings,
       limitReached: result.limitReached,
@@ -3713,8 +3942,11 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     return getSettings().customPrompts.cleanup || undefined;
   }
 
+  // Keyterm channels (Gemini, xAI, the streaming providers) cap the list at its
+  // head, so they get it priority-first: typed words, the glossary's canonical
+  // forms, then learned words. Snippet triggers were never keyterms.
   getKeyterms() {
-    return this.getCustomDictionaryArray();
+    return this.getDictionaryHints({ order: "head", includeSnippets: false }).terms;
   }
 
   async processWithOpenAIAPI(audioBlob, metadata = {}, wasCancelled = neverCancelled) {
@@ -3771,6 +4003,12 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
           throw new Error(`${proxySpec.displayName} transcription is unavailable in this window`);
         }
         const apiCallStart = performance.now();
+        // Mistral's contextBias keeps the first 100 words of the prompt, so it
+        // gets the list in priority-first order; the others read it whole.
+        const proxyDictionaryPrompt = this.getCustomDictionaryPrompt({
+          settings: apiSettings,
+          order: !managedResolution && provider === "mistral" ? "head" : "tail",
+        });
         const proxyPayload = proxySpec.buildPayload({
           audioBuffer: await optimizedAudio.arrayBuffer(),
           model,
@@ -3778,7 +4016,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
           apiSettings,
           managedResolution,
           mimeType: optimizedAudio.type || "audio/webm",
-          dictionaryPrompt: this.getWhisperPrompt(apiSettings),
+          dictionaryPrompt: this.getWhisperPrompt(apiSettings, proxyDictionaryPrompt),
           keyterms: this.getKeyterms()
             .map((t) => t.trim().slice(0, 50))
             .filter(Boolean)
@@ -3804,18 +4042,43 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
         if (!proxyText?.trim()) {
           throw new Error(`No text transcribed - ${proxySpec.displayName} response was empty`);
         }
-        if (payloadSendsDictionaryBias(proxyPayload) && this.isDictionaryEcho(proxyText)) {
+        // Echoes are measured against the bias this payload actually carried
+        // (Mistral's capped contextBias, the capped keyterms, or the prompt):
+        // an echo of a capped list only clears the bar against that same list.
+        const proxySentHints = {
+          prompt: typeof proxyPayload.prompt === "string" ? proxyPayload.prompt : null,
+          dictionaryPrompt: Array.isArray(proxyPayload.contextBias)
+            ? proxyPayload.contextBias.join(" ")
+            : Array.isArray(proxyPayload.keyterms)
+              ? proxyPayload.keyterms.join(", ")
+              : proxyDictionaryPrompt,
+        };
+        if (
+          payloadSendsDictionaryBias(proxyPayload) &&
+          this.isDictionaryEcho(proxyText, proxySentHints)
+        ) {
           throw dictionaryEchoError();
         }
         timings.transcriptionProcessingDurationMs = Math.round(performance.now() - apiCallStart);
         const reasoningStart = performance.now();
-        const text = await this.processTranscription(proxyText, providerName, wasCancelled);
+        const post = await this.processTranscription(proxyText, providerName, wasCancelled, {
+          provider: providerName,
+          model: result?.model || (managedResolution ? null : model),
+          ms: timings.transcriptionProcessingDurationMs,
+        });
         timings.reasoningProcessingDurationMs = Math.round(performance.now() - reasoningStart);
 
         const source = (await this.isReasoningAvailable())
           ? `${providerName}-reasoned`
           : providerName;
-        return { success: true, text, rawText: proxyText, source, timings };
+        return {
+          success: true,
+          text: post.text,
+          rawText: proxyText,
+          source,
+          timings,
+          trace: post.trace,
+        };
       }
 
       // Some Custom endpoints decode the upload and reject anything that isn't
@@ -3883,14 +4146,22 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       // dictionaryKeywords), so its prompt carries only the Chinese script bias and
       // the terms past the keyword cap.
       const usesKeywords = usesTranscriptionKeywords(model);
-      const dictionary = this.getCustomDictionaryPrompt();
 
       // Prompt budgets follow each provider's real limit (see dictionaryPromptCap):
       // Groq's 896-char request cap, the Whisper decoders' window, and a far
       // larger context guard for the 4o transcribe models, which are LLMs and
-      // read the whole thing. The cut is a request bound, not a priority rule:
-      // Whisper decoders read the tail of whatever they are given.
+      // read the whole thing. The hint builder selects by priority within that
+      // budget and orders the list so Whisper decoders, which read the tail,
+      // read the priority terms; the trim below is only a safety bound.
       const MAX_PROMPT_CHARS = dictionaryPromptLimit({ provider, endpoint, model });
+      const hintTarget = resolveHintTarget({ engine: "byok", provider, endpoint, model });
+      const dictionary = this.getCustomDictionaryPrompt({
+        settings: apiSettings,
+        maxChars: usesKeywords
+          ? Infinity
+          : MAX_PROMPT_CHARS - this.getScriptBiasReserve(apiSettings),
+        order: hintTarget.order,
+      });
       const trimmedPrompt = trimDictionaryPrompt(
         this.getWhisperPrompt(
           apiSettings,
@@ -3899,7 +4170,13 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
         MAX_PROMPT_CHARS
       );
       const dictionaryPrompt = trimmedPrompt.prompt;
-      if (dictionaryPrompt && model !== "orukeet-v0.1.0") {
+      const promptSent = Boolean(dictionaryPrompt && model !== "orukeet-v0.1.0");
+      // What this request actually carried, for the echo check below.
+      const sentHints = {
+        prompt: promptSent ? dictionaryPrompt : null,
+        dictionaryPrompt: usesKeywords || promptSent ? dictionary : null,
+      };
+      if (promptSent) {
         if (trimmedPrompt.truncated) {
           logger.debug(
             "Custom dictionary prompt truncated",
@@ -4069,14 +4346,19 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
 
       // Check for text - handle both empty string and missing field
       if (result.text && result.text.trim().length > 0) {
-        if (this.isDictionaryEcho(result.text)) {
+        if (this.isDictionaryEcho(result.text, sentHints)) {
           throw dictionaryEchoError();
         }
         timings.transcriptionProcessingDurationMs = Math.round(performance.now() - apiCallStart);
         const rawText = result.text;
 
         const reasoningStart = performance.now();
-        const text = await this.processTranscription(result.text, "openai", wasCancelled);
+        const post = await this.processTranscription(result.text, "openai", wasCancelled, {
+          provider: route?.provider || provider,
+          model: route?.model ?? model,
+          ms: timings.transcriptionProcessingDurationMs,
+        });
+        const text = post.text;
         timings.reasoningProcessingDurationMs = Math.round(performance.now() - reasoningStart);
 
         const source = (await this.isReasoningAvailable()) ? "openai-reasoned" : "openai";
@@ -4091,7 +4373,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
           },
           "transcription"
         );
-        return { success: true, text, rawText, source, timings };
+        return { success: true, text, rawText, source, timings, trace: post.trace };
       } else {
         // Log at info level so it shows without debug mode
         logger.info(
@@ -4148,13 +4430,19 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
           const result = await window.electronAPI.transcribeLocalWhisper(arrayBuffer, options);
 
           if (result.success && result.text) {
-            const text = await this.processTranscription(
+            const post = await this.processTranscription(
               result.text,
               "local-fallback",
-              wasCancelled
+              wasCancelled,
+              { provider: "local-whisper", model: fallbackModel }
             );
-            if (text) {
-              return { success: true, text, source: "local-fallback" };
+            if (post.text) {
+              return {
+                success: true,
+                text: post.text,
+                source: "local-fallback",
+                trace: post.trace,
+              };
             }
           }
           throw error;
@@ -5635,159 +5923,200 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     }
 
     let usedCloudReasoning = false;
-    // The Cloud batch path already ran its own cleanup, agent or translation.
+    let streamingTrace = null;
+    // The Cloud batch path already ran its own boundary (glossary, cleanup,
+    // agent or translation); the streamed text gets exactly one here.
     if (finalText && !usedBatchFallback) {
-      const reasoningStart = performance.now();
-      const agentName = getAgentName();
-      const screenContext = this.voiceAgentRequested ? await this.consumeScreenContext() : null;
-      if (wasCancelled()) return true;
-      const route = resolveReasoningRoute(
-        finalText,
-        stSettings,
-        agentName,
-        this.voiceAgentRequested,
-        this.translationRequested,
-        screenContext,
-        streamingSttLanguage
-      );
-      if (this.translationRequested && route.kind !== "translation") {
-        this.notifyTranslationFallback("unreachable");
-      }
       const cleanupCloudMode = stSettings.cleanupCloudMode || "openwhispr";
-
+      let post;
       try {
-        if (route.kind === "agent") {
-          const reasoned = await this.processAgentCommand(
-            finalText,
-            route.model,
-            agentName,
-            {
-              ...route.config,
-              requiresAgent: true,
-            },
-            wasCancelled
-          );
-          if (hasTextContent(reasoned)) finalText = reasoned;
-          logger.info(
-            "Streaming dictation-agent complete",
-            { reasoningDurationMs: Math.round(performance.now() - reasoningStart) },
-            "streaming"
-          );
-        } else if (route.kind === "cleanup" && cleanupCloudMode === "openwhispr") {
-          const customPrompt = this.getCustomPrompt();
-          const reasonResult = await withSessionRefresh(async () => {
-            const res = await window.electronAPI.cloudReason(finalText, {
+        post = await this.postTranscribe(finalText, {
+          source: "streaming",
+          settings: stSettings,
+          wasCancelled,
+          detectedLanguage: streamingSttLanguage,
+          stt: {
+            provider: this.getStreamingProviderName(),
+            model: streamingSttModel,
+            ms: streamingSttProcessingMs,
+          },
+          run: async ({ rawText: routeText, workingText, recordStep, setRoute }) => {
+            let text = workingText;
+            const reasoningStart = performance.now();
+            const agentName = getAgentName();
+            const screenContext = this.voiceAgentRequested
+              ? await this.consumeScreenContext()
+              : null;
+            if (wasCancelled()) return text;
+            const route = resolveReasoningRoute(
+              routeText,
+              stSettings,
               agentName,
-              promptMode: "cleanup",
-              purpose: "cleanup",
-              customDictionary: getDictionaryHintWords(stSettings),
-              customPrompt,
-              language: this.getCleanupLanguage(stSettings),
-              locale: stSettings.uiLanguage || "en",
-              sttProvider: this.getStreamingProviderName(),
-              sttModel: streamingSttModel,
-              sttProcessingMs: streamingSttProcessingMs,
-              sttWordCount: streamingSttWordCount,
-              sttLanguage: streamingSttLanguage,
-              ...detectedLanguageFields,
-              audioDurationMs: durationSeconds ? Math.round(durationSeconds * 1000) : undefined,
-              audioSizeBytes: streamingAudioBytesSent || undefined,
-              audioFormat: "linear16",
-            });
-            if (!res.success) {
-              const err = new Error(res.error || "Cloud reasoning failed");
-              err.code = res.code;
-              throw err;
+              this.voiceAgentRequested,
+              this.translationRequested,
+              screenContext,
+              streamingSttLanguage
+            );
+            setRoute(route.kind);
+            if (this.translationRequested && route.kind !== "translation") {
+              this.notifyTranslationFallback("unreachable");
             }
-            return res;
-          });
 
-          usedCloudReasoning = true;
-          if (reasonResult.success && hasTextContent(reasonResult.text)) {
-            if (!customPrompt) assertValidCleanupOutput(finalText, reasonResult.text);
-            finalText = reasonResult.text;
-          }
-
-          logger.info(
-            "Streaming reasoning complete",
-            {
-              reasoningDurationMs: Math.round(performance.now() - reasoningStart),
-              model: reasonResult.model,
-            },
-            "streaming"
-          );
-        } else if (route.kind === "cleanup") {
-          const effectiveModel = getEffectiveCleanupModel();
-          if (effectiveModel) {
-            const reasoned = await this.processWithReasoningModel(
-              finalText,
-              effectiveModel,
-              agentName,
-              route.config
-            );
-            if (hasTextContent(reasoned)) finalText = reasoned;
-            logger.info(
-              "Streaming BYOK reasoning complete",
-              { reasoningDurationMs: Math.round(performance.now() - reasoningStart) },
-              "streaming"
-            );
-          }
-        } else if (route.kind === "translation") {
-          const chainResult = await this.runTranslationChain({
-            text: finalText,
-            settings: stSettings,
-            agentName,
-            route,
-            cleanup:
-              cleanupCloudMode === "openwhispr"
-                ? {
-                    mode: "cloudReason",
-                    meta: {
-                      sttProvider: this.getStreamingProviderName(),
-                      sttModel: streamingSttModel,
-                      sttProcessingMs: streamingSttProcessingMs,
-                      sttWordCount: streamingSttWordCount,
-                      sttLanguage: streamingSttLanguage,
-                      ...detectedLanguageFields,
-                      audioDurationMs: durationSeconds
-                        ? Math.round(durationSeconds * 1000)
-                        : undefined,
-                      audioSizeBytes: streamingAudioBytesSent || undefined,
-                      audioFormat: "linear16",
+            try {
+              if (route.kind === "agent") {
+                const reasoned = await recordStep("agent", {}, (dispatched) =>
+                  this.processAgentCommand(
+                    text,
+                    route.model,
+                    agentName,
+                    {
+                      ...route.config,
+                      requiresAgent: true,
+                      onDispatch: dispatched,
                     },
-                    log: { level: "error", channel: "streaming" },
+                    wasCancelled
+                  )
+                );
+                if (hasTextContent(reasoned)) text = reasoned;
+                logger.info(
+                  "Streaming dictation-agent complete",
+                  { reasoningDurationMs: Math.round(performance.now() - reasoningStart) },
+                  "streaming"
+                );
+              } else if (route.kind === "cleanup" && cleanupCloudMode === "openwhispr") {
+                let cloudModel = null;
+                const cleaned = await recordStep(
+                  "cleanup",
+                  { provider: "openwhispr" },
+                  async (dispatched) => {
+                    const customPrompt = this.getCustomPrompt();
+                    const reasonResult = await withSessionRefresh(async () => {
+                      const res = await window.electronAPI.cloudReason(text, {
+                        agentName,
+                        promptMode: "cleanup",
+                        purpose: "cleanup",
+                        customDictionary: getDictionaryHintWords(stSettings),
+                        customPrompt,
+                        language: this.getCleanupLanguage(stSettings),
+                        locale: stSettings.uiLanguage || "en",
+                        sttProvider: this.getStreamingProviderName(),
+                        sttModel: streamingSttModel,
+                        sttProcessingMs: streamingSttProcessingMs,
+                        sttWordCount: streamingSttWordCount,
+                        sttLanguage: streamingSttLanguage,
+                        ...detectedLanguageFields,
+                        audioDurationMs: durationSeconds
+                          ? Math.round(durationSeconds * 1000)
+                          : undefined,
+                        audioSizeBytes: streamingAudioBytesSent || undefined,
+                        audioFormat: "linear16",
+                      });
+                      if (!res.success) {
+                        const err = new Error(res.error || "Cloud reasoning failed");
+                        err.code = res.code;
+                        throw err;
+                      }
+                      return res;
+                    });
+
+                    usedCloudReasoning = true;
+                    cloudModel = reasonResult.model;
+                    dispatched({ model: reasonResult.model });
+                    if (!(reasonResult.success && hasTextContent(reasonResult.text))) return null;
+                    if (!customPrompt) assertValidCleanupOutput(text, reasonResult.text);
+                    return reasonResult.text;
                   }
-                : {
-                    mode: "model",
-                    model: getEffectiveCleanupModel(),
-                    log: { level: "error", channel: "streaming" },
+                );
+                if (hasTextContent(cleaned)) text = cleaned;
+
+                logger.info(
+                  "Streaming reasoning complete",
+                  {
+                    reasoningDurationMs: Math.round(performance.now() - reasoningStart),
+                    model: cloudModel,
                   },
-          });
-          finalText = resolveTranslatedText(finalText, chainResult);
-          usedCloudReasoning = chainResult.usedCloudReasoning || usedCloudReasoning;
-        }
+                  "streaming"
+                );
+              } else if (route.kind === "cleanup") {
+                const effectiveModel = getEffectiveCleanupModel();
+                if (effectiveModel) {
+                  const reasoned = await recordStep("cleanup", {}, (dispatched) =>
+                    this.processWithReasoningModel(text, effectiveModel, agentName, {
+                      ...route.config,
+                      onDispatch: dispatched,
+                    })
+                  );
+                  if (hasTextContent(reasoned)) text = reasoned;
+                  logger.info(
+                    "Streaming BYOK reasoning complete",
+                    { reasoningDurationMs: Math.round(performance.now() - reasoningStart) },
+                    "streaming"
+                  );
+                }
+              } else if (route.kind === "translation") {
+                const chainResult = await this.runTranslationChain({
+                  text,
+                  settings: stSettings,
+                  agentName,
+                  route,
+                  cleanup:
+                    cleanupCloudMode === "openwhispr"
+                      ? {
+                          mode: "cloudReason",
+                          meta: {
+                            sttProvider: this.getStreamingProviderName(),
+                            sttModel: streamingSttModel,
+                            sttProcessingMs: streamingSttProcessingMs,
+                            sttWordCount: streamingSttWordCount,
+                            sttLanguage: streamingSttLanguage,
+                            ...detectedLanguageFields,
+                            audioDurationMs: durationSeconds
+                              ? Math.round(durationSeconds * 1000)
+                              : undefined,
+                            audioSizeBytes: streamingAudioBytesSent || undefined,
+                            audioFormat: "linear16",
+                          },
+                          log: { level: "error", channel: "streaming" },
+                        }
+                      : {
+                          mode: "model",
+                          model: getEffectiveCleanupModel(),
+                          log: { level: "error", channel: "streaming" },
+                        },
+                  recordStep,
+                });
+                text = resolveTranslatedText(text, chainResult);
+                usedCloudReasoning = chainResult.usedCloudReasoning || usedCloudReasoning;
+              }
+            } catch (reasonError) {
+              if (wasCancelled()) return text;
+              if (reasonError.selectionEditFatal) throw reasonError;
+              logger.error(
+                "Streaming reasoning failed, using the corrected text",
+                { error: reasonError.message },
+                "streaming"
+              );
+              if (route.kind === "cleanup") {
+                this.pendingCleanupFailure = cleanupFailureFromError(reasonError);
+              }
+              if (route.kind === "agent") this._notifyAgentReasoningFailed();
+            }
+            return text;
+          },
+        });
       } catch (reasonError) {
         if (wasCancelled()) return true;
-        if (reasonError.selectionEditFatal) {
-          this.pendingSelectionEdit = null;
-          this.onError?.(transcriptionFailureOutcome(reasonError).report);
-          this.isProcessing = false;
-          this.onStateChange?.({ isRecording: false, isProcessing: false, isStreaming: false });
-          return false;
-        }
-        logger.error(
-          "Streaming reasoning failed, using raw text",
-          { error: reasonError.message },
-          "streaming"
-        );
-        if (route.kind === "cleanup") {
-          this.pendingCleanupFailure = cleanupFailureFromError(reasonError);
-        }
-        if (route.kind === "agent") this._notifyAgentReasoningFailed();
+        if (!reasonError?.selectionEditFatal) throw reasonError;
+        this.pendingSelectionEdit = null;
+        this.onError?.(transcriptionFailureOutcome(reasonError).report);
+        this.isProcessing = false;
+        this.onStateChange?.({ isRecording: false, isProcessing: false, isStreaming: false });
+        return false;
       }
       if (wasCancelled()) return true;
+      finalText = post.text;
+      streamingTrace = post.trace;
     }
-
     // If streaming produced no text, fall back to batch — routed so BYOK audio
     // and cloud audio never cross over (see resolveStreamingFallbackTarget).
     const failoverReason = this._streamingFailoverReason;
@@ -5871,12 +6200,8 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     }
 
     if (finalText) {
-      // The batch fallback routes through processTranscription, which already
-      // applied the script; only streamed text still needs it.
-      if (!usedBatchFallback) {
-        finalText = await this.finalizeChineseScript(finalText, stSettings);
-        if (wasCancelled()) return true;
-      }
+      // Both the streamed text (above) and the batch fallback (inside its own
+      // boundary) are already finalized, Chinese script included.
       const tBeforePaste = performance.now();
       const clientTotalMs = Math.round(tBeforePaste - t0);
       const clientTranscriptionId =
@@ -5891,10 +6216,14 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
         model: batchFallbackResult ? null : streamingSttModel || null,
       };
       if (wasCancelled()) return true;
+      const recordingTrace = batchFallbackResult ? batchFallbackResult.trace : streamingTrace;
       delivery.resultHandled = this.onTranscriptionComplete?.({
         success: true,
         text: finalText,
         rawText: batchFallbackResult?.rawText || rawStreamingText || finalText,
+        // Exactly one boundary ran for this recording: the batch fallback's or
+        // the stream's.
+        ...(recordingTrace ? { trace: recordingTrace } : {}),
         source: batchFallbackResult?.source || `${this.getStreamingProviderName()}-streaming`,
         clientTranscriptionId,
         analyticsOccurredAt: resultAnalyticsOccurredAt,

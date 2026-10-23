@@ -1,3 +1,5 @@
+import { getGlossaryCanonicalTerms } from "./glossaryTerms";
+
 export interface Snippet {
   trigger: string;
   replacement: string;
@@ -117,21 +119,32 @@ export function expandSnippets(text: string, snippets?: Snippet[] | null): strin
 }
 
 /**
- * Dictionary words plus snippet triggers — the hint list fed to the STT
- * prompt and cleanup-model dictionary suffix so triggers survive both.
+ * Dictionary words, the glossary's canonical forms, then snippet triggers —
+ * the cleanup-model dictionary suffix (and agent/translation prompts), so
+ * triggers and canonical spellings survive cleanup. A glossary's "heard as"
+ * spellings never join it. The speech-to-text prompt is built by
+ * buildDictionaryHints (utils/dictionaryHints), which also prioritises.
  */
 export function getDictionaryHintWords(
   settings?: {
     customDictionary?: string[] | null;
     snippets?: Snippet[] | null;
-  } | null
+  } | null,
+  glossaryTerms: readonly string[] = getGlossaryCanonicalTerms()
 ): string[] {
   const dictionary = Array.isArray(settings?.customDictionary) ? settings.customDictionary : [];
   const snippets = Array.isArray(settings?.snippets) ? settings.snippets : [];
-  if (snippets.length === 0) return [...dictionary];
+  const known = new Set(dictionary.map((w) => (typeof w === "string" ? w.toLowerCase() : w)));
+  const canonical = glossaryTerms.filter((term) => {
+    const key = term.toLowerCase();
+    if (known.has(key)) return false;
+    known.add(key);
+    return true;
+  });
+  if (snippets.length === 0) return [...dictionary, ...canonical];
 
   const triggers = snippets
     .map((s) => s?.trigger)
     .filter((t): t is string => typeof t === "string" && t.length > 0);
-  return [...dictionary, ...triggers];
+  return [...dictionary, ...canonical, ...triggers];
 }

@@ -78,7 +78,7 @@ test("local Whisper recovers dictionary prompt echoes and fragments", async (t) 
       getWhisperPrompt: () => dictionaryPrompt,
       processTranscription: async (text) => {
         processedTexts.push(text);
-        return `processed: ${text}`;
+        return { text: `processed: ${text}` };
       },
     });
     return { manager, processedTexts };

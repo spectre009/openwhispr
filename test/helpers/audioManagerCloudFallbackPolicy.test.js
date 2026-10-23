@@ -22,7 +22,7 @@ async function loadAudioManager(t, { cachePrefix, settingsKey }) {
         getKeyterms: () => [],
         shouldStreamTranscription: () => false,
         isDictionaryEcho: () => false,
-        processTranscription: async (text) => text,
+        processTranscription: async (text) => ({ text }),
         isReasoningAvailable: async () => false,
         ...overrides,
       }),

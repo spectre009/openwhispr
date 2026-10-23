@@ -145,6 +145,8 @@ test("cleanup validates completed provider output using the request's prompt set
     // The retry callback closes over this module-scope import (not a dynamic
     // `import()`), so it must be supplied as a global rather than via `require`.
     const { providerErrorToastProps } = await vite.ssrLoadModule("/utils/describeProviderError.ts");
+    // Same for the post-speech-to-text boundary it runs, with an empty glossary.
+    const { runPostTranscription } = await vite.ssrLoadModule("/helpers/postTranscription.ts");
     const toasts = [];
     let displayedRow;
     const retry = vm.runInNewContext(`${code}\nretry`, {
@@ -169,6 +171,8 @@ test("cleanup validates completed provider output using the request's prompt set
       toast: (value) => toasts.push(value),
       t: (key) => key,
       providerErrorToastProps,
+      runPostTranscription,
+      getGlossarySnapshot: () => ({ revision: 0, rules: [] }),
     });
     await retry(row.id);
     assert.strictEqual(displayedRow, row);

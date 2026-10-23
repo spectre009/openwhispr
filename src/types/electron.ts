@@ -32,8 +32,33 @@ import type {
   NoteAttendee,
   NoteAttendeesRequest,
 } from "./connectors";
+import type { GlossaryRule, GlossarySnapshot, GlossarySpelling } from "../utils/glossary";
 
 export type LocalTranscriptionProvider = "whisper" | "nvidia" | "cohere";
+
+export type DictionaryEntrySource = "manual" | "learned";
+
+export interface DictionaryEntry {
+  word: string;
+  source: DictionaryEntrySource;
+}
+
+/** A glossary rule as the editor saves it: no id creates one. */
+export interface GlossaryRuleInput {
+  id?: string;
+  canonical: string;
+  spellings: GlossarySpelling[];
+  apps: string[];
+  enabled: boolean;
+}
+
+export interface GlossarySaveResult {
+  success: boolean;
+  rule?: GlossaryRule;
+  snapshot?: GlossarySnapshot;
+  error?: string;
+  code?: string | null;
+}
 
 // Where the floating icon rests; "center" is the legacy spelling of
 // bottom-center. Values come from src/helpers/floatingIconPlacement.js.
@@ -1433,6 +1458,8 @@ declare global {
       showDictationPanel: () => Promise<void>;
       openSettingsSection?: (section: ProviderSettingsTarget) => Promise<{ success: boolean }>;
       captureDictationTarget?: () => Promise<{ success: boolean; pid: number | null }>;
+      /** The starting recording's frozen target app; null when unknown (non-Windows). */
+      getDictationTargetApp?: () => Promise<{ exeName: string } | null>;
       onToggleDictation: (callback: () => void) => () => void;
       onToggleVoiceAgent?: (callback: () => void) => () => void;
       onToggleTranslation?: (callback: () => void) => () => void;
@@ -1664,6 +1691,8 @@ declare global {
 
       // Dictionary operations
       getDictionary: () => Promise<string[]>;
+      /** Words with their source, in stored order. */
+      getDictionaryEntries?: () => Promise<DictionaryEntry[]>;
       /** Replaces the whole dictionary — omitted words are deleted. Prefer applyDictionaryChanges. */
       setDictionary: (words: string[]) => Promise<{ success: boolean }>;
       applyDictionaryChanges?: (changes: {
@@ -1678,6 +1707,11 @@ declare global {
       onSnippetsUpdated?: (
         callback: (snippets: Array<{ trigger: string; replacement: string }>) => void
       ) => () => void;
+      // Glossary rules (main-owned, local-only)
+      getGlossaryRules?: () => Promise<GlossarySnapshot>;
+      saveGlossaryRule?: (rule: GlossaryRuleInput) => Promise<GlossarySaveResult>;
+      deleteGlossaryRule?: (id: string) => Promise<GlossarySaveResult>;
+      onGlossaryRulesUpdated?: (callback: (snapshot: GlossarySnapshot) => void) => () => void;
       setAutoLearnEnabled?: (enabled: boolean) => void;
       onCorrectionsLearned?: (callback: (words: string[]) => void) => () => void;
       undoLearnedCorrections?: (words: string[]) => Promise<{ success: boolean }>;

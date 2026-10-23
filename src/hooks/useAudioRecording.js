@@ -197,8 +197,10 @@ export const useAudioRecording = (toast, options = {}) => {
         // still the user's actual editing target here. Refresh it for recordings
         // started from the panel itself as well as from global hotkeys; otherwise
         // paste can reactivate a stale target from the preceding dictation.
+        let targetFrozen = false;
         try {
           await window.electronAPI.captureDictationTarget?.();
+          targetFrozen = true;
         } catch (error) {
           logger.warn("Failed to refresh dictation target", { error: error?.message });
         }
@@ -208,6 +210,10 @@ export const useAudioRecording = (toast, options = {}) => {
         audioManagerRef.current.setVoiceAgentRequested(voiceAgentRequested);
         audioManagerRef.current.setAssistantSelectionContext(assistantSelectionContext);
         audioManagerRef.current.setTranslationRequested(translationRequested);
+        // Main froze this recording's target app in captureDictationTarget above
+        // (Hold and Tap both arrive here); fetch it without holding the start.
+        // Without a fresh freeze the app stays unknown rather than a stale one.
+        if (targetFrozen) audioManagerRef.current.beginRecordingTargetCapture?.();
         // Covers the toggle path with freshly-set flags; the signature dedup
         // makes this a no-op when the prepare handler already reported the
         // same kind ahead of the flags being set.

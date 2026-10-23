@@ -109,6 +109,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
   showDictationPanel: () => ipcRenderer.invoke("show-dictation-panel"),
   openSettingsSection: (section) => ipcRenderer.invoke("open-settings-section", section),
   captureDictationTarget: () => ipcRenderer.invoke("capture-dictation-target"),
+  getDictationTargetApp: () => ipcRenderer.invoke("get-dictation-target-app"),
   onToggleDictation: registerListener("toggle-dictation", (callback) => () => callback()),
   onToggleVoiceAgent: registerListener("toggle-voice-agent", (callback) => () => callback()),
   onToggleTranslation: registerListener("toggle-translation", (callback) => () => callback()),
@@ -206,6 +207,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
 
   // Dictionary functions
   getDictionary: () => ipcRenderer.invoke("db-get-dictionary"),
+  getDictionaryEntries: () => ipcRenderer.invoke("db-get-dictionary-entries"),
   setDictionary: (words) => ipcRenderer.invoke("db-set-dictionary", words),
   applyDictionaryChanges: (changes) => ipcRenderer.invoke("db-apply-dictionary-changes", changes),
   onDictionaryUpdated: (callback) => {
@@ -220,6 +222,14 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.on("snippets-updated", listener);
     return () => ipcRenderer.removeListener("snippets-updated", listener);
   },
+  // Glossary rules (main-owned, local-only)
+  getGlossaryRules: () => ipcRenderer.invoke("glossary-get-rules"),
+  saveGlossaryRule: (rule) => ipcRenderer.invoke("glossary-save-rule", rule),
+  deleteGlossaryRule: (id) => ipcRenderer.invoke("glossary-delete-rule", id),
+  onGlossaryRulesUpdated: registerListener(
+    "glossary-rules-updated",
+    (callback) => (_event, snapshot) => callback(snapshot)
+  ),
   setAutoLearnEnabled: (enabled) => ipcRenderer.send("auto-learn-changed", enabled),
   onCorrectionsLearned: (callback) => {
     const listener = (_event, words) => callback?.(words);

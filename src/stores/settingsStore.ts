@@ -78,6 +78,8 @@ import type {
   ChatAgentSettings,
 } from "../hooks/useSettings";
 import type { Snippet } from "../utils/snippets";
+import { syncGlossaryRules } from "./glossaryStore";
+import { syncDictionarySources } from "./dictionarySourcesStore";
 import type { EnterpriseSetupMode } from "../types/enterpriseIdentity";
 import { getManagedScopeResolution } from "./enterpriseIdentityStore";
 
@@ -3805,6 +3807,16 @@ export async function initializeSettings(): Promise<void> {
         "settings"
       );
     }
+
+    // Main owns the glossary rules and each dictionary word's source; every
+    // window mirrors them for the post-transcription glossary and the
+    // speech-to-text hint list, and follows later changes.
+    void syncGlossaryRules();
+    syncDictionarySources((listener) => {
+      useSettingsStore.subscribe((next, previous) => {
+        if (next.customDictionary !== previous.customDictionary) listener();
+      });
+    });
 
     try {
       await window.electronAPI.setAutoUpdatesEnabled?.(

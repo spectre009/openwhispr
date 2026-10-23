@@ -112,6 +112,7 @@ class SelectionManager {
     this.sessions = new Map();
     this.lastTarget = null;
     this._captureTargetPromise = null;
+    this._recordingTarget = null;
     this._lastTargetCaptureAt = 0;
     this._atspiCooldownUntil = 0;
     this._atspiProbeGeneration = 0;
@@ -173,6 +174,31 @@ class SelectionManager {
       await this._captureTargetPromise;
     }
     return this.lastTarget?.kind === "win-hwnd" ? this.lastTarget : null;
+  }
+
+  // Freezes the target of the recording that is starting. captureTarget()
+  // fires on every toggle press, including stop, so lastTarget can't stand for
+  // "the app this recording dictates into" by the time it is transcribed. This
+  // keeps the start probe's own result (the one in flight, or the fresh capture
+  // it was skipped for) without touching lastTarget, which the paste path owns.
+  freezeRecordingTarget() {
+    const probe = this._captureTargetPromise;
+    this._recordingTarget = probe
+      ? probe.then(
+          (target) => target,
+          () => null
+        )
+      : Promise.resolve(this.lastTarget);
+    return this._recordingTarget;
+  }
+
+  // The frozen recording target as an app identity, or null when unknown. Only
+  // Windows reports an executable name today; other platforms get null, so
+  // app-scoped glossary corrections never apply there.
+  async getRecordingTargetApp() {
+    const target = await (this._recordingTarget ?? null);
+    if (target?.kind !== "win-hwnd" || !target.exeName) return null;
+    return { exeName: target.exeName };
   }
 
   async captureSelectedText(options = {}) {

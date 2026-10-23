@@ -20,7 +20,7 @@ async function loadManager(t, settings, window = {}) {
     getWhisperPrompt: () => null,
     getKeyterms: () => [],
     isDictionaryEcho: () => false,
-    processTranscription: async (text) => text,
+    processTranscription: async (text) => ({ text }),
     isReasoningAvailable: async () => false,
   });
 }
@@ -57,7 +57,7 @@ test("a self-hosted 404 blames the user's server, not OpenAI", async (t) => {
   assert.doesNotMatch(error.message, /OpenAI/);
 });
 
-test("a direct-fetch \"Failed to fetch\" asks to check the key and connection", async (t) => {
+test('a direct-fetch "Failed to fetch" asks to check the key and connection', async (t) => {
   const manager = await loadManager(t, { cloudTranscriptionProvider: "groq" });
   t.mock.method(globalThis, "fetch", async () => {
     throw new TypeError("Failed to fetch");

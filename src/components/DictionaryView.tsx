@@ -9,6 +9,7 @@ import {
   Plus,
   Sparkles,
   Upload,
+  Wand2,
   X,
 } from "./icons";
 import { Input } from "./ui/input";
@@ -21,16 +22,41 @@ import { ConfirmDialog } from "./ui/dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "./ui/tabs";
 import { useToast } from "./ui/useToast";
 import SnippetsView from "./SnippetsView";
+import GlossaryView from "./GlossaryView";
 import DictionaryEmptyIllustration from "./DictionaryEmptyIllustration";
 import { useSettings } from "../hooks/useSettings";
 import { getAgentName } from "../utils/agentName";
 import { parseDictionaryImportText } from "../helpers/dictionaryImport";
-import { getDictionaryHintWords } from "../utils/snippets";
-import { WHISPER_DECODER_PROMPT_CHARS } from "../utils/dictionaryPromptCap";
+import {
+  buildDictionaryHints,
+  resolveHintTarget,
+  type HintCoverage,
+} from "../utils/dictionaryHints";
+import { glossaryCanonicalTerms } from "../utils/glossary";
+import { useDictionarySourcesStore } from "../stores/dictionarySourcesStore";
+import { useGlossaryStore } from "../stores/glossaryStore";
+
+const COVERAGE_CLASS: Record<HintCoverage, string> = {
+  read: "text-success/80",
+  unread: "text-warning/80",
+  notSent: "text-foreground/35",
+};
 
 export default function DictionaryView() {
   const { t } = useTranslation();
-  const { customDictionary, updateCustomDictionary, snippets } = useSettings();
+  const {
+    customDictionary,
+    updateCustomDictionary,
+    snippets,
+    useLocalWhisper,
+    localTranscriptionProvider,
+    cloudTranscriptionMode,
+    cloudTranscriptionProvider,
+    cloudTranscriptionModel,
+    cloudTranscriptionBaseUrl,
+  } = useSettings();
+  const learnedWords = useDictionarySourcesStore((s) => s.learned);
+  const glossaryRules = useGlossaryStore((s) => s.rules);
   const agentName = getAgentName();
   const { toast } = useToast();
 
@@ -41,16 +67,63 @@ export default function DictionaryView() {
   const [editingWord, setEditingWord] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
   const [confirmClear, setConfirmClear] = useState(false);
+  const [showLearnedOnly, setShowLearnedOnly] = useState(false);
+  const [confirmClearLearned, setConfirmClearLearned] = useState(false);
   const addInputRef = useRef<HTMLInputElement>(null);
 
   const pendingImportCount = useMemo(() => parseDictionaryImportText(bulkText).length, [bulkText]);
 
-  // Length of the prompt string the STT request builds (words + snippet
-  // triggers, comma-joined), so the warning fires on real request size. A
-  // Chinese script bias adds ~21 chars on top for zh-CN / zh-TW users.
-  const promptChars = useMemo(
-    () => getDictionaryHintWords({ customDictionary, snippets }).join(", ").length,
-    [customDictionary, snippets]
+  // Where this setup's speech-to-text hints go and how much of them the model
+  // reads. The request path resolves the same target from the real endpoint,
+  // so this is labelled an estimate.
+  const hintTarget = useMemo(
+    () =>
+      resolveHintTarget(
+        useLocalWhisper
+          ? {
+              engine: localTranscriptionProvider === "whisper" ? "local-whisper" : "local-other",
+            }
+          : cloudTranscriptionMode === "openwhispr"
+            ? { engine: "cloud" }
+            : {
+                engine: "byok",
+                provider: cloudTranscriptionProvider,
+                endpoint:
+                  cloudTranscriptionProvider === "custom" ? (cloudTranscriptionBaseUrl ?? "") : "",
+                model: cloudTranscriptionModel,
+              }
+      ),
+    [
+      useLocalWhisper,
+      localTranscriptionProvider,
+      cloudTranscriptionMode,
+      cloudTranscriptionProvider,
+      cloudTranscriptionModel,
+      cloudTranscriptionBaseUrl,
+    ]
+  );
+
+  // The same builder the request uses, so "sent" means sent.
+  const coverageByWord = useMemo(() => {
+    const plan = buildDictionaryHints({
+      dictionary: customDictionary,
+      learnedWords,
+      glossaryTerms: glossaryCanonicalTerms(glossaryRules),
+      snippets,
+      maxChars: hintTarget.maxChars,
+      order: hintTarget.order,
+      readChars: hintTarget.readChars,
+    });
+    const map = new Map<string, HintCoverage>();
+    for (const entry of plan.entries) {
+      map.set(entry.term.toLowerCase(), hintTarget.channel === "none" ? "notSent" : entry.coverage);
+    }
+    return map;
+  }, [customDictionary, learnedWords, glossaryRules, snippets, hintTarget]);
+
+  const isLearned = useCallback(
+    (word: string) => learnedWords.has(word.trim().toLowerCase()),
+    [learnedWords]
   );
 
   // Same membership rule as agentNameDictionaryChanges: a stored spelling that
@@ -60,11 +133,22 @@ export default function DictionaryView() {
     return customDictionary.filter((w) => w.trim().toLowerCase() !== agentWord);
   }, [customDictionary, agentName]);
 
+  const learnedUserWords = useMemo(() => userWords.filter(isLearned), [userWords, isLearned]);
+
+  const coverageCounts = useMemo(() => {
+    const counts: Record<HintCoverage, number> = { read: 0, unread: 0, notSent: 0 };
+    for (const word of userWords) {
+      counts[coverageByWord.get(word.trim().toLowerCase()) ?? "notSent"] += 1;
+    }
+    return counts;
+  }, [userWords, coverageByWord]);
+
   const searchQuery = newWord.trim().toLowerCase();
+  const listedWords = showLearnedOnly && learnedUserWords.length > 0 ? learnedUserWords : userWords;
   const visibleWords = useMemo(
     () =>
-      searchQuery ? userWords.filter((w) => w.toLowerCase().includes(searchQuery)) : userWords,
-    [userWords, searchQuery]
+      searchQuery ? listedWords.filter((w) => w.toLowerCase().includes(searchQuery)) : listedWords,
+    [listedWords, searchQuery]
   );
 
   const addWords = useCallback(
@@ -200,6 +284,17 @@ export default function DictionaryView() {
         onConfirm={() => updateCustomDictionary({ remove: userWords })}
         variant="destructive"
       />
+      <ConfirmDialog
+        open={confirmClearLearned}
+        onOpenChange={setConfirmClearLearned}
+        title={t("dictionary.learned.clearTitle")}
+        description={t("dictionary.learned.clearDescription", { n: learnedUserWords.length })}
+        onConfirm={() => {
+          updateCustomDictionary({ remove: learnedUserWords });
+          setShowLearnedOnly(false);
+        }}
+        variant="destructive"
+      />
 
       <div className={cn(PAGE_CONTENT_WIDTH_CLASS, "px-6 pt-6")}>
         <TabsList variant="pill">
@@ -210,6 +305,10 @@ export default function DictionaryView() {
           <TabsTrigger value="snippets" variant="pill">
             <PanelRight size={17} />
             {t("dictionary.tabSnippets")}
+          </TabsTrigger>
+          <TabsTrigger value="glossary" variant="pill">
+            <Wand2 size={17} />
+            {t("dictionary.tabGlossary")}
           </TabsTrigger>
         </TabsList>
       </div>
@@ -288,17 +387,56 @@ export default function DictionaryView() {
             {userWords.length > 0 && (
               <>
                 <div className="flex items-center justify-between">
-                  <h3 className="text-xs font-semibold text-foreground/45">
-                    {t("dictionary.yourDictionary")}
-                  </h3>
                   <div className="flex items-center gap-3">
-                    <button
-                      onClick={() => setConfirmClear(true)}
-                      aria-label={t("dictionary.clearAll")}
-                      className="text-xs text-foreground/45 hover:text-destructive/70 transition-colors"
-                    >
-                      {t("dictionary.clearAll")}
-                    </button>
+                    <h3 className="text-xs font-semibold text-foreground/45">
+                      {t("dictionary.yourDictionary")}
+                    </h3>
+                    {learnedUserWords.length > 0 && (
+                      <div className="flex items-center gap-1 text-xs">
+                        <button
+                          onClick={() => setShowLearnedOnly(false)}
+                          aria-pressed={!showLearnedOnly}
+                          className={cn(
+                            "rounded-full px-2 py-0.5 transition-colors",
+                            showLearnedOnly
+                              ? "text-foreground/45 hover:text-foreground/60"
+                              : "bg-foreground/5 text-foreground/70 dark:bg-white/8"
+                          )}
+                        >
+                          {t("dictionary.learned.filterAll")}
+                        </button>
+                        <button
+                          onClick={() => setShowLearnedOnly(true)}
+                          aria-pressed={showLearnedOnly}
+                          className={cn(
+                            "rounded-full px-2 py-0.5 transition-colors",
+                            showLearnedOnly
+                              ? "bg-foreground/5 text-foreground/70 dark:bg-white/8"
+                              : "text-foreground/45 hover:text-foreground/60"
+                          )}
+                        >
+                          {t("dictionary.learned.filterLearned", { n: learnedUserWords.length })}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-3">
+                    {showLearnedOnly && learnedUserWords.length > 0 ? (
+                      <button
+                        onClick={() => setConfirmClearLearned(true)}
+                        className="text-xs text-foreground/45 hover:text-destructive/70 transition-colors"
+                      >
+                        {t("dictionary.learned.removeAll")}
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => setConfirmClear(true)}
+                        aria-label={t("dictionary.clearAll")}
+                        className="text-xs text-foreground/45 hover:text-destructive/70 transition-colors"
+                      >
+                        {t("dictionary.clearAll")}
+                      </button>
+                    )}
                     <button
                       onClick={handleExport}
                       aria-label={t("dictionary.exportDictionary")}
@@ -308,6 +446,11 @@ export default function DictionaryView() {
                     </button>
                   </div>
                 </div>
+                {showLearnedOnly && learnedUserWords.length > 0 && (
+                  <p className="mt-1.5 text-xs leading-relaxed text-foreground/45">
+                    {t("dictionary.learned.hint")}
+                  </p>
+                )}
                 <div className="mt-2.5 border-t border-dashed border-foreground/10 dark:border-white/10" />
               </>
             )}
@@ -322,6 +465,7 @@ export default function DictionaryView() {
               <ul>
                 {visibleWords.map((word) => {
                   const isEditing = editingWord === word;
+                  const coverage = coverageByWord.get(word.trim().toLowerCase()) ?? "notSent";
                   return (
                     <li
                       key={word}
@@ -343,6 +487,19 @@ export default function DictionaryView() {
                       ) : (
                         <span dir="auto" className="flex-1 text-xs truncate text-foreground/60">
                           {word}
+                        </span>
+                      )}
+                      {!isEditing && isLearned(word) && !showLearnedOnly && (
+                        <span className="shrink-0 rounded-full bg-foreground/5 px-1.5 py-px text-[10px] text-foreground/45 dark:bg-white/8">
+                          {t("dictionary.learned.tag")}
+                        </span>
+                      )}
+                      {!isEditing && (
+                        <span
+                          className={cn("shrink-0 text-[10px]", COVERAGE_CLASS[coverage])}
+                          title={t("dictionary.coverage.estimatedTooltip")}
+                        >
+                          {t(`dictionary.coverage.${coverage}`)}
                         </span>
                       )}
                       {!isEditing && (
@@ -370,10 +527,17 @@ export default function DictionaryView() {
             )}
           </div>
 
-          {/* ─── Provider prompt-limit notice ─── */}
-          {promptChars > WHISPER_DECODER_PROMPT_CHARS && (
+          {/* ─── Speech-to-text hint coverage (estimated) ─── */}
+          {userWords.length > 0 && (
             <p className="text-xs text-foreground/45 leading-relaxed">
-              {t("dictionary.promptLimitNotice", { chars: promptChars })}
+              {hintTarget.channel === "none"
+                ? t("dictionary.coverage.noHints")
+                : t("dictionary.coverage.summary", {
+                    read: coverageCounts.read,
+                    unread: coverageCounts.unread,
+                    notSent: coverageCounts.notSent,
+                  })}{" "}
+              {hintTarget.channel !== "none" && t("dictionary.coverage.explanation")}
             </p>
           )}
         </div>
@@ -381,6 +545,10 @@ export default function DictionaryView() {
 
       <TabsContent value="snippets" className="flex-1 min-h-0 mt-0 overflow-y-auto">
         <SnippetsView />
+      </TabsContent>
+
+      <TabsContent value="glossary" className="flex-1 min-h-0 mt-0 overflow-y-auto">
+        <GlossaryView />
       </TabsContent>
     </Tabs>
   );

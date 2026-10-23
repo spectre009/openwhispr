@@ -23,7 +23,7 @@ async function loadManager(t) {
     return { success: true, text: "hi" };
   };
   window.electronAPI.transcribeLocalWhisper = window.electronAPI.transcribeLocalParakeet;
-  const manager = createManager({ processTranscription: async (text) => text });
+  const manager = createManager({ processTranscription: async (text) => ({ text }) });
   return { manager, sent };
 }
 

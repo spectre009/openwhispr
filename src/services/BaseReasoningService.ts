@@ -34,6 +34,12 @@ export interface ReasoningConfig {
   requestId?: string;
   requiresAgent?: boolean;
   inferenceScope?: InferenceScope;
+  /**
+   * Told the provider and model a request is actually dispatched to, once
+   * routing (managed scopes, implicit cleanup providers) has resolved them.
+   * Read by processText and never forwarded to a provider.
+   */
+  onDispatch?: (dispatched: { provider: string; model: string }) => void;
 }
 
 export abstract class BaseReasoningService {

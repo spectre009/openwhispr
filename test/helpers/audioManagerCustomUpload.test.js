@@ -39,7 +39,7 @@ async function loadCustomManager(t, decode) {
     getTranscriptionEndpoint: () => "https://stt.example.com/v1/audio/transcriptions",
     getWhisperPrompt: () => null,
     isDictionaryEcho: () => false,
-    processTranscription: async (text) => text,
+    processTranscription: async (text) => ({ text }),
     isReasoningAvailable: async () => false,
     onStateChange() {},
   });

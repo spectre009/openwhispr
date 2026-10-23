@@ -49,8 +49,11 @@ const ARABIC_NUMBER_NEUTRAL_TEMPLATES = {
   "settingsPage.account.planDescriptions.trial": "عدد الأيام المتبقية: {{days}} - تفريغ غير محدود",
   "emailVerification.resendIn": "إعادة الإرسال بعد {{seconds}} ث",
   "insights.wpmCoverage": "استنادًا إلى نسبة {{count}}% من الكلمات المقاسة",
-  "dictionary.promptLimitNotice":
-    "عدد أحرف قاموسك: {{chars}}. لا تقرأ نماذج Groq وWhisper سوى بضع مئات من الأحرف الأخيرة منه، لذا تعمل القوائم الأقصر بشكل أفضل معها. أما النماذج الأخرى فتحصل على القائمة كاملة.",
+  "dictionary.coverage.summary":
+    "تلميحات تحويل الكلام إلى نص (تقديرية): المرجح قراءتها: {{read}}، والمرسلة مع ترجيح عدم قراءتها: {{unread}}، وغير المرسلة: {{notSent}}.",
+  "dictionary.learned.filterLearned": "متعلَّمة تلقائيًا ({{n}})",
+  "dictionary.learned.clearDescription":
+    "سيؤدي هذا إلى إزالة كل الكلمات التي أضافها التعلّم التلقائي من تعديلاتك ({{n}}). تبقى الكلمات التي كتبتها.",
 };
 
 const languages = fs
