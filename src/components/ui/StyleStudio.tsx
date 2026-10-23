@@ -30,6 +30,7 @@ import {
 } from "../icons";
 import { cn } from "../lib/utils";
 import PromptTestSet from "./PromptTestSet";
+import StyleHotkeyField from "./StyleHotkeyField";
 import { useAgentName } from "../../utils/agentName";
 import { formatHotkeyLabel } from "../../utils/hotkeys";
 import { describeProviderError } from "../../utils/describeProviderError";
@@ -55,6 +56,7 @@ import {
   createStyle,
   deleteStyle,
   ensureStyles,
+  requestStyleFocus,
   saveStyle,
   useStyleStore,
 } from "../../stores/styleStore";
@@ -190,6 +192,21 @@ export default function StyleStudio({ className = "" }: { className?: string }) 
     if (!isPlain && !isNew && !selected) setSelectedId(PLAIN_STYLE_ID);
   }, [isPlain, isNew, selected]);
 
+  // Another page (the Hotkeys page's style hotkey list) asked for a style.
+  const focusStyleId = useStyleStore((s) => s.focusStyleId);
+  const rootRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!focusStyleId) return;
+    requestStyleFocus(null);
+    if (findStyle(library, focusStyleId)) {
+      setSelectedId(focusStyleId);
+      setActiveTab("view");
+    }
+    // The settings page shows this section a moment later. Not cleared when
+    // the request resets above: that re-run must not cancel the scroll.
+    setTimeout(() => rootRef.current?.scrollIntoView({ block: "start", behavior: "smooth" }), 100);
+  }, [focusStyleId, library]);
+
   const hotkeyLabel = formatHotkeyLabel(dictationKey);
   const pickable = selectableStyles(library);
   const draftStyle: RecordingStyle = snapshotStyle({
@@ -315,7 +332,7 @@ export default function StyleStudio({ className = "" }: { className?: string }) 
     t(mode === "one-step" ? "styles.runMode.oneStep" : "styles.runMode.twoSteps");
 
   return (
-    <div className={cn("space-y-4", className)}>
+    <div ref={rootRef} className={cn("space-y-4 scroll-mt-4", className)}>
       {/* ── The dictation hotkey's style ── */}
       <div className="rounded-xl border border-border/70 dark:border-border-subtle bg-card dark:bg-surface-2 px-5 py-4 space-y-2">
         <div className="flex flex-wrap items-center gap-3">
@@ -387,7 +404,11 @@ export default function StyleStudio({ className = "" }: { className?: string }) 
               key={style.id}
               emoji={style.emoji}
               name={style.name}
-              detail={runModeLabel(style.runMode)}
+              detail={
+                style.hotkey
+                  ? `${runModeLabel(style.runMode)} · ${formatHotkeyLabel(style.hotkey)}`
+                  : runModeLabel(style.runMode)
+              }
               selected={selectedId === style.id}
               inUse={library.dictationStyleId === style.id}
               enabled={style.enabled}
@@ -456,6 +477,7 @@ export default function StyleStudio({ className = "" }: { className?: string }) 
                     </p>
                   )}
                 </div>
+                {selected && <StyleHotkeyField style={selected} />}
                 {saved.instruction && (
                   <details className="px-5 py-4 text-xs text-muted-foreground">
                     <summary className="cursor-pointer select-none">
@@ -582,6 +604,8 @@ export default function StyleStudio({ className = "" }: { className?: string }) 
                     </div>
                   </div>
                 </div>
+
+                {selected && <StyleHotkeyField style={selected} />}
 
                 <div className="px-5 py-4">
                   <div className="flex flex-wrap items-center gap-2">
@@ -759,11 +783,16 @@ export default function StyleStudio({ className = "" }: { className?: string }) 
         open={confirmDelete}
         onOpenChange={setConfirmDelete}
         title={t("styles.editor.deleteTitle", { name: selected?.name ?? "" })}
-        description={t(
-          selected && library.dictationStyleId === selected.id
-            ? "styles.editor.deleteInUseDescription"
-            : "styles.editor.deleteDescription"
-        )}
+        description={
+          t(
+            selected && library.dictationStyleId === selected.id
+              ? "styles.editor.deleteInUseDescription"
+              : "styles.editor.deleteDescription"
+          ) +
+          (selected?.hotkey
+            ? ` ${t("styles.hotkey.deleteReleases", { hotkey: formatHotkeyLabel(selected.hotkey) })}`
+            : "")
+        }
         confirmText={t("promptStudio.library.actions.delete")}
         cancelText={t("promptStudio.library.dialogs.cancel")}
         variant="destructive"

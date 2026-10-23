@@ -681,6 +681,25 @@ function initializeCoreManagers() {
     windowManager.hotkeyManager.nativeListenerProbe = () => windowsKeyManager.checkAvailability();
   }
 
+  // Style hotkeys (Stage 4): read the committed key map from .env now, so the
+  // dictation slot registers them with its own keys at boot.
+  const { createStyleHotkeys } = require("./src/helpers/styleHotkeys");
+  windowManager.styleHotkeys = createStyleHotkeys({
+    hotkeyManager: windowManager.hotkeyManager,
+    environmentManager,
+    reconcileNativeKeyListeners: () => {
+      // A Hold whose key just left the slot would never see its release.
+      const push = windowManager.winPushState;
+      if (push?.active && !windowManager.hotkeyManager.slotHasHotkey("dictation", push.key)) {
+        windowManager.resetWindowsPushState();
+      }
+      windowManager.reconcileNativeKeyListeners();
+    },
+    broadcast: broadcastToWindows,
+    logger: debugLogger,
+  });
+  windowManager.styleHotkeys.loadFromEnv();
+
   // GitHub Copilot as a language-model provider. Its sign-in reads the saved
   // token in startApp, once the encrypted secrets have loaded.
   copilotServices = require("./src/helpers/copilot").createCopilotServices({
@@ -1253,6 +1272,9 @@ async function startApp() {
         }
         windowManager.resetWindowsPushState();
         windowManager.reconcileNativeKeyListeners();
+        // The slot builder runs again for the new mode: a style key the
+        // backend can't serve in it stops, and Settings shows why.
+        await windowManager.styleHotkeys?.revalidate();
       })
       .catch((err) => {
         debugLogger.error("Failed to change activation mode", { error: err.message }, "hotkey");
@@ -1424,6 +1446,12 @@ async function startApp() {
     );
     hotkeyManager.notifyRestoreFailures(savedMeetingKey, result);
   }
+
+  // Style hotkeys (Stage 4) registered with the dictation slot above; register
+  // any its backend settled on later, and report every one that isn't live.
+  await windowManager.styleHotkeys.finishBoot().catch((error) => {
+    debugLogger.warn("Style hotkeys failed to start", { error: error.message }, "hotkey");
+  });
 
   ipcMain.handle("register-meeting-hotkey", async (_event, hotkey) => {
     if (hotkey) {
@@ -1940,40 +1968,16 @@ async function startApp() {
 
     // Dictation supports push-to-talk and needs the overlay window; meeting
     // drives other windows (matching their globalShortcut callbacks and macOS).
-    const dispatchNativeKeyDown = (key, timing) => {
-      if (hotkeyManager.slotHasHotkey("dictation", key)) {
-        if (!isLiveWindow(windowManager.mainWindow)) return;
-        if (windowManager.getActivationMode() === "push") {
-          windowManager.startWindowsPushToTalk(key, timing);
-        } else {
-          windowManager.sendToggleDictation();
-        }
-        return;
-      }
-      if (hotkeyManager.slotHasHotkey("voiceAgent", key)) {
-        windowManager.sendToggleVoiceAgent();
-      } else if (hotkeyManager.slotHasHotkey("translation", key)) {
-        windowManager.sendToggleTranslation();
-      } else if (hotkeyManager.slotHasHotkey("meeting", key)) {
-        windowManager.startManualMeeting({ activate: false });
-      }
-    };
+    // A style key's press names its style (Stage 4).
+    const { createNativeHotkeyDispatch } = require("./src/helpers/nativeHotkeyDispatch");
+    const nativeHotkeyDispatch = createNativeHotkeyDispatch({
+      hotkeyManager,
+      windowManager,
+      isLiveWindow,
+    });
 
-    // Only dictation drives push-to-talk, so only its key-up matters.
-    const dispatchNativeKeyUp = (key) => {
-      if (!hotkeyManager.slotHasHotkey("dictation", key)) return;
-      if (windowManager.winPushState?.active) {
-        windowManager.handleWindowsPushKeyUp(key);
-      } else if (
-        isLiveWindow(windowManager.mainWindow) &&
-        windowManager.getActivationMode() === "push"
-      ) {
-        windowManager.handleWindowsPushKeyUp(key);
-      }
-    };
-
-    nativeKeyManager.on("key-down", dispatchNativeKeyDown);
-    nativeKeyManager.on("key-up", dispatchNativeKeyUp);
+    nativeKeyManager.on("key-down", nativeHotkeyDispatch.onKeyDown);
+    nativeKeyManager.on("key-up", nativeHotkeyDispatch.onKeyUp);
 
     nativeKeyManager.on("error", (error) => {
       debugLogger.warn("[Push-to-Talk] Native key listener error", { error: error.message });

@@ -130,7 +130,19 @@
       "windowsKeyListenerMissing": "\"{{hotkey}}\" benötigt den Windows-Tasten-Listener, der in dieser Installation fehlt. Wählen Sie ein Tastenkürzel mit einer normalen Taste.",
       "updateFailedCheckFormat": "Hotkey konnte nicht auf \"{{hotkey}}\" aktualisiert werden. Prüfen Sie, ob das Format gültig ist.",
       "trySuggestions": "Versuchen Sie: {{suggestions}}",
-      "slotConflict": "Diese Tastenkombination wird bereits für {{slot}} verwendet."
+      "slotConflict": "Diese Tastenkombination wird bereits für {{slot}} verwendet.",
+      "styleKeysDesktop": "Stil-Hotkeys sind auf diesem Desktop noch nicht verfügbar: GNOME, KDE und Hyprland binden nur eine Taste an den Diktat-Hotkey.",
+      "styleKeysMac": "Stil-Hotkeys sind auf macOS noch nicht verfügbar: Halten funktioniert dort nicht mit einer einzelnen normalen Taste. Vorerst gibt es sie unter Windows.",
+      "styleKeysLinux": "Stil-Hotkeys sind unter Linux noch nicht verfügbar. Vorerst gibt es sie unter Windows.",
+      "styleKeyNotRegistered": "\"{{hotkey}}\" ist nicht registriert. Möglicherweise verwendet eine andere Anwendung die Taste.",
+      "styleKeyIsDictationKey": "\"{{hotkey}}\" ist bereits der Diktat-Hotkey.",
+      "styleKeyDuplicate": "\"{{hotkey}}\" ist bereits der Hotkey eines anderen Stils.",
+      "dictationKeyIsStyleKey": "\"{{hotkey}}\" ist bereits ein Stil-Hotkey. Entferne ihn zuerst beim Stil.",
+      "styleKeyConflict": "\"{{hotkey}}\" ist bereits ein Stil-Hotkey.",
+      "styleKeyInvalid": "\"{{hotkey}}\" kann nicht als Stil-Hotkey verwendet werden.",
+      "styleKeyNoDictationSlot": "Der Diktat-Hotkey ist noch nicht registriert, daher kann kein Stil-Hotkey hinzugefügt werden. Versuche es gleich noch einmal.",
+      "styleKeySaveFailed": "Der Stil-Hotkey konnte nicht gespeichert werden, der bisherige bleibt erhalten.",
+      "styleKeyInactive": "Stil-Hotkey \"{{hotkey}}\" funktioniert nicht: {{reason}}"
     }
   },
   "systemSettings": {
@@ -2804,6 +2816,13 @@
       "translationHotkey": {
         "title": "Übersetzungs-Hotkey",
         "description": "Diktiere in beliebiger Sprache — der eingefügte Text kommt übersetzt heraus"
+      },
+      "styleHotkeys": {
+        "title": "Stil-Hotkeys",
+        "description": "Tasten, die in einem Stil diktieren. Sie folgen dem Halten oder Tippen des Diktat-Hotkeys. Festgelegt werden sie unter Stile.",
+        "empty": "Noch kein Stil hat einen Hotkey.",
+        "openStyles": "Stile öffnen",
+        "openStyle": "{{name}} unter Stile öffnen"
       }
     },
     "permissions": {
@@ -5412,6 +5431,18 @@
       "singleDraft": "Führt diese Eingabe mit dem ungespeicherten Entwurf des Stils erst in einem, dann in zwei Schritten aus, mit dem aktiven Bereinigungs-Prompt. Nichts Gespeichertes ändert sich.",
       "runBoth": "Ein und zwei Schritte ausführen",
       "failed": "Fehlgeschlagen: {{error}}"
+    },
+    "hotkey": {
+      "label": "Hotkey",
+      "description": "Halte oder tippe ihn wie {{hotkey}}, um in diesem Stil zu diktieren. Er wird sofort gespeichert. Wenn du den Stil ausschaltest oder löschst, wird die Taste frei.",
+      "needsOn": "Schalte den Stil ein, um ihm einen Hotkey zu geben.",
+      "inactive": "Funktioniert nicht: {{reason}}",
+      "warnCtrlDigit": "Strg+1 bis Strg+9 sind in vielen Apps Tastenkürzel: Teams öffnet mit Strg+1 die Aktivität, Browser wechseln die Tabs. Ein Stil-Hotkey hier kann damit kollidieren. Strg+Alt+1 oder eine freie Taste wie F21 ist sicherer.",
+      "warnVsCodeTerminal": "Strg+Umschalt+` öffnet in VS Code ein neues Terminal. Ein Stil-Hotkey hier kann damit kollidieren.",
+      "conflictLabel": "den Stil {{name}}",
+      "conflictLabelUnknown": "einen gelöschten Stil",
+      "unknownStyle": "Gelöschter Stil",
+      "deleteReleases": "Sein Hotkey {{hotkey}} wird frei."
     }
   }
 }

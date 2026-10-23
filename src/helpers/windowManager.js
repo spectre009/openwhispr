@@ -808,6 +808,7 @@ class WindowManager {
 
     // globalShortcut registrations pass the hotkey that fired; native shortcuts
     // use down/up phases and resolve their primary hotkey from the active slot.
+    // A style key (Stage 4) names its style; the dictation hotkey names none.
     return async (triggeredHotkey, phase) => {
       if (this.hotkeyManager.isInListeningMode()) {
         return;
@@ -818,10 +819,11 @@ class WindowManager {
 
       const activationMode = this.getActivationMode();
       const currentHotkey = triggeredHotkey || this.hotkeyManager.getCurrentHotkey?.();
+      const styleId = this.hotkeyManager.getStyleIdForHotkey?.(currentHotkey) || undefined;
 
       if (process.platform === "linux" && activationMode === "push") {
         if (phase === "down") {
-          this.startWindowsPushToTalk(currentHotkey);
+          this.startWindowsPushToTalk(currentHotkey, undefined, { styleId });
         } else if (phase === "up") {
           this.handleWindowsPushKeyUp(currentHotkey);
         }
@@ -849,7 +851,7 @@ class WindowManager {
       }
 
       if (!isPress()) return;
-      this.sendToggleDictation();
+      this.sendToggleDictation({ styleId });
     };
   }
 
@@ -1832,7 +1834,11 @@ class WindowManager {
   }
 
   async updateHotkey(hotkey) {
-    return await this.hotkeyManager.updateHotkey(hotkey, this.createHotkeyCallback());
+    const result = await this.hotkeyManager.updateHotkey(hotkey, this.createHotkeyCallback());
+    // The style keys were registered again with the new dictation key; a
+    // window showing their status follows.
+    if (result?.success) void this.styleHotkeys?.notifyChanged?.();
+    return result;
   }
 
   isUsingGnomeHotkeys() {

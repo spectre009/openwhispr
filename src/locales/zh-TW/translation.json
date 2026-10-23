@@ -130,7 +130,19 @@
       "windowsKeyListenerMissing": "「{{hotkey}}」需要 Windows 按鍵監聽程式，但此安裝中缺少該元件。請選擇包含一般按鍵的快捷鍵。",
       "updateFailedCheckFormat": "無法將快速鍵更新為「{{hotkey}}」。請檢查格式是否有效。",
       "trySuggestions": "試試看：{{suggestions}}",
-      "slotConflict": "此快捷鍵已用於{{slot}}。"
+      "slotConflict": "此快捷鍵已用於{{slot}}。",
+      "styleKeysDesktop": "此桌面環境尚不支援風格快捷鍵：GNOME、KDE 和 Hyprland 只能為語音輸入快捷鍵綁定一個按鍵。",
+      "styleKeysMac": "macOS 尚不支援風格快捷鍵：在 macOS 上，單一一般按鍵無法用於按住模式。目前僅支援 Windows。",
+      "styleKeysLinux": "Linux 尚不支援風格快捷鍵。目前僅支援 Windows。",
+      "styleKeyNotRegistered": "「{{hotkey}}」未註冊，可能已被其他應用程式使用。",
+      "styleKeyIsDictationKey": "「{{hotkey}}」已經是語音輸入快捷鍵。",
+      "styleKeyDuplicate": "「{{hotkey}}」已經是另一個風格的快捷鍵。",
+      "dictationKeyIsStyleKey": "「{{hotkey}}」已經是風格快捷鍵。請先從該風格中移除。",
+      "styleKeyConflict": "「{{hotkey}}」已經是風格快捷鍵。",
+      "styleKeyInvalid": "「{{hotkey}}」無法用作風格快捷鍵。",
+      "styleKeyNoDictationSlot": "語音輸入快捷鍵尚未註冊，因此無法新增風格快捷鍵。請稍後再試。",
+      "styleKeySaveFailed": "無法儲存風格快捷鍵，已保留先前的快捷鍵。",
+      "styleKeyInactive": "風格快捷鍵「{{hotkey}}」未生效：{{reason}}"
     }
   },
   "systemSettings": {
@@ -2510,6 +2522,13 @@
       "translationHotkey": {
         "title": "翻譯快捷鍵",
         "description": "用任何語言聽寫——貼上的文字會自動翻譯"
+      },
+      "styleHotkeys": {
+        "title": "風格快捷鍵",
+        "description": "以某種風格進行語音輸入的按鍵。它們沿用語音輸入快捷鍵的按住或點按模式。請在「風格」中設定。",
+        "empty": "還沒有風格設定快捷鍵。",
+        "openStyles": "開啟風格",
+        "openStyle": "在風格中開啟 {{name}}"
       }
     },
     "permissions": {
@@ -5412,6 +5431,18 @@
       "singleDraft": "將此輸入先以一步、再以兩步執行風格的未儲存草稿，使用目前的清理提示詞。已儲存的內容不會改變。",
       "runBoth": "執行一步和兩步",
       "failed": "失敗：{{error}}"
+    },
+    "hotkey": {
+      "label": "快捷鍵",
+      "description": "像 {{hotkey}} 一樣按住或點按，即可用此風格語音輸入。立即儲存。關閉或刪除該風格會釋放此按鍵。",
+      "needsOn": "請先開啟該風格，再為其設定快捷鍵。",
+      "inactive": "未生效：{{reason}}",
+      "warnCtrlDigit": "Ctrl+1 到 Ctrl+9 是許多應用程式的快捷鍵：Teams 用 Ctrl+1 開啟「活動」，瀏覽器用它們切換分頁。在這裡設為風格快捷鍵可能與之衝突。Ctrl+Alt+1 或 F21 等空閒按鍵較安全。",
+      "warnVsCodeTerminal": "Ctrl+Shift+` 會在 VS Code 中開啟新的終端機。在這裡設為風格快捷鍵可能與之衝突。",
+      "conflictLabel": "風格「{{name}}」",
+      "conflictLabelUnknown": "已刪除的風格",
+      "unknownStyle": "已刪除的風格",
+      "deleteReleases": "其快捷鍵 {{hotkey}} 將被釋放。"
     }
   }
 }

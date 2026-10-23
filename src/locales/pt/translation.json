@@ -130,7 +130,19 @@
       "windowsKeyListenerMissing": "\"{{hotkey}}\" precisa do listener de teclas do Windows, que está faltando nesta instalação. Escolha um atalho com uma tecla comum.",
       "updateFailedCheckFormat": "Não foi possível atualizar o atalho para \"{{hotkey}}\". Verifique se o formato é válido.",
       "trySuggestions": "Tente: {{suggestions}}",
-      "slotConflict": "Este atalho já está sendo usado para {{slot}}."
+      "slotConflict": "Este atalho já está sendo usado para {{slot}}.",
+      "styleKeysDesktop": "Os atalhos de estilo ainda não estão disponíveis nesta área de trabalho: GNOME, KDE e Hyprland associam só uma tecla ao atalho de ditado.",
+      "styleKeysMac": "Os atalhos de estilo ainda não estão disponíveis no macOS: lá, Segurar não funciona com uma única tecla comum. Por enquanto, eles funcionam no Windows.",
+      "styleKeysLinux": "Os atalhos de estilo ainda não estão disponíveis no Linux. Por enquanto, eles funcionam no Windows.",
+      "styleKeyNotRegistered": "\"{{hotkey}}\" não está registrado. Talvez outro aplicativo o esteja usando.",
+      "styleKeyIsDictationKey": "\"{{hotkey}}\" já é o atalho de ditado.",
+      "styleKeyDuplicate": "\"{{hotkey}}\" já é o atalho de outro estilo.",
+      "dictationKeyIsStyleKey": "\"{{hotkey}}\" já é um atalho de estilo. Remova-o do estilo primeiro.",
+      "styleKeyConflict": "\"{{hotkey}}\" já é um atalho de estilo.",
+      "styleKeyInvalid": "\"{{hotkey}}\" não pode ser usado como atalho de estilo.",
+      "styleKeyNoDictationSlot": "O atalho de ditado ainda não foi registrado, então não é possível adicionar um atalho de estilo. Tente novamente em instantes.",
+      "styleKeySaveFailed": "Não foi possível salvar o atalho de estilo, então o anterior foi mantido.",
+      "styleKeyInactive": "O atalho de estilo \"{{hotkey}}\" não está funcionando: {{reason}}"
     }
   },
   "systemSettings": {
@@ -2489,6 +2501,13 @@
       "translationHotkey": {
         "title": "Atalho de Tradução",
         "description": "Dite em qualquer idioma: o texto colado sai traduzido"
+      },
+      "styleHotkeys": {
+        "title": "Atalhos de estilo",
+        "description": "Teclas que ditam com um estilo. Elas seguem o modo Segurar ou Toque do atalho de ditado. Defina-as em Estilos.",
+        "empty": "Nenhum estilo tem atalho ainda.",
+        "openStyles": "Abrir Estilos",
+        "openStyle": "Abrir {{name}} em Estilos"
       }
     },
     "permissions": {
@@ -5412,6 +5431,18 @@
       "singleDraft": "Passa esta entrada pelo rascunho não salvo do estilo em uma etapa e depois em duas etapas, com o prompt de limpeza em uso. Nada do que você salvou muda.",
       "runBoth": "Executar em uma e em duas etapas",
       "failed": "Falhou: {{error}}"
+    },
+    "hotkey": {
+      "label": "Atalho",
+      "description": "Segure ou toque como {{hotkey}} para ditar com este estilo. É salvo na hora. Desativar ou excluir o estilo libera a tecla.",
+      "needsOn": "Ative o estilo para dar a ele um atalho.",
+      "inactive": "Não está funcionando: {{reason}}",
+      "warnCtrlDigit": "Ctrl+1 a Ctrl+9 são atalhos em muitos aplicativos: o Teams abre Atividade com Ctrl+1 e os navegadores trocam de aba. Um atalho de estilo aqui pode entrar em conflito com eles. Ctrl+Alt+1 ou uma tecla livre como F21 é mais seguro.",
+      "warnVsCodeTerminal": "Ctrl+Shift+` abre um novo terminal no VS Code. Um atalho de estilo aqui pode entrar em conflito com ele.",
+      "conflictLabel": "o estilo {{name}}",
+      "conflictLabelUnknown": "um estilo excluído",
+      "unknownStyle": "Estilo excluído",
+      "deleteReleases": "O atalho {{hotkey}} dele fica livre."
     }
   }
 }

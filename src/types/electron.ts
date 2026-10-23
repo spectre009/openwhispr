@@ -34,6 +34,7 @@ import type {
 } from "./connectors";
 import type { GlossaryRule, GlossarySnapshot, GlossarySpelling } from "../utils/glossary";
 import type { PostTranscriptionTrace } from "../helpers/postTranscription";
+import type { StyleHotkeyResult, StyleHotkeyState } from "../config/styles/library";
 
 export type LocalTranscriptionProvider = "whisper" | "nvidia" | "cohere";
 
@@ -3154,6 +3155,11 @@ declare global {
       getVoiceAgentKey?: () => Promise<string>;
       updateTranslationHotkey?: (hotkey: string) => Promise<{ success: boolean; message?: string }>;
       getTranslationKey?: () => Promise<string>;
+      // Style hotkeys (Stage 4): main owns the bindings; the style record mirrors them.
+      getStyleHotkeys?: () => Promise<StyleHotkeyState>;
+      setStyleHotkey?: (styleId: string, hotkey: string | null) => Promise<StyleHotkeyResult>;
+      syncStyleHotkeyStyles?: (styleIds: string[]) => Promise<StyleHotkeyResult>;
+      onStyleHotkeysChanged?: (callback: (state: StyleHotkeyState) => void) => () => void;
       createAgentConversation?: (
         title: string,
         noteId?: number | null,

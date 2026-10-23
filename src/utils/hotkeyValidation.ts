@@ -3,10 +3,17 @@ import { getValidationMessage, normalizeHotkey } from "./hotkeyValidator";
 import { parseHotkeyList } from "./hotkeys";
 import { getPlatform } from "./platform";
 
+/** A hotkey held by something that isn't a settings slot (a style), already named. */
+export interface NamedHotkey {
+  hotkey: string;
+  label: string;
+}
+
 export function validateHotkeyForSlot(
   hotkey: string,
   excludeSlots: Record<string, string>,
-  t: TFunction
+  t: TFunction,
+  namedConflicts: readonly NamedHotkey[] = []
 ): string | null {
   const platform = getPlatform();
   const formatError = getValidationMessage(hotkey, platform);
@@ -22,6 +29,13 @@ export function validateHotkeyForSlot(
     );
     if (conflicts) {
       return t("hotkey.errors.slotConflict", { slot: t(labelKey) });
+    }
+  }
+
+  // Style hotkeys (Stage 4) share the dictation slot, so they come named.
+  for (const { hotkey: other, label } of namedConflicts) {
+    if (normalizeHotkey(other, platform) === normalized) {
+      return t("hotkey.errors.slotConflict", { slot: label });
     }
   }
 

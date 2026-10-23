@@ -130,7 +130,19 @@
       "windowsKeyListenerMissing": "\"{{hotkey}}\" richiede il listener di tasti di Windows, che manca in questa installazione. Scegli una scorciatoia con un tasto normale.",
       "updateFailedCheckFormat": "Impossibile aggiornare la scorciatoia a \"{{hotkey}}\". Verifica che il formato sia valido.",
       "trySuggestions": "Prova: {{suggestions}}",
-      "slotConflict": "Questa scorciatoia è già utilizzata per {{slot}}."
+      "slotConflict": "Questa scorciatoia è già utilizzata per {{slot}}.",
+      "styleKeysDesktop": "Le scorciatoie di stile non sono ancora disponibili su questo desktop: GNOME, KDE e Hyprland associano un solo tasto alla scorciatoia di dettatura.",
+      "styleKeysMac": "Le scorciatoie di stile non sono ancora disponibili su macOS: lì Tieni premuto non funziona con un singolo tasto normale. Per ora funzionano su Windows.",
+      "styleKeysLinux": "Le scorciatoie di stile non sono ancora disponibili su Linux. Per ora funzionano su Windows.",
+      "styleKeyNotRegistered": "\"{{hotkey}}\" non è registrata. Forse la sta usando un'altra applicazione.",
+      "styleKeyIsDictationKey": "\"{{hotkey}}\" è già la scorciatoia di dettatura.",
+      "styleKeyDuplicate": "\"{{hotkey}}\" è già la scorciatoia di un altro stile.",
+      "dictationKeyIsStyleKey": "\"{{hotkey}}\" è già una scorciatoia di stile. Rimuovila prima dallo stile.",
+      "styleKeyConflict": "\"{{hotkey}}\" è già una scorciatoia di stile.",
+      "styleKeyInvalid": "\"{{hotkey}}\" non può essere usata come scorciatoia di stile.",
+      "styleKeyNoDictationSlot": "La scorciatoia di dettatura non è ancora registrata, quindi non si può aggiungere una scorciatoia di stile. Riprova tra un momento.",
+      "styleKeySaveFailed": "Non è stato possibile salvare la scorciatoia di stile, quindi resta la precedente.",
+      "styleKeyInactive": "La scorciatoia di stile \"{{hotkey}}\" non funziona: {{reason}}"
     }
   },
   "systemSettings": {
@@ -2510,6 +2522,13 @@
       "translationHotkey": {
         "title": "Hotkey Traduzione",
         "description": "Detta in qualsiasi lingua: il testo incollato esce tradotto"
+      },
+      "styleHotkeys": {
+        "title": "Scorciatoie di stile",
+        "description": "Tasti che dettano in uno stile. Seguono la modalità Tieni premuto o Tocca della scorciatoia di dettatura. Si impostano in Stili.",
+        "empty": "Nessuno stile ha ancora una scorciatoia.",
+        "openStyles": "Apri Stili",
+        "openStyle": "Apri {{name}} in Stili"
       }
     },
     "permissions": {
@@ -5412,6 +5431,18 @@
       "singleDraft": "Esegue questo input con la bozza non salvata dello stile in un passaggio, poi in due passaggi, con il prompt di pulizia in uso. Nulla di ciò che hai salvato cambia.",
       "runBoth": "Esegui in uno e in due passaggi",
       "failed": "Non riuscito: {{error}}"
+    },
+    "hotkey": {
+      "label": "Scorciatoia",
+      "description": "Tienila premuta o toccala come {{hotkey}} per dettare in questo stile. Viene salvata subito. Disattivare o eliminare lo stile libera il tasto.",
+      "needsOn": "Attiva lo stile per assegnargli una scorciatoia.",
+      "inactive": "Non funziona: {{reason}}",
+      "warnCtrlDigit": "Ctrl+1–Ctrl+9 sono scorciatoie in molte app: Teams apre Attività con Ctrl+1 e i browser cambiano scheda. Una scorciatoia di stile qui può entrare in conflitto con loro. Ctrl+Alt+1 o un tasto libero come F21 è più sicuro.",
+      "warnVsCodeTerminal": "Ctrl+Maiusc+` apre un nuovo terminale in VS Code. Una scorciatoia di stile qui può entrare in conflitto.",
+      "conflictLabel": "lo stile {{name}}",
+      "conflictLabelUnknown": "uno stile eliminato",
+      "unknownStyle": "Stile eliminato",
+      "deleteReleases": "La sua scorciatoia {{hotkey}} viene liberata."
     }
   }
 }

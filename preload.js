@@ -1185,6 +1185,15 @@ contextBridge.exposeInMainWorld("electronAPI", {
   getVoiceAgentKey: () => ipcRenderer.invoke("get-voice-agent-key"),
   updateTranslationHotkey: (hotkey) => ipcRenderer.invoke("update-translation-hotkey", hotkey),
   getTranslationKey: () => ipcRenderer.invoke("get-translation-key"),
+  // Style hotkeys (Stage 4): main owns the bindings; the style record mirrors them.
+  getStyleHotkeys: () => ipcRenderer.invoke("style-hotkeys-get"),
+  setStyleHotkey: (styleId, hotkey) =>
+    ipcRenderer.invoke("style-hotkeys-set", { styleId, hotkey: hotkey || null }),
+  syncStyleHotkeyStyles: (styleIds) => ipcRenderer.invoke("style-hotkeys-sync-styles", styleIds),
+  onStyleHotkeysChanged: registerListener(
+    "style-hotkeys-changed",
+    (callback) => (_event, state) => callback(state)
+  ),
   onPreviewText: registerListener("preview-text", (callback) => (_event, text) => callback(text)),
   onPreviewAppend: registerListener(
     "preview-append",

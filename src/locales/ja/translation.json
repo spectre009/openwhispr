@@ -130,7 +130,19 @@
       "windowsKeyListenerMissing": "\"{{hotkey}}\" には Windows のキーリスナーが必要ですが、このインストールにはありません。通常のキーを使うショートカットを選んでください。",
       "updateFailedCheckFormat": "「{{hotkey}}」へのホットキーの更新に失敗しました。形式が正しいか確認してください。",
       "trySuggestions": "お試しください: {{suggestions}}",
-      "slotConflict": "このホットキーは既に{{slot}}で使用されています。"
+      "slotConflict": "このホットキーは既に{{slot}}で使用されています。",
+      "styleKeysDesktop": "このデスクトップではスタイルのホットキーはまだ使えません。GNOME、KDE、Hyprland はディクテーションホットキーに 1 つのキーしか割り当てられません。",
+      "styleKeysMac": "macOS ではスタイルのホットキーはまだ使えません。macOS では通常のキー 1 つだけではホールドできないためです。現在は Windows で使えます。",
+      "styleKeysLinux": "Linux ではスタイルのホットキーはまだ使えません。現在は Windows で使えます。",
+      "styleKeyNotRegistered": "\"{{hotkey}}\" は登録されていません。別のアプリケーションが使用している可能性があります。",
+      "styleKeyIsDictationKey": "\"{{hotkey}}\" は既にディクテーションホットキーです。",
+      "styleKeyDuplicate": "\"{{hotkey}}\" は既に別のスタイルのホットキーです。",
+      "dictationKeyIsStyleKey": "\"{{hotkey}}\" は既にスタイルのホットキーです。先にスタイルから外してください。",
+      "styleKeyConflict": "\"{{hotkey}}\" は既にスタイルのホットキーです。",
+      "styleKeyInvalid": "\"{{hotkey}}\" はスタイルのホットキーとして使えません。",
+      "styleKeyNoDictationSlot": "ディクテーションホットキーがまだ登録されていないため、スタイルのホットキーを追加できません。少し待ってからもう一度お試しください。",
+      "styleKeySaveFailed": "スタイルのホットキーを保存できなかったため、以前のホットキーのままです。",
+      "styleKeyInactive": "スタイルのホットキー \"{{hotkey}}\" が機能していません: {{reason}}"
     }
   },
   "systemSettings": {
@@ -2510,6 +2522,13 @@
       "translationHotkey": {
         "title": "翻訳ホットキー",
         "description": "どの言語で話しても、貼り付けられるテキストは翻訳済みになります"
+      },
+      "styleHotkeys": {
+        "title": "スタイルのホットキー",
+        "description": "スタイルを付けてディクテーションするキーです。ディクテーションホットキーのホールド／タップに従います。設定はスタイルで行います。",
+        "empty": "ホットキーのあるスタイルはまだありません。",
+        "openStyles": "スタイルを開く",
+        "openStyle": "スタイルで {{name}} を開く"
       }
     },
     "permissions": {
@@ -5412,6 +5431,18 @@
       "singleDraft": "この入力をスタイルの未保存の下書きで 1 ステップ、続けて 2 ステップで、使用中のクリーンアップ用プロンプトとともに実行します。保存済みの内容は変わりません。",
       "runBoth": "1 ステップと 2 ステップで実行",
       "failed": "失敗：{{error}}"
+    },
+    "hotkey": {
+      "label": "ホットキー",
+      "description": "{{hotkey}} と同じようにホールドまたはタップすると、このスタイルでディクテーションします。すぐに保存されます。スタイルをオフにするか削除すると、キーは解放されます。",
+      "needsOn": "ホットキーを設定するには、スタイルをオンにしてください。",
+      "inactive": "機能していません: {{reason}}",
+      "warnCtrlDigit": "Ctrl+1〜Ctrl+9 は多くのアプリのショートカットです。Teams は Ctrl+1 でアクティビティを開き、ブラウザーはタブを切り替えます。ここでスタイルのホットキーにすると競合することがあります。Ctrl+Alt+1 や F21 などの空いているキーの方が安全です。",
+      "warnVsCodeTerminal": "Ctrl+Shift+` は VS Code で新しいターミナルを開きます。ここでスタイルのホットキーにすると競合することがあります。",
+      "conflictLabel": "スタイル「{{name}}」",
+      "conflictLabelUnknown": "削除されたスタイル",
+      "unknownStyle": "削除されたスタイル",
+      "deleteReleases": "ホットキー {{hotkey}} は解放されます。"
     }
   }
 }

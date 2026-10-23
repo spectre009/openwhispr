@@ -130,7 +130,19 @@
       "windowsKeyListenerMissing": "\"{{hotkey}}\" needs the Windows key listener, which this install is missing. Choose a shortcut with a regular key.",
       "updateFailedCheckFormat": "Failed to update hotkey to \"{{hotkey}}\". Check the format is valid.",
       "trySuggestions": "Try: {{suggestions}}",
-      "slotConflict": "This hotkey is already used for {{slot}}."
+      "slotConflict": "This hotkey is already used for {{slot}}.",
+      "styleKeysDesktop": "Style hotkeys aren't available on this desktop yet: GNOME, KDE and Hyprland bind only one key to the dictation hotkey.",
+      "styleKeysMac": "Style hotkeys aren't available on macOS yet: Hold can't use a single ordinary key there. For now they work on Windows.",
+      "styleKeysLinux": "Style hotkeys aren't available on Linux yet. For now they work on Windows.",
+      "styleKeyNotRegistered": "\"{{hotkey}}\" isn't registered. Another application may be using it.",
+      "styleKeyIsDictationKey": "\"{{hotkey}}\" is already the dictation hotkey.",
+      "styleKeyDuplicate": "\"{{hotkey}}\" is already another style's hotkey.",
+      "dictationKeyIsStyleKey": "\"{{hotkey}}\" is already a style hotkey. Remove it from the style first.",
+      "styleKeyConflict": "\"{{hotkey}}\" is already a style hotkey.",
+      "styleKeyInvalid": "\"{{hotkey}}\" can't be used as a style hotkey.",
+      "styleKeyNoDictationSlot": "The dictation hotkey isn't registered yet, so a style hotkey can't be added. Try again in a moment.",
+      "styleKeySaveFailed": "The style hotkey couldn't be saved, so the previous one was kept.",
+      "styleKeyInactive": "Style hotkey \"{{hotkey}}\" isn't working: {{reason}}"
     }
   },
   "systemSettings": {
@@ -2804,6 +2816,13 @@
       "translationHotkey": {
         "title": "Translation Hotkey",
         "description": "Dictate in any language — the pasted text comes out translated"
+      },
+      "styleHotkeys": {
+        "title": "Style Hotkeys",
+        "description": "Keys that dictate in a style. They follow the dictation hotkey's Hold or Tap. Set them in Styles.",
+        "empty": "No style has a hotkey yet.",
+        "openStyles": "Open Styles",
+        "openStyle": "Open {{name}} in Styles"
       }
     },
     "permissions": {
@@ -5412,6 +5431,18 @@
       "singleDraft": "Runs this input through the style's unsaved draft in one step, then in two steps, with the cleanup prompt in use. Nothing you've saved changes.",
       "runBoth": "Run one step and two steps",
       "failed": "Failed: {{error}}"
+    },
+    "hotkey": {
+      "label": "Hotkey",
+      "description": "Hold or tap it like {{hotkey}} to dictate in this style. It's saved right away. Switching the style off or deleting it frees the key.",
+      "needsOn": "Switch the style on to give it a hotkey.",
+      "inactive": "Not working: {{reason}}",
+      "warnCtrlDigit": "Ctrl+1 to Ctrl+9 are shortcuts in many apps: Teams opens Activity with Ctrl+1, and browsers switch tabs. A style hotkey here can clash with them. Ctrl+Alt+1 or a spare key such as F21 is safer.",
+      "warnVsCodeTerminal": "Ctrl+Shift+` opens a new terminal in VS Code. A style hotkey here can clash with it.",
+      "conflictLabel": "the {{name}} style",
+      "conflictLabelUnknown": "a deleted style",
+      "unknownStyle": "Deleted style",
+      "deleteReleases": "Its hotkey {{hotkey}} is freed."
     }
   }
 }

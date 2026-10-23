@@ -152,6 +152,7 @@ const {
 } = require("./retentionSettings");
 const { createStepHistory, ownerKeyFor } = require("./stepHistory");
 const { createPromptTestCases } = require("./promptTestCases");
+const { registerStyleHotkeyIpc } = require("./styleHotkeys");
 const { createLocalRequestYield } = require("./localRequestYield");
 const {
   transcriptsOverlap,
@@ -12171,6 +12172,9 @@ class IPCHandlers {
     ipcMain.handle("get-translation-key", async () => {
       return this.environmentManager.getTranslationKey?.() || "";
     });
+
+    // Style hotkeys (Stage 4): extra keys on the dictation slot, one per style.
+    registerStyleHotkeyIpc(ipcMain, () => this.windowManager?.styleHotkeys ?? null);
 
     ipcMain.handle("acquire-recording-lock", async (_event, pipeline) => {
       if (this._activeRecordingPipeline && this._activeRecordingPipeline !== pipeline) {

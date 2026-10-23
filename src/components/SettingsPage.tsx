@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef } from "react";
+import React, { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -74,6 +74,9 @@ import { useUpdater } from "../hooks/useUpdater";
 
 import PromptStudio from "./ui/PromptStudio";
 import StyleStudio from "./ui/StyleStudio";
+import StyleHotkeysList from "./ui/StyleHotkeysList";
+import { STYLE_LIST_FOCUS, requestStyleFocus, useStyleStore } from "../stores/styleStore";
+import { styleHotkeyConflicts } from "../utils/styleHotkeys";
 import { ProviderTabs } from "./ui/ProviderTabs";
 import { HotkeyListInput } from "./ui/HotkeyListInput";
 import { useHotkeyRegistration } from "../hooks/useHotkeyRegistration";
@@ -182,7 +185,8 @@ export type SettingsSectionType =
 
 interface SettingsPageProps {
   activeSection?: SettingsSectionType;
-  onNavigateToSection?: (section: SettingsSectionType) => void;
+  /** `subTab` lands on a sub-tab of the section (e.g. `llms` → `dictationCleanup`). */
+  onNavigateToSection?: (section: SettingsSectionType, subTab?: string) => void;
   /** When a legacy section ID was used (e.g. `meetings`), land on the matching sub-tab. */
   initialSubTab?: string;
 }
@@ -1290,6 +1294,10 @@ export default function SettingsPage({
   const setVoiceAgentKey = useSettingsStore((s) => s.setVoiceAgentKey);
   const translationKey = useSettingsStore((s) => s.translationKey);
   const setTranslationKey = useSettingsStore((s) => s.setTranslationKey);
+  // Style hotkeys (Stage 4) share the dictation slot: every hotkey field checks
+  // against them by name.
+  const styleLibrary = useStyleStore((s) => s.library);
+  const styleHotkeyBindings = useStyleStore((s) => s.hotkeys.bindings);
 
   const settingsPolicyState = usePolicySnapshot();
   const agentAllowedByPolicy = isAgentAllowed(settingsPolicyState);
@@ -1516,6 +1524,11 @@ export default function SettingsPage({
     [showAlertDialog, t]
   );
 
+  const styleKeyConflicts = useMemo(
+    () => styleHotkeyConflicts(styleHotkeyBindings, styleLibrary, t),
+    [styleHotkeyBindings, styleLibrary, t]
+  );
+
   const validateDictationHotkey = useCallback(
     (hotkey: string) =>
       validateHotkeyForSlot(
@@ -1525,9 +1538,10 @@ export default function SettingsPage({
           "settingsPage.general.voiceAgentHotkey.title": voiceAgentKey,
           "settingsPage.general.translationHotkey.title": translationKey,
         },
-        t
+        t,
+        styleKeyConflicts
       ),
-    [meetingKey, voiceAgentKey, translationKey, t]
+    [meetingKey, voiceAgentKey, translationKey, styleKeyConflicts, t]
   );
 
   const validateMeetingHotkey = useCallback(
@@ -1539,9 +1553,10 @@ export default function SettingsPage({
           "settingsPage.general.voiceAgentHotkey.title": voiceAgentKey,
           "settingsPage.general.translationHotkey.title": translationKey,
         },
-        t
+        t,
+        styleKeyConflicts
       ),
-    [dictationKey, voiceAgentKey, translationKey, t]
+    [dictationKey, voiceAgentKey, translationKey, styleKeyConflicts, t]
   );
 
   const validateVoiceAgentHotkey = useCallback(
@@ -1553,9 +1568,10 @@ export default function SettingsPage({
           "settingsPage.general.meetingHotkey.title": meetingKey,
           "settingsPage.general.translationHotkey.title": translationKey,
         },
-        t
+        t,
+        styleKeyConflicts
       ),
-    [dictationKey, meetingKey, translationKey, t]
+    [dictationKey, meetingKey, translationKey, styleKeyConflicts, t]
   );
 
   const validateTranslationHotkey = useCallback(
@@ -1567,9 +1583,19 @@ export default function SettingsPage({
           "settingsPage.general.meetingHotkey.title": meetingKey,
           "settingsPage.general.voiceAgentHotkey.title": voiceAgentKey,
         },
-        t
+        t,
+        styleKeyConflicts
       ),
-    [dictationKey, meetingKey, voiceAgentKey, t]
+    [dictationKey, meetingKey, voiceAgentKey, styleKeyConflicts, t]
+  );
+
+  // The Hotkeys page's style list opens Style Studio (LLMs → Dictation Cleanup).
+  const openStyleInStudio = useCallback(
+    (styleId: string | null) => {
+      requestStyleFocus(styleId ?? STYLE_LIST_FOCUS);
+      onNavigateToSection?.("llms", "dictationCleanup");
+    },
+    [onNavigateToSection]
   );
 
   const {
@@ -4186,6 +4212,19 @@ EOF`,
                       </SelectItem>
                     </SelectContent>
                   </Select>
+                </SettingsPanelRow>
+              </SettingsPanel>
+            </div>
+
+            {/* Style Hotkeys (read-only; set in Style Studio) */}
+            <div>
+              <SectionHeader
+                title={t("settingsPage.general.styleHotkeys.title")}
+                description={t("settingsPage.general.styleHotkeys.description")}
+              />
+              <SettingsPanel>
+                <SettingsPanelRow>
+                  <StyleHotkeysList onOpenStyle={openStyleInStudio} />
                 </SettingsPanelRow>
               </SettingsPanel>
             </div>

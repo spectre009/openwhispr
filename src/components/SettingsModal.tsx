@@ -157,9 +157,9 @@ export default function SettingsModal({ open, onOpenChange, initialSection }: Se
     if (!open) setInitialSubTab(undefined);
   }
 
-  const handleSectionChange = (section: SettingsSectionType) => {
+  const handleSectionChange = (section: SettingsSectionType, subTab?: string) => {
     setActiveSection(section);
-    setInitialSubTab(undefined);
+    setInitialSubTab(subTab);
   };
   // Turning the account & Cloud switch off while an account section is open
   // moves the view off it without forgetting what was asked for.

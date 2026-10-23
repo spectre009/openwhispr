@@ -5,7 +5,13 @@ const GnomeShortcutManager = require("./gnomeShortcut");
 const HyprlandShortcutManager = require("./hyprlandShortcut");
 const KDEShortcutManager = require("./kdeShortcut");
 const { i18nMain } = require("./i18nMain");
-const { parseHotkeyList } = require("./hotkeyList");
+const {
+  parseHotkeyList,
+  buildDictationSlotKeys,
+  canonicalHotkey,
+  isValidStyleHotkey,
+  isValidStyleId,
+} = require("./hotkeyList");
 
 // Delay to ensure localStorage is accessible after window load
 const HOTKEY_REGISTRATION_DELAY_MS = 1000;
@@ -108,7 +114,12 @@ class HotkeyManager extends EventEmitter {
     // index-for-index (null for native-listener entries).
     this.slots = new Map();
     const defaultDictation = process.platform === "darwin" ? "GLOBE" : "Control+Super";
-    this.slots.set("dictation", { hotkeys: [defaultDictation], callback: null, accelerators: [] });
+    this.slots.set("dictation", {
+      hotkeys: [defaultDictation],
+      callback: null,
+      accelerators: [],
+      styleHotkeys: [],
+    });
     this.isInitialized = false;
     this.isListeningMode = false;
     this.gnomeManager = null;
@@ -126,17 +137,26 @@ class HotkeyManager extends EventEmitter {
     // Injected by main.js: LinuxKeyManager or WindowsKeyManager checkAvailability.
     // Kept as a function so this module never requires the manager it asks about.
     this.nativeListenerProbe = null;
+    // Style hotkeys (Stage 4): extra keys on the dictation slot, each naming a
+    // dictation style, so they follow the activation mode like the dictation
+    // hotkey. `styleKeys` is the committed map (hotkey -> style id, persisted as
+    // DICTATION_STYLE_KEYS); the dictation slot's `styleHotkeys` lists which of
+    // its registered keys are style keys. A committed key that isn't registered
+    // keeps its reason in `styleKeyIssues`, so it is shown, never dropped.
+    this.styleKeys = new Map();
+    this.styleKeyIssues = new Map();
   }
 
   // Ensure a slot exists and return it (slots always use the list shape).
   _ensureSlot(slotName) {
     let slot = this.slots.get(slotName);
     if (!slot) {
-      slot = { hotkeys: [], callback: null, accelerators: [] };
+      slot = { hotkeys: [], callback: null, accelerators: [], styleHotkeys: [] };
       this.slots.set(slotName, slot);
     }
     if (!Array.isArray(slot.hotkeys)) slot.hotkeys = [];
     if (!Array.isArray(slot.accelerators)) slot.accelerators = [];
+    if (!Array.isArray(slot.styleHotkeys)) slot.styleHotkeys = [];
     return slot;
   }
 
@@ -148,6 +168,7 @@ class HotkeyManager extends EventEmitter {
   set currentHotkey(value) {
     const slot = this._ensureSlot("dictation");
     slot.hotkeys = value ? [value] : [];
+    slot.styleHotkeys = [];
     this.slots.set("dictation", slot);
   }
 
@@ -428,6 +449,7 @@ class HotkeyManager extends EventEmitter {
     }
     slot.hotkeys = [];
     slot.accelerators = [];
+    slot.styleHotkeys = [];
   }
 
   // Primary (first) hotkey for a slot — back-compat for callers that expect a
@@ -454,6 +476,320 @@ class HotkeyManager extends EventEmitter {
       if ((slot.hotkeys ?? []).includes(key)) return slotName;
     }
     return null;
+  }
+
+  // --- Style hotkeys (Stage 4) -------------------------------------------------
+
+  /** Boot: the committed map from .env, registered with the dictation slot. */
+  setStyleKeys(map) {
+    this._commitStyleKeys(new Map(map ?? []));
+  }
+
+  getStyleKeys() {
+    return new Map(this.styleKeys);
+  }
+
+  /** The dictation hotkey's own keys: the slot's keys that aren't style keys. */
+  getDictationHotkeys() {
+    const slot = this._ensureSlot("dictation");
+    return slot.hotkeys.filter((hotkey) => !slot.styleHotkeys.includes(hotkey));
+  }
+
+  /** The style a registered style key names; null for the dictation hotkey. */
+  getStyleIdForHotkey(hotkey) {
+    if (!hotkey) return null;
+    const slot = this.slots.get("dictation");
+    if (!slot?.styleHotkeys?.includes(hotkey) || !slot.hotkeys.includes(hotkey)) return null;
+    return this.styleKeys.get(hotkey) ?? null;
+  }
+
+  /**
+   * Why this backend can't take a style key, or null. Style keys ride on the
+   * dictation slot's key list and its Hold, which only Windows serves today:
+   * GNOME, KDE and Hyprland bind one key per slot, and macOS can't Hold a lone
+   * ordinary key. Linux and macOS support comes later, so a key is refused with
+   * this reason rather than half-working.
+   */
+  getStyleHotkeyRefusal() {
+    if (this.isUsingNativeShortcut()) {
+      return {
+        reason: "style_keys_single_key_desktop",
+        error: i18nMain.t("hotkey.errors.styleKeysDesktop"),
+      };
+    }
+    if (process.platform === "darwin") {
+      return { reason: "style_keys_unsupported", error: i18nMain.t("hotkey.errors.styleKeysMac") };
+    }
+    if (process.platform !== "win32") {
+      return {
+        reason: "style_keys_unsupported",
+        error: i18nMain.t("hotkey.errors.styleKeysLinux"),
+      };
+    }
+    return null;
+  }
+
+  /** What Settings shows: every committed binding, whether it is live and why not. */
+  getStyleKeyState() {
+    const refusal = this.getStyleHotkeyRefusal();
+    const bindings = [...this.styleKeys].map(([hotkey, styleId]) => {
+      const active = this.getStyleIdForHotkey(hotkey) === styleId;
+      const error = active
+        ? null
+        : (this.styleKeyIssues.get(hotkey)?.error ??
+          refusal?.error ??
+          i18nMain.t("hotkey.errors.styleKeyNotRegistered", { hotkey }));
+      return { hotkey, styleId, active, error };
+    });
+    return { bindings, supported: !refusal, unsupportedReason: refusal?.error ?? null };
+  }
+
+  /** A committed style key the candidate repeats (any spelling), or null. */
+  _findStyleKeyClash(hotkey, styleKeys = this.styleKeys) {
+    const canonical = canonicalHotkey(hotkey);
+    for (const [styleHotkey, styleId] of styleKeys) {
+      if (canonicalHotkey(styleHotkey) === canonical) return { hotkey: styleHotkey, styleId };
+    }
+    return null;
+  }
+
+  _duplicateStyleKeyError(duplicate) {
+    return duplicate.conflictsWith.kind === "dictation"
+      ? i18nMain.t("hotkey.errors.styleKeyIsDictationKey", { hotkey: duplicate.hotkey })
+      : i18nMain.t("hotkey.errors.styleKeyDuplicate", { hotkey: duplicate.hotkey });
+  }
+
+  _commitStyleKeys(next) {
+    this.styleKeys = next;
+    for (const hotkey of [...this.styleKeyIssues.keys()]) {
+      if (!next.has(hotkey)) this.styleKeyIssues.delete(hotkey);
+    }
+  }
+
+  _addStyleHotkeyToSlot(hotkey, accelerator) {
+    const slot = this._ensureSlot("dictation");
+    slot.hotkeys.push(hotkey);
+    slot.accelerators.push(accelerator ?? null);
+    slot.styleHotkeys.push(hotkey);
+    this.styleKeyIssues.delete(hotkey);
+  }
+
+  // Release one registered style key and take it out of the slot.
+  _unregisterStyleHotkey(hotkey) {
+    const slot = this._ensureSlot("dictation");
+    if (!slot.styleHotkeys.includes(hotkey)) return false;
+    slot.styleHotkeys = slot.styleHotkeys.filter((entry) => entry !== hotkey);
+    const index = slot.hotkeys.indexOf(hotkey);
+    if (index === -1) return true;
+    const accelerator = slot.accelerators[index];
+    if (accelerator) {
+      try {
+        globalShortcut.unregister(accelerator);
+      } catch {
+        // already unregistered
+      }
+    }
+    slot.hotkeys.splice(index, 1);
+    slot.accelerators.splice(index, 1);
+    return true;
+  }
+
+  // Register one style key on the dictation slot (callback = the slot's), or
+  // say why not. Never touches the committed map.
+  _registerStyleHotkey(hotkey, callback) {
+    const refusal = this.getStyleHotkeyRefusal();
+    if (refusal) return { success: false, hotkey, ...refusal };
+    const conflict = this._findSlotConflict("dictation", hotkey);
+    if (conflict) return { ...conflict, hotkey };
+    if (!callback) {
+      return {
+        success: false,
+        hotkey,
+        reason: "no_dictation_slot",
+        error: i18nMain.t("hotkey.errors.styleKeyNoDictationSlot"),
+      };
+    }
+    const result = this._registerSingleHotkey(hotkey, callback);
+    if (result.success) this._addStyleHotkeyToSlot(hotkey, result.accelerator);
+    return result;
+  }
+
+  /**
+   * Binds `hotkeyInput` to `styleId` (null or "" removes the style's key).
+   * Refused before anything changes when the backend can't serve style keys,
+   * the key repeats the dictation hotkey or another style's key, or another
+   * slot holds it. The map is committed only after the key registered; on a
+   * failed registration the style's previous key is registered again.
+   */
+  setStyleKey(styleId, hotkeyInput) {
+    if (!isValidStyleId(styleId)) {
+      return {
+        success: false,
+        reason: "invalid_style",
+        error: i18nMain.t("hotkey.errors.styleKeyInvalid", { hotkey: String(hotkeyInput ?? "") }),
+      };
+    }
+    const hotkey = typeof hotkeyInput === "string" ? hotkeyInput.trim() : "";
+    const previousKey = [...this.styleKeys].find(([, id]) => id === styleId)?.[0] ?? null;
+    const others = new Map(this.styleKeys);
+    if (previousKey) others.delete(previousKey);
+
+    if (!hotkey) {
+      if (!previousKey) return { success: true, changed: false };
+      this._unregisterStyleHotkey(previousKey);
+      this._commitStyleKeys(others);
+      return { success: true, changed: true };
+    }
+    if (hotkey === previousKey) return { success: true, changed: false };
+    if (!isValidStyleHotkey(hotkey)) {
+      return {
+        success: false,
+        reason: "invalid_hotkey",
+        error: i18nMain.t("hotkey.errors.styleKeyInvalid", { hotkey }),
+      };
+    }
+
+    const refusal = this.getStyleHotkeyRefusal();
+    if (refusal) return { success: false, hotkey, ...refusal };
+
+    // A duplicate inside the slot (the slot conflict check skips its own slot).
+    const built = buildDictationSlotKeys(this.getDictationHotkeys(), [
+      ...others,
+      [hotkey, styleId],
+    ]);
+    const duplicate = built.duplicates.find((entry) => entry.hotkey === hotkey);
+    if (duplicate) {
+      return {
+        success: false,
+        hotkey,
+        reason: "style_key_duplicate",
+        error: this._duplicateStyleKeyError(duplicate),
+      };
+    }
+    const conflict = this._findSlotConflict("dictation", hotkey);
+    if (conflict) return { ...conflict, hotkey };
+
+    const callback = this.hotkeyCallback;
+    const previousWasRegistered = previousKey
+      ? this._ensureSlot("dictation").styleHotkeys.includes(previousKey)
+      : false;
+    // Release the old key first, so a respelling of the same key can register.
+    if (previousKey) this._unregisterStyleHotkey(previousKey);
+    const result = this._registerStyleHotkey(hotkey, callback);
+    if (!result.success) {
+      // Roll back: the style keeps its previous key, registered as before.
+      if (previousKey && previousWasRegistered) {
+        const restored = this._registerStyleHotkey(previousKey, callback);
+        if (!restored.success) {
+          this.styleKeyIssues.set(previousKey, { reason: restored.reason, error: restored.error });
+        }
+      }
+      let error = result.error || i18nMain.t("hotkey.errors.registrationFailed", { hotkey });
+      if (result.suggestions?.length) {
+        error += ` ${i18nMain.t("hotkey.errors.trySuggestions", {
+          suggestions: result.suggestions.join(", "),
+        })}`;
+      }
+      debugLogger.warn("[HotkeyManager] Style hotkey refused", {
+        hotkey,
+        reason: result.reason,
+      });
+      return { success: false, hotkey, reason: result.reason, error };
+    }
+
+    others.set(hotkey, styleId);
+    this._commitStyleKeys(others);
+    return { success: true, changed: true, hotkey };
+  }
+
+  /**
+   * Keeps only the keys of `styleIds` (the styles that are on and complete):
+   * a deleted, switched-off or emptied style releases its key.
+   */
+  syncStyleKeys(styleIds) {
+    const allowed = new Set(Array.isArray(styleIds) ? styleIds : []);
+    const next = new Map([...this.styleKeys].filter(([, styleId]) => allowed.has(styleId)));
+    if (next.size === this.styleKeys.size) return { success: true, changed: false };
+    for (const hotkey of this.styleKeys.keys()) {
+      if (!next.has(hotkey)) this._unregisterStyleHotkey(hotkey);
+    }
+    this._commitStyleKeys(next);
+    return { success: true, changed: true };
+  }
+
+  /**
+   * Brings the slot's style keys in line with the committed map, through the
+   * slot builder: registers committed keys that can be served and aren't yet
+   * (boot, a backend that settled late, an activation-mode change) and
+   * releases registered ones that no longer should be. Best effort: a key that
+   * can't register keeps its reason. Returns whether the slot changed.
+   */
+  refreshStyleKeyRegistration() {
+    const slot = this._ensureSlot("dictation");
+    const refusal = this.getStyleHotkeyRefusal();
+    const built = buildDictationSlotKeys(this.getDictationHotkeys(), this.styleKeys);
+    const wanted = new Set();
+    for (const duplicate of built.duplicates) {
+      this.styleKeyIssues.set(duplicate.hotkey, {
+        reason: "style_key_duplicate",
+        error: this._duplicateStyleKeyError(duplicate),
+      });
+    }
+    for (const { hotkey } of built.styleKeys) {
+      if (refusal) this.styleKeyIssues.set(hotkey, refusal);
+      else wanted.add(hotkey);
+    }
+    let changed = false;
+    for (const hotkey of [...slot.styleHotkeys]) {
+      if (!wanted.has(hotkey) && this._unregisterStyleHotkey(hotkey)) changed = true;
+    }
+    for (const hotkey of wanted) {
+      if (slot.styleHotkeys.includes(hotkey)) continue;
+      const result = this._registerStyleHotkey(hotkey, slot.callback);
+      if (result.success) changed = true;
+      else this.styleKeyIssues.set(hotkey, { reason: result.reason, error: result.error });
+    }
+    return changed;
+  }
+
+  /** Puts a previous committed map back (a failed save) and re-registers it. */
+  restoreStyleKeys(previous) {
+    this._commitStyleKeys(new Map(previous ?? []));
+    this.refreshStyleKeyRegistration();
+  }
+
+  // The style keys that go with the dictation slot's own keys, registered best
+  // effort: a refused, duplicate or failing key keeps its reason and never
+  // makes the dictation hotkey fail.
+  _registerSlotStyleKeys(ownHotkeys, callback, styleKeys) {
+    const built = buildDictationSlotKeys(ownHotkeys, styleKeys);
+    const hotkeys = [];
+    const accelerators = [];
+    const failures = [];
+    for (const duplicate of built.duplicates) {
+      const error = this._duplicateStyleKeyError(duplicate);
+      this.styleKeyIssues.set(duplicate.hotkey, { reason: "style_key_duplicate", error });
+      failures.push({ hotkey: duplicate.hotkey, error });
+    }
+    const refusal = built.styleKeys.length > 0 ? this.getStyleHotkeyRefusal() : null;
+    for (const { hotkey } of built.styleKeys) {
+      if (refusal) {
+        this.styleKeyIssues.set(hotkey, refusal);
+        failures.push({ hotkey, error: refusal.error });
+        continue;
+      }
+      const conflict = this._findSlotConflict("dictation", hotkey);
+      const result = conflict ?? this._registerSingleHotkey(hotkey, callback);
+      if (result.success) {
+        hotkeys.push(hotkey);
+        accelerators.push(result.accelerator ?? null);
+        this.styleKeyIssues.delete(hotkey);
+      } else {
+        this.styleKeyIssues.set(hotkey, { reason: result.reason, error: result.error });
+        failures.push({ hotkey, error: result.error });
+      }
+    }
+    return { hotkeys, accelerators, failures };
   }
 
   /**
@@ -767,12 +1103,18 @@ class HotkeyManager extends EventEmitter {
    * Default is best-effort: succeeds if at least one hotkey registers, with
    * individual failures in `result.failures`. `atomic: true` rolls the whole
    * slot back to its previous bindings on any failure.
+   *
+   * The dictation slot also carries the style keys (Stage 4), appended after
+   * its own keys by the slot builder (`styleKeys` overrides the committed map).
+   * They are best effort and never make the dictation hotkey fail: a style key
+   * that can't register keeps its reason in `styleKeyIssues` and is reported in
+   * `result.styleFailures`. `result.hotkeys` lists only the dictation keys.
    */
   setupShortcuts(
     hotkeyInput = "Control+Super",
     callback,
     slotName = "dictation",
-    { atomic = false } = {}
+    { atomic = false, styleKeys } = {}
   ) {
     if (!callback) {
       throw new Error(i18nMain.t("hotkey.errors.callbackRequired"));
@@ -805,6 +1147,7 @@ class HotkeyManager extends EventEmitter {
 
     const previousHotkeys = [...(slot.hotkeys || [])];
     const previousAccelerators = [...(slot.accelerators || [])];
+    const previousStyleHotkeys = [...(slot.styleHotkeys || [])];
 
     // Unregister this slot's previous globalShortcut accelerators.
     for (const prevAccel of previousAccelerators) {
@@ -846,6 +1189,7 @@ class HotkeyManager extends EventEmitter {
       this._restorePreviousHotkeys(previousHotkeys, previousAccelerators, callback);
       slot.hotkeys = previousHotkeys;
       slot.accelerators = previousAccelerators;
+      slot.styleHotkeys = previousStyleHotkeys;
 
       const failureInfo = failures[0] || {};
       let errorMessage =
@@ -859,17 +1203,26 @@ class HotkeyManager extends EventEmitter {
       return { success: false, error: errorMessage, reason: failureInfo.reason, suggestions };
     }
 
-    slot.hotkeys = registeredHotkeys;
-    slot.accelerators = registeredAccelerators;
+    // The dictation slot's style keys go after its own keys (the slot builder).
+    const style =
+      slotName === "dictation"
+        ? this._registerSlotStyleKeys(registeredHotkeys, callback, styleKeys ?? this.styleKeys)
+        : { hotkeys: [], accelerators: [], failures: [] };
+
+    slot.hotkeys = [...registeredHotkeys, ...style.hotkeys];
+    slot.accelerators = [...registeredAccelerators, ...style.accelerators];
+    slot.styleHotkeys = style.hotkeys;
     slot.callback = callback;
     debugLogger.log(
-      `[HotkeyManager] Slot "${slotName}" registered: "${registeredHotkeys.join(", ")}"`
+      `[HotkeyManager] Slot "${slotName}" registered: "${registeredHotkeys.join(", ")}"` +
+        (style.hotkeys.length > 0 ? ` + style keys "${style.hotkeys.join(", ")}"` : "")
     );
 
     const result = { success: true, hotkey: registeredHotkeys[0], hotkeys: registeredHotkeys };
     if (failures.length > 0) {
       result.failures = failures.map((f) => ({ hotkey: f.hotkey, error: f.error }));
     }
+    if (style.failures.length > 0) result.styleFailures = style.failures;
     return result;
   }
 
@@ -903,16 +1256,28 @@ class HotkeyManager extends EventEmitter {
         debugLogger.warn(
           `[HotkeyManager] Hotkey "${hotkey}" conflicts with slot "${otherSlotName}"`
         );
+        // A style key rides on the dictation slot; say so rather than "Dictation".
+        const matchedHotkey = otherHotkeys.includes(hotkey)
+          ? hotkey
+          : accelerator
+            ? otherHotkeys[otherAccelerators.indexOf(accelerator)]
+            : null;
+        const isStyleKey = Boolean(
+          matchedHotkey && otherSlot.styleHotkeys?.includes(matchedHotkey)
+        );
         return {
           success: false,
-          error: i18nMain.t("hotkey.errors.slotConflict", {
-            slot: SLOT_LABEL_KEYS[otherSlotName]
-              ? i18nMain.t(SLOT_LABEL_KEYS[otherSlotName])
-              : otherSlotName,
-            defaultValue: `This hotkey is already used for ${otherSlotName}`,
-          }),
+          error: isStyleKey
+            ? i18nMain.t("hotkey.errors.styleKeyConflict", { hotkey })
+            : i18nMain.t("hotkey.errors.slotConflict", {
+                slot: SLOT_LABEL_KEYS[otherSlotName]
+                  ? i18nMain.t(SLOT_LABEL_KEYS[otherSlotName])
+                  : otherSlotName,
+                defaultValue: `This hotkey is already used for ${otherSlotName}`,
+              }),
           reason: "slot_conflict",
           conflictSlot: otherSlotName,
+          ...(isStyleKey && { conflictStyleId: this.styleKeys.get(matchedHotkey) ?? null }),
         };
       }
     }
@@ -1530,6 +1895,16 @@ class HotkeyManager extends EventEmitter {
         if (conflict) {
           return { success: false, message: conflict.error, reason: conflict.reason };
         }
+        // The slot conflict check skips the dictation slot itself, where the
+        // style keys live: a dictation key may not repeat one.
+        const styleClash = this._findStyleKeyClash(hotkey);
+        if (styleClash) {
+          return {
+            success: false,
+            message: i18nMain.t("hotkey.errors.dictationKeyIsStyleKey", { hotkey }),
+            reason: "style_key_conflict",
+          };
+        }
       }
 
       if (this.useGnome && this.gnomeManager) {
@@ -1697,6 +2072,7 @@ class HotkeyManager extends EventEmitter {
       if (slot) {
         slot.hotkeys = [];
         slot.accelerators = [];
+        slot.styleHotkeys = [];
       }
     }
     globalShortcut.unregisterAll();

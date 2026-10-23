@@ -38,6 +38,9 @@ const PERSISTED_KEYS = [
   "LLAMA_GPU_BACKEND",
   "LLAMA_VULKAN_ENABLED",
   "DICTATION_KEY",
+  // Style hotkeys (Stage 4): a JSON map of hotkey -> dictation style id, read
+  // at boot before any window exists (helpers/styleHotkeys.js).
+  "DICTATION_STYLE_KEYS",
   "VOICE_AGENT_KEY",
   "TRANSLATION_KEY",
   "MEETING_KEY",
@@ -392,6 +395,18 @@ class EnvironmentManager {
     const result = this._saveKey("DICTATION_KEY", key);
     this.saveAllKeysToEnvFile().catch(() => {});
     return result;
+  }
+
+  getDictationStyleKeys() {
+    return this._getKey("DICTATION_STYLE_KEYS");
+  }
+
+  // Awaited, like the cloud switch: a style key reported as saved must still be
+  // bound after a restart, so a failed write surfaces to the caller.
+  async saveDictationStyleKeys(value) {
+    this._saveKey("DICTATION_STYLE_KEYS", typeof value === "string" ? value : "");
+    await this.saveAllKeysToEnvFile();
+    return { success: true };
   }
 
   getVoiceAgentKey() {

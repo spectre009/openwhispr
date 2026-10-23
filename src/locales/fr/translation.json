@@ -130,7 +130,19 @@
       "windowsKeyListenerMissing": "\"{{hotkey}}\" nécessite l'écouteur de touches Windows, absent de cette installation. Choisissez un raccourci avec une touche classique.",
       "updateFailedCheckFormat": "Impossible de mettre à jour le raccourci vers \"{{hotkey}}\". Vérifiez que le format est valide.",
       "trySuggestions": "Essayez : {{suggestions}}",
-      "slotConflict": "Ce raccourci est déjà utilisé pour {{slot}}."
+      "slotConflict": "Ce raccourci est déjà utilisé pour {{slot}}.",
+      "styleKeysDesktop": "Les raccourcis de style ne sont pas encore disponibles sur ce bureau : GNOME, KDE et Hyprland n'associent qu'une touche au raccourci de dictée.",
+      "styleKeysMac": "Les raccourcis de style ne sont pas encore disponibles sur macOS : le maintien n'y fonctionne pas avec une seule touche ordinaire. Pour l'instant, ils fonctionnent sous Windows.",
+      "styleKeysLinux": "Les raccourcis de style ne sont pas encore disponibles sous Linux. Pour l'instant, ils fonctionnent sous Windows.",
+      "styleKeyNotRegistered": "\"{{hotkey}}\" n'est pas enregistré. Une autre application l'utilise peut-être.",
+      "styleKeyIsDictationKey": "\"{{hotkey}}\" est déjà le raccourci de dictée.",
+      "styleKeyDuplicate": "\"{{hotkey}}\" est déjà le raccourci d'un autre style.",
+      "dictationKeyIsStyleKey": "\"{{hotkey}}\" est déjà un raccourci de style. Retirez-le d'abord du style.",
+      "styleKeyConflict": "\"{{hotkey}}\" est déjà un raccourci de style.",
+      "styleKeyInvalid": "\"{{hotkey}}\" ne peut pas servir de raccourci de style.",
+      "styleKeyNoDictationSlot": "Le raccourci de dictée n'est pas encore enregistré, un raccourci de style ne peut donc pas être ajouté. Réessayez dans un instant.",
+      "styleKeySaveFailed": "Le raccourci de style n'a pas pu être enregistré, le précédent est donc conservé.",
+      "styleKeyInactive": "Le raccourci de style \"{{hotkey}}\" ne fonctionne pas : {{reason}}"
     }
   },
   "systemSettings": {
@@ -2804,6 +2816,13 @@
       "translationHotkey": {
         "title": "Raccourci de Traduction",
         "description": "Dictez dans n'importe quelle langue : le texte collé ressort traduit"
+      },
+      "styleHotkeys": {
+        "title": "Raccourcis de style",
+        "description": "Des touches qui dictent dans un style. Elles suivent le mode Maintenir ou Appui du raccourci de dictée. Définissez-les dans Styles.",
+        "empty": "Aucun style n'a encore de raccourci.",
+        "openStyles": "Ouvrir Styles",
+        "openStyle": "Ouvrir {{name}} dans Styles"
       }
     },
     "permissions": {
@@ -5412,6 +5431,18 @@
       "singleDraft": "Passe cette saisie dans le brouillon non enregistré du style en une étape, puis en deux étapes, avec le prompt de nettoyage actif. Rien de ce que vous avez enregistré ne change.",
       "runBoth": "Exécuter en une et en deux étapes",
       "failed": "Échec : {{error}}"
+    },
+    "hotkey": {
+      "label": "Raccourci",
+      "description": "Maintenez-le ou appuyez dessus comme {{hotkey}} pour dicter dans ce style. Il est enregistré aussitôt. Désactiver ou supprimer le style libère la touche.",
+      "needsOn": "Activez le style pour lui donner un raccourci.",
+      "inactive": "Ne fonctionne pas : {{reason}}",
+      "warnCtrlDigit": "Ctrl+1 à Ctrl+9 sont des raccourcis dans beaucoup d'applications : Teams ouvre l'Activité avec Ctrl+1 et les navigateurs changent d'onglet. Un raccourci de style ici peut entrer en conflit avec eux. Ctrl+Alt+1 ou une touche libre comme F21 est plus sûr.",
+      "warnVsCodeTerminal": "Ctrl+Maj+` ouvre un nouveau terminal dans VS Code. Un raccourci de style ici peut entrer en conflit avec lui.",
+      "conflictLabel": "le style {{name}}",
+      "conflictLabelUnknown": "un style supprimé",
+      "unknownStyle": "Style supprimé",
+      "deleteReleases": "Son raccourci {{hotkey}} est libéré."
     }
   }
 }

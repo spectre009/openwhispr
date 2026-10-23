@@ -130,7 +130,19 @@
       "windowsKeyListenerMissing": "\"{{hotkey}}\" 需要 Windows 按键监听器，但此安装中缺少该组件。请选择包含普通按键的快捷键。",
       "updateFailedCheckFormat": "无法将快捷键更新为 \"{{hotkey}}\"，请检查格式是否有效。",
       "trySuggestions": "建议尝试：{{suggestions}}",
-      "slotConflict": "此快捷键已用于{{slot}}。"
+      "slotConflict": "此快捷键已用于{{slot}}。",
+      "styleKeysDesktop": "此桌面环境暂不支持风格快捷键：GNOME、KDE 和 Hyprland 只能为听写快捷键绑定一个按键。",
+      "styleKeysMac": "macOS 暂不支持风格快捷键：在 macOS 上，单个普通按键无法用于按住模式。目前仅支持 Windows。",
+      "styleKeysLinux": "Linux 暂不支持风格快捷键。目前仅支持 Windows。",
+      "styleKeyNotRegistered": "\"{{hotkey}}\" 未注册，可能已被其他应用占用。",
+      "styleKeyIsDictationKey": "\"{{hotkey}}\" 已经是听写快捷键。",
+      "styleKeyDuplicate": "\"{{hotkey}}\" 已经是另一个风格的快捷键。",
+      "dictationKeyIsStyleKey": "\"{{hotkey}}\" 已经是风格快捷键。请先从该风格中移除。",
+      "styleKeyConflict": "\"{{hotkey}}\" 已经是风格快捷键。",
+      "styleKeyInvalid": "\"{{hotkey}}\" 不能用作风格快捷键。",
+      "styleKeyNoDictationSlot": "听写快捷键尚未注册，因此无法添加风格快捷键。请稍后再试。",
+      "styleKeySaveFailed": "无法保存风格快捷键，已保留之前的快捷键。",
+      "styleKeyInactive": "风格快捷键 \"{{hotkey}}\" 未生效：{{reason}}"
     }
   },
   "systemSettings": {
@@ -2510,6 +2522,13 @@
       "translationHotkey": {
         "title": "翻译快捷键",
         "description": "用任何语言听写——粘贴的文本会自动翻译"
+      },
+      "styleHotkeys": {
+        "title": "风格快捷键",
+        "description": "以某种风格进行听写的按键。它们沿用听写快捷键的按住或点按模式。请在“风格”中设置。",
+        "empty": "还没有风格设置快捷键。",
+        "openStyles": "打开风格",
+        "openStyle": "在风格中打开 {{name}}"
       }
     },
     "permissions": {
@@ -5412,6 +5431,18 @@
       "singleDraft": "将此输入先以一步、再以两步运行风格的未保存草稿，使用当前的清理提示词。已保存的内容不会改变。",
       "runBoth": "运行一步和两步",
       "failed": "失败：{{error}}"
+    },
+    "hotkey": {
+      "label": "快捷键",
+      "description": "像 {{hotkey}} 一样按住或点按，即可用此风格听写。立即保存。关闭或删除该风格会释放此按键。",
+      "needsOn": "请先开启该风格，再为其设置快捷键。",
+      "inactive": "未生效：{{reason}}",
+      "warnCtrlDigit": "Ctrl+1 到 Ctrl+9 是许多应用的快捷键：Teams 用 Ctrl+1 打开“活动”，浏览器用它们切换标签页。在这里设为风格快捷键可能与之冲突。Ctrl+Alt+1 或 F21 等空闲按键更安全。",
+      "warnVsCodeTerminal": "Ctrl+Shift+` 会在 VS Code 中打开新终端。在这里设为风格快捷键可能与之冲突。",
+      "conflictLabel": "风格“{{name}}”",
+      "conflictLabelUnknown": "已删除的风格",
+      "unknownStyle": "已删除的风格",
+      "deleteReleases": "其快捷键 {{hotkey}} 将被释放。"
     }
   }
 }

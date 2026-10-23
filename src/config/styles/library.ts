@@ -9,8 +9,15 @@
 // re-read inside the write so another window's change is never overwritten
 // with a stale copy. Other windows follow the record's `storage` event.
 //
-// Reserved and carried but not shown: `examples` (style from examples),
-// `useVoice` (voice profile) and `hotkey` (Stage 4 style hotkeys).
+// Reserved and carried but not shown: `examples` (style from examples) and
+// `useVoice` (voice profile).
+//
+// `hotkey` (Stage 4 style hotkeys) mirrors main's binding for the UI. Main
+// owns the bindings (`DICTATION_STYLE_KEYS` in .env): only it knows whether a
+// key registered, and it needs them at boot. The mirror is rewritten from
+// main's broadcasts (applyStyleHotkeyBindings), never edited directly, and a
+// deleted, switched-off or emptied style has its key released through main
+// (styleStore reports the styles still eligible).
 
 import { STYLE_STARTERS, type StyleStarter } from "./starters";
 
@@ -44,7 +51,7 @@ export interface DictationStyle {
   examples: unknown[];
   /** Reserved (voice profile): stored and carried, not shown. */
   useVoice: boolean;
-  /** Reserved (Stage 4 style hotkeys): stored, never bound here. */
+  /** Mirror of main's style hotkey for this style (Stage 4); null when none. */
   hotkey: string | null;
   origin: StyleOrigin;
   updatedAt: number;
@@ -424,4 +431,67 @@ export function setDictationStyle(library: StyleLibrary, id: string): boolean {
   if (library.dictationStyleId === id) return false;
   library.dictationStyleId = id;
   return true;
+}
+
+// --- Style hotkeys (Stage 4) ---------------------------------------------------
+
+/** One of main's style hotkey bindings, with whether it is live and why not. */
+export interface StyleHotkeyBinding {
+  hotkey: string;
+  styleId: string;
+  active: boolean;
+  /** Why the key isn't live (refused by this backend, in use elsewhere…); null when it is. */
+  error: string | null;
+}
+
+/** Main's view of the style hotkeys (`style-hotkeys-get` / `style-hotkeys-changed`). */
+export interface StyleHotkeyState {
+  bindings: StyleHotkeyBinding[];
+  /** False where this backend can't take style keys; `unsupportedReason` says why. */
+  supported: boolean;
+  unsupportedReason: string | null;
+}
+
+export interface StyleHotkeyResult extends StyleHotkeyState {
+  success: boolean;
+  message?: string;
+  reason?: string | null;
+}
+
+/** The styles main may keep a key for: on and complete, as for the dictation hotkey. */
+export function hotkeyEligibleStyleIds(library: StyleLibrary): string[] {
+  return selectableStyles(library).map((style) => style.id);
+}
+
+/** Bindings whose style was deleted, switched off or emptied: main releases them. */
+export function orphanedStyleHotkeys(
+  library: StyleLibrary,
+  bindings: readonly Pick<StyleHotkeyBinding, "styleId">[]
+): string[] {
+  const eligible = new Set(hotkeyEligibleStyleIds(library));
+  return bindings.filter((binding) => !eligible.has(binding.styleId)).map((b) => b.styleId);
+}
+
+/**
+ * Rewrites every style's `hotkey` mirror from main's bindings. Not a user edit,
+ * so `updatedAt` is left alone. Returns whether anything changed.
+ */
+export function applyStyleHotkeyBindings(
+  library: StyleLibrary,
+  bindings: readonly Pick<StyleHotkeyBinding, "hotkey" | "styleId">[]
+): boolean {
+  const byStyle = new Map<string, string>();
+  for (const binding of bindings) {
+    if (typeof binding?.hotkey !== "string" || !binding.hotkey) continue;
+    if (!byStyle.has(binding.styleId)) byStyle.set(binding.styleId, binding.hotkey);
+  }
+  let changed = false;
+  for (const style of library.styles) {
+    const hotkey = byStyle.get(style.id) ?? null;
+    if (style.hotkey !== hotkey) {
+      style.hotkey = hotkey;
+      changed = true;
+    }
+  }
+  return changed;
 }
