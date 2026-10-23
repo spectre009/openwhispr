@@ -8,6 +8,7 @@ import { isBuiltInMicrophone } from "../../utils/audioDeviceUtils";
 import { resolveSystemDefaultMicDevice } from "../../helpers/microphoneSelection";
 import { resolveMicDeviceSelection } from "../../helpers/micDeviceSelection";
 import { MIC_WARM_HOLD_CHOICES } from "../../stores/settingsStore";
+import { useSettingsVisible } from "../settings/useSettingsVisible";
 
 // Settings text is 12 px: these match the other compact Settings dropdowns.
 const COMPACT_TRIGGER_CLASS = "h-7 w-44 text-xs rounded-lg px-2.5 [&>svg]:h-3 [&>svg]:w-3";
@@ -91,7 +92,11 @@ export const MicrophoneSettings: React.FC<MicrophoneSettingsProps> = ({
     }
   }, [onDeviceSelect, selectedMicDeviceId, selectedMicDeviceLabel, t]);
 
+  // Settings stays mounted while closed: device changes are read again on reopen
+  // rather than while hidden (reading labels can acquire the mic).
+  const settingsVisible = useSettingsVisible();
   useEffect(() => {
+    if (!settingsVisible) return;
     loadDevices();
 
     const handleDeviceChange = () => loadDevices();
@@ -100,7 +105,7 @@ export const MicrophoneSettings: React.FC<MicrophoneSettingsProps> = ({
     return () => {
       navigator.mediaDevices.removeEventListener("devicechange", handleDeviceChange);
     };
-  }, [loadDevices]);
+  }, [loadDevices, settingsVisible]);
 
   const builtInDevice = devices.find((d) => d.isBuiltIn);
   const selectedDevice = devices.find((d) => d.deviceId === selectedMicDeviceId);

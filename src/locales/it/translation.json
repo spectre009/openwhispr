@@ -1848,6 +1848,11 @@
     },
     "title": "Impostazioni"
   },
+  "settingsLayer": {
+    "backTo": "Torna a «{{view}}»",
+    "sections": "Sezioni delle impostazioni",
+    "appViews": "Viste dell'app"
+  },
   "settingsPage": {
     "unifiedBilling": {
       "workspaceTitle": "Fatturazione dell'area di lavoro",

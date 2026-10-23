@@ -1848,6 +1848,11 @@
     },
     "title": "Настройки"
   },
+  "settingsLayer": {
+    "backTo": "Назад к разделу «{{view}}»",
+    "sections": "Разделы настроек",
+    "appViews": "Разделы приложения"
+  },
   "settingsPage": {
     "unifiedBilling": {
       "workspaceTitle": "Оплата рабочих пространств",

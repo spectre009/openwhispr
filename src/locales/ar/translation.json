@@ -3312,6 +3312,11 @@
       "restartRequired": "أعد تشغيل OpenWhispr لتطبيق الوصول إلى الشاشة."
     }
   },
+  "settingsLayer": {
+    "backTo": "العودة إلى {{view}}",
+    "sections": "أقسام الإعدادات",
+    "appViews": "أقسام التطبيق"
+  },
   "settingsPage": {
     "workspace": {
       "title": "مساحة العمل",

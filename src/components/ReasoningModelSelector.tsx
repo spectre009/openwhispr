@@ -37,6 +37,7 @@ import {
   reconcileProviderSelection,
 } from "../stores/policyRules";
 import { usePolicySnapshot } from "../hooks/usePolicy";
+import { useSettingsVisible } from "./settings/useSettingsVisible";
 
 type CloudModelOption = {
   value: string;
@@ -92,8 +93,11 @@ function GpuStatusBadge() {
     () => localStorage.getItem("llamaVulkanBannerDismissed") === "true"
   );
   const platform = getCachedPlatform();
+  // Settings stays mounted while closed; the badge polls only while it's shown.
+  const settingsVisible = useSettingsVisible();
 
   useEffect(() => {
+    if (!settingsVisible) return;
     const poll = () => {
       window.electronAPI
         ?.llamaServerStatus?.()
@@ -109,7 +113,7 @@ function GpuStatusBadge() {
     poll();
     const id = setInterval(poll, 5000);
     return () => clearInterval(id);
-  }, [platform]);
+  }, [platform, settingsVisible]);
 
   useEffect(() => {
     if (platform !== "darwin") {

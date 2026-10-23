@@ -337,6 +337,8 @@ export default function CommandSearch({
         />
         <DialogPrimitive.Content
           ref={registerContent}
+          // Leaving Settings for a palette result ignores the closing palette.
+          data-command-palette=""
           onInteractOutside={(e) => {
             // The filter dropdown makes this panel inert while it is open, so
             // the click that closes it lands on the overlay — see useDismissGuard.

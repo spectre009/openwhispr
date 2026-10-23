@@ -1848,6 +1848,11 @@
     },
     "title": "設定"
   },
+  "settingsLayer": {
+    "backTo": "返回{{view}}",
+    "sections": "設定導覽",
+    "appViews": "應用程式頁面"
+  },
   "settingsPage": {
     "unifiedBilling": {
       "workspaceTitle": "工作區帳單",

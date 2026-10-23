@@ -239,6 +239,12 @@ OpenWhispr is an Electron-based desktop dictation application that uses whisper.
 - **OnboardingFlow.tsx**: First-time setup wizard over a versioned, route-based step machine (`src/components/onboarding/flow.ts`; session persisted in `onboardingSessionV2`). Routes vary by auth path (account vs guest), policy (agent allowed), and setup mode (cloud / BYOK / local / enterprise); step components live in `src/components/onboarding/`
 - **PostMigrationOnboarding.tsx**: One-time modal for users returning from the pre-Gizmo bundle ID; reuses `PermissionsSection` to walk through re-granting Microphone, Accessibility, and System Audio. Triggered by `postMigrationDetector.js` (see Helper Modules)
 - **SettingsPage.tsx**: Comprehensive settings interface
+- **Settings layer** (`settings/SettingsLayer.tsx`, rendered by `SettingsModal.tsx`): Settings is a full-window layer over the Control Panel, not a dialog or a view. `ControlPanel` renders it after `<main>`, as a sibling of the sidebar container and `<main>`, which get `inert` + `aria-hidden` while it's open, so the view underneath (a chat stream, a download, an open note) keeps running. Shell: an icon rail of the app's views (`useControlPanelNavItems`; picking one leaves Settings), its own top bar (breadcrumb, Ctrl+K button, drag region and `WindowControls`), the Settings nav ("Back to <view>" first, `navTop` slot for search) and one content scroller (920 px reading width; `SettingsLayoutProvider` is compact only below 640 px of content)
+  - **Kept mounted**: mounted on first open, then hidden (`display: none` + `inert`) when closed, so prompt drafts, scroll position and downloads survive. `useSettingsVisible()` (`settings/useSettingsVisible.ts`, true outside Settings) pauses presentation polling while hidden and re-runs OS queries on reopen: GPU status (`ReasoningModelSelector`, `TranscriptionModelPicker`), accessibility and paste tools (`usePermissions`'s `active` option), microphone devices, auto-start, ydotool and audio storage. Downloads and test runs are never paused
+  - **Requests** (`settings/useSettingsLayerController.ts`, `settings/settingsNavigation.ts`): every caller uses `openSettings(section?)`. A named section is a request with a new id and always navigates (aliases and legacy sub-tabs from `settingsSections.ts`; `subTabRequestId` re-applies a sub-tab even when unchanged); a bare open (Ctrl+, the sidebar, the app menu) keeps the page Settings was on, or the default section on first open. Never key the layer: a remount loses drafts
+  - **Leaving** (`settings/settingsLayerPolicy.ts`): Radix portals popups and dialogs into the body, outside the layer, so every way out (Back, Esc, the rail, Ctrl+, which toggles, Open in History, a palette result) calls `requestSettingsClose` first: an open popup is closed instead (a synthetic Escape at the focused element for a Radix popup, at the expanded trigger for a hand-rolled dropdown such as `LanguageSelector`, which can be open while focus is elsewhere), a modal dialog or hotkey capture refuses. A palette result passes the palette (`data-command-palette`) as `ignore`, since it's closing in the same step
+  - **Esc**: read in the window capture phase (before Radix's document listener closes the top popup), acted on in the bubble phase unless something handled it: capture or IME → nothing, an Esc a popup or dialog already handled → nothing, an open popup that didn't get it → close that popup, focused text field → blur, search query → clear (`searchActive`), else leave Settings
+  - **Focus**: the layer root takes focus on open; on close, after `inert` is released, focus returns to what had it before (captured in `openSettings`), else the sidebar's current item, else it just leaves the layer
 - **WhisperModelPicker.tsx**: Model selection and download UI
 - **ConnectorsSection.tsx**: Integrations → Connectors: the "Draft emails in" picker (Automatic shows what it resolved to; Send from chat (Gmail) says to connect Gmail until it can send, and the card's description follows where drafts actually go), a paid-plan upsell, "turned off by your organization" for a resolved org block and "not available right now" while the policy is loading, failed or requires a newer app
 - **ui/**: Reusable UI components (buttons, cards, inputs, etc.)
@@ -906,7 +912,7 @@ All user-facing strings **must** use the i18n system. Never hardcode UI text in 
 
 **Setup**: react-i18next (v15) with i18next (v25). Translation files in `src/locales/{lang}/translation.json`.
 
-**Supported languages**: en, es, fr, de, pt, it, ru, zh-CN, zh-TW
+**Supported languages**: en, ar, es, fr, de, pt, it, ru, ja, zh-CN, zh-TW (`SUPPORTED_UI_LANGUAGES` in `src/i18n.ts`; Arabic is RTL, so layouts use logical properties such as `ms-`/`me-`/`start-`/`end-`)
 
 **How to use**:
 
@@ -956,7 +962,7 @@ UI icons come from `src/components/icons/` (vendored Nucleo core outline compone
 2. **New Setting**: Update useSettings.ts and SettingsPage.tsx
 3. **New UI Component**: Follow shadcn/ui patterns in src/components/ui
 4. **New Manager**: Create in src/helpers/, initialize in main.js
-5. **New UI Strings**: Add translation keys to all 10 language files (see i18n section above)
+5. **New UI Strings**: Add translation keys to all 11 language files (see i18n section above)
 6. **New Sidecar Binary**: Add download script in `scripts/`, add to `prebuild*` scripts in package.json, add manager in `src/helpers/`, initialize in `main.js`. Spawn the child with `detached: process.platform !== "win32"` so it has its own process group on Unix. Right after spawn call `sidecarPidFile.write(name, child.pid)` and on `close` call `sidecarPidFile.clear(name)`. Add the binary fragment to `EXPECTED_BINARY_FRAGMENTS` in `sidecarReaper.js`. Register a stop function via `sidecarRegistry.register(name, () => manager.stop())` in `registerSidecars()` — that single registration replaces the old `will-quit` line.
 
 ### Testing Checklist

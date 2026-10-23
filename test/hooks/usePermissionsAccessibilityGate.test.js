@@ -91,3 +91,95 @@ test("macOS accessibility checks follow the onboarding feature gate", async (t) 
   assert.equal(accessibilityChecks, 1);
   assert.equal(activeIntervals.size, 0);
 });
+
+// Settings stays mounted while closed: a hidden Settings makes no permission
+// queries and stops polling, and showing it again re-runs the mount-time checks.
+test("an inactive screen pauses permission checks and repeats them when shown", async (t) => {
+  let root = null;
+  t.after(async () => {
+    if (root) await React.act(async () => root.unmount());
+  });
+
+  const calls = { accessibility: 0, microphone: 0, pasteTools: 0 };
+  installBrowserGlobals(t, {
+    window: {
+      electronAPI: {
+        getPlatform: () => "darwin",
+        checkAccessibilityPermission: async () => {
+          calls.accessibility += 1;
+          return false;
+        },
+        checkMicrophoneAccess: async () => {
+          calls.microphone += 1;
+          return { granted: false };
+        },
+        checkPasteTools: async () => {
+          calls.pasteTools += 1;
+          return {
+            platform: "darwin",
+            available: true,
+            method: "cgevent",
+            requiresPermission: true,
+            tools: [],
+          };
+        },
+      },
+    },
+  });
+  const container = installHookDom(t);
+
+  const originalSetInterval = globalThis.setInterval;
+  const originalClearInterval = globalThis.clearInterval;
+  const activeIntervals = new Set();
+  let nextIntervalId = 1;
+  globalThis.setInterval = () => {
+    const id = nextIntervalId++;
+    activeIntervals.add(id);
+    return id;
+  };
+  globalThis.clearInterval = (id) => activeIntervals.delete(id);
+  t.after(() => {
+    globalThis.setInterval = originalSetInterval;
+    globalThis.clearInterval = originalClearInterval;
+  });
+
+  const vite = await createRendererServer(t, {
+    cachePrefix: "openwhispr-permissions-active-",
+    noExternal: ["react-i18next"],
+    mockModules: {
+      "react-i18next": `
+        const t = (key) => key;
+        export function useTranslation() { return { t }; }
+      `,
+    },
+  });
+  const { usePermissions } = await vite.ssrLoadModule("/hooks/usePermissions.ts");
+
+  let active = true;
+  function Harness() {
+    usePermissions(undefined, { active });
+    return null;
+  }
+
+  root = createRoot(container);
+  const render = async () => {
+    await React.act(async () => {
+      root.render(React.createElement(Harness));
+      await Promise.resolve();
+    });
+  };
+
+  await render();
+  assert.deepEqual(calls, { accessibility: 1, microphone: 1, pasteTools: 1 });
+  assert.equal(activeIntervals.size, 1);
+
+  active = false;
+  await render();
+  assert.deepEqual(calls, { accessibility: 1, microphone: 1, pasteTools: 1 });
+  assert.equal(activeIntervals.size, 0, "no polling while hidden");
+
+  active = true;
+  await render();
+  assert.deepEqual(calls, { accessibility: 2, microphone: 2, pasteTools: 2 });
+  assert.equal(activeIntervals.size, 1);
+});

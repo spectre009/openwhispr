@@ -102,7 +102,8 @@ test("technical output values remain LTR inside an Arabic document", () => {
       "src/components/notes/UploadAudioView.tsx",
       /<p\s+dir="ltr"[^>]*max-w-sm[^>]*>\s*\{file\.name\}/,
     ],
-    ["src/components/ui/SidebarModal.tsx", /<span\s+dir="ltr"[\s\S]*?v\{version\}/],
+    ["src/components/settings/SettingsLayer.tsx", /<kbd\s+dir="ltr"[^>]*>\s*Esc\s*<\/kbd>/],
+    ["src/components/settings/SettingsLayer.tsx", /<kbd\s+dir="ltr"[\s\S]*?"⌘ \+ K" : "Ctrl \+ K"/],
     ["src/components/ui/ModelCardList.tsx", /<span\s+dir="ltr"[\s\S]*?\{model\.label\}/],
     [
       "src/components/onboarding/ProviderSetupStep.tsx",

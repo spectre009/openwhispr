@@ -1848,6 +1848,11 @@
     },
     "title": "設定"
   },
+  "settingsLayer": {
+    "backTo": "「{{view}}」に戻る",
+    "sections": "設定メニュー",
+    "appViews": "アプリの画面"
+  },
   "settingsPage": {
     "unifiedBilling": {
       "workspaceTitle": "ワークスペースの請求",

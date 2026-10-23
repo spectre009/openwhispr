@@ -1942,6 +1942,11 @@
     },
     "title": "Einstellungen"
   },
+  "settingsLayer": {
+    "backTo": "Zurück zu „{{view}}“",
+    "sections": "Einstellungsbereiche",
+    "appViews": "App-Ansichten"
+  },
   "settingsPage": {
     "workspace": {
       "title": "Workspace",

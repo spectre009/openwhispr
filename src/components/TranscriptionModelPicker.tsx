@@ -47,6 +47,7 @@ import { API_ENDPOINTS, normalizeBaseUrl } from "../config/constants";
 import { GetApiKeyLink } from "./ui/GetApiKeyLink";
 import { getCachedPlatform } from "../utils/platform";
 import { pickWhisperGpuBackend } from "../utils/whisperGpuPack";
+import { useSettingsVisible } from "./settings/useSettingsVisible";
 import logger from "../utils/logger";
 import type { ParakeetCheckResult } from "../types/electron";
 
@@ -482,6 +483,8 @@ export default function TranscriptionModelPicker({
   const hasLoadedParakeetRef = useRef(false);
   const [gpuBackend, setGpuBackend] = useState<"cuda" | "vulkan" | null>(null);
   const [gpuDownloaded, setGpuDownloaded] = useState(false);
+  // Settings stays mounted while closed; the live GPU status polls only while it's shown.
+  const settingsVisible = useSettingsVisible();
   const [gpuDownloading, setGpuDownloading] = useState(false);
   const [gpuProgress, setGpuProgress] = useState<DownloadProgress>({
     downloadedBytes: 0,
@@ -829,6 +832,7 @@ export default function TranscriptionModelPicker({
   // silently falls back to CPU). Faster poll while an activation is in flight.
   // Polls again at once when a re-read switches the card to another pack.
   useEffect(() => {
+    if (!settingsVisible) return;
     if (!effectiveLocal || internalLocalProvider !== "whisper" || !gpuDownloaded) return;
     const poll = () => {
       window.electronAPI
@@ -842,7 +846,14 @@ export default function TranscriptionModelPicker({
     poll();
     const id = setInterval(poll, gpuActivating ? 1000 : 5000);
     return () => clearInterval(id);
-  }, [effectiveLocal, internalLocalProvider, gpuDownloaded, gpuActivating, gpuBackend]);
+  }, [
+    effectiveLocal,
+    internalLocalProvider,
+    gpuDownloaded,
+    gpuActivating,
+    gpuBackend,
+    settingsVisible,
+  ]);
 
   // Safety valve: a Vulkan cold start can take up to ~2 minutes (see #698);
   // past that the live status or a fallback notification settles the state.

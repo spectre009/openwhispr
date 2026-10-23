@@ -1827,6 +1827,11 @@
     },
     "title": "Configurações"
   },
+  "settingsLayer": {
+    "backTo": "Voltar para “{{view}}”",
+    "sections": "Seções das configurações",
+    "appViews": "Telas do app"
+  },
   "settingsPage": {
     "unifiedBilling": {
       "workspaceTitle": "Cobrança do workspace",

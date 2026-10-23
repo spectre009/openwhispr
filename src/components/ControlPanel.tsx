@@ -54,6 +54,9 @@ import {
 import ControlPanelSidebar from "./ControlPanelSidebar";
 import ControlPanelTopBar from "./ControlPanelTopBar";
 import { useControlPanelNavItems, type ControlPanelView } from "./controlPanelNav";
+import { useSettingsLayerController } from "./settings/useSettingsLayerController";
+import { drainPendingSettingsSection } from "./settings/settingsNavigation";
+import { COMMAND_PALETTE_ATTRIBUTE } from "./settings/settingsLayerPolicy";
 import {
   DEFAULT_INTEGRATIONS_SECTION,
   type IntegrationsSection,
@@ -119,7 +122,7 @@ const ChatView = React.lazy(() => import("./chat/ChatView"));
 const CommandSearch = React.lazy(() => import("./CommandSearch"));
 
 interface ControlPanelProps {
-  /** Open the settings modal at this section on mount (e.g. after onboarding). */
+  /** Open Settings at this section on mount (e.g. after onboarding). */
   initialSettingsSection?: string;
 }
 
@@ -128,17 +131,20 @@ export default function ControlPanel({ initialSettingsSection }: ControlPanelPro
   useEffect(subscribeMeetingNotificationFolders, []);
   const history = useTranscriptions();
   const [isLoading, setIsLoading] = useState(true);
-  const [showSettings, setShowSettings] = useState(!!initialSettingsSection);
+  // Settings is a layer over the app, kept mounted once opened (see SettingsLayer).
+  const {
+    open: showSettings,
+    mounted: settingsMounted,
+    request: settingsRequest,
+    returnFocusRef: settingsReturnFocusRef,
+    openSettings,
+    closeSettings,
+    toggleSettings,
+  } = useSettingsLayerController(initialSettingsSection);
   const [showUpgradePrompt, setShowUpgradePrompt] = useState(false);
   const [showPostMigration, setShowPostMigration] = useState(false);
   const [limitData, setLimitData] = useState<{ wordsUsed: number; limit: number } | null>(null);
   const hasShownUpgradePrompt = useRef(false);
-  const [settingsSection, setSettingsSection] = useState<string | undefined>(
-    initialSettingsSection
-  );
-  // Counts named show-settings requests, so asking again for the section the
-  // modal was opened at still lands there after the user moved elsewhere in it.
-  const [settingsRequest, setSettingsRequest] = useState(0);
   const [aiCTADismissed, setAiCTADismissed] = useState(
     () => localStorage.getItem("aiCTADismissed") === "true"
   );
@@ -170,6 +176,21 @@ export default function ControlPanel({ initialSettingsSection }: ControlPanelPro
   const activeNoteId = useActiveNoteId();
   const isSidePanelLayout =
     isMeetingMode || (isNarrowWindow && activeView === "personal-notes" && activeNoteId != null);
+  // Leaving Settings for a palette result: the palette is closing in the same step.
+  const closeSettingsForPalette = useCallback(
+    () => closeSettings({ ignore: document.querySelector(`[${COMMAND_PALETTE_ATTRIBUTE}]`) }),
+    [closeSettings]
+  );
+  // Focus returns here when Settings closes and what had focus before is gone.
+  const sidebarContainerRef = useRef<HTMLDivElement>(null);
+  const sidebarShown = !sidebarCollapsed && !isSidePanelLayout;
+  const getSettingsFocusFallback = useCallback(
+    () =>
+      sidebarShown
+        ? (sidebarContainerRef.current?.querySelector<HTMLElement>('[aria-current="page"]') ?? null)
+        : null,
+    [sidebarShown]
+  );
   const recordingNoteId = useMeetingRecordingStore((s) => s.recordingNoteId);
   const recordingFolderId = useMeetingRecordingStore((s) => s.recordingFolderId);
   const [meetingRecordingRequest, setMeetingRecordingRequest] = useState<{
@@ -219,10 +240,10 @@ export default function ControlPanel({ initialSettingsSection }: ControlPanelPro
     installUpdate,
   } = useUpdater();
 
-  const openTranscriptionSettings = useCallback(() => {
-    setSettingsSection("transcription");
-    setShowSettings(true);
-  }, []);
+  const openTranscriptionSettings = useCallback(
+    () => openSettings("transcription"),
+    [openSettings]
+  );
   useSignInCloudNudge(isSignedIn, openTranscriptionSettings);
 
   const agentAllowedByPolicy = usePolicyStore(isAgentAllowed);
@@ -323,12 +344,12 @@ export default function ControlPanel({ initialSettingsSection }: ControlPanelPro
         setShowSearch(true);
       } else if (mod && e.key === ",") {
         e.preventDefault();
-        setShowSettings(true);
+        toggleSettings();
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
+  }, [toggleSettings]);
 
   // Prompt Studio's test set → "Open in History" on a pinned case: leave
   // Settings, show History and bring the row into view while it's listed.
@@ -336,7 +357,7 @@ export default function ControlPanel({ initialSettingsSection }: ControlPanelPro
     const openHistoryItem = (event: Event) => {
       const id = (event as CustomEvent<{ id?: unknown }>).detail?.id;
       if (!Number.isInteger(id)) return;
-      setShowSettings(false);
+      if (!closeSettings()) return;
       setActiveView("home");
       let attempts = 0;
       const reveal = () => {
@@ -351,7 +372,7 @@ export default function ControlPanel({ initialSettingsSection }: ControlPanelPro
     };
     window.addEventListener(OPEN_HISTORY_ITEM_EVENT, openHistoryItem);
     return () => window.removeEventListener(OPEN_HISTORY_ITEM_EVENT, openHistoryItem);
-  }, []);
+  }, [closeSettings]);
 
   useEffect(() => {
     if (updateStatus.updateDownloaded && !isDownloading) {
@@ -508,19 +529,17 @@ export default function ControlPanel({ initialSettingsSection }: ControlPanelPro
 
   useEffect(() => {
     // A named section waits in main (it can outrace this listener on a cold
-    // start); a bare request (app-menu Cmd+,) keeps an open modal where it is.
-    const drain = async (showAnyway: boolean) => {
-      const section = await window.electronAPI?.getPendingSettingsSection?.();
-      if (section) {
-        setSettingsSection(section);
-        setSettingsRequest((count) => count + 1);
-      }
-      if (section || showAnyway) setShowSettings(true);
-    };
+    // start); a bare request (app-menu Cmd+,) keeps Settings where it is.
+    const drain = (showAnyway: boolean) =>
+      void drainPendingSettingsSection(
+        () => window.electronAPI?.getPendingSettingsSection?.(),
+        openSettings,
+        showAnyway
+      );
     drain(false);
     const cleanup = window.electronAPI?.onShowSettings?.(() => drain(true));
     return () => cleanup?.();
-  }, []);
+  }, [openSettings]);
 
   // When accessibility is missing on macOS, open the permissions settings page
   useEffect(() => {
@@ -528,8 +547,7 @@ export default function ControlPanel({ initialSettingsSection }: ControlPanelPro
       if (isAccessibilitySkipped()) return;
       const migration = await window.electronAPI?.getPostMigrationState?.();
       if (migration?.justMigrated) return;
-      setSettingsSection("privacyData");
-      setShowSettings(true);
+      openSettings("privacyData");
       toast({
         title: t("controlPanel.accessibilityMissing.title"),
         description: t("controlPanel.accessibilityMissing.description"),
@@ -537,7 +555,7 @@ export default function ControlPanel({ initialSettingsSection }: ControlPanelPro
       });
     });
     return () => cleanup?.();
-  }, [toast, t]);
+  }, [openSettings, toast, t]);
 
   useEffect(() => {
     fetchStreamingProviders();
@@ -1130,21 +1148,6 @@ export default function ControlPanel({ initialSettingsSection }: ControlPanelPro
         onDone={dismissPostMigrationPermanently}
       />
 
-      {showSettings && (
-        <Suspense fallback={null}>
-          <SettingsModal
-            // SettingsModal reads initialSection only on open, so a named request remounts it.
-            key={`${settingsSection ?? "default"}-${settingsRequest}`}
-            open={showSettings}
-            onOpenChange={(open) => {
-              setShowSettings(open);
-              if (!open) setSettingsSection(undefined);
-            }}
-            initialSection={settingsSection}
-          />
-        </Suspense>
-      )}
-
       {showReferrals && (
         <Suspense fallback={null}>
           <ReferralModal open={showReferrals} onOpenChange={setShowReferrals} />
@@ -1185,17 +1188,21 @@ export default function ControlPanel({ initialSettingsSection }: ControlPanelPro
           open={showSearch}
           onOpenChange={setShowSearch}
           transcriptions={history}
+          // A result opened over Settings leaves it first; the palette itself is closing.
           onNoteSelect={(id, folderId, spaceId) => {
+            closeSettingsForPalette();
             if (folderId != null) setActiveFolderId(folderId);
             else if (spaceId != null) navigateToContainer(spaceId, null);
             setActiveNoteId(id);
             setActiveView("personal-notes");
           }}
           onContainerSelect={(spaceId, folderId) => {
+            closeSettingsForPalette();
             navigateToContainer(spaceId, folderId);
             setActiveView("personal-notes");
           }}
           onTranscriptSelect={() => {
+            closeSettingsForPalette();
             setActiveView("home");
           }}
         />
@@ -1207,6 +1214,10 @@ export default function ControlPanel({ initialSettingsSection }: ControlPanelPro
           style={{ width: sidebarCollapsed || isSidePanelLayout ? 0 : SIDEBAR_WIDTH_PX }}
         />
         <div
+          ref={sidebarContainerRef}
+          // Under Settings the app keeps running but can't be reached.
+          inert={showSettings}
+          aria-hidden={showSettings || undefined}
           className={`absolute inset-y-0 start-0 z-30 transition-transform duration-300 ease-out ${
             !isSidePanelLayout && (!sidebarCollapsed || sidebarPeek)
               ? "translate-x-0"
@@ -1222,16 +1233,10 @@ export default function ControlPanel({ initialSettingsSection }: ControlPanelPro
           <ControlPanelSidebar
             activeView={activeView}
             onViewChange={setActiveView}
-            onOpenSettings={() => {
-              setSettingsSection(undefined);
-              setShowSettings(true);
-            }}
+            onOpenSettings={() => openSettings()}
             onOpenReferrals={() => setShowReferrals(true)}
             onInviteTeam={inviteWorkspace ? () => setShowInviteTeam(true) : undefined}
-            onUpgrade={() => {
-              setSettingsSection("plansBilling");
-              setShowSettings(true);
-            }}
+            onUpgrade={() => openSettings("plansBilling")}
             isOverLimit={usage?.isOverLimit ?? false}
             userName={user?.name}
             userEmail={user?.email}
@@ -1258,7 +1263,11 @@ export default function ControlPanel({ initialSettingsSection }: ControlPanelPro
             }
           />
         </div>
-        <main className="flex-1 flex flex-col overflow-hidden p-2">
+        <main
+          inert={showSettings}
+          aria-hidden={showSettings || undefined}
+          className="flex-1 flex flex-col overflow-hidden p-2"
+        >
           <div className="flex min-h-0 flex-1 flex-col overflow-clip rounded-(--radius-shell) border border-border bg-background dark:border-white/10">
             <ControlPanelTopBar
               title={navItems.find((item) => item.id === activeView)?.label ?? ""}
@@ -1322,10 +1331,7 @@ export default function ControlPanel({ initialSettingsSection }: ControlPanelPro
                           variant="default"
                           size="sm"
                           className="h-7 text-xs"
-                          onClick={() => {
-                            setSettingsSection("account");
-                            setShowSettings(true);
-                          }}
+                          onClick={() => openSettings("account")}
                         >
                           {t("controlPanel.billing.updatePayment")}
                         </Button>
@@ -1355,16 +1361,15 @@ export default function ControlPanel({ initialSettingsSection }: ControlPanelPro
                               variant="default"
                               size="sm"
                               className="h-7 text-xs"
-                              onClick={() => {
-                                setSettingsSection(
+                              onClick={() =>
+                                openSettings(
                                   gpuAccelAvailable.transcription
                                     ? "transcription"
                                     : gpuAccelAvailable.intelligence === "dictationAgent"
                                       ? "dictationAgent"
                                       : "intelligence"
-                                );
-                                setShowSettings(true);
-                              }}
+                                )
+                              }
                             >
                               {t("controlPanel.gpu.enableButton")}
                             </Button>
@@ -1400,10 +1405,7 @@ export default function ControlPanel({ initialSettingsSection }: ControlPanelPro
                   showDiscarded={showDiscarded}
                   onToggleDiscarded={toggleShowDiscarded}
                   userName={user?.name}
-                  onOpenSettings={(section) => {
-                    setSettingsSection(section);
-                    setShowSettings(true);
-                  }}
+                  onOpenSettings={openSettings}
                   onOpenIntegrations={() => {
                     setIntegrationsSection("calendars");
                     setActiveView("integrations");
@@ -1412,12 +1414,7 @@ export default function ControlPanel({ initialSettingsSection }: ControlPanelPro
               )}
               {activeView === "insights" && (
                 <Suspense fallback={null}>
-                  <InsightsView
-                    onSignIn={() => {
-                      setSettingsSection("account");
-                      setShowSettings(true);
-                    }}
-                  />
+                  <InsightsView onSignIn={() => openSettings("account")} />
                 </Suspense>
               )}
               {activeView === "chat" && agentAllowedByPolicy && (
@@ -1428,10 +1425,7 @@ export default function ControlPanel({ initialSettingsSection }: ControlPanelPro
               {activeView === "personal-notes" && (
                 <Suspense fallback={null}>
                   <PersonalNotesView
-                    onOpenSettings={(section) => {
-                      setSettingsSection(section);
-                      setShowSettings(true);
-                    }}
+                    onOpenSettings={openSettings}
                     meetingRecordingRequest={meetingRecordingRequest}
                     onMeetingRecordingRequestHandled={handleMeetingRecordingRequestHandled}
                     invitationEntry={invitationNotesEntry}
@@ -1452,10 +1446,7 @@ export default function ControlPanel({ initialSettingsSection }: ControlPanelPro
                       if (folderId) setActiveFolderId(folderId);
                       setActiveView("personal-notes");
                     }}
-                    onOpenSettings={(section) => {
-                      setSettingsSection(section);
-                      setShowSettings(true);
-                    }}
+                    onOpenSettings={openSettings}
                   />
                 </Suspense>
               )}
@@ -1463,10 +1454,7 @@ export default function ControlPanel({ initialSettingsSection }: ControlPanelPro
                 <Suspense fallback={null}>
                   <IntegrationsView
                     isPaid={usage?.hasPaidAccessOptimistic ?? false}
-                    onUpgrade={() => {
-                      setSettingsSection("plansBilling");
-                      setShowSettings(true);
-                    }}
+                    onUpgrade={() => openSettings("plansBilling")}
                     section={integrationsSection}
                     onSectionChange={setIntegrationsSection}
                   />
@@ -1475,6 +1463,24 @@ export default function ControlPanel({ initialSettingsSection }: ControlPanelPro
             </div>
           </div>
         </main>
+        {/* After <main> in the DOM: same z as the top bar's sidebar toggle (z-40), painted above it. */}
+        {settingsMounted && (
+          <Suspense fallback={null}>
+            <SettingsModal
+              open={showSettings}
+              request={settingsRequest}
+              onRequestClose={() => closeSettings()}
+              railItems={navItems}
+              activeView={activeView}
+              onSelectView={(view) => {
+                if (closeSettings()) setActiveView(view);
+              }}
+              onOpenSearch={() => setShowSearch(true)}
+              returnFocusRef={settingsReturnFocusRef}
+              getFallbackFocus={getSettingsFocusFallback}
+            />
+          </Suspense>
+        )}
       </div>
       <BackgroundActionToastListener />
       <AssistantNoteUndoListener />

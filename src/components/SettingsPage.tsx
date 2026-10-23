@@ -124,6 +124,7 @@ import { RecordingIndicatorRows } from "./settings/RecordingIndicatorRows";
 import { OpenWhisprCloudSwitch } from "./settings/OpenWhisprCloudSwitch";
 import { useOpenWhisprCloudDisabled } from "../stores/openWhisprCloudStore";
 import { useSettingsLayout } from "./ui/useSettingsLayout";
+import { useSettingsVisible } from "./settings/useSettingsVisible";
 import { useUsage } from "../hooks/useUsage";
 import { cn } from "./lib/utils";
 import { GRADIENT_CIRCLE } from "./ui/gradientCircle";
@@ -189,6 +190,8 @@ interface SettingsPageProps {
   onNavigateToSection?: (section: SettingsSectionType, subTab?: string) => void;
   /** When a legacy section ID was used (e.g. `meetings`), land on the matching sub-tab. */
   initialSubTab?: string;
+  /** Changes with each navigation, so `initialSubTab` re-applies even when it's unchanged. */
+  subTabRequestId?: number;
 }
 
 const UI_LANGUAGE_OPTIONS: import("./ui/LanguageSelector").LanguageOption[] = [
@@ -902,12 +905,17 @@ const LLM_TABS: LlmTab[] = [
 ];
 const AGENT_LLM_TABS = new Set<LlmTab>(["dictationAgent", "chatIntelligence"]);
 
-function useSubTab<T extends string>(storageKey: string, options: readonly T[], initial?: T) {
+function useSubTab<T extends string>(
+  storageKey: string,
+  options: readonly T[],
+  initial?: T,
+  requestId?: number
+) {
   const [tab, setTab] = useLocalStorage<T>(storageKey, initial ?? options[0]);
   useEffect(() => {
     if (initial && initial !== tab) setTab(initial);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initial]);
+  }, [initial, requestId]);
   const safeTab = options.includes(tab) ? tab : options[0];
   return [safeTab, setTab] as const;
 }
@@ -978,17 +986,24 @@ export function AccountAvatar({ image, name }: { image?: string | null; name: st
 
 function SpeechToTextTabs({
   initialTab,
+  requestId,
   renderDictation,
   renderNoteRecording,
   renderUpload,
 }: {
   initialTab?: SpeechTab;
+  requestId?: number;
   renderDictation: () => React.ReactNode;
   renderNoteRecording: () => React.ReactNode;
   renderUpload: () => React.ReactNode;
 }) {
   const { t } = useTranslation();
-  const [tab, setTab] = useSubTab<SpeechTab>("settings.speechToTextTab", SPEECH_TABS, initialTab);
+  const [tab, setTab] = useSubTab<SpeechTab>(
+    "settings.speechToTextTab",
+    SPEECH_TABS,
+    initialTab,
+    requestId
+  );
 
   const subTabs = [
     { id: "dictation", name: t("settingsPage.speechToText.tabs.dictation") },
@@ -1025,6 +1040,7 @@ function SpeechToTextTabs({
 
 function LlmsTabs({
   initialTab,
+  requestId,
   renderDictationCleanup,
   renderDictationAgent,
   renderDictationTranslation,
@@ -1032,6 +1048,7 @@ function LlmsTabs({
   renderChatIntelligence,
 }: {
   initialTab?: LlmTab;
+  requestId?: number;
   renderDictationCleanup: () => React.ReactNode;
   renderDictationAgent: () => React.ReactNode;
   renderDictationTranslation: () => React.ReactNode;
@@ -1043,7 +1060,7 @@ function LlmsTabs({
   const visibleTabIds = agentAllowed
     ? LLM_TABS
     : LLM_TABS.filter((tabId) => !AGENT_LLM_TABS.has(tabId));
-  const [tab, setTab] = useSubTab<LlmTab>("settings.llmsTab", visibleTabIds, initialTab);
+  const [tab, setTab] = useSubTab<LlmTab>("settings.llmsTab", visibleTabIds, initialTab, requestId);
 
   const subTabs = [
     { id: "dictationCleanup", name: t("settingsPage.llms.tabs.dictationCleanup") },
@@ -1152,8 +1169,11 @@ export default function SettingsPage({
   activeSection = "general",
   onNavigateToSection,
   initialSubTab,
+  subTabRequestId,
 }: SettingsPageProps) {
   const { isCompact } = useSettingsLayout();
+  // Settings stays mounted while hidden: OS queries pause and refresh on reopen.
+  const settingsVisible = useSettingsVisible();
   const {
     confirmDialog,
     alertDialog,
@@ -1351,7 +1371,7 @@ export default function SettingsPage({
   const migration = useMigration();
 
   const { checkWhisperInstallation } = useWhisper();
-  const permissionsHook = usePermissions(showAlertDialog);
+  const permissionsHook = usePermissions(showAlertDialog, { active: settingsVisible });
   const systemAudio = useSystemAudioPermission();
   useClipboard(showAlertDialog);
   const [audioStorageUsage, setAudioStorageUsage] = useState<{
@@ -1360,14 +1380,14 @@ export default function SettingsPage({
   }>({ fileCount: 0, totalBytes: 0 });
 
   useEffect(() => {
-    if (activeSection !== "privacyData") return;
+    if (!settingsVisible || activeSection !== "privacyData") return;
     window.electronAPI
       ?.getAudioStorageUsage?.()
       .then((usage: { fileCount: number; totalBytes: number }) => {
         if (usage) setAudioStorageUsage(usage);
       })
       .catch(() => {});
-  }, [activeSection]);
+  }, [activeSection, settingsVisible]);
 
   // Lazy keep-alive: mount AI sections only after the user has visited them once,
   // then keep them mounted so model-download progress and IPC listeners survive
@@ -1424,8 +1444,8 @@ export default function SettingsPage({
   }, []);
 
   useEffect(() => {
-    refreshYdotoolStatus();
-  }, [refreshYdotoolStatus]);
+    if (settingsVisible) refreshYdotoolStatus();
+  }, [refreshYdotoolStatus, settingsVisible]);
 
   const { theme, setTheme } = useTheme();
   const usage = useUsage();
@@ -1626,8 +1646,9 @@ export default function SettingsPage({
   }, []);
 
   useEffect(() => {
+    if (!settingsVisible) return;
     readAutoStartState().finally(() => setAutoStartLoading(false));
-  }, [readAutoStartState]);
+  }, [readAutoStartState, settingsVisible]);
 
   useEffect(() => {
     window.electronAPI?.syncNotificationPreferences?.({
@@ -5027,6 +5048,7 @@ EOF`,
                 ? (initialSubTab as SpeechTab | undefined)
                 : undefined
             }
+            requestId={subTabRequestId}
             renderDictation={() => (
               <div className="space-y-6">
                 <TranscriptionSection
@@ -5087,6 +5109,7 @@ EOF`,
             initialTab={
               activeSection === "llms" ? (initialSubTab as LlmTab | undefined) : undefined
             }
+            requestId={subTabRequestId}
             renderChatIntelligence={() => <ChatAgentSettings />}
             renderDictationCleanup={() => (
               <div className="space-y-6">

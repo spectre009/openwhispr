@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { usePolicyStore } from "../stores/policyStore";
 import {
@@ -13,63 +13,51 @@ import {
   ShieldCheck,
   Users,
 } from "./icons";
-import SidebarModal, { type SidebarItem } from "./ui/SidebarModal";
+import SettingsLayer, { type SettingsNavItem } from "./settings/SettingsLayer";
 import SettingsPage, { AccountAvatar, SettingsSectionType } from "./SettingsPage";
 import { useAuth } from "../hooks/useAuth";
 import { useOpenWhisprCloudDisabled } from "../stores/openWhisprCloudStore";
+import { shownSettingsSection, visibleSettingsSections } from "./settingsSections";
 import {
-  resolveSettingsSection,
-  shownSettingsSection,
-  visibleSettingsSections,
-} from "./settingsSections";
+  applySettingsRequest,
+  initialSettingsNavigation,
+  navigateWithinSettings,
+  type SettingsRequest,
+} from "./settings/settingsNavigation";
+import type { ControlPanelNavItem, ControlPanelView } from "./controlPanelNav";
 
 export type { SettingsSectionType };
 
-// The old AI Models sidebar had four items (transcription, meetings,
-// intelligence, agentMode) — they now collapse into two: speechToText + llms.
-// Legacy deep-links land on the matching sub-tab via LEGACY_SUB_TAB.
-// "dictationAgent" is a live deep-link (the Home GPU banner), not a legacy alias.
-const SECTION_ALIASES: Record<string, SettingsSectionType> = {
-  aiModels: "llms",
-  agentConfig: "llms",
-  agentMode: "llms",
-  dictationAgent: "llms",
-  intelligence: "llms",
-  meetings: "llms",
-  prompts: "llms",
-  transcription: "speechToText",
-  uploadTranscription: "speechToText",
-  softwareUpdates: "system",
-  privacy: "privacyData",
-  permissions: "privacyData",
-  developer: "system",
-};
-
-const LEGACY_SUB_TAB: Record<string, string> = {
-  transcription: "dictation",
-  uploadTranscription: "upload",
-  dictationAgent: "dictationAgent",
-  meetings: "noteFormatting",
-  intelligence: "dictationCleanup",
-  agentMode: "chatIntelligence",
-  agentConfig: "chatIntelligence",
-  aiModels: "dictationCleanup",
-  prompts: "dictationCleanup",
-};
-
 interface SettingsModalProps {
   open: boolean;
-  onOpenChange: (open: boolean) => void;
-  initialSection?: string;
+  /** The latest named request (deep links and legacy names included). */
+  request: SettingsRequest | null;
+  onRequestClose: () => boolean;
+  railItems: ControlPanelNavItem[];
+  activeView: ControlPanelView;
+  onSelectView: (view: ControlPanelView) => void;
+  onOpenSearch: () => void;
+  returnFocusRef?: React.RefObject<HTMLElement | null>;
+  getFallbackFocus?: () => HTMLElement | null;
 }
 
-export default function SettingsModal({ open, onOpenChange, initialSection }: SettingsModalProps) {
+export default function SettingsModal({
+  open,
+  request,
+  onRequestClose,
+  railItems,
+  activeView,
+  onSelectView,
+  onOpenSearch,
+  returnFocusRef,
+  getFallbackFocus,
+}: SettingsModalProps) {
   const { t } = useTranslation();
   const { isSignedIn, user } = useAuth();
   const cloudDisabled = useOpenWhisprCloudDisabled();
   const policyManaged = usePolicyStore((s) => s.managed);
-  const sidebarItems: SidebarItem<SettingsSectionType>[] = useMemo(() => {
-    const items: SidebarItem<SettingsSectionType>[] = [
+  const navItems: SettingsNavItem<SettingsSectionType>[] = useMemo(() => {
+    const items: SettingsNavItem<SettingsSectionType>[] = [
       {
         id: "account",
         label: t("settingsModal.sections.account.label"),
@@ -137,42 +125,36 @@ export default function SettingsModal({ open, onOpenChange, initialSection }: Se
     return visibleSettingsSections(items, { isSignedIn, cloudDisabled });
   }, [t, isSignedIn, cloudDisabled]);
 
-  const resolveSection = (section: string | undefined): SettingsSectionType =>
-    resolveSettingsSection(section, SECTION_ALIASES, cloudDisabled);
-
-  const [activeSection, setActiveSection] = React.useState<SettingsSectionType>(() =>
-    resolveSection(initialSection)
+  // Settings stays mounted between opens: each named request navigates once,
+  // and a bare open keeps whatever page it was on.
+  const [navigation, setNavigation] = useState(() =>
+    initialSettingsNavigation(request, cloudDisabled)
   );
-  const [initialSubTab, setInitialSubTab] = useState<string | undefined>(() =>
-    initialSection ? LEGACY_SUB_TAB[initialSection] : undefined
-  );
-  const [prevOpen, setPrevOpen] = useState(open);
+  const current = applySettingsRequest(navigation, request, cloudDisabled);
+  if (current !== navigation) setNavigation(current);
 
-  if (open && !prevOpen && initialSection) {
-    setPrevOpen(open);
-    setActiveSection(resolveSection(initialSection));
-    setInitialSubTab(LEGACY_SUB_TAB[initialSection]);
-  } else if (open !== prevOpen) {
-    setPrevOpen(open);
-    if (!open) setInitialSubTab(undefined);
-  }
-
-  const handleSectionChange = (section: SettingsSectionType, subTab?: string) => {
-    setActiveSection(section);
-    setInitialSubTab(subTab);
-  };
+  const handleSectionChange = useCallback((section: SettingsSectionType, subTab?: string) => {
+    setNavigation((previous) => navigateWithinSettings(previous, section, subTab));
+  }, []);
   // Turning the account & Cloud switch off while an account section is open
   // moves the view off it without forgetting what was asked for.
-  const shownSection = shownSettingsSection(activeSection, cloudDisabled);
+  const shownSection = shownSettingsSection(current.section, cloudDisabled);
 
   return (
-    <SidebarModal<SettingsSectionType>
+    <SettingsLayer<SettingsSectionType>
       open={open}
-      onOpenChange={onOpenChange}
-      title={t("settingsModal.title")}
-      sidebarItems={sidebarItems}
+      onRequestClose={onRequestClose}
+      railItems={railItems}
+      activeView={activeView}
+      onSelectView={onSelectView}
+      onOpenSearch={onOpenSearch}
+      navItems={navItems}
       activeSection={shownSection}
+      sectionLabel={t(`settingsModal.sections.${shownSection}.label`, { defaultValue: "" })}
       onSectionChange={handleSectionChange}
+      navigationKey={current.navigationId}
+      returnFocusRef={returnFocusRef}
+      getFallbackFocus={getFallbackFocus}
       header={
         isSignedIn && user ? (
           <div className="flex flex-col items-center gap-2 pb-2 text-center">
@@ -201,8 +183,9 @@ export default function SettingsModal({ open, onOpenChange, initialSection }: Se
       <SettingsPage
         activeSection={shownSection}
         onNavigateToSection={handleSectionChange}
-        initialSubTab={initialSubTab}
+        initialSubTab={current.subTab}
+        subTabRequestId={current.navigationId}
       />
-    </SidebarModal>
+    </SettingsLayer>
   );
 }

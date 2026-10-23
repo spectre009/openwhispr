@@ -1848,6 +1848,11 @@
     },
     "title": "设置"
   },
+  "settingsLayer": {
+    "backTo": "返回{{view}}",
+    "sections": "设置导航",
+    "appViews": "应用页面"
+  },
   "settingsPage": {
     "unifiedBilling": {
       "workspaceTitle": "工作区账单",
