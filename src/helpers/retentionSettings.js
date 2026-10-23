@@ -12,6 +12,10 @@ const DEFAULT_RETENTION_SETTINGS = {
   // permissive default the renderer reports while one is still being fetched.
   // Defaults false: an unreported policy must never read as a resolved one.
   localHistoryPolicyResolved: false,
+  // Whether an organization forces local history off (localHistoryMode
+  // "always_off"), as opposed to the user turning it off: such a policy allows
+  // no durable copy of a dictation, test cases included.
+  localHistoryForcedOff: false,
 };
 
 function toDays(value, fallback) {
@@ -34,6 +38,10 @@ function applyRetentionSettings(current, incoming) {
       typeof incoming?.localHistoryPolicyResolved === "boolean"
         ? incoming.localHistoryPolicyResolved
         : current.localHistoryPolicyResolved,
+    localHistoryForcedOff:
+      typeof incoming?.localHistoryForcedOff === "boolean"
+        ? incoming.localHistoryForcedOff
+        : current.localHistoryForcedOff === true,
   };
   const changed =
     settings.audioRetentionDays !== current.audioRetentionDays ||
@@ -41,7 +49,9 @@ function applyRetentionSettings(current, incoming) {
     settings.dataRetentionEnabled !== current.dataRetentionEnabled ||
     // The policy settling is what unblocks reconstruction, so it has to count
     // as a change even when every other value stayed put.
-    settings.localHistoryPolicyResolved !== current.localHistoryPolicyResolved;
+    settings.localHistoryPolicyResolved !== current.localHistoryPolicyResolved ||
+    // A policy forcing history off moves durable test cases out of storage.
+    settings.localHistoryForcedOff !== (current.localHistoryForcedOff === true);
   return { changed, settings };
 }
 

@@ -749,6 +749,15 @@
         "continue": "继续",
         "cancel": "取消",
         "fileType": "JSON Lines"
+      },
+      "testSet": {
+        "add": "添加到测试集",
+        "added": "已添加到测试集",
+        "addedDescription": "原始转录的副本已在 Prompt Studio 的测试集中。即使删除此听写，它也会保留。",
+        "addedSession": "已添加到测试集，仅在本次会话中保留",
+        "already": "已在测试集中",
+        "failed": "无法添加到测试集",
+        "noRawText": "此听写没有原始转录，而清理后的文本从不用作测试输入。"
       }
     },
     "aiCta": {
@@ -1605,9 +1614,142 @@
       "translation": "翻译",
       "translationDisabled": "启用听写翻译以测试此提示词",
       "noTargetLanguage": "请先选择目标语言",
-      "agentDisabled": "启用语音助手以测试此提示词"
+      "agentDisabled": "启用语音助手以测试此提示词",
+      "saveAsCase": "保存为测试用例",
+      "caseSaved": "已保存到测试集。",
+      "caseSavedSession": "已添加到测试集，仅在本次会话中保留。",
+      "caseExists": "此输入已在测试集中。",
+      "saveCaseFailed": "无法保存测试用例。"
     },
-    "defaultTestInputTranslate": "今天天气真好，要不要出去走走？"
+    "defaultTestInputTranslate": "今天天气真好，要不要出去走走？",
+    "testSet": {
+      "modeSingle": "单条输入",
+      "modeSet": "测试集",
+      "intro": "用正在使用的提示词（A）和所选提示词或其未保存的草稿（B）运行每个用例，并排显示并自动检查。你保存的内容不会改变。",
+      "copiesNotice": "用例是你的听写内容的副本：即使听写从历史记录中删除或过期，它们仍会保留在这里。它们只保存在这台电脑上，从不同步。每次运行都会把它们发送到下方显示的清理模型。",
+      "storage": {
+        "historyOff": "本地历史记录已关闭，因此新用例只保留到你退出应用为止。",
+        "policyOff": "你的组织关闭了本地历史记录，因此用例只保留到你退出应用为止。",
+        "pending": "你的历史记录设置尚未加载，因此新用例只保留到你退出应用为止。",
+        "unavailable": "目前无法保存用例，因此新用例只保留到你退出应用为止。"
+      },
+      "casesTitle": "用例（{{n}}）",
+      "emptyCases": "还没有你自己的用例。在历史记录中打开一条听写的菜单并选择“添加到测试集”，或将“测试”中的输入保存为用例。",
+      "source": {
+        "history": "来自历史记录",
+        "test": "来自测试",
+        "starter": "内置"
+      },
+      "sessionOnly": "仅本次会话",
+      "targetApp": "应用：",
+      "checksCount": "检查：{{n}}",
+      "actions": {
+        "edit": "编辑",
+        "delete": "删除",
+        "hide": "隐藏",
+        "openInHistory": "在历史记录中打开",
+        "removeAll": "全部移除",
+        "showHidden": "显示已隐藏的内置用例（{{n}}）",
+        "save": "保存",
+        "cancel": "取消"
+      },
+      "removeAllTitle": "移除你的所有测试用例？",
+      "removeAllDescription": "移除你从历史记录中固定或从“测试”中保存的所有用例，包括仅在本次会话中保留的用例。内置用例只能隐藏。",
+      "edit": {
+        "label": "标签",
+        "labelPlaceholder": "此用例的名称（可选）",
+        "targetApp": "目标应用",
+        "targetAppHint": "听写所针对的应用，例如 Code.exe。仅限所选应用的词汇表更正只在匹配时生效；留空即可测试未知应用。",
+        "mustContain": "必须包含",
+        "mustNotContain": "不得包含",
+        "checksHint": "每行一项。按字面文本匹配，不是模式。",
+        "matchCase": "区分大小写"
+      },
+      "run": {
+        "promptA": "A，正在使用的提示词：{{name}}",
+        "promptB": "B，所选提示词：{{name}}",
+        "draftName": "{{name}}（未保存的草稿）",
+        "samePrompt": "A 和 B 是同一个提示词，因此本次运行显示的是它的回复在多次运行之间的差异。",
+        "repetitions": "每个提示词的运行次数",
+        "estimate": "{{cases}} 个用例 × 2 个提示词 × {{runs}} 次 = {{requests}} 个请求，约 {{duration}}。",
+        "durationSeconds": "{{seconds}} 秒",
+        "durationMinutes": "{{minutes}} 分钟",
+        "capNote": "只运行前 {{max}} 个用例；另有 {{left}} 个未纳入。",
+        "model": "模型：",
+        "destination": "文本发送到：",
+        "usageWarning": "每个请求都会计入该提供商的用量或配额，而且较早的用例可能从未发送到那里。",
+        "dictationFirst": "听写优先：你听写时运行会暂停，粘贴后继续。",
+        "start": "运行测试集",
+        "stop": "停止",
+        "noCases": "请先添加用例或显示内置用例。"
+      },
+      "destination": {
+        "local": "这台电脑（本地模型）",
+        "selfHosted": "你的服务器（{{host}}）",
+        "custom": "你的端点（{{host}}）"
+      },
+      "progress": {
+        "count": "{{done}} / {{total}} 个请求",
+        "paused": "你正在听写，已暂停。粘贴后继续。",
+        "waiting": "提供商要求放慢速度。正在等待后再发送下一个请求。"
+      },
+      "results": {
+        "title": "结果",
+        "clear": "清除结果",
+        "partial": "部分运行：已完成 {{completed}} / {{total}} 个请求。",
+        "stopReason": {
+          "user": "你停止了运行。",
+          "account": "账户已更改。",
+          "auth": "提供商拒绝了登录或 API 密钥。",
+          "quota": "已达到提供商的配额或用量上限。",
+          "config": "清理模型或提供商配置不正确。",
+          "rateLimit": "提供商持续限制请求速率。",
+          "errors": "连续三个请求失败。",
+          "settings": "运行期间清理设置发生了变化。"
+        },
+        "sides": "A：{{a}} · B：{{b}}",
+        "compared": "已比较：{{compared}} / {{cases}} 个用例。下方只统计 A 和 B 的每次运行都已完成的用例。",
+        "passed": "全部检查通过：A {{a}} / {{compared}}，B {{b}} / {{compared}}",
+        "differ": "{{compared}} 个用例中有 {{differ}} 个回复不同",
+        "median": "中位时间：A {{a}} 秒，B {{b}} 秒",
+        "fillers": "残留的语气词（仅供参考，绝不算失败）：A {{a}}，B {{b}}",
+        "requests": "请求：完成 {{completed}}，失败 {{errors}}，取消 {{cancelled}}，跳过 {{skipped}}",
+        "sessionOnly": "结果会保留在此窗口中，直到你退出应用或账户更改。",
+        "filter": "仅显示差异和失败",
+        "noneShown": "没有差异或失败。",
+        "notCompared": "未比较",
+        "pass": "通过",
+        "fail": "未通过",
+        "input": "输入",
+        "corrected": "经词汇表处理后发送",
+        "notCorrected": "按原样发送：未应用词汇表更正。",
+        "reference": "当时粘贴的内容（仅供参考）",
+        "run": "第 {{n}} 次运行",
+        "time": "{{seconds}} 秒",
+        "status": {
+          "cancelled": "已取消",
+          "skipped": "已跳过",
+          "error": "失败",
+          "emptyReply": "空回复",
+          "truncated": "回复被截断",
+          "repeated": "已拒绝：模型重复了转录内容，因此听写会保留其输入。"
+        },
+        "check": {
+          "notRepeated": "转录内容未重复",
+          "contains": "包含“{{text}}”",
+          "notContains": "不包含“{{text}}”",
+          "notChecked": "未检查"
+        },
+        "fillersFound": "残留的语气词（仅供参考）：{{words}}"
+      },
+      "starters": {
+        "fillers": "语气词",
+        "selfCorrection": "自我更正",
+        "question": "听写的问题",
+        "ignoreRules": "“忽略你的规则”",
+        "littleBuddy": "Little Buddy（按应用的词汇表）"
+      }
+    }
   },
   "settingsModal": {
     "managedByOrg": "部分设置由您的组织管理。",

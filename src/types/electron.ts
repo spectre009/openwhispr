@@ -427,6 +427,84 @@ export interface ExportDictationsResult {
   code?: "OWNER_UNKNOWN" | "ACCOUNT_CHANGED" | "EXPORT_FAILED";
 }
 
+/** A test set case (main's prompt_test_cases, or kept for this session only). */
+export interface PromptTestCase {
+  id: string;
+  /** What the case tests: "cleanup" (Stage 3 adds styles). */
+  target: string;
+  label: string | null;
+  /** The input, copied: a pinned dictation's raw transcript, or text typed in Test. */
+  rawText: string;
+  /** The text pasted at the time, for reference only; never a pass/fail target. */
+  referenceText: string | null;
+  /** The app the dictation was made in (exe name), for app-scoped glossary rules. */
+  targetApp: string | null;
+  mustContain: string[];
+  mustNotContain: string[];
+  matchCase: boolean;
+  source: "history" | "test";
+  /** The history row it was copied from, only to open it there. */
+  sourceTranscriptionId: number | null;
+  /** False: kept in memory for this session only. */
+  durable: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Why a new case would be kept for this session only. */
+export type PromptTestStorageReason = "history-off" | "policy-off" | "pending" | "unavailable";
+
+export type PromptTestCaseErrorCode =
+  | "OWNER_UNKNOWN"
+  | "INVALID_INPUT"
+  | "NOT_FOUND"
+  | "NOT_PINNABLE"
+  | "NO_RAW_TEXT"
+  | "TOO_LONG"
+  | "LIMIT_REACHED"
+  | "STORAGE_UNAVAILABLE"
+  | "FAILED";
+
+export interface PromptTestCaseEditable {
+  label?: string | null;
+  targetApp?: string | null;
+  mustContain?: string[];
+  mustNotContain?: string[];
+  matchCase?: boolean;
+}
+
+export interface PromptTestCaseList {
+  success: boolean;
+  code?: PromptTestCaseErrorCode;
+  /** The owner these cases belong to ("account:<id>" or "signed-out"). */
+  owner: string | null;
+  /** Whether a new case would be stored, and if not, why. */
+  durable?: boolean;
+  reason?: PromptTestStorageReason | null;
+  cases: PromptTestCase[];
+}
+
+export interface PromptTestCaseWriteResult {
+  success: boolean;
+  code?: PromptTestCaseErrorCode;
+  case?: PromptTestCase;
+  /** The same input was already a case; that one is returned. */
+  duplicate?: boolean;
+  durable?: boolean;
+  reason?: PromptTestStorageReason | null;
+  removed?: number;
+}
+
+export interface PromptTestCasesChange {
+  owner: string | null;
+  reason: "owner" | "policy" | "added" | "updated" | "removed" | "cleared";
+}
+
+export interface DictationLifecycleSnapshot {
+  state: "idle" | "preparing" | "recording" | "processing";
+  inputKind: string;
+}
+
 export type AnalyticsMode = "local" | "openwhispr_cloud" | "byok" | "self_hosted" | "unknown";
 
 export interface AnalyticsEventInput {
@@ -1695,6 +1773,7 @@ declare global {
         transcriptRetentionDays: number;
         dataRetentionEnabled: boolean;
         localHistoryPolicyResolved: boolean;
+        localHistoryForcedOff?: boolean;
       }) => void;
       retryTranscription: (
         id: number,
@@ -1746,6 +1825,23 @@ declare global {
       beginStepHistoryRun?: () => Promise<{ runId: string | null }>;
       getTranscriptionSteps?: (id: number) => Promise<TranscriptionStepsResult>;
       exportDictations?: () => Promise<ExportDictationsResult>;
+      // Prompt test cases (main-owned, owner-scoped, local-only)
+      listTestCases?: () => Promise<PromptTestCaseList>;
+      pinHistoryTestCase?: (transcriptionId: number) => Promise<PromptTestCaseWriteResult>;
+      saveTestCase?: (
+        input: PromptTestCaseEditable & { rawText: string }
+      ) => Promise<PromptTestCaseWriteResult>;
+      updateTestCase?: (
+        id: string,
+        patch: PromptTestCaseEditable
+      ) => Promise<PromptTestCaseWriteResult>;
+      deleteTestCase?: (id: string) => Promise<PromptTestCaseWriteResult>;
+      clearTestCases?: () => Promise<PromptTestCaseWriteResult>;
+      onTestCasesChanged?: (callback: (change: PromptTestCasesChange) => void) => () => void;
+      getDictationLifecycle?: () => Promise<DictationLifecycleSnapshot>;
+      onDictationLifecycleChanged?: (
+        callback: (lifecycle: DictationLifecycleSnapshot) => void
+      ) => () => void;
 
       // Dictionary operations
       getDictionary: () => Promise<string[]>;

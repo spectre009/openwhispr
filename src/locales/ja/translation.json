@@ -749,6 +749,15 @@
         "continue": "続ける",
         "cancel": "キャンセル",
         "fileType": "JSON Lines"
+      },
+      "testSet": {
+        "add": "テストセットに追加",
+        "added": "テストセットに追加しました",
+        "addedDescription": "生の文字起こしのコピーが Prompt Studio のテストセットにあります。このディクテーションを削除してもそこに残ります。",
+        "addedSession": "このセッションの間だけテストセットに追加しました",
+        "already": "すでにテストセットにあります",
+        "failed": "テストセットに追加できませんでした",
+        "noRawText": "このディクテーションには生の文字起こしがありません。クリーンアップ後のテキストがテスト入力に使われることはありません。"
       }
     },
     "aiCta": {
@@ -1605,9 +1614,142 @@
       "translation": "翻訳",
       "translationDisabled": "このプロンプトをテストするには音声入力翻訳を有効にしてください",
       "noTargetLanguage": "先に翻訳先の言語を選択してください",
-      "agentDisabled": "このプロンプトをテストするには音声アシスタントを有効にしてください"
+      "agentDisabled": "このプロンプトをテストするには音声アシスタントを有効にしてください",
+      "saveAsCase": "テストケースとして保存",
+      "caseSaved": "テストセットに保存しました。",
+      "caseSavedSession": "このセッションの間だけテストセットに追加しました。",
+      "caseExists": "この入力はすでにテストセットにあります。",
+      "saveCaseFailed": "テストケースを保存できませんでした。"
     },
-    "defaultTestInputTranslate": "今日はいい天気ですね、散歩に行きませんか？"
+    "defaultTestInputTranslate": "今日はいい天気ですね、散歩に行きませんか？",
+    "testSet": {
+      "modeSingle": "単一入力",
+      "modeSet": "テストセット",
+      "intro": "各ケースを使用中のプロンプト (A) と、選択したプロンプトまたはその未保存の下書き (B) で実行し、自動チェック付きで並べて表示します。保存済みの内容は変わりません。",
+      "copiesNotice": "ケースはディクテーションのコピーです。ディクテーションが履歴から削除されたり期限切れになったりしても、ここに残ります。このコンピューターにのみ保存され、同期されることはありません。実行のたびに、下に表示されたクリーンアップモデルへ送信されます。",
+      "storage": {
+        "historyOff": "ローカル履歴がオフのため、新しいケースはアプリを終了するまでしか保持されません。",
+        "policyOff": "組織がローカル履歴をオフにしているため、ケースはアプリを終了するまでしか保持されません。",
+        "pending": "履歴の設定がまだ読み込まれていないため、新しいケースはアプリを終了するまでしか保持されません。",
+        "unavailable": "現在ケースを保存できないため、新しいケースはアプリを終了するまでしか保持されません。"
+      },
+      "casesTitle": "ケース ({{n}})",
+      "emptyCases": "自分のケースはまだありません。履歴でディクテーションのメニューを開いて「テストセットに追加」を選ぶか、テストの入力をケースとして保存してください。",
+      "source": {
+        "history": "履歴から",
+        "test": "テストから",
+        "starter": "組み込み"
+      },
+      "sessionOnly": "このセッションのみ",
+      "targetApp": "アプリ:",
+      "checksCount": "チェック: {{n}}",
+      "actions": {
+        "edit": "編集",
+        "delete": "削除",
+        "hide": "非表示",
+        "openInHistory": "履歴で開く",
+        "removeAll": "すべて削除",
+        "showHidden": "非表示の組み込みケースを表示 ({{n}})",
+        "save": "保存",
+        "cancel": "キャンセル"
+      },
+      "removeAllTitle": "テストケースをすべて削除しますか?",
+      "removeAllDescription": "履歴から固定したケースやテストから保存したケースを、このセッションのみのものも含めてすべて削除します。組み込みケースは非表示にすることしかできません。",
+      "edit": {
+        "label": "ラベル",
+        "labelPlaceholder": "このケースの名前 (任意)",
+        "targetApp": "対象アプリ",
+        "targetAppHint": "ディクテーションの入力先アプリ (例: Code.exe)。選択したアプリに限定された用語集の修正は、一致する場合にのみ適用されます。不明なアプリをテストするには空のままにしてください。",
+        "mustContain": "含む必要がある",
+        "mustNotContain": "含んではならない",
+        "checksHint": "1 行に 1 つ。パターンではなく文字どおりのテキストです。",
+        "matchCase": "大文字と小文字を区別"
+      },
+      "run": {
+        "promptA": "A (使用中のプロンプト): {{name}}",
+        "promptB": "B (選択したプロンプト): {{name}}",
+        "draftName": "{{name}} (未保存の下書き)",
+        "samePrompt": "A と B は同じプロンプトなので、実行ごとに応答がどれだけ変わるかがわかります。",
+        "repetitions": "プロンプトごとの実行回数",
+        "estimate": "{{cases}} ケース × 2 プロンプト × {{runs}} 回 = {{requests}} リクエスト、約 {{duration}}。",
+        "durationSeconds": "{{seconds}} 秒",
+        "durationMinutes": "{{minutes}} 分",
+        "capNote": "最初の {{max}} ケースのみ実行され、{{left}} ケースは除外されます。",
+        "model": "モデル:",
+        "destination": "テキストの送信先:",
+        "usageWarning": "各リクエストはそのプロバイダーの使用量またはクォータに含まれます。古いケースはまだ一度もそこへ送信されていない可能性があります。",
+        "dictationFirst": "ディクテーションが優先です。ディクテーション中は実行が一時停止し、貼り付け後に再開します。",
+        "start": "テストセットを実行",
+        "stop": "停止",
+        "noCases": "先にケースを追加するか、組み込みケースを表示してください。"
+      },
+      "destination": {
+        "local": "このコンピューター (ローカルモデル)",
+        "selfHosted": "自分のサーバー ({{host}})",
+        "custom": "自分のエンドポイント ({{host}})"
+      },
+      "progress": {
+        "count": "{{total}} 件中 {{done}} 件のリクエスト",
+        "paused": "ディクテーション中のため一時停止しています。貼り付け後に再開します。",
+        "waiting": "プロバイダーから速度を落とすよう求められました。次のリクエストまで待機しています。"
+      },
+      "results": {
+        "title": "結果",
+        "clear": "結果をクリア",
+        "partial": "一部のみの実行: {{total}} 件中 {{completed}} 件のリクエストが完了しました。",
+        "stopReason": {
+          "user": "停止されました。",
+          "account": "アカウントが変わりました。",
+          "auth": "プロバイダーがサインインまたは API キーを拒否しました。",
+          "quota": "プロバイダーのクォータまたは使用量の上限に達しました。",
+          "config": "クリーンアップモデルまたはプロバイダーが正しく設定されていません。",
+          "rateLimit": "プロバイダーがリクエストを制限し続けました。",
+          "errors": "3 件のリクエストが続けて失敗しました。",
+          "settings": "実行中にクリーンアップの設定が変わりました。"
+        },
+        "sides": "A: {{a}} · B: {{b}}",
+        "compared": "比較済み: {{cases}} ケース中 {{compared}} ケース。以下では、A と B のすべての実行が完了したケースのみを数えます。",
+        "passed": "すべてのチェックに合格: A は {{compared}} 中 {{a}}、B は {{compared}} 中 {{b}}",
+        "differ": "{{compared}} ケース中 {{differ}} ケースで応答が異なります",
+        "median": "中央値の時間: A {{a}} 秒、B {{b}} 秒",
+        "fillers": "残ったフィラー (参考情報で、不合格にはなりません): A {{a}}、B {{b}}",
+        "requests": "リクエスト: 完了 {{completed}}、失敗 {{errors}}、キャンセル {{cancelled}}、スキップ {{skipped}}",
+        "sessionOnly": "結果は、アプリを終了するかアカウントが変わるまでこのウィンドウに残ります。",
+        "filter": "差分と不合格のみ",
+        "noneShown": "差分も不合格もありません。",
+        "notCompared": "比較なし",
+        "pass": "合格",
+        "fail": "不合格",
+        "input": "入力",
+        "corrected": "用語集の適用後に送信",
+        "notCorrected": "そのまま送信: 用語集の修正は適用されていません。",
+        "reference": "当時貼り付けたテキスト (参考のみ)",
+        "run": "実行 {{n}}",
+        "time": "{{seconds}} 秒",
+        "status": {
+          "cancelled": "キャンセル",
+          "skipped": "スキップ",
+          "error": "失敗",
+          "emptyReply": "空の応答",
+          "truncated": "応答が途中で切れました",
+          "repeated": "拒否: モデルが文字起こしを繰り返したため、ディクテーションでは入力がそのまま使われます。"
+        },
+        "check": {
+          "notRepeated": "文字起こしの繰り返しなし",
+          "contains": "「{{text}}」を含む",
+          "notContains": "「{{text}}」を含まない",
+          "notChecked": "未チェック"
+        },
+        "fillersFound": "残ったフィラー (参考): {{words}}"
+      },
+      "starters": {
+        "fillers": "フィラー",
+        "selfCorrection": "言い直し",
+        "question": "口述された質問",
+        "ignoreRules": "「ルールを無視して」",
+        "littleBuddy": "Little Buddy (アプリ別の用語集)"
+      }
+    }
   },
   "settingsModal": {
     "managedByOrg": "一部の設定は組織によって管理されています。",

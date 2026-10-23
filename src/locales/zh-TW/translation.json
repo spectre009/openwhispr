@@ -749,6 +749,15 @@
         "continue": "繼續",
         "cancel": "取消",
         "fileType": "JSON Lines"
+      },
+      "testSet": {
+        "add": "加入測試集",
+        "added": "已加入測試集",
+        "addedDescription": "原始轉錄的副本已在 Prompt Studio 的測試集中。即使刪除此聽寫，它也會保留。",
+        "addedSession": "已加入測試集，僅在本次工作階段保留",
+        "already": "已在測試集中",
+        "failed": "無法加入測試集",
+        "noRawText": "此聽寫沒有原始轉錄，而清理後的文字從不用作測試輸入。"
       }
     },
     "aiCta": {
@@ -1605,9 +1614,142 @@
       "translation": "翻譯",
       "translationDisabled": "啟用聽寫翻譯以測試此提示詞",
       "noTargetLanguage": "請先選擇目標語言",
-      "agentDisabled": "啟用語音助理以測試此提示詞"
+      "agentDisabled": "啟用語音助理以測試此提示詞",
+      "saveAsCase": "儲存為測試案例",
+      "caseSaved": "已儲存至測試集。",
+      "caseSavedSession": "已加入測試集，僅在本次工作階段保留。",
+      "caseExists": "此輸入已在測試集中。",
+      "saveCaseFailed": "無法儲存測試案例。"
     },
-    "defaultTestInputTranslate": "今天天氣真好，要不要出去走走？"
+    "defaultTestInputTranslate": "今天天氣真好，要不要出去走走？",
+    "testSet": {
+      "modeSingle": "單一輸入",
+      "modeSet": "測試集",
+      "intro": "以使用中的提示詞（A）和所選提示詞或其未儲存的草稿（B）執行每個案例，並排顯示並自動檢查。你儲存的內容不會改變。",
+      "copiesNotice": "案例是你的聽寫內容的副本：即使聽寫從歷史記錄中刪除或過期，仍會保留在這裡。它們只儲存在這台電腦上，從不同步。每次執行都會將它們傳送到下方顯示的清理模型。",
+      "storage": {
+        "historyOff": "本機歷史記錄已關閉，因此新案例只保留到你結束應用程式為止。",
+        "policyOff": "你的組織關閉了本機歷史記錄，因此案例只保留到你結束應用程式為止。",
+        "pending": "你的歷史記錄設定尚未載入，因此新案例只保留到你結束應用程式為止。",
+        "unavailable": "目前無法儲存案例，因此新案例只保留到你結束應用程式為止。"
+      },
+      "casesTitle": "案例（{{n}}）",
+      "emptyCases": "還沒有你自己的案例。在歷史記錄中開啟一則聽寫的選單並選擇「加入測試集」，或將「測試」中的輸入儲存為案例。",
+      "source": {
+        "history": "來自歷史記錄",
+        "test": "來自測試",
+        "starter": "內建"
+      },
+      "sessionOnly": "僅本次工作階段",
+      "targetApp": "應用程式：",
+      "checksCount": "檢查：{{n}}",
+      "actions": {
+        "edit": "編輯",
+        "delete": "刪除",
+        "hide": "隱藏",
+        "openInHistory": "在歷史記錄中開啟",
+        "removeAll": "全部移除",
+        "showHidden": "顯示已隱藏的內建案例（{{n}}）",
+        "save": "儲存",
+        "cancel": "取消"
+      },
+      "removeAllTitle": "要移除你的所有測試案例嗎？",
+      "removeAllDescription": "移除你從歷史記錄中釘選或從「測試」中儲存的所有案例，包括僅在本次工作階段保留的案例。內建案例只能隱藏。",
+      "edit": {
+        "label": "標籤",
+        "labelPlaceholder": "此案例的名稱（選填）",
+        "targetApp": "目標應用程式",
+        "targetAppHint": "聽寫所針對的應用程式，例如 Code.exe。限定於所選應用程式的詞彙表更正只在相符時套用；留空即可測試未知的應用程式。",
+        "mustContain": "必須包含",
+        "mustNotContain": "不得包含",
+        "checksHint": "每行一項。依字面文字比對，不是模式。",
+        "matchCase": "區分大小寫"
+      },
+      "run": {
+        "promptA": "A，使用中的提示詞：{{name}}",
+        "promptB": "B，所選提示詞：{{name}}",
+        "draftName": "{{name}}（未儲存的草稿）",
+        "samePrompt": "A 和 B 是同一個提示詞，因此這次執行顯示的是它的回覆在多次執行之間的差異。",
+        "repetitions": "每個提示詞的執行次數",
+        "estimate": "{{cases}} 個案例 × 2 個提示詞 × {{runs}} 次 = {{requests}} 個請求，約 {{duration}}。",
+        "durationSeconds": "{{seconds}} 秒",
+        "durationMinutes": "{{minutes}} 分鐘",
+        "capNote": "只執行前 {{max}} 個案例；另有 {{left}} 個未納入。",
+        "model": "模型：",
+        "destination": "文字傳送至：",
+        "usageWarning": "每個請求都會計入該供應商的用量或配額，而且較早的案例可能從未傳送到那裡。",
+        "dictationFirst": "聽寫優先：你聽寫時執行會暫停，貼上後繼續。",
+        "start": "執行測試集",
+        "stop": "停止",
+        "noCases": "請先加入案例或顯示內建案例。"
+      },
+      "destination": {
+        "local": "這台電腦（本機模型）",
+        "selfHosted": "你的伺服器（{{host}}）",
+        "custom": "你的端點（{{host}}）"
+      },
+      "progress": {
+        "count": "{{done}} / {{total}} 個請求",
+        "paused": "你正在聽寫，已暫停。貼上後繼續。",
+        "waiting": "供應商要求放慢速度。正在等待後再傳送下一個請求。"
+      },
+      "results": {
+        "title": "結果",
+        "clear": "清除結果",
+        "partial": "部分執行：已完成 {{completed}} / {{total}} 個請求。",
+        "stopReason": {
+          "user": "你停止了執行。",
+          "account": "帳戶已變更。",
+          "auth": "供應商拒絕了登入或 API 金鑰。",
+          "quota": "已達到供應商的配額或用量上限。",
+          "config": "清理模型或供應商設定不正確。",
+          "rateLimit": "供應商持續限制請求速率。",
+          "errors": "連續三個請求失敗。",
+          "settings": "執行期間清理設定已變更。"
+        },
+        "sides": "A：{{a}} · B：{{b}}",
+        "compared": "已比較：{{compared}} / {{cases}} 個案例。下方只計算 A 和 B 的每次執行都已完成的案例。",
+        "passed": "全部檢查通過：A {{a}} / {{compared}}，B {{b}} / {{compared}}",
+        "differ": "{{compared}} 個案例中有 {{differ}} 個回覆不同",
+        "median": "中位時間：A {{a}} 秒，B {{b}} 秒",
+        "fillers": "殘留的語助詞（僅供參考，絕不算失敗）：A {{a}}，B {{b}}",
+        "requests": "請求：完成 {{completed}}，失敗 {{errors}}，取消 {{cancelled}}，略過 {{skipped}}",
+        "sessionOnly": "結果會保留在此視窗中，直到你結束應用程式或帳戶變更。",
+        "filter": "僅顯示差異和失敗",
+        "noneShown": "沒有差異或失敗。",
+        "notCompared": "未比較",
+        "pass": "通過",
+        "fail": "未通過",
+        "input": "輸入",
+        "corrected": "經詞彙表處理後傳送",
+        "notCorrected": "依原樣傳送：未套用詞彙表更正。",
+        "reference": "當時貼上的內容（僅供參考）",
+        "run": "第 {{n}} 次執行",
+        "time": "{{seconds}} 秒",
+        "status": {
+          "cancelled": "已取消",
+          "skipped": "已略過",
+          "error": "失敗",
+          "emptyReply": "空白回覆",
+          "truncated": "回覆被截斷",
+          "repeated": "已拒絕：模型重複了轉錄內容，因此聽寫會保留其輸入。"
+        },
+        "check": {
+          "notRepeated": "轉錄內容未重複",
+          "contains": "包含「{{text}}」",
+          "notContains": "不包含「{{text}}」",
+          "notChecked": "未檢查"
+        },
+        "fillersFound": "殘留的語助詞（僅供參考）：{{words}}"
+      },
+      "starters": {
+        "fillers": "語助詞",
+        "selfCorrection": "自我更正",
+        "question": "聽寫的問題",
+        "ignoreRules": "「忽略你的規則」",
+        "littleBuddy": "Little Buddy（依應用程式的詞彙表）"
+      }
+    }
   },
   "settingsModal": {
     "managedByOrg": "部分設定由您的組織管理。",

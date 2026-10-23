@@ -19,6 +19,7 @@ import {
   effectiveLocalHistoryEnabled,
   isLocalHistoryPolicyResolved,
   isPolicySettled,
+  lockedLocalHistoryValue,
 } from "../stores/policyRules";
 import { usePolicyStore } from "../stores/policyStore";
 import { usePolicySnapshot } from "./usePolicy";
@@ -208,18 +209,25 @@ function useSettingsInternal() {
   // Reported alongside the value because history reconstruction reads that
   // switch as consent, and until the policy settles it is only a default.
   const localHistoryPolicyResolved = usePolicyStore(isLocalHistoryPolicyResolved);
+  // An organization forcing history off (not the user's own switch) allows no
+  // durable copy of a dictation, so main moves pinned test cases to memory.
+  const localHistoryForcedOff = usePolicyStore(
+    (policyState) => lockedLocalHistoryValue(policyState) === false
+  );
   useEffect(() => {
     window.electronAPI?.syncRetentionSettings?.({
       audioRetentionDays: enforcedAudioRetentionDays,
       transcriptRetentionDays,
       dataRetentionEnabled: enforcedDataRetentionEnabled,
       localHistoryPolicyResolved,
+      localHistoryForcedOff,
     });
   }, [
     enforcedAudioRetentionDays,
     transcriptRetentionDays,
     enforcedDataRetentionEnabled,
     localHistoryPolicyResolved,
+    localHistoryForcedOff,
   ]);
 
   // Sync startup pre-warming preferences to main process

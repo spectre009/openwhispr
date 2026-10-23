@@ -79,6 +79,11 @@ async function loadStudio(t) {
         export default function PromptLibraryBar() { return null; }
         export function PromptDraftActions() { return null; }
       `,
+      "./PromptTestSet": "export default function PromptTestSet() { return null; }",
+      "/stores/promptTestSetStore": `
+        export async function saveTestCaseFromInput() { return { success: true }; }
+        export function storageNoticeKey() { return "notice"; }
+      `,
       "/hooks/usePromptLibraryEditor": `
         export function usePromptLibraryEditor() { return globalThis.__studio.editor; }
       `,
@@ -184,7 +189,8 @@ test("cleanup Test runs the unsaved draft as a cleanup override", async (t) => {
   assert.equal(calls.cleanup.length, 1);
   const [, candidate, options] = calls.cleanup[0];
   assert.deepEqual(candidate, { mode: "text", text: "draft text" });
-  assert.deepEqual(options, { agentName: "Jarvis" });
+  // A test request: its text stays out of the request logs.
+  assert.deepEqual(options, { agentName: "Jarvis", redactLogs: true });
 });
 
 test("cleanup Test of a saved prompt sends its saved text; Default sends builtin", async (t) => {

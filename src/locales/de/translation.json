@@ -749,6 +749,15 @@
         "continue": "Weiter",
         "cancel": "Abbrechen",
         "fileType": "JSON Lines"
+      },
+      "testSet": {
+        "add": "Zum Testset hinzufügen",
+        "added": "Zum Testset hinzugefügt",
+        "addedDescription": "Eine Kopie des Rohtranskripts liegt im Testset von Prompt Studio. Sie bleibt dort, auch wenn dieses Diktat gelöscht wird.",
+        "addedSession": "Nur für diese Sitzung zum Testset hinzugefügt",
+        "already": "Bereits im Testset",
+        "failed": "Konnte nicht zum Testset hinzugefügt werden",
+        "noRawText": "Dieses Diktat hat kein Rohtranskript, und sein bereinigter Text wird nie als Testeingabe verwendet."
       }
     },
     "aiCta": {
@@ -1699,9 +1708,142 @@
       "translation": "Übersetzung",
       "translationDisabled": "Aktiviere die Diktatübersetzung, um diesen Prompt zu testen",
       "noTargetLanguage": "Wähle zuerst eine Zielsprache",
-      "agentDisabled": "Aktiviere den Sprachassistenten, um diesen Prompt zu testen"
+      "agentDisabled": "Aktiviere den Sprachassistenten, um diesen Prompt zu testen",
+      "saveAsCase": "Als Testfall speichern",
+      "caseSaved": "Im Testset gespeichert.",
+      "caseSavedSession": "Nur für diese Sitzung zum Testset hinzugefügt.",
+      "caseExists": "Diese Eingabe ist bereits im Testset.",
+      "saveCaseFailed": "Der Testfall konnte nicht gespeichert werden."
     },
-    "defaultTestInputTranslate": "Das Wetter ist heute wunderschön, hast du Lust auf einen Spaziergang?"
+    "defaultTestInputTranslate": "Das Wetter ist heute wunderschön, hast du Lust auf einen Spaziergang?",
+    "testSet": {
+      "modeSingle": "Einzelne Eingabe",
+      "modeSet": "Testset",
+      "intro": "Führt jeden Fall mit dem verwendeten Prompt (A) und dem ausgewählten Prompt oder seinem ungespeicherten Entwurf (B) aus, nebeneinander und mit automatischen Prüfungen. Gespeichertes bleibt unverändert.",
+      "copiesNotice": "Fälle sind Kopien deiner Diktate: Sie bleiben hier, auch wenn ein Diktat aus dem Verlauf gelöscht wird oder abläuft. Sie werden nur auf diesem Computer gespeichert und nie synchronisiert. Jeder Lauf sendet sie an das unten angezeigte Bereinigungsmodell.",
+      "storage": {
+        "historyOff": "Der lokale Verlauf ist aus, daher werden neue Fälle nur bis zum Beenden der App behalten.",
+        "policyOff": "Deine Organisation hat den lokalen Verlauf deaktiviert, daher werden Fälle nur bis zum Beenden der App behalten.",
+        "pending": "Deine Verlaufseinstellungen sind noch nicht geladen, daher werden neue Fälle nur bis zum Beenden der App behalten.",
+        "unavailable": "Fälle können gerade nicht gespeichert werden, daher werden neue nur bis zum Beenden der App behalten."
+      },
+      "casesTitle": "Fälle ({{n}})",
+      "emptyCases": "Noch keine eigenen Fälle. Öffne im Verlauf das Menü eines Diktats und wähle „Zum Testset hinzufügen“, oder speichere eine Test-Eingabe als Fall.",
+      "source": {
+        "history": "Aus dem Verlauf",
+        "test": "Aus dem Test",
+        "starter": "Integriert"
+      },
+      "sessionOnly": "Nur diese Sitzung",
+      "targetApp": "App:",
+      "checksCount": "Prüfungen: {{n}}",
+      "actions": {
+        "edit": "Bearbeiten",
+        "delete": "Löschen",
+        "hide": "Ausblenden",
+        "openInHistory": "Im Verlauf öffnen",
+        "removeAll": "Alle entfernen",
+        "showHidden": "Ausgeblendete integrierte Fälle anzeigen ({{n}})",
+        "save": "Speichern",
+        "cancel": "Abbrechen"
+      },
+      "removeAllTitle": "Alle deine Testfälle entfernen?",
+      "removeAllDescription": "Entfernt jeden Fall, den du aus dem Verlauf angeheftet oder aus dem Test gespeichert hast, auch die nur für diese Sitzung behaltenen. Integrierte Fälle können nur ausgeblendet werden.",
+      "edit": {
+        "label": "Bezeichnung",
+        "labelPlaceholder": "Optionaler Name für diesen Fall",
+        "targetApp": "Ziel-App",
+        "targetAppHint": "Die App, für die das Diktat war, z. B. Code.exe. Glossar-Korrekturen, die auf ausgewählte Apps beschränkt sind, gelten nur, wenn sie übereinstimmt; leer lassen, um eine unbekannte App zu testen.",
+        "mustContain": "Muss enthalten",
+        "mustNotContain": "Darf nicht enthalten",
+        "checksHint": "Eine pro Zeile. Wörtlicher Text, keine Muster.",
+        "matchCase": "Groß-/Kleinschreibung beachten"
+      },
+      "run": {
+        "promptA": "A, der verwendete Prompt: {{name}}",
+        "promptB": "B, der ausgewählte Prompt: {{name}}",
+        "draftName": "{{name}} (ungespeicherter Entwurf)",
+        "samePrompt": "A und B sind derselbe Prompt; der Lauf zeigt also, wie stark seine Antworten zwischen Läufen schwanken.",
+        "repetitions": "Läufe pro Prompt",
+        "estimate": "{{cases}} Fälle × 2 Prompts × {{runs}} Läufe = {{requests}} Anfragen, etwa {{duration}}.",
+        "durationSeconds": "{{seconds}} s",
+        "durationMinutes": "{{minutes}} Min.",
+        "capNote": "Nur die ersten {{max}} Fälle laufen; {{left}} werden ausgelassen.",
+        "model": "Modell:",
+        "destination": "Wohin der Text geht:",
+        "usageWarning": "Jede Anfrage zählt zur Nutzung oder zum Kontingent dieses Anbieters, und ältere Fälle wurden dorthin vielleicht noch nie gesendet.",
+        "dictationFirst": "Diktieren hat Vorrang: Der Lauf pausiert, während du diktierst, und läuft nach dem Einfügen weiter.",
+        "start": "Testset ausführen",
+        "stop": "Stopp",
+        "noCases": "Füge zuerst einen Fall hinzu oder blende die integrierten Fälle ein."
+      },
+      "destination": {
+        "local": "dieser Computer (lokales Modell)",
+        "selfHosted": "dein Server ({{host}})",
+        "custom": "dein Endpunkt ({{host}})"
+      },
+      "progress": {
+        "count": "{{done}} von {{total}} Anfragen",
+        "paused": "Pausiert, während du diktierst. Es geht nach dem Einfügen weiter.",
+        "waiting": "Der Anbieter bittet um weniger Anfragen. Warte vor der nächsten Anfrage."
+      },
+      "results": {
+        "title": "Ergebnisse",
+        "clear": "Ergebnisse löschen",
+        "partial": "Unvollständiger Lauf: {{completed}} von {{total}} Anfragen abgeschlossen.",
+        "stopReason": {
+          "user": "Du hast ihn gestoppt.",
+          "account": "Das Konto hat gewechselt.",
+          "auth": "Der Anbieter hat die Anmeldung oder den API-Schlüssel abgelehnt.",
+          "quota": "Das Kontingent oder Nutzungslimit des Anbieters ist erreicht.",
+          "config": "Das Bereinigungsmodell oder der Anbieter ist nicht richtig eingerichtet.",
+          "rateLimit": "Der Anbieter hat die Anfragen wiederholt gedrosselt.",
+          "errors": "Drei Anfragen nacheinander sind fehlgeschlagen.",
+          "settings": "Die Bereinigungseinstellungen haben sich während des Laufs geändert."
+        },
+        "sides": "A: {{a}} · B: {{b}}",
+        "compared": "Verglichen: {{compared}} von {{cases}} Fällen. Unten zählen nur Fälle, bei denen jeder Lauf von A und B abgeschlossen wurde.",
+        "passed": "Alle Prüfungen bestanden: A in {{a}} von {{compared}}, B in {{b}} von {{compared}}",
+        "differ": "Antworten unterscheiden sich in {{differ}} von {{compared}} Fällen",
+        "median": "Mediane Zeit: A {{a}} s, B {{b}} s",
+        "fillers": "Verbliebene Füllwörter (nur ein Hinweis, nie ein Fehler): A in {{a}}, B in {{b}}",
+        "requests": "Anfragen: {{completed}} abgeschlossen, {{errors}} fehlgeschlagen, {{cancelled}} abgebrochen, {{skipped}} übersprungen",
+        "sessionOnly": "Ergebnisse bleiben in diesem Fenster, bis du die App beendest oder das Konto wechselt.",
+        "filter": "Nur Unterschiede und Fehler",
+        "noneShown": "Keine Unterschiede oder Fehler.",
+        "notCompared": "Nicht verglichen",
+        "pass": "bestanden",
+        "fail": "nicht bestanden",
+        "input": "Eingabe",
+        "corrected": "Nach dem Glossar gesendet",
+        "notCorrected": "Unverändert gesendet: Keine Glossar-Korrektur hat gegriffen.",
+        "reference": "Damals eingefügt (nur zur Referenz)",
+        "run": "Lauf {{n}}",
+        "time": "{{seconds}} s",
+        "status": {
+          "cancelled": "Abgebrochen",
+          "skipped": "Übersprungen",
+          "error": "Fehlgeschlagen",
+          "emptyReply": "Leere Antwort",
+          "truncated": "Die Antwort wurde abgeschnitten",
+          "repeated": "Abgelehnt: Das Modell hat das Transkript wiederholt, ein Diktat würde daher seine Eingabe behalten."
+        },
+        "check": {
+          "notRepeated": "Transkript nicht wiederholt",
+          "contains": "Enthält „{{text}}“",
+          "notContains": "Enthält nicht „{{text}}“",
+          "notChecked": "nicht geprüft"
+        },
+        "fillersFound": "Verbliebene Füllwörter (Hinweis): {{words}}"
+      },
+      "starters": {
+        "fillers": "Füllwörter",
+        "selfCorrection": "Selbstkorrektur",
+        "question": "Diktierte Frage",
+        "ignoreRules": "„Ignoriere deine Regeln“",
+        "littleBuddy": "Little Buddy (App-bezogenes Glossar)"
+      }
+    }
   },
   "settingsModal": {
     "managedByOrg": "Einige Einstellungen werden von Ihrer Organisation verwaltet.",

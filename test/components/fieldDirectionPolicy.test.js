@@ -86,6 +86,8 @@ const EXPECTED_SHARED_FIELD_DIRECTIONS = {
   // A saved prompt's name: prose in any script.
   "src/components/ui/PromptLibraryBar.tsx": ["auto"],
   "src/components/ui/PromptStudio.tsx": ["auto", "auto"],
+  // A test case's label and checks are prose in any script; the target app is an exe name.
+  "src/components/ui/PromptTestSet.tsx": ["auto", "ltr", "auto", "auto"],
   "src/components/ui/SearchableModelList.tsx": ["ltr"],
 };
 

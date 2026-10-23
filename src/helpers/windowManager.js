@@ -1206,7 +1206,26 @@ class WindowManager {
     this._scheduleRecordingReminder();
     this.meetingDetectionEngine?.setUserRecording(this._isDictatingToggle);
     this._sendAgentDictationPillState();
+    this._sendDictationLifecycleToControlPanel();
     this.onDictationStateChanged?.();
+  }
+
+  /** The dictation lifecycle as the dictation window last reported it. */
+  getDictationLifecycle() {
+    return { state: this._dictationLifecycleState, inputKind: this._dictationInputKind };
+  }
+
+  /** Whether a dictation is being prepared, recorded or processed. */
+  isDictationActive() {
+    return this._dictationLifecycleState !== DICTATION_LIFECYCLE.IDLE;
+  }
+
+  // Prompt Studio's test set gives way to a dictation, so the control panel
+  // follows the lifecycle. A panel still loading asks for it once it mounts.
+  _sendDictationLifecycleToControlPanel() {
+    const win = this.controlPanelWindow;
+    if (!win || win.isDestroyed?.() || win.webContents?.isLoading?.()) return;
+    win.webContents?.send?.("dictation-lifecycle-changed", this.getDictationLifecycle());
   }
 
   getRecordingStartedAt() {

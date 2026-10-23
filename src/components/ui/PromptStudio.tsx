@@ -5,9 +5,11 @@ import { Button } from "./button";
 import { Textarea } from "./textarea";
 import { Eye, Edit3, Play, Copy, TestTube, AlertTriangle, Check, Info } from "../icons";
 import PromptLibraryBar, { PromptDraftActions } from "./PromptLibraryBar";
+import PromptTestSet from "./PromptTestSet";
 import { useAgentName } from "../../utils/agentName";
 import ReasoningService from "../../services/ReasoningService";
 import { runCleanupWithPrompt, type CleanupPromptOverride } from "../../services/cleanupWithPrompt";
+import { saveTestCaseFromInput, storageNoticeKey } from "../../stores/promptTestSetStore";
 import { getModelProvider } from "../../models/ModelRegistry";
 import logger from "../../utils/logger";
 import { resolvePromptText, type PromptKind } from "../../config/prompts";
@@ -66,6 +68,9 @@ export default function PromptStudio({ className = "", kind = "cleanup" }: Promp
   const [testResult, setTestResult] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [copiedPrompt, setCopiedPrompt] = useState(false);
+  // Cleanup's Test tab: one input, or the test set (A against B on many cases).
+  const [testMode, setTestMode] = useState<"single" | "set">("single");
+  const [caseNotice, setCaseNotice] = useState<string | null>(null);
 
   const { agentName } = useAgentName();
   const policyState = usePolicySnapshot();
@@ -239,8 +244,12 @@ export default function PromptStudio({ className = "", kind = "cleanup" }: Promp
 
       // The real cleanup request with the candidate as its prompt (see
       // runCleanupWithPrompt): same model, options, wrapper and validation as a
-      // dictation would use if this prompt were the one in use.
-      const result = await runCleanupWithPrompt(testText, candidate, { agentName });
+      // dictation would use if this prompt were the one in use. A test: its
+      // text stays out of the request logs.
+      const result = await runCleanupWithPrompt(testText, candidate, {
+        agentName,
+        redactLogs: true,
+      });
       setTestResult(result);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
@@ -253,6 +262,24 @@ export default function PromptStudio({ className = "", kind = "cleanup" }: Promp
       );
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // "Save as test case": main stores the input as typed (or keeps it for this
+  // session only when local history is off) and says which.
+  const saveAsTestCase = async () => {
+    if (!testText.trim()) return;
+    const result = await saveTestCaseFromInput(testText);
+    if (!result.success) {
+      setCaseNotice(t("promptStudio.test.saveCaseFailed"));
+    } else if (result.duplicate) {
+      setCaseNotice(t("promptStudio.test.caseExists"));
+    } else if (result.durable) {
+      setCaseNotice(t("promptStudio.test.caseSaved"));
+    } else {
+      setCaseNotice(
+        `${t("promptStudio.test.caseSavedSession")} ${t(storageNoticeKey(result.reason))}`
+      );
     }
   };
 
@@ -466,8 +493,50 @@ export default function PromptStudio({ className = "", kind = "cleanup" }: Promp
                 ? t("promptStudio.test.customEndpoint")
                 : providerConfig.label;
 
+            // The test set runs cleanup prompts only (styles join in a later stage).
+            const isCleanupKind = !isTranslate && !isAgent;
+            const modeSwitch = isCleanupKind && (
+              <div className="px-5 py-3">
+                <div
+                  role="tablist"
+                  className="inline-flex rounded-lg border border-border/70 dark:border-border-subtle p-0.5"
+                >
+                  {(["single", "set"] as const).map((mode) => (
+                    <button
+                      key={mode}
+                      type="button"
+                      role="tab"
+                      aria-selected={testMode === mode}
+                      onClick={() => setTestMode(mode)}
+                      className={`px-3 py-1 text-xs font-medium rounded-md transition-colors duration-150 ${
+                        testMode === mode
+                          ? "bg-primary/10 text-foreground"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      {t(
+                        mode === "single"
+                          ? "promptStudio.testSet.modeSingle"
+                          : "promptStudio.testSet.modeSet"
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            );
+
+            if (isCleanupKind && testMode === "set") {
+              return (
+                <div className="divide-y divide-border/60 dark:divide-border-subtle">
+                  {modeSwitch}
+                  <PromptTestSet editor={editor} agentName={agentName} />
+                </div>
+              );
+            }
+
             return (
               <div className="divide-y divide-border/60 dark:divide-border-subtle">
+                {modeSwitch}
                 <div className="px-5 py-4">
                   <div className="flex items-start gap-2.5 rounded-lg border border-primary/20 bg-primary/5 dark:bg-primary/10 px-4 py-3">
                     <Info className="w-3.5 h-3.5 text-primary mt-0.5 shrink-0" />
@@ -583,6 +652,22 @@ export default function PromptStudio({ className = "", kind = "cleanup" }: Promp
                     <p className="text-xs text-muted-foreground/70 mt-1.5">
                       {t("promptStudio.library.emptyPrompt")}
                     </p>
+                  )}
+                  {isCleanupKind && (
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <Button
+                        onClick={() => void saveAsTestCase()}
+                        disabled={!testText.trim()}
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-xs"
+                      >
+                        {t("promptStudio.test.saveAsCase")}
+                      </Button>
+                      {caseNotice && (
+                        <p className="text-xs text-muted-foreground/80">{caseNotice}</p>
+                      )}
+                    </div>
                   )}
                 </div>
 

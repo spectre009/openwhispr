@@ -9,6 +9,7 @@ import {
 import {
   BaseReasoningService,
   ReasoningConfig,
+  type CleanupPromptInputs,
   type DispatchedPrompt,
 } from "./BaseReasoningService";
 import { SecureCache } from "../utils/SecureCache";
@@ -303,19 +304,31 @@ class ReasoningService extends BaseReasoningService {
   // request's cleanupPrompt override) rather than the store at call time. The
   // substituted prompt is built once per assistant name, so the copy recorded
   // for step history (processText's onDispatch) is the one providers send.
-  private providerContextFor(cleanupTemplate: string): ProviderContext {
+  // `inputs` (a test run's captured dictionary and languages) replaces the
+  // values read from settings, for the prompt and for Cloud's request alike.
+  private providerContextFor(
+    cleanupTemplate: string,
+    inputs?: CleanupPromptInputs
+  ): ProviderContext {
     const resolved = new Map<string, string>();
     const cleanupSystemPrompt = (agentName: string | null): string => {
       const key = agentName ?? "";
       let prompt = resolved.get(key);
       if (prompt === undefined) {
-        prompt = this.getSystemPrompt(agentName, cleanupTemplate);
+        prompt = this.getSystemPrompt(agentName, cleanupTemplate, inputs);
         resolved.set(key, prompt);
       }
       return prompt;
     };
     return {
       ...this.providerContext,
+      ...(inputs
+        ? {
+            getCustomDictionary: () => [...inputs.customDictionary],
+            getPreferredLanguage: () => inputs.preferredLanguage,
+            getUiLanguage: () => inputs.uiLanguage,
+          }
+        : {}),
       getSystemPrompt: cleanupSystemPrompt,
       getCleanupCustomPrompt: () => cleanupTemplate || undefined,
       callChatCompletionsApi: (endpoint, apiKey, model, text, agentName, config, providerName) =>
@@ -374,11 +387,16 @@ class ReasoningService extends BaseReasoningService {
         ),
     });
 
+    // Prompt tests: their dictations and replies stay out of the log, which
+    // debug logging writes to disk. Metadata only.
+    const quiet = config.redactLogs === true;
     logger.logReasoning(`${providerName.toUpperCase()}_REQUEST`, {
       endpoint,
       model,
       hasApiKey: !!apiKey,
-      requestBody: JSON.stringify(requestBody).substring(0, 200),
+      ...(quiet
+        ? { textRedacted: true }
+        : { requestBody: JSON.stringify(requestBody).substring(0, 200) }),
     });
 
     // Minted before the retry loop so every attempt of this call is one conversation.
@@ -432,14 +450,19 @@ class ReasoningService extends BaseReasoningService {
           }
 
           // Providers echo the rejected key back, so every logged field is redacted.
+          // A provider may quote the request too, so a quiet request logs the status only.
           logger.logReasoning(`${providerName.toUpperCase()}_API_ERROR_DETAIL`, {
             status: res.status,
             statusText: res.statusText,
-            error: redactProviderBody(errorData),
-            errorMessage: redactProviderBody(
-              extractApiErrorMessage(errorData, `${providerName} API error: ${res.status}`)
-            ),
-            fullResponse: redactProviderBody(errorText),
+            ...(quiet
+              ? { textRedacted: true }
+              : {
+                  error: redactProviderBody(errorData),
+                  errorMessage: redactProviderBody(
+                    extractApiErrorMessage(errorData, `${providerName} API error: ${res.status}`)
+                  ),
+                  fullResponse: redactProviderBody(errorText),
+                }),
           });
           throw providerHttpError({
             ...errorContext,
@@ -456,7 +479,9 @@ class ReasoningService extends BaseReasoningService {
           responseKeys: jsonResponse ? Object.keys(jsonResponse) : [],
           hasChoices: !!jsonResponse?.choices,
           choicesLength: jsonResponse?.choices?.length || 0,
-          fullResponse: JSON.stringify(jsonResponse).substring(0, 500),
+          ...(quiet
+            ? { textRedacted: true }
+            : { fullResponse: JSON.stringify(jsonResponse).substring(0, 500) }),
         });
 
         return jsonResponse;
@@ -481,7 +506,9 @@ class ReasoningService extends BaseReasoningService {
     if (!response.choices || !response.choices[0]) {
       logger.logReasoning(`${providerName.toUpperCase()}_RESPONSE_ERROR`, {
         model,
-        response: JSON.stringify(response).substring(0, 500),
+        ...(quiet
+          ? { textRedacted: true }
+          : { response: JSON.stringify(response).substring(0, 500) }),
         hasChoices: !!response.choices,
         choicesCount: response.choices?.length || 0,
       });
@@ -503,7 +530,9 @@ class ReasoningService extends BaseReasoningService {
         model,
         finishReason: choice.finish_reason,
         hasMessage: !!choice.message,
-        response: JSON.stringify(choice).substring(0, 500),
+        ...(quiet
+          ? { textRedacted: true }
+          : { response: JSON.stringify(choice).substring(0, 500) }),
       });
       throw (
         emptyResponseError(providerName, config, isTruncatedFinishReason(choice.finish_reason)) ??
@@ -559,8 +588,9 @@ class ReasoningService extends BaseReasoningService {
   ): Promise<string> {
     // A callback must never reach a provider: some cross IPC with the config.
     // Nor does the cleanup override: it is resolved here, once, into the prompt
-    // every dispatch below uses, so the request equals a real dictation's.
-    const { onDispatch, cleanupPrompt, ...configWithoutHook } = config;
+    // every dispatch below uses, so the request equals a real dictation's. The
+    // captured prompt inputs (a test run's) feed that same resolution.
+    const { onDispatch, cleanupPrompt, promptInputs, ...configWithoutHook } = config;
     config = configWithoutHook;
     const managed = this.resolveManagedScope(model, config.provider, config, "dictationCleanup");
     ({ model, config } = managed);
@@ -639,7 +669,7 @@ class ReasoningService extends BaseReasoningService {
       throw new Error(`Unsupported reasoning provider: ${providerId}`);
     }
 
-    const ctx = this.providerContextFor(cleanupTemplate);
+    const ctx = this.providerContextFor(cleanupTemplate, promptInputs);
     if (onDispatch) {
       try {
         onDispatch({
@@ -676,10 +706,14 @@ class ReasoningService extends BaseReasoningService {
 
       return result;
     } catch (error) {
+      // A refusal or provider message can quote the reply: a quiet request logs its code only.
+      const failure = error as Error & { code?: string; messageKey?: string };
       logger.logReasoning("PROVIDER_ERROR", {
         provider: providerId,
         model: trimmedModel,
-        error: (error as Error).message,
+        ...(dispatchConfig.redactLogs === true
+          ? { code: failure?.code, messageKey: failure?.messageKey, textRedacted: true }
+          : { error: failure?.message }),
       });
       throw error;
     }

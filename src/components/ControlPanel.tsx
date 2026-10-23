@@ -85,6 +85,7 @@ import {
 import { applyChineseScript, resolveChineseScriptTarget } from "../utils/chineseScript";
 import { runPostTranscription, type PostTranscriptionRunArgs } from "../helpers/postTranscription";
 import { getGlossarySnapshot } from "../stores/glossaryStore";
+import { OPEN_HISTORY_ITEM_EVENT } from "../utils/openHistoryItem";
 import { getAgentName } from "../utils/agentName";
 import HistoryView from "./HistoryView";
 import BackgroundActionToastListener from "./notes/BackgroundActionToastListener";
@@ -325,6 +326,29 @@ export default function ControlPanel({ initialSettingsSection }: ControlPanelPro
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
+  // Prompt Studio's test set → "Open in History" on a pinned case: leave
+  // Settings, show History and bring the row into view while it's listed.
+  useEffect(() => {
+    const openHistoryItem = (event: Event) => {
+      const id = (event as CustomEvent<{ id?: unknown }>).detail?.id;
+      if (!Number.isInteger(id)) return;
+      setShowSettings(false);
+      setActiveView("home");
+      let attempts = 0;
+      const reveal = () => {
+        const row = document.querySelector(`[data-transcription-id="${id}"]`);
+        if (row) {
+          row.scrollIntoView({ block: "center", behavior: "smooth" });
+          return;
+        }
+        if (++attempts < 20) requestAnimationFrame(reveal);
+      };
+      requestAnimationFrame(reveal);
+    };
+    window.addEventListener(OPEN_HISTORY_ITEM_EVENT, openHistoryItem);
+    return () => window.removeEventListener(OPEN_HISTORY_ITEM_EVENT, openHistoryItem);
   }, []);
 
   useEffect(() => {

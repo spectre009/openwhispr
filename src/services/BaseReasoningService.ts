@@ -47,6 +47,32 @@ export interface ReasoningConfig {
    * dispatch. Read by processText and never forwarded to a provider.
    */
   onDispatch?: (dispatched: { provider: string; model: string; prompt?: DispatchedPrompt }) => void;
+  /**
+   * Cleanup requests only: the dictionary, cleanup language and UI language
+   * the cleanup prompt is built with, captured when a test run started, so a
+   * dictionary or language change mid-run can't change what later requests
+   * send. Read by processText and never forwarded to a provider.
+   */
+  promptInputs?: CleanupPromptInputs;
+  /**
+   * Leaves the request's and response's text out of every log line (prompt
+   * tests): no request body, response excerpt or result preview, metadata only.
+   */
+  redactLogs?: boolean;
+  /**
+   * Local models only: a background request that gives way to a dictation
+   * (test-set runs). Main refuses it while a dictation is underway and aborts
+   * it, freeing the model, when one starts; it fails as YIELDED_TO_DICTATION.
+   */
+  yieldToDictation?: boolean;
+}
+
+/** What a cleanup system prompt is built from besides its template. */
+export interface CleanupPromptInputs {
+  customDictionary: string[];
+  /** The cleanup language (resolveCleanupLanguage), "auto" kept as is. */
+  preferredLanguage: string;
+  uiLanguage: string;
 }
 
 /**
@@ -80,13 +106,20 @@ export abstract class BaseReasoningService {
     return getSettings().uiLanguage || "en";
   }
 
-  /** `cleanupTemplate` is the request's cleanup prompt ("" = built-in); omitted, the saved one. */
-  protected getSystemPrompt(agentName: string | null, cleanupTemplate?: string): string {
+  /**
+   * `cleanupTemplate` is the request's cleanup prompt ("" = built-in); omitted, the saved one.
+   * `inputs`, when given, replaces the dictionary and languages read from settings.
+   */
+  protected getSystemPrompt(
+    agentName: string | null,
+    cleanupTemplate?: string,
+    inputs?: CleanupPromptInputs
+  ): string {
     return getCleanupSystemPrompt(
       agentName,
-      this.getCustomDictionary(),
-      this.getPreferredLanguage(),
-      this.getUiLanguage(),
+      inputs ? inputs.customDictionary : this.getCustomDictionary(),
+      inputs ? inputs.preferredLanguage : this.getPreferredLanguage(),
+      inputs ? inputs.uiLanguage : this.getUiLanguage(),
       cleanupTemplate
     );
   }

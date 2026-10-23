@@ -728,6 +728,15 @@
         "continue": "Continuar",
         "cancel": "Cancelar",
         "fileType": "JSON Lines"
+      },
+      "testSet": {
+        "add": "Adicionar ao conjunto de testes",
+        "added": "Adicionado ao conjunto de testes",
+        "addedDescription": "Uma cópia da transcrição bruta está no conjunto de testes do Prompt Studio. Ela continua lá mesmo que este ditado seja excluído.",
+        "addedSession": "Adicionado ao conjunto de testes só nesta sessão",
+        "already": "Já está no conjunto de testes",
+        "failed": "Não foi possível adicionar ao conjunto de testes",
+        "noRawText": "Este ditado não tem transcrição bruta, e seu texto limpo nunca é usado como entrada de teste."
       }
     },
     "aiCta": {
@@ -1584,9 +1593,142 @@
       "translation": "Tradução",
       "translationDisabled": "Ative a tradução de ditado para testar este prompt",
       "noTargetLanguage": "Escolha primeiro um idioma de destino",
-      "agentDisabled": "Ative o assistente de voz para testar este prompt"
+      "agentDisabled": "Ative o assistente de voz para testar este prompt",
+      "saveAsCase": "Salvar como caso de teste",
+      "caseSaved": "Salvo no conjunto de testes.",
+      "caseSavedSession": "Adicionado ao conjunto de testes só nesta sessão.",
+      "caseExists": "Esta entrada já está no conjunto de testes.",
+      "saveCaseFailed": "Não foi possível salvar o caso de teste."
     },
-    "defaultTestInputTranslate": "O tempo está lindo hoje, quer dar um passeio?"
+    "defaultTestInputTranslate": "O tempo está lindo hoje, quer dar um passeio?",
+    "testSet": {
+      "modeSingle": "Entrada única",
+      "modeSet": "Conjunto de testes",
+      "intro": "Executa cada caso com o prompt em uso (A) e com o prompt selecionado ou seu rascunho não salvo (B), lado a lado, com verificações automáticas. Nada do que você salvou muda.",
+      "copiesNotice": "Os casos são cópias dos seus ditados: continuam aqui mesmo que um ditado seja excluído do histórico ou expire. Ficam só neste computador e nunca são sincronizados. Cada execução os envia ao modelo de limpeza mostrado abaixo.",
+      "storage": {
+        "historyOff": "O histórico local está desativado, então os casos novos ficam só até você fechar o app.",
+        "policyOff": "Sua organização desativou o histórico local, então os casos ficam só até você fechar o app.",
+        "pending": "Suas configurações de histórico ainda não carregaram, então os casos novos ficam só até você fechar o app.",
+        "unavailable": "Não é possível salvar casos agora, então os novos ficam só até você fechar o app."
+      },
+      "casesTitle": "Casos ({{n}})",
+      "emptyCases": "Ainda não há casos seus. No histórico, abra o menu de um ditado e escolha Adicionar ao conjunto de testes, ou salve uma entrada de Teste como caso.",
+      "source": {
+        "history": "Do histórico",
+        "test": "Do Teste",
+        "starter": "Integrado"
+      },
+      "sessionOnly": "Só nesta sessão",
+      "targetApp": "App:",
+      "checksCount": "Verificações: {{n}}",
+      "actions": {
+        "edit": "Editar",
+        "delete": "Excluir",
+        "hide": "Ocultar",
+        "openInHistory": "Abrir no histórico",
+        "removeAll": "Remover todos",
+        "showHidden": "Mostrar casos integrados ocultos ({{n}})",
+        "save": "Salvar",
+        "cancel": "Cancelar"
+      },
+      "removeAllTitle": "Remover todos os seus casos de teste?",
+      "removeAllDescription": "Remove cada caso que você fixou do histórico ou salvou do Teste, inclusive os mantidos nesta sessão. Casos integrados só podem ser ocultados.",
+      "edit": {
+        "label": "Rótulo",
+        "labelPlaceholder": "Nome opcional para este caso",
+        "targetApp": "App de destino",
+        "targetAppHint": "O app para o qual era o ditado, como Code.exe. Correções do glossário limitadas a apps escolhidos só se aplicam se ele corresponder; deixe vazio para testar um app desconhecido.",
+        "mustContain": "Deve conter",
+        "mustNotContain": "Não deve conter",
+        "checksHint": "Um por linha. Texto literal, não padrões.",
+        "matchCase": "Diferenciar maiúsculas"
+      },
+      "run": {
+        "promptA": "A, o prompt em uso: {{name}}",
+        "promptB": "B, o prompt selecionado: {{name}}",
+        "draftName": "{{name}} (rascunho não salvo)",
+        "samePrompt": "A e B são o mesmo prompt, então a execução mostra o quanto as respostas variam de uma vez para outra.",
+        "repetitions": "Execuções por prompt",
+        "estimate": "{{cases}} casos × 2 prompts × {{runs}} execuções = {{requests}} solicitações, cerca de {{duration}}.",
+        "durationSeconds": "{{seconds}} s",
+        "durationMinutes": "{{minutes}} min",
+        "capNote": "Só os primeiros {{max}} casos são executados; {{left}} ficam de fora.",
+        "model": "Modelo:",
+        "destination": "Para onde vai o texto:",
+        "usageWarning": "Cada solicitação conta no uso ou na cota desse provedor, e casos antigos talvez nunca tenham sido enviados para lá.",
+        "dictationFirst": "O ditado vem primeiro: a execução pausa enquanto você dita e continua depois de colar.",
+        "start": "Executar conjunto de testes",
+        "stop": "Parar",
+        "noCases": "Adicione um caso ou mostre os casos integrados primeiro."
+      },
+      "destination": {
+        "local": "este computador (modelo local)",
+        "selfHosted": "seu servidor ({{host}})",
+        "custom": "seu endpoint ({{host}})"
+      },
+      "progress": {
+        "count": "{{done}} de {{total}} solicitações",
+        "paused": "Pausado enquanto você dita. Continua depois de colar.",
+        "waiting": "O provedor pediu para ir mais devagar. Aguardando antes da próxima solicitação."
+      },
+      "results": {
+        "title": "Resultados",
+        "clear": "Limpar resultados",
+        "partial": "Execução parcial: {{completed}} de {{total}} solicitações concluídas.",
+        "stopReason": {
+          "user": "Você parou a execução.",
+          "account": "A conta mudou.",
+          "auth": "O provedor recusou o login ou a chave de API.",
+          "quota": "A cota ou o limite de uso do provedor foi atingido.",
+          "config": "O modelo de limpeza ou o provedor não está configurado corretamente.",
+          "rateLimit": "O provedor continuou limitando as solicitações.",
+          "errors": "Três solicitações seguidas falharam.",
+          "settings": "As configurações de limpeza mudaram durante a execução."
+        },
+        "sides": "A: {{a}} · B: {{b}}",
+        "compared": "Comparados: {{compared}} de {{cases}} casos. Abaixo só contam os casos em que todas as execuções de A e B foram concluídas.",
+        "passed": "Todas as verificações aprovadas: A em {{a}} de {{compared}}, B em {{b}} de {{compared}}",
+        "differ": "As respostas diferem em {{differ}} de {{compared}} casos",
+        "median": "Tempo mediano: A {{a}} s, B {{b}} s",
+        "fillers": "Vícios de linguagem restantes (indicativo, nunca uma falha): A em {{a}}, B em {{b}}",
+        "requests": "Solicitações: {{completed}} concluídas, {{errors}} com falha, {{cancelled}} canceladas, {{skipped}} puladas",
+        "sessionOnly": "Os resultados ficam nesta janela até você fechar o app ou a conta mudar.",
+        "filter": "Só diferenças e falhas",
+        "noneShown": "Nenhuma diferença ou falha.",
+        "notCompared": "Não comparado",
+        "pass": "aprovado",
+        "fail": "reprovado",
+        "input": "Entrada",
+        "corrected": "Enviado após o glossário",
+        "notCorrected": "Enviado como está: nenhuma correção do glossário foi aplicada.",
+        "reference": "Colado na época (só referência)",
+        "run": "Execução {{n}}",
+        "time": "{{seconds}} s",
+        "status": {
+          "cancelled": "Cancelada",
+          "skipped": "Pulada",
+          "error": "Falhou",
+          "emptyReply": "Resposta vazia",
+          "truncated": "A resposta foi cortada",
+          "repeated": "Rejeitada: o modelo repetiu a transcrição, então um ditado manteria sua entrada."
+        },
+        "check": {
+          "notRepeated": "Transcrição não repetida",
+          "contains": "Contém “{{text}}”",
+          "notContains": "Não contém “{{text}}”",
+          "notChecked": "não verificado"
+        },
+        "fillersFound": "Vícios de linguagem restantes (indicativo): {{words}}"
+      },
+      "starters": {
+        "fillers": "Vícios de linguagem",
+        "selfCorrection": "Autocorreção",
+        "question": "Pergunta ditada",
+        "ignoreRules": "“Ignore suas regras”",
+        "littleBuddy": "Little Buddy (glossário por app)"
+      }
+    }
   },
   "settingsModal": {
     "managedByOrg": "Algumas configurações são gerenciadas pela sua organização.",

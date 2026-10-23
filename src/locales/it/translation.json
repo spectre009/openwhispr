@@ -749,6 +749,15 @@
         "continue": "Continua",
         "cancel": "Annulla",
         "fileType": "JSON Lines"
+      },
+      "testSet": {
+        "add": "Aggiungi al set di test",
+        "added": "Aggiunto al set di test",
+        "addedDescription": "Una copia della trascrizione grezza è nel set di test di Prompt Studio. Resta lì anche se questa dettatura viene eliminata.",
+        "addedSession": "Aggiunto al set di test solo per questa sessione",
+        "already": "Già nel set di test",
+        "failed": "Impossibile aggiungere al set di test",
+        "noRawText": "Questa dettatura non ha una trascrizione grezza, e il suo testo pulito non viene mai usato come input di test."
       }
     },
     "aiCta": {
@@ -1605,9 +1614,142 @@
       "translation": "Traduzione",
       "translationDisabled": "Attiva la traduzione della dettatura per testare questo prompt",
       "noTargetLanguage": "Scegli prima una lingua di destinazione",
-      "agentDisabled": "Abilita l'assistente vocale per testare questo prompt"
+      "agentDisabled": "Abilita l'assistente vocale per testare questo prompt",
+      "saveAsCase": "Salva come caso di test",
+      "caseSaved": "Salvato nel set di test.",
+      "caseSavedSession": "Aggiunto al set di test solo per questa sessione.",
+      "caseExists": "Questo input è già nel set di test.",
+      "saveCaseFailed": "Impossibile salvare il caso di test."
     },
-    "defaultTestInputTranslate": "Che bella giornata oggi, ti va di fare due passi?"
+    "defaultTestInputTranslate": "Che bella giornata oggi, ti va di fare due passi?",
+    "testSet": {
+      "modeSingle": "Input singolo",
+      "modeSet": "Set di test",
+      "intro": "Esegue ogni caso con il prompt in uso (A) e con il prompt selezionato o la sua bozza non salvata (B), affiancati, con controlli automatici. Nulla di ciò che hai salvato cambia.",
+      "copiesNotice": "I casi sono copie delle tue dettature: restano qui anche se una dettatura viene eliminata dalla cronologia o scade. Sono conservati solo su questo computer e mai sincronizzati. Ogni esecuzione li invia al modello di pulizia indicato sotto.",
+      "storage": {
+        "historyOff": "La cronologia locale è disattivata, quindi i nuovi casi restano solo finché non chiudi l'app.",
+        "policyOff": "La tua organizzazione ha disattivato la cronologia locale, quindi i casi restano solo finché non chiudi l'app.",
+        "pending": "Le impostazioni della cronologia non sono ancora caricate, quindi i nuovi casi restano solo finché non chiudi l'app.",
+        "unavailable": "Al momento i casi non possono essere salvati, quindi i nuovi restano solo finché non chiudi l'app."
+      },
+      "casesTitle": "Casi ({{n}})",
+      "emptyCases": "Ancora nessun caso tuo. Nella cronologia apri il menu di una dettatura e scegli Aggiungi al set di test, oppure salva un input di Test come caso.",
+      "source": {
+        "history": "Dalla cronologia",
+        "test": "Da Test",
+        "starter": "Integrato"
+      },
+      "sessionOnly": "Solo questa sessione",
+      "targetApp": "App:",
+      "checksCount": "Controlli: {{n}}",
+      "actions": {
+        "edit": "Modifica",
+        "delete": "Elimina",
+        "hide": "Nascondi",
+        "openInHistory": "Apri nella cronologia",
+        "removeAll": "Rimuovi tutti",
+        "showHidden": "Mostra i casi integrati nascosti ({{n}})",
+        "save": "Salva",
+        "cancel": "Annulla"
+      },
+      "removeAllTitle": "Rimuovere tutti i tuoi casi di test?",
+      "removeAllDescription": "Rimuove ogni caso che hai fissato dalla cronologia o salvato da Test, compresi quelli conservati per questa sessione. I casi integrati possono solo essere nascosti.",
+      "edit": {
+        "label": "Etichetta",
+        "labelPlaceholder": "Nome facoltativo per questo caso",
+        "targetApp": "App di destinazione",
+        "targetAppHint": "L'app a cui era destinata la dettatura, ad esempio Code.exe. Le correzioni del glossario limitate ad app scelte si applicano solo se corrisponde; lascia vuoto per provare un'app sconosciuta.",
+        "mustContain": "Deve contenere",
+        "mustNotContain": "Non deve contenere",
+        "checksHint": "Uno per riga. Testo letterale, non schemi.",
+        "matchCase": "Maiuscole/minuscole"
+      },
+      "run": {
+        "promptA": "A, il prompt in uso: {{name}}",
+        "promptB": "B, il prompt selezionato: {{name}}",
+        "draftName": "{{name}} (bozza non salvata)",
+        "samePrompt": "A e B sono lo stesso prompt, quindi l'esecuzione mostra quanto variano le sue risposte da una volta all'altra.",
+        "repetitions": "Esecuzioni per prompt",
+        "estimate": "{{cases}} casi × 2 prompt × {{runs}} esecuzioni = {{requests}} richieste, circa {{duration}}.",
+        "durationSeconds": "{{seconds}} s",
+        "durationMinutes": "{{minutes}} min",
+        "capNote": "Vengono eseguiti solo i primi {{max}} casi; {{left}} restano esclusi.",
+        "model": "Modello:",
+        "destination": "Dove va il testo:",
+        "usageWarning": "Ogni richiesta conta per l'uso o la quota di quel provider, e i casi più vecchi potrebbero non esservi mai stati inviati.",
+        "dictationFirst": "La dettatura ha la precedenza: l'esecuzione si mette in pausa mentre detti e riprende dopo l'incolla.",
+        "start": "Esegui il set di test",
+        "stop": "Interrompi",
+        "noCases": "Aggiungi prima un caso o mostra i casi integrati."
+      },
+      "destination": {
+        "local": "questo computer (modello locale)",
+        "selfHosted": "il tuo server ({{host}})",
+        "custom": "il tuo endpoint ({{host}})"
+      },
+      "progress": {
+        "count": "{{done}} di {{total}} richieste",
+        "paused": "In pausa mentre detti. Riprende dopo l'incolla.",
+        "waiting": "Il provider ha chiesto di rallentare. In attesa prima della prossima richiesta."
+      },
+      "results": {
+        "title": "Risultati",
+        "clear": "Cancella risultati",
+        "partial": "Esecuzione parziale: {{completed}} di {{total}} richieste completate.",
+        "stopReason": {
+          "user": "L'hai interrotta tu.",
+          "account": "L'account è cambiato.",
+          "auth": "Il provider ha rifiutato l'accesso o la chiave API.",
+          "quota": "È stata raggiunta la quota o il limite di utilizzo del provider.",
+          "config": "Il modello di pulizia o il provider non è configurato correttamente.",
+          "rateLimit": "Il provider ha continuato a limitare le richieste.",
+          "errors": "Tre richieste di fila non sono riuscite.",
+          "settings": "Le impostazioni di pulizia sono cambiate durante l'esecuzione."
+        },
+        "sides": "A: {{a}} · B: {{b}}",
+        "compared": "Confrontati: {{compared}} di {{cases}} casi. Sotto contano solo i casi in cui ogni esecuzione di A e B è stata completata.",
+        "passed": "Tutti i controlli superati: A in {{a}} di {{compared}}, B in {{b}} di {{compared}}",
+        "differ": "Le risposte differiscono in {{differ}} di {{compared}} casi",
+        "median": "Tempo mediano: A {{a}} s, B {{b}} s",
+        "fillers": "Intercalari rimasti (indicativo, mai un errore): A in {{a}}, B in {{b}}",
+        "requests": "Richieste: {{completed}} completate, {{errors}} non riuscite, {{cancelled}} annullate, {{skipped}} saltate",
+        "sessionOnly": "I risultati restano in questa finestra finché non chiudi l'app o l'account cambia.",
+        "filter": "Solo differenze ed errori",
+        "noneShown": "Nessuna differenza o errore.",
+        "notCompared": "Non confrontato",
+        "pass": "superato",
+        "fail": "non superato",
+        "input": "Input",
+        "corrected": "Inviato dopo il glossario",
+        "notCorrected": "Inviato così com'è: nessuna correzione del glossario applicata.",
+        "reference": "Incollato all'epoca (solo riferimento)",
+        "run": "Esecuzione {{n}}",
+        "time": "{{seconds}} s",
+        "status": {
+          "cancelled": "Annullata",
+          "skipped": "Saltata",
+          "error": "Non riuscita",
+          "emptyReply": "Risposta vuota",
+          "truncated": "La risposta è stata troncata",
+          "repeated": "Rifiutata: il modello ha ripetuto la trascrizione, quindi una dettatura manterrebbe il suo input."
+        },
+        "check": {
+          "notRepeated": "Trascrizione non ripetuta",
+          "contains": "Contiene «{{text}}»",
+          "notContains": "Non contiene «{{text}}»",
+          "notChecked": "non controllato"
+        },
+        "fillersFound": "Intercalari rimasti (indicativo): {{words}}"
+      },
+      "starters": {
+        "fillers": "Intercalari",
+        "selfCorrection": "Autocorrezione",
+        "question": "Domanda dettata",
+        "ignoreRules": "«Ignora le tue regole»",
+        "littleBuddy": "Little Buddy (glossario per app)"
+      }
+    }
   },
   "settingsModal": {
     "managedByOrg": "Alcune impostazioni sono gestite dalla tua organizzazione.",

@@ -749,6 +749,15 @@
         "continue": "Continuer",
         "cancel": "Annuler",
         "fileType": "JSON Lines"
+      },
+      "testSet": {
+        "add": "Ajouter au jeu de tests",
+        "added": "Ajouté au jeu de tests",
+        "addedDescription": "Une copie de la transcription brute se trouve dans le jeu de tests de Prompt Studio. Elle y reste même si cette dictée est supprimée.",
+        "addedSession": "Ajouté au jeu de tests pour cette session uniquement",
+        "already": "Déjà dans le jeu de tests",
+        "failed": "Impossible d'ajouter au jeu de tests",
+        "noRawText": "Cette dictée n'a pas de transcription brute, et son texte nettoyé n'est jamais utilisé comme entrée de test."
       }
     },
     "aiCta": {
@@ -1699,9 +1708,142 @@
       "translation": "Traduction",
       "translationDisabled": "Activez la traduction de dictée pour tester ce prompt",
       "noTargetLanguage": "Choisissez d’abord une langue cible",
-      "agentDisabled": "Activez l'assistant vocal pour tester ce prompt"
+      "agentDisabled": "Activez l'assistant vocal pour tester ce prompt",
+      "saveAsCase": "Enregistrer comme cas de test",
+      "caseSaved": "Enregistré dans le jeu de tests.",
+      "caseSavedSession": "Ajouté au jeu de tests pour cette session uniquement.",
+      "caseExists": "Cette saisie est déjà dans le jeu de tests.",
+      "saveCaseFailed": "Impossible d'enregistrer le cas de test."
     },
-    "defaultTestInputTranslate": "Il fait très beau aujourd'hui, ça te dit d'aller te promener ?"
+    "defaultTestInputTranslate": "Il fait très beau aujourd'hui, ça te dit d'aller te promener ?",
+    "testSet": {
+      "modeSingle": "Saisie unique",
+      "modeSet": "Jeu de tests",
+      "intro": "Exécute chaque cas avec le prompt utilisé (A) et le prompt sélectionné ou son brouillon non enregistré (B), côte à côte, avec des vérifications automatiques. Rien de ce que vous avez enregistré ne change.",
+      "copiesNotice": "Les cas sont des copies de vos dictées : ils restent ici même si une dictée est supprimée de l'historique ou expire. Ils sont conservés uniquement sur cet ordinateur et jamais synchronisés. Chaque exécution les envoie au modèle de nettoyage indiqué ci-dessous.",
+      "storage": {
+        "historyOff": "L'historique local est désactivé : les nouveaux cas sont conservés seulement jusqu'à ce que vous quittiez l'application.",
+        "policyOff": "Votre organisation a désactivé l'historique local : les cas sont conservés seulement jusqu'à ce que vous quittiez l'application.",
+        "pending": "Vos paramètres d'historique ne sont pas encore chargés : les nouveaux cas sont conservés seulement jusqu'à ce que vous quittiez l'application.",
+        "unavailable": "Les cas ne peuvent pas être enregistrés pour le moment : les nouveaux sont conservés seulement jusqu'à ce que vous quittiez l'application."
+      },
+      "casesTitle": "Cas ({{n}})",
+      "emptyCases": "Aucun cas personnel pour l'instant. Dans l'historique, ouvrez le menu d'une dictée et choisissez Ajouter au jeu de tests, ou enregistrez une saisie de Test comme cas.",
+      "source": {
+        "history": "Depuis l'historique",
+        "test": "Depuis Test",
+        "starter": "Intégré"
+      },
+      "sessionOnly": "Cette session uniquement",
+      "targetApp": "Appli :",
+      "checksCount": "Vérifications : {{n}}",
+      "actions": {
+        "edit": "Modifier",
+        "delete": "Supprimer",
+        "hide": "Masquer",
+        "openInHistory": "Ouvrir dans l'historique",
+        "removeAll": "Tout supprimer",
+        "showHidden": "Afficher les cas intégrés masqués ({{n}})",
+        "save": "Enregistrer",
+        "cancel": "Annuler"
+      },
+      "removeAllTitle": "Supprimer tous vos cas de test ?",
+      "removeAllDescription": "Supprime chaque cas épinglé depuis l'historique ou enregistré depuis Test, y compris ceux conservés pour cette session. Les cas intégrés peuvent seulement être masqués.",
+      "edit": {
+        "label": "Libellé",
+        "labelPlaceholder": "Nom facultatif pour ce cas",
+        "targetApp": "Application cible",
+        "targetAppHint": "L'application à laquelle la dictée était destinée, par exemple Code.exe. Les corrections du glossaire limitées à certaines applications ne s'appliquent que si elle correspond ; laissez vide pour tester une application inconnue.",
+        "mustContain": "Doit contenir",
+        "mustNotContain": "Ne doit pas contenir",
+        "checksHint": "Un par ligne. Texte littéral, pas de motifs.",
+        "matchCase": "Respecter la casse"
+      },
+      "run": {
+        "promptA": "A, le prompt utilisé : {{name}}",
+        "promptB": "B, le prompt sélectionné : {{name}}",
+        "draftName": "{{name}} (brouillon non enregistré)",
+        "samePrompt": "A et B sont le même prompt : l'exécution montre donc à quel point ses réponses varient d'une fois à l'autre.",
+        "repetitions": "Exécutions par prompt",
+        "estimate": "{{cases}} cas × 2 prompts × {{runs}} exécutions = {{requests}} requêtes, environ {{duration}}.",
+        "durationSeconds": "{{seconds}} s",
+        "durationMinutes": "{{minutes}} min",
+        "capNote": "Seuls les {{max}} premiers cas sont exécutés ; {{left}} sont laissés de côté.",
+        "model": "Modèle :",
+        "destination": "Où va le texte :",
+        "usageWarning": "Chaque requête compte dans l'utilisation ou le quota de ce fournisseur, et d'anciens cas n'y ont peut-être jamais été envoyés.",
+        "dictationFirst": "La dictée passe d'abord : l'exécution se met en pause pendant que vous dictez et reprend après le collage.",
+        "start": "Lancer le jeu de tests",
+        "stop": "Arrêter",
+        "noCases": "Ajoutez d'abord un cas ou affichez les cas intégrés."
+      },
+      "destination": {
+        "local": "cet ordinateur (modèle local)",
+        "selfHosted": "votre serveur ({{host}})",
+        "custom": "votre point de terminaison ({{host}})"
+      },
+      "progress": {
+        "count": "{{done}} requêtes sur {{total}}",
+        "paused": "En pause pendant que vous dictez. Reprise après le collage.",
+        "waiting": "Le fournisseur demande de ralentir. Attente avant la requête suivante."
+      },
+      "results": {
+        "title": "Résultats",
+        "clear": "Effacer les résultats",
+        "partial": "Exécution partielle : {{completed}} requêtes sur {{total}} terminées.",
+        "stopReason": {
+          "user": "Vous l'avez arrêtée.",
+          "account": "Le compte a changé.",
+          "auth": "Le fournisseur a refusé la connexion ou la clé API.",
+          "quota": "Le quota ou la limite d'utilisation du fournisseur a été atteint.",
+          "config": "Le modèle de nettoyage ou le fournisseur n'est pas configuré correctement.",
+          "rateLimit": "Le fournisseur a limité les requêtes à plusieurs reprises.",
+          "errors": "Trois requêtes de suite ont échoué.",
+          "settings": "Les paramètres de nettoyage ont changé pendant l'exécution."
+        },
+        "sides": "A : {{a}} · B : {{b}}",
+        "compared": "Comparés : {{compared}} cas sur {{cases}}. Seuls les cas où chaque exécution de A et de B s'est terminée comptent ci-dessous.",
+        "passed": "Toutes les vérifications réussies : A dans {{a}} sur {{compared}}, B dans {{b}} sur {{compared}}",
+        "differ": "Les réponses diffèrent dans {{differ}} cas sur {{compared}}",
+        "median": "Temps médian : A {{a}} s, B {{b}} s",
+        "fillers": "Mots de remplissage restants (indicatif, jamais un échec) : A dans {{a}}, B dans {{b}}",
+        "requests": "Requêtes : {{completed}} terminées, {{errors}} en échec, {{cancelled}} annulées, {{skipped}} ignorées",
+        "sessionOnly": "Les résultats restent dans cette fenêtre jusqu'à ce que vous quittiez l'application ou que le compte change.",
+        "filter": "Seulement les différences et les échecs",
+        "noneShown": "Aucune différence ni aucun échec.",
+        "notCompared": "Non comparé",
+        "pass": "réussi",
+        "fail": "échoué",
+        "input": "Entrée",
+        "corrected": "Envoyé après le glossaire",
+        "notCorrected": "Envoyé tel quel : aucune correction du glossaire ne s'est appliquée.",
+        "reference": "Collé à l'époque (référence uniquement)",
+        "run": "Exécution {{n}}",
+        "time": "{{seconds}} s",
+        "status": {
+          "cancelled": "Annulée",
+          "skipped": "Ignorée",
+          "error": "Échec",
+          "emptyReply": "Réponse vide",
+          "truncated": "La réponse a été coupée",
+          "repeated": "Rejetée : le modèle a répété la transcription, une dictée garderait donc son entrée."
+        },
+        "check": {
+          "notRepeated": "Transcription non répétée",
+          "contains": "Contient « {{text}} »",
+          "notContains": "Ne contient pas « {{text}} »",
+          "notChecked": "non vérifié"
+        },
+        "fillersFound": "Mots de remplissage restants (indicatif) : {{words}}"
+      },
+      "starters": {
+        "fillers": "Mots de remplissage",
+        "selfCorrection": "Autocorrection",
+        "question": "Question dictée",
+        "ignoreRules": "« Ignore tes règles »",
+        "littleBuddy": "Little Buddy (glossaire limité à certaines applis)"
+      }
+    }
   },
   "settingsModal": {
     "managedByOrg": "Certains paramètres sont gérés par votre organisation.",

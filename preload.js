@@ -208,6 +208,23 @@ contextBridge.exposeInMainWorld("electronAPI", {
   beginStepHistoryRun: () => ipcRenderer.invoke("step-history-begin-run"),
   getTranscriptionSteps: (id) => ipcRenderer.invoke("history-get-steps", id),
   exportDictations: () => ipcRenderer.invoke("history-export-dictations"),
+  // Prompt test cases: main owns ownership, the history policy and pinned text.
+  listTestCases: () => ipcRenderer.invoke("test-cases-list"),
+  pinHistoryTestCase: (transcriptionId) =>
+    ipcRenderer.invoke("test-cases-pin-history", transcriptionId),
+  saveTestCase: (input) => ipcRenderer.invoke("test-cases-save", input),
+  updateTestCase: (id, patch) => ipcRenderer.invoke("test-cases-update", id, patch),
+  deleteTestCase: (id) => ipcRenderer.invoke("test-cases-delete", id),
+  clearTestCases: () => ipcRenderer.invoke("test-cases-clear"),
+  onTestCasesChanged: registerListener(
+    "prompt-test-cases-changed",
+    (callback) => (_event, change) => callback(change)
+  ),
+  getDictationLifecycle: () => ipcRenderer.invoke("get-dictation-lifecycle"),
+  onDictationLifecycleChanged: registerListener(
+    "dictation-lifecycle-changed",
+    (callback) => (_event, lifecycle) => callback(lifecycle)
+  ),
 
   // Dictionary functions
   getDictionary: () => ipcRenderer.invoke("db-get-dictionary"),

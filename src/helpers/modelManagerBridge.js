@@ -844,7 +844,10 @@ class ModelManager {
       debugLogger.logReasoning("INFERENCE_SUCCESS", {
         totalTimeMs: totalTime,
         resultLength: result.length,
-        resultPreview: result.substring(0, 200) + (result.length > 200 ? "..." : ""),
+        // Prompt tests keep their text out of the log (redactLogs).
+        ...(options.redactLogs
+          ? { textRedacted: true }
+          : { resultPreview: result.substring(0, 200) + (result.length > 200 ? "..." : "") }),
       });
 
       return result;

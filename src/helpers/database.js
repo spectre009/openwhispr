@@ -197,6 +197,7 @@ class DatabaseManager {
     this.db = null;
     this.activeAccountId = null;
     this.stepHistoryReady = false;
+    this.promptTestCasesReady = false;
     this.initDatabase();
   }
 
@@ -1523,6 +1524,14 @@ class DatabaseManager {
         this.stepHistoryReady = false;
         debugLogger.error("Step history unavailable", { error: error.message }, "database");
       }
+      try {
+        this._initPromptTestCases();
+      } catch (error) {
+        // The test set is a prompt-editing aid: without its table, cases are
+        // kept for the session only, and the history database still opens.
+        this.promptTestCasesReady = false;
+        debugLogger.error("Prompt test cases unavailable", { error: error.message }, "database");
+      }
       // Step history's ON DELETE CASCADE needs foreign keys. better-sqlite3
       // turns them on by default and the folders rebuild above restores them,
       // but say so once more after every migration rather than rely on both.
@@ -2619,6 +2628,158 @@ class DatabaseManager {
       )
       .all(owner);
     return { dictations, steps, prompts };
+  }
+
+  // ─── Prompt test cases ─────────────────────────────────────────────────
+  // The test set's cases (see promptTestCases.js): a dictation's raw
+  // transcript copied here, so a case outlives history deletion and expiry,
+  // plus its optional label, target app and literal checks. Each case belongs
+  // to an account ("account:<id>") or the signed-out namespace, and every
+  // statement below is scoped to one owner. `source_transcription_id` only
+  // links back for "open in history": no foreign key, the case is a copy.
+  // `target` is what the case tests ("cleanup"; Stage 3 adds styles). Local
+  // only: cloud sync selects transcription columns explicitly, the vector
+  // triggers cover notes only, and the dictation export reads other tables.
+  _initPromptTestCases() {
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS prompt_test_cases (
+        id TEXT PRIMARY KEY,
+        owner TEXT NOT NULL,
+        target TEXT NOT NULL DEFAULT 'cleanup',
+        label TEXT,
+        raw_text TEXT NOT NULL,
+        reference_text TEXT,
+        target_app TEXT,
+        must_contain TEXT NOT NULL DEFAULT '[]',
+        must_not_contain TEXT NOT NULL DEFAULT '[]',
+        match_case INTEGER NOT NULL DEFAULT 0,
+        source TEXT NOT NULL,
+        source_transcription_id INTEGER,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_prompt_test_cases_owner
+        ON prompt_test_cases(owner, created_at);
+    `);
+    this.promptTestCasesReady = true;
+  }
+
+  _promptTestCasesDb() {
+    if (!this.db) throw new Error("Database not initialized");
+    if (!this.promptTestCasesReady) {
+      throw Object.assign(new Error("Prompt test cases unavailable"), {
+        code: "STORAGE_UNAVAILABLE",
+      });
+    }
+    return this.db;
+  }
+
+  /** One owner's cases, oldest first. */
+  getPromptTestCases(owner) {
+    return this._promptTestCasesDb()
+      .prepare("SELECT * FROM prompt_test_cases WHERE owner = ? ORDER BY created_at, rowid")
+      .all(owner);
+  }
+
+  getPromptTestCase(owner, id) {
+    return (
+      this._promptTestCasesDb()
+        .prepare("SELECT * FROM prompt_test_cases WHERE owner = ? AND id = ?")
+        .get(owner, id) || null
+    );
+  }
+
+  /** The owner's case with exactly this input for this target, if any. */
+  findPromptTestCaseByText(owner, target, rawText) {
+    return (
+      this._promptTestCasesDb()
+        .prepare(
+          "SELECT * FROM prompt_test_cases WHERE owner = ? AND target = ? AND raw_text = ? LIMIT 1"
+        )
+        .get(owner, target, rawText) || null
+    );
+  }
+
+  countPromptTestCases(owner) {
+    return this._promptTestCasesDb()
+      .prepare("SELECT COUNT(*) AS n FROM prompt_test_cases WHERE owner = ?")
+      .get(owner).n;
+  }
+
+  /** Inserts one validated case (every column given by the caller) and returns its row. */
+  insertPromptTestCase(row) {
+    const db = this._promptTestCasesDb();
+    db.prepare(
+      `INSERT INTO prompt_test_cases (
+         id, owner, target, label, raw_text, reference_text, target_app,
+         must_contain, must_not_contain, match_case, source, source_transcription_id,
+         created_at, updated_at
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ).run(
+      row.id,
+      row.owner,
+      row.target,
+      row.label ?? null,
+      row.raw_text,
+      row.reference_text ?? null,
+      row.target_app ?? null,
+      row.must_contain ?? "[]",
+      row.must_not_contain ?? "[]",
+      row.match_case ? 1 : 0,
+      row.source,
+      row.source_transcription_id ?? null,
+      row.created_at,
+      row.updated_at
+    );
+    return this.getPromptTestCase(row.owner, row.id);
+  }
+
+  /** Replaces a case's editable fields; null when the owner has no such case. */
+  updatePromptTestCase(owner, id, fields) {
+    const result = this._promptTestCasesDb()
+      .prepare(
+        `UPDATE prompt_test_cases
+         SET label = ?, target_app = ?, must_contain = ?, must_not_contain = ?,
+             match_case = ?, updated_at = ?
+         WHERE owner = ? AND id = ?`
+      )
+      .run(
+        fields.label ?? null,
+        fields.target_app ?? null,
+        fields.must_contain ?? "[]",
+        fields.must_not_contain ?? "[]",
+        fields.match_case ? 1 : 0,
+        fields.updated_at,
+        owner,
+        id
+      );
+    return result.changes > 0 ? this.getPromptTestCase(owner, id) : null;
+  }
+
+  deletePromptTestCase(owner, id) {
+    return (
+      this._promptTestCasesDb()
+        .prepare("DELETE FROM prompt_test_cases WHERE owner = ? AND id = ?")
+        .run(owner, id).changes > 0
+    );
+  }
+
+  /** Deletes every case of one owner; other owners keep theirs. */
+  clearPromptTestCases(owner) {
+    return this._promptTestCasesDb()
+      .prepare("DELETE FROM prompt_test_cases WHERE owner = ?")
+      .run(owner).changes;
+  }
+
+  /** Removes and returns one owner's cases, in one transaction (a policy forbade keeping them). */
+  takePromptTestCases(owner) {
+    const db = this._promptTestCasesDb();
+    let rows = [];
+    db.transaction(() => {
+      rows = this.getPromptTestCases(owner);
+      db.prepare("DELETE FROM prompt_test_cases WHERE owner = ?").run(owner);
+    })();
+    return rows;
   }
 
   getDictionary() {
@@ -3975,6 +4136,13 @@ class DatabaseManager {
       // The account's step history. The dictations themselves are device-wide
       // and stay; the signed-out namespace and other accounts keep theirs.
       this._deleteTranscriptionSteps("owner = ?", ownerKeyFor(accountId));
+      // The account's test cases, the same way: copies of its dictations that
+      // nobody else may inherit.
+      if (this.promptTestCasesReady) {
+        this.db
+          .prepare("DELETE FROM prompt_test_cases WHERE owner = ?")
+          .run(ownerKeyFor(accountId));
+      }
     };
 
     if (typeof this.db.transaction === "function") {

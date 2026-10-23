@@ -749,6 +749,15 @@
         "continue": "Continuar",
         "cancel": "Cancelar",
         "fileType": "JSON Lines"
+      },
+      "testSet": {
+        "add": "Añadir al conjunto de pruebas",
+        "added": "Añadido al conjunto de pruebas",
+        "addedDescription": "Hay una copia de la transcripción sin procesar en el conjunto de pruebas de Prompt Studio. Sigue allí aunque se elimine este dictado.",
+        "addedSession": "Añadido al conjunto de pruebas solo para esta sesión",
+        "already": "Ya está en el conjunto de pruebas",
+        "failed": "No se pudo añadir al conjunto de pruebas",
+        "noRawText": "Este dictado no tiene transcripción sin procesar, y su texto limpio nunca se usa como entrada de prueba."
       }
     },
     "aiCta": {
@@ -1657,9 +1666,142 @@
       "translation": "Traducción",
       "translationDisabled": "Activa la traducción de dictado para probar este prompt",
       "noTargetLanguage": "Elige primero un idioma de destino",
-      "agentDisabled": "Activa el asistente de voz para probar este prompt"
+      "agentDisabled": "Activa el asistente de voz para probar este prompt",
+      "saveAsCase": "Guardar como caso de prueba",
+      "caseSaved": "Guardado en el conjunto de pruebas.",
+      "caseSavedSession": "Añadido al conjunto de pruebas solo para esta sesión.",
+      "caseExists": "Esta entrada ya está en el conjunto de pruebas.",
+      "saveCaseFailed": "No se pudo guardar el caso de prueba."
     },
-    "defaultTestInputTranslate": "Hace un día precioso hoy, ¿te apetece dar un paseo?"
+    "defaultTestInputTranslate": "Hace un día precioso hoy, ¿te apetece dar un paseo?",
+    "testSet": {
+      "modeSingle": "Entrada única",
+      "modeSet": "Conjunto de pruebas",
+      "intro": "Ejecuta cada caso con el prompt en uso (A) y con el prompt seleccionado o su borrador sin guardar (B), lado a lado, con comprobaciones automáticas. Nada de lo que has guardado cambia.",
+      "copiesNotice": "Los casos son copias de tus dictados: siguen aquí aunque un dictado se elimine del historial o caduque. Se guardan solo en este equipo y nunca se sincronizan. Cada ejecución los envía al modelo de limpieza que se indica abajo.",
+      "storage": {
+        "historyOff": "El historial local está desactivado, así que los casos nuevos se conservan solo hasta que cierres la app.",
+        "policyOff": "Tu organización desactivó el historial local, así que los casos se conservan solo hasta que cierres la app.",
+        "pending": "Tu configuración del historial aún no se ha cargado, así que los casos nuevos se conservan solo hasta que cierres la app.",
+        "unavailable": "Ahora no se pueden guardar casos, así que los nuevos se conservan solo hasta que cierres la app."
+      },
+      "casesTitle": "Casos ({{n}})",
+      "emptyCases": "Aún no tienes casos propios. En el historial, abre el menú de un dictado y elige Añadir al conjunto de pruebas, o guarda una entrada de Prueba como caso.",
+      "source": {
+        "history": "Del historial",
+        "test": "De Prueba",
+        "starter": "Integrado"
+      },
+      "sessionOnly": "Solo esta sesión",
+      "targetApp": "App:",
+      "checksCount": "Comprobaciones: {{n}}",
+      "actions": {
+        "edit": "Editar",
+        "delete": "Eliminar",
+        "hide": "Ocultar",
+        "openInHistory": "Abrir en el historial",
+        "removeAll": "Quitar todos",
+        "showHidden": "Mostrar casos integrados ocultos ({{n}})",
+        "save": "Guardar",
+        "cancel": "Cancelar"
+      },
+      "removeAllTitle": "¿Quitar todos tus casos de prueba?",
+      "removeAllDescription": "Quita cada caso que fijaste desde el historial o guardaste desde Prueba, incluidos los conservados para esta sesión. Los casos integrados solo se pueden ocultar.",
+      "edit": {
+        "label": "Etiqueta",
+        "labelPlaceholder": "Nombre opcional para este caso",
+        "targetApp": "App de destino",
+        "targetAppHint": "La app para la que era el dictado, por ejemplo Code.exe. Las correcciones del glosario limitadas a apps elegidas solo se aplican si coincide; déjalo vacío para probar una app desconocida.",
+        "mustContain": "Debe contener",
+        "mustNotContain": "No debe contener",
+        "checksHint": "Una por línea. Texto literal, no patrones.",
+        "matchCase": "Distinguir mayúsculas"
+      },
+      "run": {
+        "promptA": "A, el prompt en uso: {{name}}",
+        "promptB": "B, el prompt seleccionado: {{name}}",
+        "draftName": "{{name}} (borrador sin guardar)",
+        "samePrompt": "A y B son el mismo prompt, así que la ejecución muestra cuánto varían sus respuestas de una vez a otra.",
+        "repetitions": "Ejecuciones por prompt",
+        "estimate": "{{cases}} casos × 2 prompts × {{runs}} ejecuciones = {{requests}} solicitudes, unos {{duration}}.",
+        "durationSeconds": "{{seconds}} s",
+        "durationMinutes": "{{minutes}} min",
+        "capNote": "Solo se ejecutan los primeros {{max}} casos; quedan fuera {{left}}.",
+        "model": "Modelo:",
+        "destination": "Adónde va el texto:",
+        "usageWarning": "Cada solicitud cuenta para el uso o la cuota de ese proveedor, y puede que los casos antiguos nunca se hayan enviado allí.",
+        "dictationFirst": "El dictado va primero: la ejecución se pausa mientras dictas y continúa después de pegar.",
+        "start": "Ejecutar conjunto de pruebas",
+        "stop": "Detener",
+        "noCases": "Añade primero un caso o muestra los casos integrados."
+      },
+      "destination": {
+        "local": "este equipo (modelo local)",
+        "selfHosted": "tu servidor ({{host}})",
+        "custom": "tu endpoint ({{host}})"
+      },
+      "progress": {
+        "count": "{{done}} de {{total}} solicitudes",
+        "paused": "En pausa mientras dictas. Continúa después de pegar.",
+        "waiting": "El proveedor pidió ir más despacio. Esperando antes de la siguiente solicitud."
+      },
+      "results": {
+        "title": "Resultados",
+        "clear": "Borrar resultados",
+        "partial": "Ejecución parcial: {{completed}} de {{total}} solicitudes completadas.",
+        "stopReason": {
+          "user": "La detuviste tú.",
+          "account": "La cuenta cambió.",
+          "auth": "El proveedor rechazó el inicio de sesión o la clave de API.",
+          "quota": "Se alcanzó la cuota o el límite de uso del proveedor.",
+          "config": "El modelo de limpieza o el proveedor no está bien configurado.",
+          "rateLimit": "El proveedor siguió limitando las solicitudes.",
+          "errors": "Fallaron tres solicitudes seguidas.",
+          "settings": "La configuración de limpieza cambió durante la ejecución."
+        },
+        "sides": "A: {{a}} · B: {{b}}",
+        "compared": "Comparados: {{compared}} de {{cases}} casos. Abajo solo cuentan los casos en los que se completaron todas las ejecuciones de A y de B.",
+        "passed": "Todas las comprobaciones superadas: A en {{a}} de {{compared}}, B en {{b}} de {{compared}}",
+        "differ": "Las respuestas difieren en {{differ}} de {{compared}} casos",
+        "median": "Tiempo mediano: A {{a}} s, B {{b}} s",
+        "fillers": "Muletillas restantes (orientativo, nunca un fallo): A en {{a}}, B en {{b}}",
+        "requests": "Solicitudes: {{completed}} completadas, {{errors}} fallidas, {{cancelled}} canceladas, {{skipped}} omitidas",
+        "sessionOnly": "Los resultados se quedan en esta ventana hasta que cierres la app o cambie la cuenta.",
+        "filter": "Solo diferencias y fallos",
+        "noneShown": "Sin diferencias ni fallos.",
+        "notCompared": "No comparado",
+        "pass": "superado",
+        "fail": "fallido",
+        "input": "Entrada",
+        "corrected": "Enviado tras el glosario",
+        "notCorrected": "Enviado tal cual: no se aplicó ninguna corrección del glosario.",
+        "reference": "Pegado en su momento (solo referencia)",
+        "run": "Ejecución {{n}}",
+        "time": "{{seconds}} s",
+        "status": {
+          "cancelled": "Cancelada",
+          "skipped": "Omitida",
+          "error": "Fallida",
+          "emptyReply": "Respuesta vacía",
+          "truncated": "La respuesta se cortó",
+          "repeated": "Rechazada: el modelo repitió la transcripción, así que un dictado conservaría su entrada."
+        },
+        "check": {
+          "notRepeated": "Transcripción no repetida",
+          "contains": "Contiene «{{text}}»",
+          "notContains": "No contiene «{{text}}»",
+          "notChecked": "sin comprobar"
+        },
+        "fillersFound": "Muletillas restantes (orientativo): {{words}}"
+      },
+      "starters": {
+        "fillers": "Muletillas",
+        "selfCorrection": "Autocorrección",
+        "question": "Pregunta dictada",
+        "ignoreRules": "«Ignora tus reglas»",
+        "littleBuddy": "Little Buddy (glosario por app)"
+      }
+    }
   },
   "settingsModal": {
     "managedByOrg": "Algunos ajustes están gestionados por tu organización.",

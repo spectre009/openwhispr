@@ -52,6 +52,9 @@ test("Prompt Studio labels dictation-agent runs for policy enforcement", async (
           if (source.endsWith("/hooks/usePolicy")) return "\0prompt-studio-policy";
           if (source.endsWith("/hooks/usePromptLibraryEditor")) return "\0prompt-studio-library";
           if (source === "./PromptLibraryBar") return "\0prompt-studio-library-bar";
+          if (source === "./PromptTestSet") return "\0prompt-studio-test-set";
+          if (source.endsWith("/stores/promptTestSetStore"))
+            return "\0prompt-studio-test-set-store";
           if (source.endsWith("/services/cleanupWithPrompt")) return "\0prompt-studio-cleanup";
           if (source.endsWith("/utils/agentName")) return "\0prompt-studio-agent-name";
           if (source.endsWith("/services/ReasoningService")) return "\0prompt-studio-reasoning";
@@ -131,6 +134,15 @@ test("Prompt Studio labels dictation-agent runs for policy enforcement", async (
             return `
               export default function PromptLibraryBar() { return null; }
               export function PromptDraftActions() { return null; }
+            `;
+          }
+          if (id === "\0prompt-studio-test-set") {
+            return "export default function PromptTestSet() { return null; }";
+          }
+          if (id === "\0prompt-studio-test-set-store") {
+            return `
+              export async function saveTestCaseFromInput() { return { success: true }; }
+              export function storageNoticeKey() { return "notice"; }
             `;
           }
           if (id === "\0prompt-studio-cleanup") {

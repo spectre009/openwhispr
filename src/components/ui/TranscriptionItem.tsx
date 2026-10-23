@@ -19,8 +19,11 @@ import {
   ArchiveRestore,
   MoreVertical,
   ListOrdered,
+  TestTube,
 } from "../icons";
 import TranscriptionSteps from "./TranscriptionSteps";
+import { useToast } from "./useToast";
+import { pinHistoryTestCase, storageNoticeKey } from "../../stores/promptTestSetStore";
 import type {
   TranscriptionItem as TranscriptionItemType,
   TranscriptionErrorCode,
@@ -66,6 +69,7 @@ export default function TranscriptionItem({
   onOpenSettings,
 }: TranscriptionItemProps) {
   const { t, i18n } = useTranslation();
+  const { toast } = useToast();
   const [isExpanded, setIsExpanded] = useState(false);
   const [showSteps, setShowSteps] = useState(false);
   const [isRetrying, setIsRetrying] = useState(false);
@@ -119,6 +123,33 @@ export default function TranscriptionItem({
       : "controlPanel.history.retryTranscription"
   );
 
+  // Main copies the raw transcript into a test case; the cleaned text is
+  // never used as the input, so a row without a raw transcript can't be pinned.
+  const addToTestSet = async () => {
+    const result = await pinHistoryTestCase(item.id);
+    if (!result.success) {
+      toast({
+        title: t("controlPanel.history.testSet.failed"),
+        description:
+          result.code === "NO_RAW_TEXT" ? t("controlPanel.history.testSet.noRawText") : undefined,
+        variant: "destructive",
+      });
+    } else if (result.duplicate) {
+      toast({ title: t("controlPanel.history.testSet.already") });
+    } else if (result.durable) {
+      toast({
+        title: t("controlPanel.history.testSet.added"),
+        description: t("controlPanel.history.testSet.addedDescription"),
+        variant: "success",
+      });
+    } else {
+      toast({
+        title: t("controlPanel.history.testSet.addedSession"),
+        description: t(storageNoticeKey(result.reason)),
+      });
+    }
+  };
+
   // Copy stays visible as the one-tap action; everything else lives in the menu.
   const candidateActions: (MenuAction | false)[] = [
     isDiscarded &&
@@ -143,6 +174,13 @@ export default function TranscriptionItem({
       label: t("controlPanel.history.steps.viewSteps"),
       onSelect: () => setShowSteps((shown) => !shown),
     },
+    isTranscribed &&
+      !!rawText?.trim() && {
+        key: "test-set",
+        icon: TestTube,
+        label: t("controlPanel.history.testSet.add"),
+        onSelect: () => void addToTestSet(),
+      },
     hasAudio && {
       key: "folder",
       icon: FolderOpen,
@@ -161,6 +199,7 @@ export default function TranscriptionItem({
 
   return (
     <div
+      data-transcription-id={item.id}
       className={cn(
         "group/row px-4 py-3 transition-colors duration-150",
         isFailed

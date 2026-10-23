@@ -749,6 +749,15 @@
         "continue": "Continue",
         "cancel": "Cancel",
         "fileType": "JSON Lines"
+      },
+      "testSet": {
+        "add": "Add to test set",
+        "added": "Added to the test set",
+        "addedDescription": "A copy of the raw transcript is in Prompt Studio's test set. It stays there after this dictation is deleted.",
+        "addedSession": "Added to the test set for this session only",
+        "already": "Already in the test set",
+        "failed": "Couldn't add to the test set",
+        "noRawText": "This dictation has no raw transcript, and its cleaned text is never used as a test input."
       }
     },
     "aiCta": {
@@ -1699,9 +1708,142 @@
       "translation": "Translation",
       "translationDisabled": "Enable Dictation Translation to test this prompt",
       "noTargetLanguage": "Pick a target language first",
-      "agentDisabled": "Enable the voice assistant to test this prompt"
+      "agentDisabled": "Enable the voice assistant to test this prompt",
+      "saveAsCase": "Save as test case",
+      "caseSaved": "Saved to the test set.",
+      "caseSavedSession": "Added to the test set for this session only.",
+      "caseExists": "This input is already in the test set.",
+      "saveCaseFailed": "Couldn't save the test case."
     },
-    "defaultTestInputTranslate": "The weather is beautiful today, want to go for a walk?"
+    "defaultTestInputTranslate": "The weather is beautiful today, want to go for a walk?",
+    "testSet": {
+      "modeSingle": "Single input",
+      "modeSet": "Test set",
+      "intro": "Runs every case through the prompt in use (A) and the selected prompt or its unsaved draft (B), side by side, with automatic checks. Nothing you've saved changes.",
+      "copiesNotice": "Cases are copies of your dictations: they stay here after a dictation is deleted from History or expires. They're kept on this computer only and never synced. Each run sends them to the cleanup model shown below.",
+      "storage": {
+        "historyOff": "Local history is off, so new cases are kept only until you quit the app.",
+        "policyOff": "Your organization turned off local history, so cases are kept only until you quit the app.",
+        "pending": "Your history settings haven't loaded yet, so new cases are kept only until you quit the app.",
+        "unavailable": "Cases can't be stored right now, so new ones are kept only until you quit the app."
+      },
+      "casesTitle": "Cases ({{n}})",
+      "emptyCases": "No cases of your own yet. In History, open a dictation's menu and choose Add to test set, or save a Test input as a case.",
+      "source": {
+        "history": "From History",
+        "test": "From Test",
+        "starter": "Built-in"
+      },
+      "sessionOnly": "This session only",
+      "targetApp": "App:",
+      "checksCount": "Checks: {{n}}",
+      "actions": {
+        "edit": "Edit",
+        "delete": "Delete",
+        "hide": "Hide",
+        "openInHistory": "Open in History",
+        "removeAll": "Remove all",
+        "showHidden": "Show hidden built-in cases ({{n}})",
+        "save": "Save",
+        "cancel": "Cancel"
+      },
+      "removeAllTitle": "Remove all your test cases?",
+      "removeAllDescription": "Removes every case you pinned from History or saved from Test, including those kept for this session. Built-in cases can only be hidden.",
+      "edit": {
+        "label": "Label",
+        "labelPlaceholder": "Optional name for this case",
+        "targetApp": "Target app",
+        "targetAppHint": "The app the dictation was for, such as Code.exe. Glossary corrections limited to chosen apps apply only when it matches; leave it empty to test an unknown app.",
+        "mustContain": "Must contain",
+        "mustNotContain": "Must not contain",
+        "checksHint": "One per line. Literal text, not patterns.",
+        "matchCase": "Match case"
+      },
+      "run": {
+        "promptA": "A, the prompt in use: {{name}}",
+        "promptB": "B, the selected prompt: {{name}}",
+        "draftName": "{{name}} (unsaved draft)",
+        "samePrompt": "A and B are the same prompt, so the run shows how much its replies vary between runs.",
+        "repetitions": "Runs per prompt",
+        "estimate": "{{cases}} cases × 2 prompts × {{runs}} runs = {{requests}} requests, about {{duration}}.",
+        "durationSeconds": "{{seconds}} s",
+        "durationMinutes": "{{minutes}} min",
+        "capNote": "Only the first {{max}} cases run; {{left}} are left out.",
+        "model": "Model:",
+        "destination": "Where the text goes:",
+        "usageWarning": "Every request counts toward that provider's usage or quota, and older cases may never have been sent there before.",
+        "dictationFirst": "Dictation comes first: the run pauses while you dictate and continues after the paste.",
+        "start": "Run test set",
+        "stop": "Stop",
+        "noCases": "Add a case or show the built-in cases first."
+      },
+      "destination": {
+        "local": "this computer (local model)",
+        "selfHosted": "your server ({{host}})",
+        "custom": "your endpoint ({{host}})"
+      },
+      "progress": {
+        "count": "{{done}} of {{total}} requests",
+        "paused": "Paused while you dictate. It continues after the paste.",
+        "waiting": "The provider asked to slow down. Waiting before the next request."
+      },
+      "results": {
+        "title": "Results",
+        "clear": "Clear results",
+        "partial": "Partial run: {{completed}} of {{total}} requests completed.",
+        "stopReason": {
+          "user": "You stopped it.",
+          "account": "The account changed.",
+          "auth": "The provider rejected the sign-in or API key.",
+          "quota": "The provider's quota or usage limit was reached.",
+          "config": "The cleanup model or provider isn't set up correctly.",
+          "rateLimit": "The provider kept rate-limiting the requests.",
+          "errors": "Three requests in a row failed.",
+          "settings": "The cleanup settings changed during the run."
+        },
+        "sides": "A: {{a}} · B: {{b}}",
+        "compared": "Compared: {{compared}} of {{cases}} cases. Only cases where every run of A and B completed count below.",
+        "passed": "All checks passed: A in {{a}} of {{compared}}, B in {{b}} of {{compared}}",
+        "differ": "Replies differ in {{differ}} of {{compared}} cases",
+        "median": "Median time: A {{a}} s, B {{b}} s",
+        "fillers": "Filler words left (advisory, never a failure): A in {{a}}, B in {{b}}",
+        "requests": "Requests: {{completed}} completed, {{errors}} failed, {{cancelled}} cancelled, {{skipped}} skipped",
+        "sessionOnly": "Results stay in this window until you quit the app or the account changes.",
+        "filter": "Only differences and failures",
+        "noneShown": "No differences or failures.",
+        "notCompared": "Not compared",
+        "pass": "pass",
+        "fail": "fail",
+        "input": "Input",
+        "corrected": "Sent after the glossary",
+        "notCorrected": "Sent as is: no glossary correction applied.",
+        "reference": "Pasted at the time (reference only)",
+        "run": "Run {{n}}",
+        "time": "{{seconds}} s",
+        "status": {
+          "cancelled": "Cancelled",
+          "skipped": "Skipped",
+          "error": "Failed",
+          "emptyReply": "Empty reply",
+          "truncated": "The reply was cut off",
+          "repeated": "Rejected: the model repeated the transcript, so a dictation would keep its input."
+        },
+        "check": {
+          "notRepeated": "Transcript not repeated",
+          "contains": "Contains “{{text}}”",
+          "notContains": "Doesn't contain “{{text}}”",
+          "notChecked": "not checked"
+        },
+        "fillersFound": "Fillers left (advisory): {{words}}"
+      },
+      "starters": {
+        "fillers": "Fillers",
+        "selfCorrection": "Self-correction",
+        "question": "Dictated question",
+        "ignoreRules": "“Ignore your rules”",
+        "littleBuddy": "Little Buddy (app-scoped glossary)"
+      }
+    }
   },
   "settingsModal": {
     "managedByOrg": "Some settings are managed by your organization.",

@@ -275,6 +275,42 @@ test("main keeps the renderer's start time only when it is near the present", (t
   }
 });
 
+test("the control panel follows the dictation lifecycle, so the test set can give way", () => {
+  const { manager } = managerWithStripSpy();
+  const sent = [];
+  manager.controlPanelWindow = {
+    isDestroyed: () => false,
+    webContents: {
+      isLoading: () => false,
+      send: (channel, payload) => sent.push([channel, payload]),
+    },
+  };
+  assert.equal(manager.isDictationActive(), false);
+  manager.setDictationLifecycleState("preparing");
+  assert.equal(manager.isDictationActive(), true, "preparing already counts");
+  manager.setDictationLifecycleState("recording");
+  manager.setDictationLifecycleState("processing");
+  manager.setDictationLifecycleState("idle");
+  assert.equal(manager.isDictationActive(), false);
+  assert.deepEqual(
+    sent.map(([channel, payload]) => [channel, payload.state]),
+    [
+      ["dictation-lifecycle-changed", "preparing"],
+      ["dictation-lifecycle-changed", "recording"],
+      ["dictation-lifecycle-changed", "processing"],
+      ["dictation-lifecycle-changed", "idle"],
+    ]
+  );
+  assert.deepEqual(manager.getDictationLifecycle(), { state: "idle", inputKind: "dictation" });
+
+  // A panel still loading asks for the state itself once it mounts.
+  manager.controlPanelWindow.webContents.isLoading = () => true;
+  manager.setDictationLifecycleState("recording");
+  assert.equal(sent.length, 4);
+  assert.equal(manager.getDictationLifecycle().state, "recording");
+  manager.setDictationLifecycleState("idle");
+});
+
 test("the start time is set once per recording and cleared when it ends", (t) => {
   t.mock.timers.enable({ apis: ["Date", "setTimeout"], now: NOW });
   const { manager } = managerWithStripSpy();

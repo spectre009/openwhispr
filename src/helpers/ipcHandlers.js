@@ -151,6 +151,8 @@ const {
   createRetentionSettingsHandler,
 } = require("./retentionSettings");
 const { createStepHistory, ownerKeyFor } = require("./stepHistory");
+const { createPromptTestCases } = require("./promptTestCases");
+const { createLocalRequestYield } = require("./localRequestYield");
 const {
   transcriptsOverlap,
   transcriptsLooselyOverlap,
@@ -707,6 +709,24 @@ class IPCHandlers {
         this._retentionSettings?.dataRetentionEnabled === true,
       logger: debugLogger,
     });
+    // Prompt Studio's test cases: the same owner and the same retention sync
+    // as step history. Durable only while local history is on, its managed
+    // policy settled, and no organization forces it off.
+    this.promptTestCases = createPromptTestCases({
+      db: this.databaseManager,
+      getOwner: () => this.stepHistory.currentOwner(),
+      getPolicy: () => ({
+        synced: this._retentionSettingsSynced === true,
+        enabled: this._retentionSettings?.dataRetentionEnabled === true,
+        forcedOff: this._retentionSettings?.localHistoryForcedOff === true,
+        resolved: this._retentionSettings?.localHistoryPolicyResolved === true,
+      }),
+      onChange: (change) => broadcastToWindows("prompt-test-cases-changed", change),
+      logger: debugLogger,
+    });
+    this.promptTestCases.ownerMaybeChanged();
+    // Local-model requests that give way to a dictation (test-set runs).
+    this._localYield = null;
     this._noteFilesEnabled = false;
     this._granolaImportPending = null;
     this._analyticsHistoryBackfillPromise = null;
@@ -853,6 +873,30 @@ class IPCHandlers {
     }
   }
 
+  // Dictation comes first on the local model (localRequestYield.js). The
+  // bridge is required on first use, inside the request's own error handling.
+  _localRequestYield() {
+    if (!this._localYield) {
+      this._localYield = createLocalRequestYield({
+        getBridge: () => require("../services/localReasoningBridge").default,
+        isDictationActive: () => this.windowManager.isDictationActive?.() === true,
+        newRequestId: () => crypto.randomUUID(),
+      });
+    }
+    return this._localYield;
+  }
+
+  // A dictation needs the local model, which serves one request at a time and
+  // refuses a second with LOCAL_MODEL_BUSY: every in-flight request that agreed
+  // to give way (test-set runs) is aborted by its request id, which frees the
+  // slot, and reports YIELDED_TO_DICTATION so its caller retries it later.
+  _yieldLocalRequestsToDictation() {
+    if (!this._localYield) return 0;
+    const aborted = this._localYield.yieldAll();
+    if (aborted) debugLogger.debug("Local test requests gave way to a dictation", { aborted });
+    return aborted;
+  }
+
   _handleAuthTokenChange({ generation, token }) {
     this.windowManager.retireMeetingNotificationScope();
     this.enterpriseIdentityManager?.clear();
@@ -867,7 +911,9 @@ class IPCHandlers {
       generation,
       hasToken: Boolean(token),
     });
-    // A sign-out or another account changes whose login shows.
+    // A sign-out or another account changes whose test cases show, and whose
+    // login shows.
+    this.promptTestCases?.ownerMaybeChanged();
     void this.connectorManager?.notifyStatusChanged();
   }
 
@@ -1898,6 +1944,45 @@ class IPCHandlers {
       return this.databaseManager.getTranscriptions(limit, options);
     });
 
+    // Prompt Studio's test cases. Main owns them: the owner, the history
+    // policy and the text pinned from History are all decided here.
+    const testCaseCall = (label, run) => {
+      try {
+        return run();
+      } catch (error) {
+        debugLogger.error(label, { error: error.message, code: error.code }, "prompt-tests");
+        return { success: false, code: error.code || "FAILED" };
+      }
+    };
+    ipcMain.handle("test-cases-list", () =>
+      testCaseCall("Failed to list test cases", () => this.promptTestCases.list())
+    );
+    ipcMain.handle("test-cases-pin-history", (_event, transcriptionId) =>
+      testCaseCall("Failed to pin a dictation", () =>
+        this.promptTestCases.pinFromHistory(transcriptionId)
+      )
+    );
+    ipcMain.handle("test-cases-save", (_event, input) =>
+      testCaseCall("Failed to save a test case", () => this.promptTestCases.save(input))
+    );
+    ipcMain.handle("test-cases-update", (_event, id, patch) =>
+      testCaseCall("Failed to update a test case", () => this.promptTestCases.update(id, patch))
+    );
+    ipcMain.handle("test-cases-delete", (_event, id) =>
+      testCaseCall("Failed to delete a test case", () => this.promptTestCases.remove(id))
+    );
+    ipcMain.handle("test-cases-clear", () =>
+      testCaseCall("Failed to clear test cases", () => this.promptTestCases.clear())
+    );
+
+    // The dictation lifecycle main tracks (windowManager), for windows that
+    // give way to a dictation: the test set pauses while one runs.
+    ipcMain.handle(
+      "get-dictation-lifecycle",
+      () =>
+        this.windowManager.getDictationLifecycle?.() ?? { state: "idle", inputKind: "dictation" }
+    );
+
     ipcMain.handle("analytics-record-event", async (_event, input) => {
       // The renderer only warns when this write fails, then saves the
       // transcription as completed anyway -- leaving a row the backfill is
@@ -2085,6 +2170,9 @@ class IPCHandlers {
           this._retentionSettings = settings;
           this._retentionSettingsSynced = true;
           this._runRetentionCleanup();
+          // A policy forcing history off moves durable test cases to memory;
+          // any change can switch where a new pin is kept.
+          this.promptTestCases?.policyChanged();
           // First point at which the local-history switch is known to be real.
           // After the sweep, so expired transcripts are gone before they can be
           // reconstructed into counters the sweep would only have to purge.
@@ -2147,6 +2235,8 @@ class IPCHandlers {
         return;
       }
       this.windowManager.setDictationLifecycleState(state, inputKind, startedAt);
+      // Dictation comes first: a local-model test request gives the model up.
+      if (this.windowManager.isDictationActive?.()) this._yieldLocalRequestsToDictation();
     });
 
     ipcMain.on("show-agent-dictation-final-transcript", (event, text) => {
@@ -2607,6 +2697,7 @@ class IPCHandlers {
         "active-account-scope-changed",
         accountId !== null ? { accountId, authGeneration: state.generation } : null
       );
+      this.promptTestCases?.ownerMaybeChanged();
       this.connectorManager?.accountChanged();
       void this.connectorManager?.notifyStatusChanged();
       return { success: true };
@@ -2644,6 +2735,8 @@ class IPCHandlers {
             erasingDevice: options?.erasingDevice === true,
           });
           const result = this.databaseManager.deleteAccountData(accountId);
+          // Its stored test cases went in that transaction; these are the session copies.
+          this.promptTestCases?.forgetOwner(ownerKeyFor(accountId));
           this.notifyVectorChanges();
           for (const noteId of result.deletedNoteIds) {
             this._asyncMirrorDelete(noteId);
@@ -4388,6 +4481,8 @@ class IPCHandlers {
       } catch (e) {
         errors.push(`DB close: ${e.message}`);
       }
+      // Test cases kept for this session only go with the database's.
+      this.promptTestCases?.clearSession();
 
       // Delete audio files
       try {
@@ -5721,23 +5816,12 @@ class IPCHandlers {
       this._syncStartupEnv(setVars, clearVars);
     });
 
-    ipcMain.handle("process-local-reasoning", async (event, text, modelId, _agentName, config) => {
-      try {
-        const LocalReasoningService = require("../services/localReasoningBridge").default;
-        const result = await LocalReasoningService.processText(text, modelId, config);
-        return { success: true, text: result };
-      } catch (error) {
-        // code/details carry the machine-readable failure across to the
-        // renderer, which owns the translation keys. Flattening to a bare
-        // string is how llama.cpp JSON used to reach users (#2142).
-        return {
-          success: false,
-          error: error.message,
-          code: error.code,
-          details: error.details,
-        };
-      }
-    });
+    ipcMain.handle("process-local-reasoning", async (event, text, modelId, _agentName, config) =>
+      // A request that gives way to dictation (a test-set run) never starts
+      // while one is underway, and a dictation that starts aborts it by its
+      // request id (localRequestYield.js); every other request passes through.
+      this._localRequestYield().run(text, modelId, config)
+    );
 
     ipcMain.handle("cancel-local-reasoning", (event, requestId) => {
       require("../services/localReasoningBridge").default.cancel(requestId);

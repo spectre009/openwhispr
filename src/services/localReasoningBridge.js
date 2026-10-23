@@ -51,11 +51,15 @@ class LocalReasoningService {
         // field-by-field is what silently orphaned it before #2142: it was
         // declared, written by selection editing, and never forwarded.
         contextSize: config.contextSize,
+        // Prompt tests keep their text out of the log (see ReasoningConfig).
+        redactLogs: config.redactLogs === true,
       };
 
       debugLogger.logReasoning("LOCAL_BRIDGE_INFERENCE", {
         modelId,
-        config: inferenceConfig,
+        config: inferenceConfig.redactLogs
+          ? { ...inferenceConfig, systemPrompt: "[redacted]" }
+          : inferenceConfig,
       });
 
       const result = await modelManager.runInference(modelId, text, inferenceConfig);
@@ -75,7 +79,12 @@ class LocalReasoningService {
         modelId,
         processingTimeMs: processingTime,
         resultLength: cleanResult.length,
-        resultPreview: cleanResult.substring(0, 100) + (cleanResult.length > 100 ? "..." : ""),
+        ...(inferenceConfig.redactLogs
+          ? { textRedacted: true }
+          : {
+              resultPreview:
+                cleanResult.substring(0, 100) + (cleanResult.length > 100 ? "..." : ""),
+            }),
       });
 
       return cleanResult;

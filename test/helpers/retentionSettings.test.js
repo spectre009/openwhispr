@@ -20,6 +20,7 @@ test("reports a change when a retention period is shortened", () => {
         transcriptRetentionDays: 1,
         dataRetentionEnabled: true,
         localHistoryPolicyResolved: false,
+        localHistoryForcedOff: false,
       },
     }
   );
@@ -39,6 +40,7 @@ test("keeps the current value when an incoming value is missing or unusable", ()
     transcriptRetentionDays: 1,
     dataRetentionEnabled: true,
     localHistoryPolicyResolved: false,
+    localHistoryForcedOff: false,
   };
   for (const incoming of [
     undefined,
@@ -60,6 +62,7 @@ test("only the main renderer can replace process-global retention settings", () 
     transcriptRetentionDays: 30,
     dataRetentionEnabled: true,
     localHistoryPolicyResolved: false,
+    localHistoryForcedOff: false,
   };
   let current = { ...DEFAULT_RETENTION_SETTINGS };
   let cleanupRuns = 0;
@@ -97,6 +100,7 @@ test("only the main renderer can replace process-global retention settings", () 
     transcriptRetentionDays: 0,
     dataRetentionEnabled: true,
     localHistoryPolicyResolved: false,
+    localHistoryForcedOff: false,
   });
   assert.equal(cleanupRuns, 2);
 });
@@ -167,6 +171,7 @@ test("a disabled retention setting reaches the sweep before it can delete", () =
       transcriptRetentionDays: 0,
       dataRetentionEnabled: true,
       localHistoryPolicyResolved: false,
+      localHistoryForcedOff: false,
     },
   ]);
 });
@@ -210,4 +215,29 @@ test("carries whether the local-history policy has resolved, and reports it chan
     "the policy settling is the change that unblocks reconstruction"
   );
   assert.equal(arrival.settings.localHistoryPolicyResolved, true);
+});
+
+test("carries whether an organization forces local history off, and reports it changing", () => {
+  assert.equal(
+    DEFAULT_RETENTION_SETTINGS.localHistoryForcedOff,
+    false,
+    "an unreported policy never reads as one that forbids history"
+  );
+  const forced = applyRetentionSettings(DEFAULT_RETENTION_SETTINGS, {
+    audioRetentionDays: 30,
+    transcriptRetentionDays: 0,
+    dataRetentionEnabled: false,
+    localHistoryForcedOff: true,
+  });
+  assert.equal(forced.changed, true, "durable test cases have to move when it arrives");
+  assert.equal(forced.settings.localHistoryForcedOff, true);
+
+  // A renderer that predates the field keeps the last reported value.
+  const legacy = applyRetentionSettings(forced.settings, {
+    audioRetentionDays: 30,
+    transcriptRetentionDays: 0,
+    dataRetentionEnabled: false,
+  });
+  assert.equal(legacy.settings.localHistoryForcedOff, true);
+  assert.equal(legacy.changed, false);
 });
