@@ -493,7 +493,7 @@ export default function PromptStudio({ className = "", kind = "cleanup" }: Promp
                 ? t("promptStudio.test.customEndpoint")
                 : providerConfig.label;
 
-            // The test set runs cleanup prompts only (styles join in a later stage).
+            // The test set runs cleanup prompts here; each style has its own under Styles.
             const isCleanupKind = !isTranslate && !isAgent;
             const modeSwitch = isCleanupKind && (
               <div className="px-5 py-3">

@@ -19,7 +19,9 @@ export const copilotProvider: InferenceProvider = {
     const startTime = Date.now();
 
     const systemPrompt = config.systemPrompt || ctx.getSystemPrompt(agentName);
-    const userContent = config.systemPrompt ? text : wrapCleanupTranscript(text);
+    const userContent = config.systemPrompt
+      ? text
+      : (ctx.wrapCleanupTranscript ?? wrapCleanupTranscript)(text);
     // Main owns the deadline (it aborts the runtime's turn), so it gets the
     // same per-scope budget the other providers enforce here.
     const timeoutMs = getLlmRequestTimeoutSeconds({ scope: config.inferenceScope }) * 1000;

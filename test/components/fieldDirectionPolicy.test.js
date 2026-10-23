@@ -86,9 +86,12 @@ const EXPECTED_SHARED_FIELD_DIRECTIONS = {
   // A saved prompt's name: prose in any script.
   "src/components/ui/PromptLibraryBar.tsx": ["auto"],
   "src/components/ui/PromptStudio.tsx": ["auto", "auto"],
-  // A test case's label and checks are prose in any script; the target app is an exe name.
-  "src/components/ui/PromptTestSet.tsx": ["auto", "ltr", "auto", "auto"],
+  // A test case's label and checks are prose in any script; the target app is an exe name,
+  // and a style case's bullet and numbered-item counts are numbers.
+  "src/components/ui/PromptTestSet.tsx": ["auto", "ltr", "auto", "auto", "ltr"],
   "src/components/ui/SearchableModelList.tsx": ["ltr"],
+  // A style's emoji, name and instruction, and the Test input: user text in any script.
+  "src/components/ui/StyleStudio.tsx": ["auto", "auto", "auto", "auto"],
 };
 
 const EXPECTED_NATIVE_FIELD_DIRECTIONS = {

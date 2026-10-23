@@ -1,7 +1,8 @@
 // Prompt Studio's test set runner: every case through prompt A (the one in
 // use) and prompt B (the selected prompt or its unsaved draft), 1–3 times
-// each, one request at a time. Pure apart from the injected `deps`, so it is
-// tested without a provider or a window.
+// each, one request at a time. A style's Test uses the same runner with A as
+// the style in one step and B in two steps. Pure apart from the injected
+// `deps`, so it is tested without a provider or a window.
 //
 // - Inputs go through the glossary like a real dictation's: one frozen
 //   snapshot for the whole run, the case's target app deciding the app-scoped
@@ -113,6 +114,8 @@ export interface RunPlan {
   repetitions: number;
   glossary: GlossarySnapshot;
   snippets: Snippet[] | null;
+  /** False: a style with app-scoped corrections off; cases are corrected as for an unknown app. */
+  appScopedGlossary?: boolean;
 }
 
 export interface RunDeps {
@@ -171,7 +174,7 @@ export function classifyRunError(error: unknown): RunErrorKind {
   if (code && AUTH_CODES.has(code)) return "auth";
   if (code && QUOTA_CODES.has(code)) return "quota";
   if (code && CONFIG_CODES.has(code)) return "config";
-  if (messageKey === EMPTY_REPLY_MESSAGE_KEY) return "empty";
+  if (messageKey === EMPTY_REPLY_MESSAGE_KEY || code === "STYLE_EMPTY_REPLY") return "empty";
   if (messageKey === TRUNCATED_REPLY_MESSAGE_KEY) return "truncated";
   return "error";
 }
@@ -199,7 +202,8 @@ function errorOutcome(error: unknown, kind: RunErrorKind, ms: number): RequestOu
 export function correctCaseInput(
   testCase: Pick<RunCase, "rawText" | "targetApp">,
   glossary: GlossarySnapshot | null,
-  snippets: Snippet[] | null
+  snippets: Snippet[] | null,
+  { appScopedGlossary = true }: { appScopedGlossary?: boolean } = {}
 ): CaseInput {
   const raw = testCase.rawText;
   const rules = Array.isArray(glossary?.rules) ? glossary.rules : [];
@@ -207,7 +211,7 @@ export function correctCaseInput(
     return { raw, corrected: raw, rulesFired: 0, targetApp: testCase.targetApp ?? null };
   }
   const corrected = applyGlossary(raw, rules, {
-    targetApp: testCase.targetApp ?? null,
+    targetApp: appScopedGlossary ? (testCase.targetApp ?? null) : null,
     snippets,
   });
   return {
@@ -254,8 +258,11 @@ export async function runPromptTests(
       mustContain: [...testCase.mustContain],
       mustNotContain: [...testCase.mustNotContain],
       matchCase: testCase.matchCase,
+      ...(testCase.styleChecks ? { styleChecks: { ...testCase.styleChecks } } : {}),
     },
-    input: correctCaseInput(testCase, plan.glossary, plan.snippets),
+    input: correctCaseInput(testCase, plan.glossary, plan.snippets, {
+      appScopedGlossary: plan.appScopedGlossary !== false,
+    }),
     runs: { A: [], B: [] },
   }));
 

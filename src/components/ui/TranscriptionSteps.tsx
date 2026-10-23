@@ -3,7 +3,9 @@ import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { Loader2 } from "../icons";
 import { useSettingsStore } from "../../stores/settingsStore";
+import { useStyleStore } from "../../stores/styleStore";
 import { DEFAULT_PROMPT_ID, findPromptEntry } from "../../config/prompts/library";
+import { findStyle } from "../../config/styles/library";
 import type { TranscriptionStepRecord, TranscriptionStepsResult } from "../../types/electron";
 
 // Step history for one dictation, read from main on demand. Main scopes it to
@@ -67,8 +69,24 @@ function StepPrompt({ step }: { step: TranscriptionStepRecord }) {
 /** `revision` (the row's text) reloads the steps after a retry rewrites the row. */
 export default function TranscriptionSteps({ id, revision }: { id: number; revision?: string }) {
   const { t } = useTranslation();
+  const styleLibrary = useStyleStore((state) => state.library);
   const [result, setResult] = useState<TranscriptionStepsResult | null>(null);
   const [failed, setFailed] = useState(false);
+
+  // A style step names its style (or its id, once the style is deleted) and run mode.
+  const styleFacts = (step: TranscriptionStepRecord): string[] => {
+    if (step.kind !== "style" || !step.detail?.styleId) return [];
+    const style = findStyle(styleLibrary, step.detail.styleId);
+    const name = style ? `${style.emoji ? `${style.emoji} ` : ""}${style.name}` : null;
+    return [
+      name ?? t("controlPanel.history.steps.deletedStyle"),
+      step.detail.runMode === "one-step"
+        ? t("styles.runMode.oneStep")
+        : step.detail.runMode === "two-step"
+          ? t("styles.runMode.twoSteps")
+          : null,
+    ].filter((fact): fact is string => !!fact);
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -129,6 +147,7 @@ export default function TranscriptionSteps({ id, revision }: { id: number; revis
       <ol className="space-y-2">
         {result.steps.map((step, index) => {
           const facts = [
+            ...styleFacts(step),
             step.provider,
             step.model,
             step.ms !== null && step.ms !== undefined

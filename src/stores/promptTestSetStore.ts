@@ -7,7 +7,11 @@ import type {
   PromptTestCasesChange,
   PromptTestStorageReason,
 } from "../types/electron";
-import { STARTER_TEST_CASES, type StarterTestCase } from "../config/promptTestStarters";
+import {
+  STARTER_TEST_CASES,
+  styleStarterCases,
+  type StarterTestCase,
+} from "../config/promptTestStarters";
 import {
   DEFAULT_REPETITIONS,
   MAX_RUN_CASES,
@@ -24,6 +28,8 @@ import {
   runCleanupWithPrompt,
   type CleanupPromptOverride,
 } from "../services/cleanupWithPrompt";
+import { runStyledDictation } from "../services/dictationStyles";
+import { styleRouteKind, type RecordingStyle } from "../config/styles/library";
 import { dictationGate } from "../services/dictationGate";
 import { getGlossarySnapshot, syncGlossaryRules, useGlossaryStore } from "./glossaryStore";
 import { getSettings } from "./settingsStore";
@@ -51,6 +57,8 @@ export function storageNoticeKey(reason: PromptTestStorageReason | null | undefi
 
 export interface TestRunInfo {
   id: number;
+  /** What the run tests: "cleanup" (A and B prompts) or "style:<id>" (one step against two). */
+  kind: string;
   owner: string;
   promptA: { name: string };
   promptB: { name: string };
@@ -181,10 +189,12 @@ export function pinHistoryTestCase(transcriptionId: number) {
   return write(api?.pinHistoryTestCase && (() => api.pinHistoryTestCase!(transcriptionId)));
 }
 
-/** Prompt Studio's Test → "Save as test case": the input as typed. */
-export function saveTestCaseFromInput(rawText: string) {
+/** Prompt Studio's Test → "Save as test case": the input as typed, for cleanup or a style. */
+export function saveTestCaseFromInput(rawText: string, target?: string) {
   const api = window.electronAPI;
-  return write(api?.saveTestCase && (() => api.saveTestCase!({ rawText })));
+  return write(
+    api?.saveTestCase && (() => api.saveTestCase!(target ? { rawText, target } : { rawText }))
+  );
 }
 
 export function updateTestCase(id: string, patch: PromptTestCaseEditable) {
@@ -197,9 +207,10 @@ export function deleteTestCase(id: string) {
   return write(api?.deleteTestCase && (() => api.deleteTestCase!(id)));
 }
 
-export function clearTestCases() {
+/** Removes the owner's cases for one target ("cleanup" or "style:<id>"), or all of them. */
+export function clearTestCases(target?: string) {
   const api = window.electronAPI;
-  return write(api?.clearTestCases && (() => api.clearTestCases!()));
+  return write(api?.clearTestCases && (() => api.clearTestCases!(target)));
 }
 
 export function hideStarter(id: string): void {
@@ -213,14 +224,67 @@ export function showAllStarters(): void {
   setState({ hiddenStarters: [] });
 }
 
+/** Shows these hidden starters again; the others stay hidden. */
+export function showStarters(ids: readonly string[]): void {
+  const shown = new Set(ids);
+  const hidden = getState().hiddenStarters.filter((id) => !shown.has(id));
+  writeHiddenStarters(hidden);
+  setState({ hiddenStarters: hidden });
+}
+
 export function setRepetitions(value: number): void {
   setState({ repetitions: clampRepetitions(value) });
 }
 
-/** The starters still shown. */
-export function visibleStarters(hidden: string[]): StarterTestCase[] {
+/** The starters still shown: the cleanup starters, or a style's. */
+export function visibleStarters(hidden: string[], styleId?: string | null): StarterTestCase[] {
   const hiddenSet = new Set(hidden);
-  return STARTER_TEST_CASES.filter((starter) => !hiddenSet.has(starter.id));
+  const starters = styleId ? styleStarterCases(styleId) : STARTER_TEST_CASES;
+  return starters.filter((starter) => !hiddenSet.has(starter.id));
+}
+
+/** The test set target of a style's cases ("style:<id>"). */
+export function styleTestTarget(styleId: string): string {
+  return styleRouteKind(styleId) ?? `style:${styleId}`;
+}
+
+function storedRunCase(testCase: PromptTestCase, label: string): RunCase {
+  const style = testCase.styleChecks;
+  const hasCounts = !!style && Object.values(style).some((value) => typeof value === "number");
+  return {
+    id: testCase.id,
+    label,
+    rawText: testCase.rawText,
+    targetApp: testCase.targetApp,
+    referenceText: testCase.referenceText,
+    mustContain: testCase.mustContain,
+    mustNotContain: testCase.mustNotContain,
+    matchCase: testCase.matchCase,
+    ...(hasCounts ? { styleChecks: { ...style } } : {}),
+    source: testCase.source,
+    sourceTranscriptionId: testCase.sourceTranscriptionId,
+  };
+}
+
+function starterRunCase(starter: StarterTestCase, label: string): RunCase {
+  return {
+    id: starter.id,
+    label,
+    rawText: starter.rawText,
+    targetApp: starter.targetApp,
+    referenceText: null,
+    mustContain: [...starter.mustContain],
+    mustNotContain: [...starter.mustNotContain],
+    matchCase: starter.matchCase,
+    ...(starter.styleChecks ? { styleChecks: { ...starter.styleChecks } } : {}),
+    source: "starter",
+    sourceTranscriptionId: null,
+  };
+}
+
+interface RunCaseLabels {
+  starter: (starter: StarterTestCase) => string;
+  stored: (testCase: PromptTestCase) => string;
 }
 
 /**
@@ -230,37 +294,31 @@ export function visibleStarters(hidden: string[]): StarterTestCase[] {
 export function buildRunCases(
   stored: PromptTestCase[],
   hiddenStarters: string[],
-  labels: {
-    starter: (starter: StarterTestCase) => string;
-    stored: (testCase: PromptTestCase) => string;
-  }
+  labels: RunCaseLabels
 ): RunCase[] {
-  const own: RunCase[] = stored
+  const own = stored
     .filter((testCase) => testCase.target === "cleanup")
-    .map((testCase) => ({
-      id: testCase.id,
-      label: labels.stored(testCase),
-      rawText: testCase.rawText,
-      targetApp: testCase.targetApp,
-      referenceText: testCase.referenceText,
-      mustContain: testCase.mustContain,
-      mustNotContain: testCase.mustNotContain,
-      matchCase: testCase.matchCase,
-      source: testCase.source,
-      sourceTranscriptionId: testCase.sourceTranscriptionId,
-    }));
-  const starters: RunCase[] = visibleStarters(hiddenStarters).map((starter) => ({
-    id: starter.id,
-    label: labels.starter(starter),
-    rawText: starter.rawText,
-    targetApp: starter.targetApp,
-    referenceText: null,
-    mustContain: [...starter.mustContain],
-    mustNotContain: [...starter.mustNotContain],
-    matchCase: starter.matchCase,
-    source: "starter",
-    sourceTranscriptionId: null,
-  }));
+    .map((testCase) => storedRunCase(testCase, labels.stored(testCase)));
+  const starters = visibleStarters(hiddenStarters).map((starter) =>
+    starterRunCase(starter, labels.starter(starter))
+  );
+  return [...own, ...starters];
+}
+
+/** A style's cases: the owner's own for that style first, then its shown starters. */
+export function buildStyleRunCases(
+  stored: PromptTestCase[],
+  hiddenStarters: string[],
+  styleId: string,
+  labels: RunCaseLabels
+): RunCase[] {
+  const target = styleTestTarget(styleId);
+  const own = stored
+    .filter((testCase) => testCase.target === target)
+    .map((testCase) => storedRunCase(testCase, labels.stored(testCase)));
+  const starters = visibleStarters(hiddenStarters, styleId).map((starter) =>
+    starterRunCase(starter, labels.starter(starter))
+  );
   return [...own, ...starters];
 }
 
@@ -292,37 +350,42 @@ const newRequestId = () =>
       : `${Date.now()}-${Math.random().toString(36).slice(2)}`
   }`;
 
-/**
- * Starts a run. Everything it sends is fixed now: prompt A (the one in use)
- * and B, the request with its provider pinned, the prompt's dictionary and
- * languages, the glossary snapshot and the snippets. Nothing saved changes.
- */
-export async function startTestRun(
-  params: StartTestRunParams
-): Promise<{ started: boolean; code?: "RUNNING" | "OWNER_UNKNOWN" | "NO_CASES" }> {
+type StartResult = { started: boolean; code?: "RUNNING" | "OWNER_UNKNOWN" | "NO_CASES" };
+
+/** Everything a run fixed when it started, and how it sends one request. */
+interface PreparedRun {
+  kind: string;
+  cases: RunCase[];
+  casesTotal: number;
+  names: { a: string; b: string };
+  destination: { provider: string; model: string };
+  plan: { appScopedGlossary?: boolean };
+  routeKey: string;
+  send: (side: "A" | "B", text: string, requestId: string) => Promise<string>;
+}
+
+/** Checks a run may start: none running, cases to run, and an owner to run them for. */
+async function claimOwner(caseCount: number): Promise<StartResult | { owner: string }> {
   if (activeRun) return { started: false, code: "RUNNING" };
-  if (params.cases.length === 0) return { started: false, code: "NO_CASES" };
+  if (caseCount === 0) return { started: false, code: "NO_CASES" };
   const listed = await window.electronAPI?.listTestCases?.();
   if (!listed?.success || !listed.owner) return { started: false, code: "OWNER_UNKNOWN" };
   applyList(listed);
   if (activeRun) return { started: false, code: "RUNNING" };
   if (!useGlossaryStore.getState().loaded) await syncGlossaryRules();
+  return { owner: listed.owner };
+}
 
+async function executeRun(owner: string, prepared: PreparedRun): Promise<StartResult> {
   const settings = getSettings();
-  const promptA = captureCleanupPrompt({ mode: "inherit" }, settings.customPrompts.cleanup);
-  const promptB = captureCleanupPrompt(params.promptB, settings.customPrompts.cleanup);
-  const request = pinDictationCleanupRequest(settings);
-  const promptInputs = captureCleanupPromptInputs(settings);
-  const routeKey = cleanupRouteKey(settings);
   const glossary = getGlossarySnapshot();
   const snippets = Array.isArray(settings.snippets) ? settings.snippets : null;
   const repetitions = getState().repetitions;
-  const cases = params.cases.slice(0, MAX_RUN_CASES);
+  const { cases } = prepared;
 
   const id = ++runCounter;
   const controller = new AbortController();
   activeRun = { id, controller };
-  const owner = listed.owner;
   const initial: RunProgress = {
     phase: "running",
     total: 0,
@@ -333,14 +396,15 @@ export async function startTestRun(
   setState({
     run: {
       id,
+      kind: prepared.kind,
       owner,
-      promptA: { name: params.names.a },
-      promptB: { name: params.names.b },
-      provider: params.destination.provider,
-      model: params.destination.model,
+      promptA: { name: prepared.names.a },
+      promptB: { name: prepared.names.b },
+      provider: prepared.destination.provider,
+      model: prepared.destination.model,
       repetitions,
       startedAt: Date.now(),
-      casesLeftOut: Math.max(0, params.cases.length - cases.length),
+      casesLeftOut: Math.max(0, prepared.casesTotal - cases.length),
       progress: initial,
     },
   });
@@ -352,22 +416,14 @@ export async function startTestRun(
   const release = dictationGate.retain();
   try {
     const final = await runPromptTests(
-      { cases, repetitions, glossary, snippets },
+      { cases, repetitions, glossary, snippets, ...prepared.plan },
       {
-        send: (side, text, requestId) =>
-          runCleanupWithPrompt(text, side === "A" ? promptA : promptB, {
-            agentName: params.agentName,
-            request: {
-              model: request.model,
-              config: { ...request.config, promptInputs, requestId, yieldToDictation: true },
-            },
-            redactLogs: true,
-          }),
+        send: prepared.send,
         waitForDictation: (signal, onPause) => dictationGate.waitForIdle(signal, onPause),
         sleep: abortableSleep,
         now: () => Date.now(),
         newRequestId,
-        routeUnchanged: () => cleanupRouteKey(getSettings()) === routeKey,
+        routeUnchanged: () => cleanupRouteKey(getSettings()) === prepared.routeKey,
         cancelRequest: (requestId) => {
           void window.electronAPI?.cancelLocalReasoning?.(requestId)?.catch?.(() => {});
         },
@@ -379,7 +435,12 @@ export async function startTestRun(
     // Counts only: the results hold dictated text.
     logger.info(
       "Prompt test run finished",
-      { requests: final.total, done: final.done, stopReason: final.stopReason },
+      {
+        kind: prepared.kind === "cleanup" ? "cleanup" : "style",
+        requests: final.total,
+        done: final.done,
+        stopReason: final.stopReason,
+      },
       "prompt-tests"
     );
   } catch (error) {
@@ -398,6 +459,99 @@ export async function startTestRun(
     if (activeRun?.id === id) activeRun = null;
   }
   return { started: true };
+}
+
+/**
+ * Starts a run. Everything it sends is fixed now: prompt A (the one in use)
+ * and B, the request with its provider pinned, the prompt's dictionary and
+ * languages, the glossary snapshot and the snippets. Nothing saved changes.
+ */
+export async function startTestRun(params: StartTestRunParams): Promise<StartResult> {
+  const claimed = await claimOwner(params.cases.length);
+  if (!("owner" in claimed)) return claimed;
+
+  const settings = getSettings();
+  const promptA = captureCleanupPrompt({ mode: "inherit" }, settings.customPrompts.cleanup);
+  const promptB = captureCleanupPrompt(params.promptB, settings.customPrompts.cleanup);
+  const request = pinDictationCleanupRequest(settings);
+  const promptInputs = captureCleanupPromptInputs(settings);
+  return executeRun(claimed.owner, {
+    kind: "cleanup",
+    cases: params.cases.slice(0, MAX_RUN_CASES),
+    casesTotal: params.cases.length,
+    names: params.names,
+    destination: params.destination,
+    plan: {},
+    routeKey: cleanupRouteKey(settings),
+    send: (side, text, requestId) =>
+      runCleanupWithPrompt(text, side === "A" ? promptA : promptB, {
+        agentName: params.agentName,
+        request: {
+          model: request.model,
+          config: { ...request.config, promptInputs, requestId, yieldToDictation: true },
+        },
+        redactLogs: true,
+      }),
+  });
+}
+
+export interface StartStyleTestRunParams {
+  cases: RunCase[];
+  /** The style as it is in the editor (its unsaved draft included), frozen now. */
+  style: RecordingStyle;
+  /** A: the style in one step; B: in two steps. */
+  names: { a: string; b: string };
+  agentName: string | null;
+  destination: { provider: string; model: string };
+}
+
+/**
+ * Starts a style's run: every case in one step (A) and in two steps (B), with
+ * the prompt in use, the request pinned, the prompt inputs, the glossary and
+ * the style all fixed now. Both sides clean up, as a dictation with cleanup
+ * on would; a failed style is an error outcome, never quietly the cleaned
+ * text. Nothing saved changes.
+ */
+export async function startStyleTestRun(params: StartStyleTestRunParams): Promise<StartResult> {
+  const claimed = await claimOwner(params.cases.length);
+  if (!("owner" in claimed)) return claimed;
+
+  const settings = getSettings();
+  const style = params.style;
+  const cleanupPrompt = captureCleanupPrompt({ mode: "inherit" }, settings.customPrompts.cleanup);
+  const request = pinDictationCleanupRequest(settings);
+  const promptInputs = captureCleanupPromptInputs(settings);
+  return executeRun(claimed.owner, {
+    kind: styleTestTarget(style.id),
+    cases: params.cases.slice(0, MAX_RUN_CASES),
+    casesTotal: params.cases.length,
+    names: params.names,
+    destination: params.destination,
+    plan: { appScopedGlossary: style.appGlossary !== false },
+    routeKey: cleanupRouteKey(settings),
+    send: async (side, text, requestId) => {
+      const extra = { promptInputs, requestId, yieldToDictation: true, cleanupPrompt };
+      const result = await runStyledDictation({
+        text,
+        style,
+        settings,
+        agentName: params.agentName,
+        cleanupOn: true,
+        runMode: side === "A" ? "one-step" : "two-step",
+        request,
+        extra,
+        redactLogs: true,
+        strict: true,
+        runCleanup: (current) =>
+          runCleanupWithPrompt(current, cleanupPrompt, {
+            agentName: params.agentName,
+            request: { model: request.model, config: { ...request.config, ...extra } },
+            redactLogs: true,
+          }),
+      });
+      return result.text;
+    },
+  });
 }
 
 /** Stop: the run ends before its next request. */

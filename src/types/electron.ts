@@ -401,11 +401,16 @@ export interface TranscriptionStepRecord {
     entryId: string | null;
     text?: string | null;
   } | null;
-  /** Glossary steps: `{ revision, rulesFired }`; snippet finalize: `{ snippets: true }`. */
+  /**
+   * Glossary steps: `{ revision, rulesFired }`; snippet finalize: `{ snippets: true }`;
+   * style steps: `{ styleId, runMode }`.
+   */
   detail: {
     revision?: number | null;
     rulesFired?: Array<{ ruleId: string | null; from: string | null; to: string | null }>;
     snippets?: boolean;
+    styleId?: string | null;
+    runMode?: "two-step" | "one-step" | null;
   } | null;
 }
 
@@ -414,7 +419,11 @@ export interface TranscriptionStepsResult {
   /** "otherOwner": saved under another account, or while signed out. */
   status: "captured" | "none" | "otherOwner";
   route?: string | null;
-  context?: { targetApp: string | null } | null;
+  context?: {
+    targetApp: string | null;
+    /** A styled dictation's style. */
+    style?: { id: string | null; runMode: "two-step" | "one-step" | null };
+  } | null;
   steps: TranscriptionStepRecord[];
 }
 
@@ -427,10 +436,21 @@ export interface ExportDictationsResult {
   code?: "OWNER_UNKNOWN" | "ACCOUNT_CHANGED" | "EXPORT_FAILED";
 }
 
+/**
+ * A style case's structure checks: how many bullet lines and numbered items
+ * the output may have. Null: not checked.
+ */
+export interface PromptTestStyleChecks {
+  bulletsMin: number | null;
+  bulletsMax: number | null;
+  numberedMin: number | null;
+  numberedMax: number | null;
+}
+
 /** A test set case (main's prompt_test_cases, or kept for this session only). */
 export interface PromptTestCase {
   id: string;
-  /** What the case tests: "cleanup" (Stage 3 adds styles). */
+  /** What the case tests: "cleanup", or a style ("style:<id>"). */
   target: string;
   label: string | null;
   /** The input, copied: a pinned dictation's raw transcript, or text typed in Test. */
@@ -442,6 +462,8 @@ export interface PromptTestCase {
   mustContain: string[];
   mustNotContain: string[];
   matchCase: boolean;
+  /** Style cases: bullet and numbered-item counts. */
+  styleChecks: PromptTestStyleChecks;
   source: "history" | "test";
   /** The history row it was copied from, only to open it there. */
   sourceTranscriptionId: number | null;
@@ -471,6 +493,7 @@ export interface PromptTestCaseEditable {
   mustContain?: string[];
   mustNotContain?: string[];
   matchCase?: boolean;
+  styleChecks?: Partial<PromptTestStyleChecks> | null;
 }
 
 export interface PromptTestCaseList {
@@ -1513,6 +1536,8 @@ declare global {
           fromStreaming?: boolean;
           restoreClipboard?: boolean;
           allowClipboardFallback?: boolean;
+          /** A styled paste: main arms no auto-learn edit monitoring for it. */
+          suppressAutoLearn?: boolean;
         }
       ) => Promise<
         | { success: true; pasted: boolean; reason?: "modifiers-held" }
@@ -1581,18 +1606,20 @@ declare global {
       captureDictationTarget?: () => Promise<{ success: boolean; pid: number | null }>;
       /** The starting recording's frozen target app; null when unknown (non-Windows). */
       getDictationTargetApp?: () => Promise<{ exeName: string } | null>;
-      onToggleDictation: (callback: () => void) => () => void;
+      /** `styleId`: a style key's style (Stage 4); absent, the dictation hotkey's. */
+      onToggleDictation: (callback: (payload?: { styleId?: string }) => void) => () => void;
       onToggleVoiceAgent?: (callback: () => void) => () => void;
       onToggleTranslation?: (callback: () => void) => () => void;
       onOpenAssistantPanel?: (callback: () => void) => () => void;
       onStartDictation?: (
-        callback: (payload?: { trace?: DictationPressTrace }) => void
+        callback: (payload?: { trace?: DictationPressTrace; styleId?: string }) => void
       ) => () => void;
       onStopDictation?: (callback: () => void) => () => void;
       onPrepareDictation?: (
         callback: (options?: {
           inputKind?: "dictation" | "assistant" | "translation";
           trace?: DictationPressTrace;
+          styleId?: string;
         }) => void
       ) => () => void;
       onCancelDictationPreparation?: (callback: () => void) => () => void;
@@ -1829,14 +1856,15 @@ declare global {
       listTestCases?: () => Promise<PromptTestCaseList>;
       pinHistoryTestCase?: (transcriptionId: number) => Promise<PromptTestCaseWriteResult>;
       saveTestCase?: (
-        input: PromptTestCaseEditable & { rawText: string }
+        input: PromptTestCaseEditable & { rawText: string; target?: string }
       ) => Promise<PromptTestCaseWriteResult>;
       updateTestCase?: (
         id: string,
         patch: PromptTestCaseEditable
       ) => Promise<PromptTestCaseWriteResult>;
       deleteTestCase?: (id: string) => Promise<PromptTestCaseWriteResult>;
-      clearTestCases?: () => Promise<PromptTestCaseWriteResult>;
+      /** `target`: only that target's cases ("cleanup" or "style:<id>"); all when omitted. */
+      clearTestCases?: (target?: string) => Promise<PromptTestCaseWriteResult>;
       onTestCasesChanged?: (callback: (change: PromptTestCasesChange) => void) => () => void;
       getDictationLifecycle?: () => Promise<DictationLifecycleSnapshot>;
       onDictationLifecycleChanged?: (

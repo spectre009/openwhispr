@@ -9,6 +9,11 @@ export interface ProviderContext {
    * default: what OpenWhispr Cloud takes as `customPrompt`.
    */
   getCleanupCustomPrompt(): string | undefined;
+  /**
+   * The cleanup request's user message for `text`; absent, the shared
+   * wrapCleanupTranscript. A styled cleanup (one step) names its style here.
+   */
+  wrapCleanupTranscript?(text: string): string;
   getCustomDictionary(): string[];
   getPreferredLanguage(): string;
   getUiLanguage(): string;

@@ -736,7 +736,8 @@
           "failed": "失败",
           "skipped": "已跳过",
           "fallback": "保留了之前的文本"
-        }
+        },
+        "deletedStyle": "已删除的风格"
       },
       "export": {
         "button": "导出",
@@ -758,6 +759,12 @@
         "already": "已在测试集中",
         "failed": "无法添加到测试集",
         "noRawText": "此听写没有原始转录，而清理后的文本从不用作测试输入。"
+      },
+      "styledDictation": "使用风格的口述",
+      "styleDeleted": {
+        "title": "此口述的风格已被删除",
+        "description": "以普通口述（仅清理）重试？",
+        "retryPlain": "以普通方式重试"
       }
     },
     "aiCta": {
@@ -1082,7 +1089,12 @@
       "pasteFailed": {
         "title": "无法自动粘贴"
       },
-      "interruptedRecordingRecovered": "OpenWhispr 在本次听写完成前关闭，已恢复此录音。"
+      "interruptedRecordingRecovered": "OpenWhispr 在本次听写完成前关闭，已恢复此录音。",
+      "styleFallback": {
+        "title": "无法应用 {{name}}",
+        "failedDescription": "已改为粘贴清理后的文本。你可以在历史记录中重试。",
+        "unreachableDescription": "未为口述清理设置模型，因此按转写原样粘贴了文本。"
+      }
     },
     "clipboard": {
       "pasteFailed": {
@@ -1663,7 +1675,12 @@
         "mustContain": "必须包含",
         "mustNotContain": "不得包含",
         "checksHint": "每行一项。按字面文本匹配，不是模式。",
-        "matchCase": "区分大小写"
+        "matchCase": "区分大小写",
+        "bulletsMin": "项目符号至少",
+        "bulletsMax": "项目符号至多",
+        "numberedMin": "编号项至少",
+        "numberedMax": "编号项至多",
+        "countsHint": "统计以项目符号（- * •）或编号（1. 或 1)）开头的行。留空则不检查。"
       },
       "run": {
         "promptA": "A，正在使用的提示词：{{name}}",
@@ -1738,7 +1755,11 @@
           "notRepeated": "转录内容未重复",
           "contains": "包含“{{text}}”",
           "notContains": "不包含“{{text}}”",
-          "notChecked": "未检查"
+          "notChecked": "未检查",
+          "bulletsMin": "至少 {{limit}} 行项目符号（实际：{{actual}}）",
+          "bulletsMax": "至多 {{limit}} 行项目符号（实际：{{actual}}）",
+          "numberedMin": "至少 {{limit}} 个编号项（实际：{{actual}}）",
+          "numberedMax": "至多 {{limit}} 个编号项（实际：{{actual}}）"
         },
         "fillersFound": "残留的语气词（仅供参考）：{{words}}"
       },
@@ -1747,7 +1768,22 @@
         "selfCorrection": "自我更正",
         "question": "听写的问题",
         "ignoreRules": "“忽略你的规则”",
-        "littleBuddy": "Little Buddy（按应用的词汇表）"
+        "littleBuddy": "Little Buddy（按应用的词汇表）",
+        "style": {
+          "teamsUpdate": "状态更新改为项目符号",
+          "teamsCasual": "简短回复保持简短",
+          "teamsQuestion": "口述的问题",
+          "requirementsStatus": "状态更新（无需求）",
+          "requirementsNegation": "否定与“锦上添花”",
+          "requirementsDates": "日期",
+          "requirementsCommitments": "承诺",
+          "requirementsQuoted": "引用的指令",
+          "requirementsClosingTag": "口述中的“</text>”",
+          "requirementsDump": "需求罗列",
+          "emailGreeting": "问候和结束语按原话保留",
+          "emailList": "列举改为项目符号",
+          "emailNoGreeting": "不添加问候语"
+        }
       }
     }
   },
@@ -5298,6 +5334,84 @@
       "connectedBody": "你可以关闭此标签页并返回 OpenWhispr。",
       "failedTitle": "{{calendar}} 未连接",
       "failedBody": "请返回 OpenWhispr 重试。"
+    }
+  },
+  "styles": {
+    "section": {
+      "title": "风格",
+      "description": "在清理之后为口述换一种风格，例如 Teams 消息或需求列表。每种风格都是一条简短的指令；你的清理提示词保持不变。"
+    },
+    "starters": {
+      "teams": "Teams 聊天",
+      "requirements": "需求",
+      "email": "电子邮件"
+    },
+    "plain": {
+      "name": "普通",
+      "detail": "仅清理",
+      "description": "普通只做清理：使用当前的清理提示词，不做其他处理。在你为口述快捷键选择风格之前，它就是快捷键的行为，且无法编辑或关闭。"
+    },
+    "picker": {
+      "label": "{{hotkey}} 的风格",
+      "ariaLabel": "口述快捷键的风格",
+      "description": "用 {{hotkey}} 或从悬浮条开始的口述会使用此风格。只列出已开启的风格。",
+      "noModel": "未为口述清理设置模型，因此风格无法运行。口述将按转写原样粘贴。",
+      "cleanupOff": "清理已关闭，因此风格会在一次请求中直接改写转写原文。"
+    },
+    "list": {
+      "title": "你的风格",
+      "new": "新建风格",
+      "inUse": "使用中",
+      "toggle": "开启或关闭 {{name}}"
+    },
+    "runMode": {
+      "twoSteps": "两步",
+      "oneStep": "一步",
+      "twoStepsDescription": "先清理，再应用风格。最可靠；约慢 1.5 秒。",
+      "oneStepDescription": "清理与风格合并为一次请求。速度约快一倍；最适合固定格式。"
+    },
+    "editor": {
+      "untitled": "未命名风格",
+      "on": "开启",
+      "off": "关闭",
+      "appGlossaryOn": "限定应用的术语表更正：开启",
+      "appGlossaryOff": "限定应用的术语表更正：关闭",
+      "noInstruction": "还没有指令。",
+      "showRestylePrompt": "显示第二步发送的提示词",
+      "showOneStepBlock": "显示一步模式添加到清理提示词中的内容",
+      "emoji": "表情符号",
+      "name": "名称",
+      "namePlaceholder": "Teams 聊天",
+      "instruction": "指令",
+      "instructionPlaceholder": "描述格式，例如：当有两个或更多独立要点时，每个要点单独一个项目符号。",
+      "instructionHint": "请明确描述格式。保持事实、姓名、数字、承诺和否定与口述一致的规则会自动添加，且优先于风格。",
+      "runMode": "运行方式",
+      "appGlossary": "针对所选应用的术语表更正",
+      "appGlossaryDescription": "仅限所选应用的术语表拼写也会用于此风格的口述。关闭：只使用在任何地方都适用的更正。",
+      "incomplete": "风格需要名称和指令。",
+      "deleteTitle": "删除 {{name}}？",
+      "deleteDescription": "该风格将被删除。已粘贴的口述保留其文本。",
+      "deleteInUseDescription": "这是口述快捷键的风格；将由普通取而代之。"
+    },
+    "test": {
+      "defaultInput": "大家好 嗯 简单更新一下 部署今天早上已经发出 呃 目前没有问题 我们应该周四就能准备好下一个环",
+      "oneStep": "一步",
+      "twoSteps": "两步",
+      "sideA": "A：一步运行风格",
+      "sideB": "B：两步运行风格（先清理）",
+      "runsDraft": "本次运行使用此风格未保存的更改。",
+      "setIntro": "将每个用例分别以一步（A）和两步（B）运行此风格，并排显示自动检查结果和两种耗时。两者都使用当前的清理提示词。已保存的内容不会改变。",
+      "emptyCases": "此风格还没有你自己的用例。可将测试输入保存为用例，或从历史记录中添加用此风格完成的口述。",
+      "incomplete": "请先为风格填写名称和指令。",
+      "otherRunRunning": "另一个测试正在运行。请等待其完成或将其停止。",
+      "estimate": "{{cases}} 个用例 × 2 种方式 × {{runs}} 次 = {{requests}} 次运行（两步会发送两个请求），约 {{duration}}。",
+      "removeAllTitle": "移除此风格的测试用例？",
+      "removeAllDescription": "移除你为此风格添加的所有用例，包括仅在本次会话中保留的用例。内置用例只能隐藏。",
+      "saveFirst": "请先保存风格，再运行其测试集。",
+      "single": "将此输入先以一步、再以两步运行此风格，使用当前的清理提示词，并显示两种耗时。已保存的内容不会改变。",
+      "singleDraft": "将此输入先以一步、再以两步运行风格的未保存草稿，使用当前的清理提示词。已保存的内容不会改变。",
+      "runBoth": "运行一步和两步",
+      "failed": "失败：{{error}}"
     }
   }
 }

@@ -85,6 +85,8 @@ import {
 import { applyChineseScript, resolveChineseScriptTarget } from "../utils/chineseScript";
 import { runPostTranscription, type PostTranscriptionRunArgs } from "../helpers/postTranscription";
 import { getGlossarySnapshot } from "../stores/glossaryStore";
+import { resolveStyleForRetry } from "../stores/styleStore";
+import { styleIdFromRouteKind } from "../config/styles/library";
 import { OPEN_HISTORY_ITEM_EVENT } from "../utils/openHistoryItem";
 import { getAgentName } from "../utils/agentName";
 import HistoryView from "./HistoryView";
@@ -688,7 +690,7 @@ export default function ControlPanel({ initialSettingsSection }: ControlPanelPro
   );
 
   const retryTranscription = useCallback(
-    async (id: number, options?: { isRecover?: boolean }) => {
+    async (id: number, options?: { isRecover?: boolean; plainStyle?: boolean }) => {
       try {
         const s = getSettings();
         const managed = getManagedTranscriptionResolution();
@@ -727,6 +729,14 @@ export default function ControlPanel({ initialSettingsSection }: ControlPanelPro
           let finalTranscription = result.transcription;
           const isTranslation = result.transcription.route_kind === "translation";
           let translationApplied = false;
+          // A styled dictation re-runs its style ("style:<id>"), unless the user
+          // chose Plain because the style was deleted.
+          const routeKind = result.transcription.route_kind;
+          const retryStyleId =
+            !options?.plainStyle && typeof routeKind === "string" && routeKind.startsWith("style:")
+              ? routeKind.slice("style:".length)
+              : null;
+          const retryStyle = retryStyleId ? resolveStyleForRetry(retryStyleId) : null;
 
           // The same post-speech-to-text boundary a live dictation runs. History
           // records no target app, so only "anywhere" glossary corrections apply.
@@ -735,6 +745,12 @@ export default function ControlPanel({ initialSettingsSection }: ControlPanelPro
               targetApp: null,
               voiceAgentRequested: false,
               translationRequested: isTranslation,
+              ...(retryStyle
+                ? {
+                    style: { id: retryStyle.id, runMode: retryStyle.runMode },
+                    appScopedGlossary: retryStyle.appGlossary,
+                  }
+                : {}),
             },
             glossary: getGlossarySnapshot(),
             snippets: s.snippets,
@@ -749,6 +765,64 @@ export default function ControlPanel({ initialSettingsSection }: ControlPanelPro
               recordStep,
               setRoute,
             }: PostTranscriptionRunArgs) => {
+              // The style chain, as a styled dictation runs it: two steps or one,
+              // with the cleanup switch deciding whether cleanup runs first.
+              if (retryStyle) {
+                const [
+                  { isStyleReachable, runStyledDictation },
+                  { default: ReasoningService },
+                  { buildDictationCleanupConfig },
+                  { getEffectiveCleanupModel, getSettings: getEffectiveSettings },
+                ] = await Promise.all([
+                  import("../services/dictationStyles"),
+                  import("../services/ReasoningService"),
+                  import("../helpers/dictationCleanupConfig"),
+                  import("../stores/settingsStore"),
+                ]);
+                const settings = getEffectiveSettings();
+                const styleToast = (descriptionKey: string) =>
+                  toast({
+                    title: t("hooks.audioRecording.styleFallback.title", {
+                      name: retryStyle.name,
+                    }),
+                    description: t(descriptionKey),
+                    variant: "destructive",
+                  });
+                if (!isStyleReachable(settings)) {
+                  setRoute("none");
+                  styleToast("hooks.audioRecording.styleFallback.unreachableDescription");
+                  return workingText;
+                }
+                setRoute("style");
+                const agentName = getAgentName();
+                let styleFailed = false;
+                const styled = await runStyledDictation({
+                  text: workingText,
+                  style: retryStyle,
+                  settings,
+                  agentName,
+                  cleanupOn: !!settings.useCleanupModel,
+                  recordStep,
+                  runCleanup: (text: string) =>
+                    recordStep("cleanup", {}, (dispatched) =>
+                      ReasoningService.processText(text, getEffectiveCleanupModel(), agentName, {
+                        ...buildDictationCleanupConfig(settings),
+                        onDispatch: dispatched,
+                      })
+                    ),
+                  onCleanupError: (cleanupError: unknown) =>
+                    toast({
+                      title: t("app.toasts.cleanupFailed.title"),
+                      ...providerErrorToastProps(cleanupError, t),
+                      variant: "destructive",
+                    }),
+                  onStyleError: () => {
+                    styleFailed = true;
+                  },
+                });
+                if (styleFailed) styleToast("hooks.audioRecording.styleFallback.failedDescription");
+                return styled.text;
+              }
               // A translation dictation must re-run cleanup-then-translate on retry,
               // not plain cleanup.
               if (isTranslation) {
@@ -920,6 +994,28 @@ export default function ControlPanel({ initialSettingsSection }: ControlPanelPro
       }
     },
     [toast, t, useCleanupModel]
+  );
+
+  // A styled dictation whose style was deleted since can still be retried, as
+  // Plain, once the user says so.
+  const retryFromHistory = useCallback(
+    async (id: number, options?: { isRecover?: boolean }) => {
+      const row = history.find((item) => item.id === id);
+      const styleId = styleIdFromRouteKind(row?.route_kind);
+      if (styleId && !resolveStyleForRetry(styleId)) {
+        showConfirmDialog({
+          title: t("controlPanel.history.styleDeleted.title"),
+          description: t("controlPanel.history.styleDeleted.description"),
+          confirmText: t("controlPanel.history.styleDeleted.retryPlain"),
+          onConfirm: () => {
+            void retryTranscription(id, { ...options, plainStyle: true });
+          },
+        });
+        return;
+      }
+      await retryTranscription(id, options);
+    },
+    [history, retryTranscription, showConfirmDialog, t]
   );
 
   const toggleShowDiscarded = useCallback(() => {
@@ -1300,7 +1396,7 @@ export default function ControlPanel({ initialSettingsSection }: ControlPanelPro
                   clearAllTranscriptions={clearAllTranscriptions}
                   onExportDictations={exportDictations}
                   onShowAudioInFolder={showAudioInFolder}
-                  onRetryTranscription={retryTranscription}
+                  onRetryTranscription={retryFromHistory}
                   showDiscarded={showDiscarded}
                   onToggleDiscarded={toggleShowDiscarded}
                   userName={user?.name}

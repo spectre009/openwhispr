@@ -21,6 +21,7 @@ import { usePolicyStore } from "./stores/policyStore";
 import { useTranscriptionContextAllowed } from "./hooks/usePolicy";
 import { useTrayQuickActions } from "./hooks/useTrayQuickActions";
 import { VoicePill } from "./components/dictation/VoicePill";
+import { StyleBadge } from "./components/dictation/StyleBadge";
 import { AssistantPanel } from "./components/dictation/AssistantPanel";
 import { LiveTranscriptPanel } from "./components/dictation/LiveTranscriptPanel";
 import { VoiceModePanelCore } from "./components/dictation/VoiceModePanelCore";
@@ -294,6 +295,7 @@ export default function App() {
     getAudioLevel,
     recordingInputKind,
     recordingStartedAt,
+    dictationStyle,
   } = useAudioRecording(toast, {
     onToggle: handleDictationToggle,
     onDemoEvent: publishOnboardingDemoEvent,
@@ -850,6 +852,13 @@ export default function App() {
               }}
             />
           </PillTooltip>
+          {dictationStyle && pillHasLiveActivity && !anyPanelOpen && (
+            <StyleBadge
+              style={dictationStyle}
+              side={voicePillPopoverSide}
+              align={voicePillPopoverAlign}
+            />
+          )}
           <LiquidCancelButton
             visible={voicePillInteraction.cancelVisible}
             fused={cancelFused}

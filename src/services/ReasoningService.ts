@@ -10,6 +10,7 @@ import {
   BaseReasoningService,
   ReasoningConfig,
   type CleanupPromptInputs,
+  type CleanupStyle,
   type DispatchedPrompt,
 } from "./BaseReasoningService";
 import { SecureCache } from "../utils/SecureCache";
@@ -18,7 +19,12 @@ import { API_ENDPOINTS, TOKEN_LIMITS, buildApiUrl, ensureV1Suffix } from "../con
 import logger from "../utils/logger";
 import { assertValidCleanupOutput } from "../utils/cleanupOutput";
 import { getSettings, isCloudCleanupMode } from "../stores/settingsStore";
-import { resolveCleanupPromptTemplate, wrapCleanupTranscript } from "../config/prompts";
+import {
+  getDefaultPromptText,
+  resolveCleanupPromptTemplate,
+  wrapCleanupTranscript,
+} from "../config/prompts";
+import { wrapStyledTranscript } from "../config/styles/restylePrompt";
 import { activeEntryIdFor, DEFAULT_PROMPT_ID } from "../config/prompts/library";
 import { stripThinkingTags } from "../helpers/stripThinking.js";
 import {
@@ -306,19 +312,36 @@ class ReasoningService extends BaseReasoningService {
   // for step history (processText's onDispatch) is the one providers send.
   // `inputs` (a test run's captured dictionary and languages) replaces the
   // values read from settings, for the prompt and for Cloud's request alike.
+  // `style` (a style's one-step mode) is appended to the cleanup prompt, and
+  // the transcript's closing line names it.
   private providerContextFor(
     cleanupTemplate: string,
-    inputs?: CleanupPromptInputs
+    inputs?: CleanupPromptInputs,
+    style?: CleanupStyle
   ): ProviderContext {
     const resolved = new Map<string, string>();
+    const styleSuffix = style ? `\n\n${style.block}` : "";
     const cleanupSystemPrompt = (agentName: string | null): string => {
       const key = agentName ?? "";
       let prompt = resolved.get(key);
       if (prompt === undefined) {
-        prompt = this.getSystemPrompt(agentName, cleanupTemplate, inputs);
+        prompt = this.getSystemPrompt(agentName, cleanupTemplate, inputs) + styleSuffix;
         resolved.set(key, prompt);
       }
       return prompt;
+    };
+    const wrapTranscript = style
+      ? (text: string) => wrapStyledTranscript(text, style.name)
+      : undefined;
+    // Cloud builds the prompt from the template it is given; a styled request
+    // gives it the built-in prompt's text when no template is saved, so the
+    // style has something to follow.
+    const cloudCustomPrompt = (): string | undefined => {
+      if (!style) return cleanupTemplate || undefined;
+      const base =
+        cleanupTemplate ||
+        getDefaultPromptText("cleanup", inputs ? inputs.uiLanguage : this.getUiLanguage());
+      return `${base}${styleSuffix}`;
     };
     return {
       ...this.providerContext,
@@ -330,7 +353,8 @@ class ReasoningService extends BaseReasoningService {
           }
         : {}),
       getSystemPrompt: cleanupSystemPrompt,
-      getCleanupCustomPrompt: () => cleanupTemplate || undefined,
+      getCleanupCustomPrompt: cloudCustomPrompt,
+      ...(wrapTranscript ? { wrapCleanupTranscript: wrapTranscript } : {}),
       callChatCompletionsApi: (endpoint, apiKey, model, text, agentName, config, providerName) =>
         this.callChatCompletionsApi(
           endpoint,
@@ -340,7 +364,8 @@ class ReasoningService extends BaseReasoningService {
           agentName,
           config,
           providerName,
-          cleanupSystemPrompt
+          cleanupSystemPrompt,
+          wrapTranscript
         ),
     };
   }
@@ -353,7 +378,8 @@ class ReasoningService extends BaseReasoningService {
     agentName: string | null,
     config: ReasoningConfig,
     providerName: string,
-    cleanupSystemPrompt?: (agentName: string | null) => string
+    cleanupSystemPrompt?: (agentName: string | null) => string,
+    wrapTranscript?: (text: string) => string
   ): Promise<string> {
     // No systemPrompt override means the default cleanup path: a deterministic
     // transform, so zero temperature and a delimited transcript.
@@ -361,7 +387,7 @@ class ReasoningService extends BaseReasoningService {
     const systemPrompt =
       config.systemPrompt ||
       (cleanupSystemPrompt ? cleanupSystemPrompt(agentName) : this.getSystemPrompt(agentName));
-    const userPrompt = isCleanup ? wrapCleanupTranscript(text) : text;
+    const userPrompt = isCleanup ? (wrapTranscript ?? wrapCleanupTranscript)(text) : text;
 
     const messages = [
       { role: "system", content: systemPrompt },
@@ -589,8 +615,9 @@ class ReasoningService extends BaseReasoningService {
     // A callback must never reach a provider: some cross IPC with the config.
     // Nor does the cleanup override: it is resolved here, once, into the prompt
     // every dispatch below uses, so the request equals a real dictation's. The
-    // captured prompt inputs (a test run's) feed that same resolution.
-    const { onDispatch, cleanupPrompt, promptInputs, ...configWithoutHook } = config;
+    // captured prompt inputs (a test run's) feed that same resolution, and so
+    // does a style folded into the request (one step).
+    const { onDispatch, cleanupPrompt, promptInputs, cleanupStyle, ...configWithoutHook } = config;
     config = configWithoutHook;
     const managed = this.resolveManagedScope(model, config.provider, config, "dictationCleanup");
     ({ model, config } = managed);
@@ -669,7 +696,12 @@ class ReasoningService extends BaseReasoningService {
       throw new Error(`Unsupported reasoning provider: ${providerId}`);
     }
 
-    const ctx = this.providerContextFor(cleanupTemplate, promptInputs);
+    // A style only joins a cleanup request; a request with its own system prompt ignores it.
+    const ctx = this.providerContextFor(
+      cleanupTemplate,
+      promptInputs,
+      !dispatchConfig.systemPrompt && cleanupStyle?.block ? cleanupStyle : undefined
+    );
     if (onDispatch) {
       try {
         onDispatch({

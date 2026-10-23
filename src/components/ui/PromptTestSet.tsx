@@ -21,20 +21,28 @@ import {
 } from "../icons";
 import { cn } from "../lib/utils";
 import type { PromptLibraryEditor } from "../../hooks/usePromptLibraryEditor";
-import type { PromptTestCase } from "../../types/electron";
-import type { StarterTestCase } from "../../config/promptTestStarters";
+import type { PromptTestCase, PromptTestStyleChecks } from "../../types/electron";
+import {
+  STARTER_TEST_CASES,
+  styleStarterCases,
+  type StarterTestCase,
+} from "../../config/promptTestStarters";
+import type { RecordingStyle } from "../../config/styles/library";
 import {
   buildRunCases,
+  buildStyleRunCases,
   clearTestCases,
   clearTestResults,
   deleteTestCase,
   followTestCases,
   hideStarter,
   setRepetitions,
-  showAllStarters,
+  showStarters,
+  startStyleTestRun,
   startTestRun,
   stopTestRun,
   storageNoticeKey,
+  styleTestTarget,
   updateTestCase,
   usePromptTestSetStore,
   visibleStarters,
@@ -59,12 +67,14 @@ import { getProviderDisplayName, resolveInferenceProvider } from "../../models/M
 import { getSettings, useSettingsStore } from "../../stores/settingsStore";
 import { describeProviderError } from "../../utils/describeProviderError";
 import { diffWords, type WordDiffSegment } from "../../utils/wordDiff";
-import type { OutputChecks } from "../../utils/promptTestChecks";
+import type { OutputChecks, StyleCountCheckKind } from "../../utils/promptTestChecks";
 import { requestOpenHistoryItem } from "../../utils/openHistoryItem";
 
 // Prompt Studio → Test → Test set (cleanup prompts): the owner's cases plus
 // the built-in starters, run through prompt A (in use) and B (selected or
-// draft), with the results side by side. The store owns cases and runs.
+// draft), with the results side by side. A style's Test uses the same view
+// with the style's cases, A as one step and B as two steps, and the bullet
+// and numbered-item checks. The store owns cases and runs.
 
 function hostOf(url: string | undefined): string {
   const value = (url || "").trim();
@@ -134,15 +144,34 @@ function useCleanupDestination(t: TFunction) {
     : !providerId || (!request.model && providerId !== "openwhispr" && providerId !== "lan")
       ? t("promptStudio.test.noModelSelected")
       : null;
-  return { label, model, local, blocked };
+  // A style runs whenever the cleanup scope has a model, cleanup switched on or not.
+  const styleBlocked =
+    !providerId || (!request.model && providerId !== "openwhispr" && providerId !== "lan")
+      ? t("promptStudio.test.noModelSelected")
+      : null;
+  return { label, model, local, blocked, styleBlocked };
 }
 
-interface PromptTestSetProps {
-  editor: PromptLibraryEditor;
-  agentName: string;
+/** A style under test: its editor's copy, unsaved changes included. */
+export interface StyleTestSubject {
+  style: RecordingStyle;
+  /** The editor holds changes not saved yet. */
+  isDraft: boolean;
 }
 
-export default function PromptTestSet({ editor, agentName }: PromptTestSetProps) {
+type PromptTestSetProps =
+  | { editor: PromptLibraryEditor; agentName: string; style?: undefined }
+  | { style: StyleTestSubject; agentName: string; editor?: undefined };
+
+// Measured warm (style lab): about 1.7 s for one step and 3.2 s for two.
+const STYLE_SECONDS_PER_PAIR = 4.9;
+
+export default function PromptTestSet(props: PromptTestSetProps) {
+  const { agentName } = props;
+  const editor = props.editor ?? null;
+  const subject = props.style ?? null;
+  const styleId = subject?.style.id ?? null;
+  const target = styleId ? styleTestTarget(styleId) : "cleanup";
   const { t } = useTranslation();
   const state = usePromptTestSetStore(
     useShallow((s) => ({
@@ -165,16 +194,29 @@ export default function PromptTestSet({ editor, agentName }: PromptTestSetProps)
   }, []);
 
   const starterLabel = (starter: StarterTestCase) => t(starter.labelKey);
-  const starters = visibleStarters(state.hiddenStarters);
-  const runCases = buildRunCases(state.cases, state.hiddenStarters, {
-    starter: starterLabel,
-    stored: caseLabel,
-  });
-  const hiddenCount = state.hiddenStarters.length;
+  const ownCases = state.cases.filter((testCase) => testCase.target === target);
+  const starters = visibleStarters(state.hiddenStarters, styleId);
+  const labels = { starter: starterLabel, stored: caseLabel };
+  const runCases = styleId
+    ? buildStyleRunCases(state.cases, state.hiddenStarters, styleId, labels)
+    : buildRunCases(state.cases, state.hiddenStarters, labels);
+  const modeStarters = styleId ? styleStarterCases(styleId) : STARTER_TEST_CASES;
+  const hiddenIds = modeStarters
+    .filter((starter) => state.hiddenStarters.includes(starter.id))
+    .map((starter) => starter.id);
+  const hiddenCount = hiddenIds.length;
 
-  const running = state.run !== null && state.run.progress.phase !== "finished";
+  // One run at a time across the cleanup set and every style's.
+  const run = state.run && state.run.kind === target ? state.run : null;
+  const otherRunning =
+    state.run !== null && state.run.kind !== target && state.run.progress.phase !== "finished";
+  const running = run !== null && run.progress.phase !== "finished";
   const requests = estimateRequests(runCases.length, state.repetitions);
-  const estimatedSeconds = Math.round(requests * ESTIMATED_SECONDS_PER_REQUEST);
+  const estimatedSeconds = Math.round(
+    styleId
+      ? (requests / PROMPT_SIDES.length) * STYLE_SECONDS_PER_PAIR
+      : requests * ESTIMATED_SECONDS_PER_REQUEST
+  );
   const duration =
     estimatedSeconds < 60
       ? t("promptStudio.testSet.run.durationSeconds", { seconds: estimatedSeconds })
@@ -182,24 +224,44 @@ export default function PromptTestSet({ editor, agentName }: PromptTestSetProps)
           minutes: Math.round(estimatedSeconds / 60),
         });
 
-  const activeName = editor.displayName(editor.library.activeId);
-  const selectedName = editor.displayName(editor.selectedId);
-  const nameB = editor.isDirty
-    ? t("promptStudio.testSet.run.draftName", { name: selectedName })
-    : selectedName;
-  const samePrompt = editor.isSelectedActive && !editor.isDirty;
-  const candidateIsEmpty = !editor.isDefaultSelected && !editor.editorText.trim();
+  const activeName = editor ? editor.displayName(editor.library.activeId) : "";
+  const selectedName = editor ? editor.displayName(editor.selectedId) : "";
+  const nameA = subject ? t("styles.test.oneStep") : activeName;
+  const nameB = subject
+    ? t("styles.test.twoSteps")
+    : editor?.isDirty
+      ? t("promptStudio.testSet.run.draftName", { name: selectedName })
+      : selectedName;
+  const samePrompt = !!editor && editor.isSelectedActive && !editor.isDirty;
+  const candidateIsEmpty = subject
+    ? !subject.style.instruction.trim() || !subject.style.name.trim()
+    : !!editor && !editor.isDefaultSelected && !editor.editorText.trim();
 
-  const blocked = destination.blocked
-    ? destination.blocked
+  const blocked = (subject ? destination.styleBlocked : destination.blocked)
+    ? subject
+      ? destination.styleBlocked
+      : destination.blocked
     : candidateIsEmpty
-      ? t("promptStudio.library.emptyPrompt")
+      ? t(subject ? "styles.test.incomplete" : "promptStudio.library.emptyPrompt")
       : runCases.length === 0
         ? t("promptStudio.testSet.run.noCases")
-        : null;
+        : otherRunning
+          ? t("styles.test.otherRunRunning")
+          : null;
 
   const start = () => {
     if (blocked || running) return;
+    if (subject) {
+      void startStyleTestRun({
+        cases: runCases,
+        style: subject.style,
+        names: { a: nameA, b: nameB },
+        agentName,
+        destination: { provider: destination.label, model: destination.model },
+      });
+      return;
+    }
+    if (!editor) return;
     void startTestRun({
       cases: runCases,
       promptB: editor.isDefaultSelected
@@ -215,7 +277,7 @@ export default function PromptTestSet({ editor, agentName }: PromptTestSetProps)
     <div className="divide-y divide-border/60 dark:divide-border-subtle">
       <div className="px-5 py-4 space-y-2">
         <p className="text-xs text-muted-foreground leading-relaxed">
-          {t("promptStudio.testSet.intro")}
+          {t(subject ? "styles.test.setIntro" : "promptStudio.testSet.intro")}
         </p>
         <div className="flex items-start gap-2.5 rounded-lg border border-primary/20 bg-primary/5 dark:bg-primary/10 px-4 py-3">
           <Info className="w-3.5 h-3.5 text-primary mt-0.5 shrink-0" />
@@ -245,12 +307,12 @@ export default function PromptTestSet({ editor, agentName }: PromptTestSetProps)
                 variant="ghost"
                 size="sm"
                 className="h-7 px-2 text-xs"
-                onClick={showAllStarters}
+                onClick={() => showStarters(hiddenIds)}
               >
                 {t("promptStudio.testSet.actions.showHidden", { n: hiddenCount })}
               </Button>
             )}
-            {state.cases.length > 0 && (
+            {ownCases.length > 0 && (
               <Button
                 variant="ghost"
                 size="sm"
@@ -263,15 +325,20 @@ export default function PromptTestSet({ editor, agentName }: PromptTestSetProps)
             )}
           </div>
         </div>
-        {state.cases.length === 0 && (
+        {ownCases.length === 0 && (
           <p className="text-xs text-muted-foreground/80 mb-2">
-            {t("promptStudio.testSet.emptyCases")}
+            {t(subject ? "styles.test.emptyCases" : "promptStudio.testSet.emptyCases")}
           </p>
         )}
         <ul className="space-y-1.5">
-          {state.cases.map((testCase) =>
+          {ownCases.map((testCase) =>
             editingId === testCase.id ? (
-              <CaseEditor key={testCase.id} testCase={testCase} onDone={() => setEditingId(null)} />
+              <CaseEditor
+                key={testCase.id}
+                testCase={testCase}
+                styleChecks={!!subject}
+                onDone={() => setEditingId(null)}
+              />
             ) : (
               <CaseRow
                 key={testCase.id}
@@ -279,7 +346,11 @@ export default function PromptTestSet({ editor, agentName }: PromptTestSetProps)
                 source={testCase.source}
                 durable={testCase.durable}
                 targetApp={testCase.targetApp}
-                checks={testCase.mustContain.length + testCase.mustNotContain.length}
+                checks={
+                  testCase.mustContain.length +
+                  testCase.mustNotContain.length +
+                  countStyleChecks(testCase.styleChecks)
+                }
                 disabled={running}
                 onEdit={() => setEditingId(testCase.id)}
                 onRemove={() => void deleteTestCase(testCase.id)}
@@ -298,7 +369,11 @@ export default function PromptTestSet({ editor, agentName }: PromptTestSetProps)
               source="starter"
               durable
               targetApp={starter.targetApp}
-              checks={starter.mustContain.length + starter.mustNotContain.length}
+              checks={
+                starter.mustContain.length +
+                starter.mustNotContain.length +
+                countStyleChecks(starter.styleChecks)
+              }
               disabled={running}
               onHide={() => hideStarter(starter.id)}
             />
@@ -310,11 +385,18 @@ export default function PromptTestSet({ editor, agentName }: PromptTestSetProps)
       <div className="px-5 py-4 space-y-3">
         <div className="space-y-1">
           <p dir="auto" className="text-xs text-foreground">
-            {t("promptStudio.testSet.run.promptA", { name: activeName })}
+            {subject
+              ? t("styles.test.sideA")
+              : t("promptStudio.testSet.run.promptA", { name: activeName })}
           </p>
           <p dir="auto" className="text-xs text-foreground">
-            {t("promptStudio.testSet.run.promptB", { name: nameB })}
+            {subject
+              ? t("styles.test.sideB")
+              : t("promptStudio.testSet.run.promptB", { name: nameB })}
           </p>
+          {subject?.isDraft && (
+            <p className="text-xs text-muted-foreground/80">{t("styles.test.runsDraft")}</p>
+          )}
           {samePrompt && (
             <p className="text-xs text-muted-foreground/80">
               {t("promptStudio.testSet.run.samePrompt")}
@@ -344,12 +426,19 @@ export default function PromptTestSet({ editor, agentName }: PromptTestSetProps)
 
         <div className="space-y-1 text-xs text-muted-foreground leading-relaxed">
           <p>
-            {t("promptStudio.testSet.run.estimate", {
-              cases: Math.min(runCases.length, MAX_RUN_CASES),
-              runs: state.repetitions,
-              requests,
-              duration,
-            })}
+            {subject
+              ? t("styles.test.estimate", {
+                  cases: Math.min(runCases.length, MAX_RUN_CASES),
+                  runs: state.repetitions,
+                  requests,
+                  duration,
+                })
+              : t("promptStudio.testSet.run.estimate", {
+                  cases: Math.min(runCases.length, MAX_RUN_CASES),
+                  runs: state.repetitions,
+                  requests,
+                  duration,
+                })}
           </p>
           {runCases.length > MAX_RUN_CASES && (
             <p className="text-warning">
@@ -383,7 +472,7 @@ export default function PromptTestSet({ editor, agentName }: PromptTestSetProps)
             variant="outline"
             size="sm"
             className="w-full"
-            disabled={state.run?.progress.stopReason === "user"}
+            disabled={run?.progress.stopReason === "user"}
           >
             <X className="w-3.5 h-3.5 me-2" />
             {t("promptStudio.testSet.run.stop")}
@@ -397,26 +486,30 @@ export default function PromptTestSet({ editor, agentName }: PromptTestSetProps)
         {!running && blocked && <p className="text-xs text-muted-foreground/80">{blocked}</p>}
       </div>
 
-      {state.run && (
-        <RunResults
-          run={state.run}
-          onlyAttention={onlyAttention}
-          onToggleAttention={setOnlyAttention}
-        />
+      {run && (
+        <RunResults run={run} onlyAttention={onlyAttention} onToggleAttention={setOnlyAttention} />
       )}
 
       <ConfirmDialog
         open={confirmClear}
         onOpenChange={setConfirmClear}
-        title={t("promptStudio.testSet.removeAllTitle")}
-        description={t("promptStudio.testSet.removeAllDescription")}
+        title={t(subject ? "styles.test.removeAllTitle" : "promptStudio.testSet.removeAllTitle")}
+        description={t(
+          subject ? "styles.test.removeAllDescription" : "promptStudio.testSet.removeAllDescription"
+        )}
         confirmText={t("promptStudio.testSet.actions.removeAll")}
         cancelText={t("promptStudio.testSet.actions.cancel")}
         variant="destructive"
-        onConfirm={() => void clearTestCases()}
+        onConfirm={() => void clearTestCases(target)}
       />
     </div>
   );
+}
+
+/** How many bullet and numbered-item counts a case sets. */
+function countStyleChecks(checks: Partial<PromptTestStyleChecks> | null | undefined): number {
+  if (!checks) return 0;
+  return Object.values(checks).filter((value) => typeof value === "number").length;
 }
 
 interface CaseRowProps {
@@ -526,13 +619,46 @@ function CaseRow({
   );
 }
 
-function CaseEditor({ testCase, onDone }: { testCase: PromptTestCase; onDone: () => void }) {
+const STYLE_CHECK_FIELDS: ReadonlyArray<{ key: StyleCountCheckKind; labelKey: string }> = [
+  { key: "bulletsMin", labelKey: "promptStudio.testSet.edit.bulletsMin" },
+  { key: "bulletsMax", labelKey: "promptStudio.testSet.edit.bulletsMax" },
+  { key: "numberedMin", labelKey: "promptStudio.testSet.edit.numberedMin" },
+  { key: "numberedMax", labelKey: "promptStudio.testSet.edit.numberedMax" },
+];
+
+function countText(value: number | null | undefined): string {
+  return typeof value === "number" ? String(value) : "";
+}
+
+function parseCount(text: string): number | null {
+  const trimmed = text.trim();
+  if (!trimmed) return null;
+  const n = Number(trimmed);
+  return Number.isFinite(n) && n >= 0 ? Math.floor(n) : null;
+}
+
+function CaseEditor({
+  testCase,
+  styleChecks: showStyleChecks = false,
+  onDone,
+}: {
+  testCase: PromptTestCase;
+  /** A style's case: the bullet and numbered-item counts are editable too. */
+  styleChecks?: boolean;
+  onDone: () => void;
+}) {
   const { t } = useTranslation();
   const [label, setLabel] = useState(testCase.label ?? "");
   const [targetApp, setTargetApp] = useState(testCase.targetApp ?? "");
   const [mustContain, setMustContain] = useState(testCase.mustContain.join("\n"));
   const [mustNotContain, setMustNotContain] = useState(testCase.mustNotContain.join("\n"));
   const [matchCase, setMatchCase] = useState(testCase.matchCase);
+  const [counts, setCounts] = useState<Record<StyleCountCheckKind, string>>(() => ({
+    bulletsMin: countText(testCase.styleChecks?.bulletsMin),
+    bulletsMax: countText(testCase.styleChecks?.bulletsMax),
+    numberedMin: countText(testCase.styleChecks?.numberedMin),
+    numberedMax: countText(testCase.styleChecks?.numberedMax),
+  }));
   const [saving, setSaving] = useState(false);
 
   const save = async () => {
@@ -543,6 +669,12 @@ function CaseEditor({ testCase, onDone }: { testCase: PromptTestCase; onDone: ()
       mustContain: linesToList(mustContain),
       mustNotContain: linesToList(mustNotContain),
       matchCase,
+      styleChecks: {
+        bulletsMin: parseCount(counts.bulletsMin),
+        bulletsMax: parseCount(counts.bulletsMax),
+        numberedMin: parseCount(counts.numberedMin),
+        numberedMax: parseCount(counts.numberedMax),
+      },
     });
     setSaving(false);
     onDone();
@@ -612,6 +744,29 @@ function CaseEditor({ testCase, onDone }: { testCase: PromptTestCase; onDone: ()
       <p className="text-[11px] text-muted-foreground/80">
         {t("promptStudio.testSet.edit.checksHint")}
       </p>
+      {showStyleChecks && (
+        <div className="space-y-1">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {STYLE_CHECK_FIELDS.map((field) => (
+              <label key={field.key} className="block space-y-1">
+                <span className="text-xs text-muted-foreground">{t(field.labelKey)}</span>
+                <Input
+                  dir="ltr"
+                  type="number"
+                  min={0}
+                  max={100}
+                  value={counts[field.key]}
+                  onChange={(e) => setCounts((prev) => ({ ...prev, [field.key]: e.target.value }))}
+                  className="h-8 text-xs"
+                />
+              </label>
+            ))}
+          </div>
+          <span className="block text-[11px] text-muted-foreground/80">
+            {t("promptStudio.testSet.edit.countsHint")}
+          </span>
+        </div>
+      )}
       <div className="flex items-center gap-2">
         <Toggle
           checked={matchCase}
@@ -926,6 +1081,14 @@ function ChecksList({ checks }: { checks: OutputChecks }) {
     ...checks.mustNotContain.map((check, index) => ({
       key: `n${index}`,
       label: t("promptStudio.testSet.results.check.notContains", { text: check.text }),
+      ok: check.ok,
+    })),
+    ...(checks.structure ?? []).map((check) => ({
+      key: `s-${check.kind}`,
+      label: t(`promptStudio.testSet.results.check.${check.kind}`, {
+        limit: check.limit,
+        actual: check.actual ?? "–",
+      }),
       ok: check.ok,
     })),
   ];

@@ -34,6 +34,8 @@ import {
 import { resolveLifecycleInputKind } from "../helpers/dictationRouting";
 import { createAssistantResponseDelivery } from "../helpers/assistantResponseDelivery";
 import { recordCleanupFailure } from "../stores/cleanupFailureStore";
+import { resolveStyleForRecording } from "../stores/styleStore";
+import { traceStyle } from "../helpers/postTranscription";
 
 // Maps a failed selection-replacement code to its `selectionEditing.*` toast
 // detail key; unlisted codes fall back to the generic "unavailable" message.
@@ -62,6 +64,9 @@ export const useAudioRecording = (toast, options = {}) => {
   // per-mode color and elapsed time; null while not recording.
   const [recordingInputKind, setRecordingInputKind] = useState(null);
   const [recordingStartedAt, setRecordingStartedAt] = useState(null);
+  // The style the current recording carries ({ id, name, emoji }), frozen at
+  // its start, for the pill badge while it records and is processed.
+  const [recordingStyleBadge, setRecordingStyleBadge] = useState(null);
   const [isPreparing, setIsPreparing] = useState(false);
   const [isStopping, setIsStopping] = useState(false);
   const [micCaptureStatus, setMicCaptureStatus] = useState("inactive");
@@ -150,8 +155,14 @@ export const useAudioRecording = (toast, options = {}) => {
   }, []);
 
   const performStartRecording = useCallback(
-    async ({ voiceAgentRequested = false, translationRequested = false, pressTrace } = {}) => {
+    async ({
+      voiceAgentRequested = false,
+      translationRequested = false,
+      pressTrace,
+      styleId,
+    } = {}) => {
       if (startLockRef.current) return false;
+      // A style is never carried over: Retry resolves the hotkey's style again.
       lastStartOptionsRef.current = { voiceAgentRequested, translationRequested };
       startLockRef.current = true;
       const trace = joinStartTrace(startTraceRef.current, pressTrace);
@@ -211,6 +222,23 @@ export const useAudioRecording = (toast, options = {}) => {
         audioManagerRef.current.setVoiceAgentRequested(voiceAgentRequested);
         audioManagerRef.current.setAssistantSelectionContext(assistantSelectionContext);
         audioManagerRef.current.setTranslationRequested(translationRequested);
+        // The recording's style, read from the style record now and frozen
+        // for the whole recording: the requested one (a style key) or the
+        // dictation hotkey's. Assistant and translation recordings never get one.
+        let recordingStyle = null;
+        if (!voiceAgentRequested && !translationRequested) {
+          try {
+            recordingStyle = resolveStyleForRecording(styleId);
+          } catch (error) {
+            logger.warn("Couldn't read the dictation styles", { error: error?.message });
+          }
+        }
+        audioManagerRef.current.setRecordingStyle?.(recordingStyle);
+        setRecordingStyleBadge(
+          recordingStyle
+            ? { id: recordingStyle.id, name: recordingStyle.name, emoji: recordingStyle.emoji }
+            : null
+        );
         // Main froze this recording's target app in captureDictationTarget above
         // (Hold and Tap both arrive here); fetch it without holding the start.
         // Without a fresh freeze the app stays unknown rather than a stale one.
@@ -348,6 +376,7 @@ export const useAudioRecording = (toast, options = {}) => {
           releaseCueOutput();
           setIsPreparing(false);
           setIsAssistantVoice(false);
+          setRecordingStyleBadge(null);
           // Covers every exit above that never started a recording — the
           // policy-block early return, the mic-open failure, a stale
           // preparation generation, etc. Without this, a failed start leaves
@@ -896,6 +925,9 @@ export const useAudioRecording = (toast, options = {}) => {
               audioManagerRef.current.safePaste(result.text, {
                 ...(isStreaming ? { fromStreaming: true } : {}),
                 ...pasteOptions,
+                // A styled paste isn't what was said, so main must not learn
+                // dictionary words from edits to it (decided per paste).
+                ...(traceStyle(result.trace) ? { suppressAutoLearn: true } : {}),
               })
             );
             if (pasteOutcome.reason === "modifiers-held") {
@@ -1035,6 +1067,18 @@ export const useAudioRecording = (toast, options = {}) => {
           variant: "destructive",
         });
       },
+      onStyleFallback: ({ reason, style }) => {
+        // The text was still pasted (cleaned, or as transcribed); say the style didn't apply.
+        const name = style?.name || t("styles.plain.name");
+        toast({
+          title: t("hooks.audioRecording.styleFallback.title", { name }),
+          description:
+            reason === "unreachable"
+              ? t("hooks.audioRecording.styleFallback.unreachableDescription")
+              : t("hooks.audioRecording.styleFallback.failedDescription"),
+          variant: "destructive",
+        });
+      },
     });
 
     // Keep overlay content protection in sync with the screen-context setting
@@ -1057,29 +1101,31 @@ export const useAudioRecording = (toast, options = {}) => {
     const handleToggle = async ({
       voiceAgentRequested = false,
       translationRequested = false,
+      styleId,
     } = {}) => {
       if (!audioManagerRef.current) return;
       const currentState = audioManagerRef.current.getState();
 
       // A start still awaiting the mic open leaves isRecording false, so without
       // the lock check this toggle-off would take the start branch and be lost.
+      // A stop press never changes the running recording's style.
       if (startLockRef.current || currentState.isRecording) {
         await performStopRecording();
       } else if (canStartDictation(currentState)) {
-        await performStartRecording({ voiceAgentRequested, translationRequested });
+        await performStartRecording({ voiceAgentRequested, translationRequested, styleId });
       }
     };
 
-    const handleStart = async (pressTrace) => {
-      await performStartRecording({ pressTrace });
+    const handleStart = async (payload) => {
+      await performStartRecording({ pressTrace: payload?.trace, styleId: payload?.styleId });
     };
 
     const handleStop = async () => {
       await performStopRecording();
     };
 
-    const disposeToggle = window.electronAPI.onToggleDictation(() => {
-      handleToggle();
+    const disposeToggle = window.electronAPI.onToggleDictation((payload) => {
+      handleToggle({ styleId: payload?.styleId });
       onToggle?.();
     });
 
@@ -1094,7 +1140,7 @@ export const useAudioRecording = (toast, options = {}) => {
     });
 
     const disposeStart = window.electronAPI.onStartDictation?.((payload) => {
-      handleStart(payload?.trace);
+      handleStart(payload);
       onToggle?.();
     });
 
@@ -1172,6 +1218,8 @@ export const useAudioRecording = (toast, options = {}) => {
       preparationGenerationRef.current += 1;
       setIsPreparing(false);
       setIsStopping(false);
+      // A cancelled recording's style ends with it; the next start resolves its own.
+      setRecordingStyleBadge(null);
       audioManagerRef.current.cancelPreparedMicCapture?.();
       window.electronAPI?.unregisterCancelHotkey?.();
       releaseCueOutput();
@@ -1191,6 +1239,7 @@ export const useAudioRecording = (toast, options = {}) => {
 
   const cancelProcessing = useCallback(() => {
     if (audioManagerRef.current) {
+      setRecordingStyleBadge(null);
       return audioManagerRef.current.cancelProcessing();
     }
     return false;
@@ -1242,6 +1291,12 @@ export const useAudioRecording = (toast, options = {}) => {
     isAssistantVoice,
     recordingInputKind,
     recordingStartedAt,
+    // The running dictation's style ({ id, name, emoji }) while it records and
+    // is processed; null for Plain and when idle.
+    dictationStyle:
+      recordingStyleBadge && (isRecording || isProcessing || isPasting)
+        ? recordingStyleBadge
+        : null,
     isPreparing,
     isStopping,
     micCaptureStatus,

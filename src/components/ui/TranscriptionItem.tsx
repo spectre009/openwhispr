@@ -24,6 +24,8 @@ import {
 import TranscriptionSteps from "./TranscriptionSteps";
 import { useToast } from "./useToast";
 import { pinHistoryTestCase, storageNoticeKey } from "../../stores/promptTestSetStore";
+import { useStyleStore } from "../../stores/styleStore";
+import { findStyle, styleIdFromRouteKind } from "../../config/styles/library";
 import type {
   TranscriptionItem as TranscriptionItemType,
   TranscriptionErrorCode,
@@ -122,6 +124,11 @@ export default function TranscriptionItem({
       ? "controlPanel.history.retryTranslationMode"
       : "controlPanel.history.retryTranscription"
   );
+  // A styled dictation shows its style; retry re-runs it.
+  const styleId = styleIdFromRouteKind(item.route_kind);
+  const rowStyle = useStyleStore((state) =>
+    styleId ? findStyle(state.library, styleId) : undefined
+  );
 
   // Main copies the raw transcript into a test case; the cleaned text is
   // never used as the input, so a row without a raw transcript can't be pinned.
@@ -212,7 +219,20 @@ export default function TranscriptionItem({
       )}
     >
       <div className="flex items-center justify-between gap-3">
-        <span className="text-xs tabular-nums text-muted-foreground">{formattedTime}</span>
+        <span className="flex min-w-0 items-center gap-2">
+          <span className="text-xs tabular-nums text-muted-foreground">{formattedTime}</span>
+          {styleId && (
+            <span
+              dir="auto"
+              className="truncate rounded-sm bg-muted px-1.5 text-[10px] text-muted-foreground"
+              title={t("controlPanel.history.styledDictation")}
+            >
+              {rowStyle
+                ? `${rowStyle.emoji ? `${rowStyle.emoji} ` : ""}${rowStyle.name}`
+                : t("controlPanel.history.steps.deletedStyle")}
+            </span>
+          )}
+        </span>
         <div
           className={cn(
             "-me-1.5 flex items-center gap-1 transition-opacity duration-150",

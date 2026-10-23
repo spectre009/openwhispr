@@ -10,7 +10,8 @@
 // Contract (later stages depend on it):
 //
 //   runPostTranscription(rawText, {
-//     context:  { targetApp, voiceAgentRequested, translationRequested },  // frozen per recording
+//     context:  { targetApp, voiceAgentRequested, translationRequested,  // frozen per recording
+//                 style?, appScopedGlossary? },
 //     glossary: { revision, rules },          // one snapshot for the whole dictation
 //     snippets,                               // trigger spans win over glossary replacements
 //     stt:      { provider, model, ms },      // what produced rawText
@@ -22,10 +23,14 @@
 //
 //   1. Intent is resolved from the raw transcript, whether or not any model is
 //      reachable. `run` must route on `rawText` (wake word, voice assistant,
-//      translation, selection edits) and execute on `workingText`.
-//   2. The glossary is applied once, to a separate working text.
-//   3. `run` performs cleanup, translation or the agent on the working text.
-//      A failure keeps the working text: the corrected text is the floor.
+//      translation, selection edits) and execute on `workingText`. A styled
+//      recording (Stage 3, `context.style`) is its own intent, like
+//      translation: the wake word is never scanned for it.
+//   2. The glossary is applied once, to a separate working text. A style can
+//      switch the app-scoped corrections off (`appScopedGlossary: false`):
+//      then only "anywhere" spellings apply, as for an unknown app.
+//   3. `run` performs cleanup, translation, the agent or a style on the working
+//      text. A failure keeps the working text: the corrected text is the floor.
 //      `run` records each model call with recordStep(kind, meta, fn), where
 //      fn(dispatched) reports the provider/model actually dispatched.
 //   4. Chinese-script finalization runs last.
@@ -37,17 +42,20 @@
 //     workingText,                  // after the glossary: what models saw
 //     finalText,                    // what is pasted (null until done)
 //     context: { targetApp: string | null,
-//                intents: { voiceAgent, translation, wakeWord } },
-//     route: "cleanup" | "translation" | "agent" | "skip" | "none" | null,
+//                intents: { voiceAgent, translation, wakeWord },
+//                style?: { id, runMode } },          // a styled recording
+//     route: "cleanup" | "translation" | "agent" | "style" | "skip" | "none" | null,
 //     glossary: { revision: number | null,
 //                 rulesFired: [{ ruleId, spelling, scope, from, to, index }] },
-//     steps: [{ kind: "stt" | "glossary" | "cleanup" | "translation" | "agent" | "finalize",
+//     steps: [{ kind: "stt" | "glossary" | "cleanup" | "translation" | "agent" | "style"
+//                     | "finalize",
 //               outcome: "ok" | "failed" | "skipped" | "fallback",
 //               output: string | null, provider: string | null, model: string | null,
 //               ms: number | null, errorCode?: string,
 //               prompt?: { source: "resolved", text, entryId? }    // model steps, when known
 //                      | { source: "server", entryId? },
-//               detail?: { snippets: true } }],               // in execution order
+//               detail?: { snippets: true }                     // snippet finalize
+//                      | { styleId, runMode } }],               // style steps; in execution order
 //     runId?: string }   // main's step-history run (ownership), set before saving
 //
 // `provider`/`model` on model steps are what was actually dispatched
@@ -55,9 +63,10 @@
 // the system prompt as sent, reported by the same hook: "resolved" carries the
 // exact text after substitutions, the language instruction and the dictionary
 // suffix; "server" means OpenWhispr Cloud built it on its server, so it is not
-// available and never reconstructed. Later stages add step kinds (Stage 3:
-// "style") and pass `glossary: null` to skip it. Optional fields are only
-// present when known, so version 1 readers keep working.
+// available and never reconstructed. A style step's prompt is the restyle
+// prompt (two steps) or the cleanup prompt with the style block (one step).
+// Later stages add step kinds and pass `glossary: null` to skip it. Optional
+// fields are only present when known, so version 1 readers keep working.
 //
 // The trace (PostTranscriptionTrace below) is carried on the result object,
 // never kept on a shared manager. It holds dictated text and prompts: main
@@ -71,10 +80,28 @@ import { hasTextContent } from "./translationChain";
 
 export const POST_TRANSCRIPTION_TRACE_VERSION = 1;
 
-export type TraceStepKind = "stt" | "glossary" | "cleanup" | "translation" | "agent" | "finalize";
+export type TraceStepKind =
+  "stt" | "glossary" | "cleanup" | "translation" | "agent" | "style" | "finalize";
 export type TraceStepOutcome = "ok" | "failed" | "skipped" | "fallback";
 /** "none": no model was reachable, or reasoning was off. Null: never routed. */
-export type TraceRoute = "cleanup" | "translation" | "agent" | "skip" | "none" | null;
+export type TraceRoute = "cleanup" | "translation" | "agent" | "style" | "skip" | "none" | null;
+/** How a style ran: after cleanup (two steps) or together with it (one step). */
+export type TraceStyleRunMode = "two-step" | "one-step";
+
+/** The style a recording carries, as the trace records it. */
+export interface TraceStyleContext {
+  id: string;
+  runMode: TraceStyleRunMode;
+}
+
+/** Kind-specific extras of a step. */
+export interface TraceStepDetail {
+  /** A finalize step that recorded the snippet expansion. */
+  snippets?: boolean;
+  /** A style step: which style, and how it ran. */
+  styleId?: string;
+  runMode?: TraceStyleRunMode;
+}
 
 /** The system prompt a model step ran with; see the contract above. Never log `text`. */
 export type TracePromptRef = DispatchedPrompt;
@@ -95,7 +122,7 @@ export interface TraceStep {
   /** Model steps: the system prompt as sent. Absent when unknown. */
   prompt?: TracePromptRef;
   /** Kind-specific extras, e.g. `{ snippets: true }` on a finalize step. */
-  detail?: { snippets?: boolean };
+  detail?: TraceStepDetail;
 }
 
 export interface PostTranscriptionContext {
@@ -103,6 +130,10 @@ export interface PostTranscriptionContext {
   targetApp?: string | null;
   voiceAgentRequested?: boolean;
   translationRequested?: boolean;
+  /** The style the recording carries (frozen at its start); absent or null for Plain. */
+  style?: TraceStyleContext | null;
+  /** False: the glossary's app-scoped corrections are off for this dictation (a style's switch). */
+  appScopedGlossary?: boolean;
 }
 
 export interface PostTranscriptionTrace {
@@ -114,6 +145,8 @@ export interface PostTranscriptionTrace {
   context: {
     targetApp: string | null;
     intents: { voiceAgent: boolean; translation: boolean; wakeWord: boolean };
+    /** A styled recording: its style, frozen when it started. */
+    style?: TraceStyleContext;
   };
   route: TraceRoute;
   glossary: { revision: number | null; rulesFired: GlossaryFiredRule[] };
@@ -130,6 +163,8 @@ export interface DispatchInfo {
   provider?: string | null;
   model?: string | null;
   prompt?: TracePromptRef | null;
+  /** recordStep's meta only: the step's kind-specific extras (a style step's style). */
+  detail?: TraceStepDetail | null;
 }
 
 function isPromptRef(value: unknown): value is TracePromptRef {
@@ -195,6 +230,7 @@ function createStepRecorder(trace: PostTranscriptionTrace, now: () => number): R
     };
     const metaPrompt = meta?.prompt;
     if (isPromptRef(metaPrompt)) step.prompt = metaPrompt;
+    if (meta?.detail && typeof meta.detail === "object") step.detail = { ...meta.detail };
     const dispatched = (info: DispatchInfo) => {
       if (!info || typeof info !== "object") return;
       if (info.provider) step.provider = String(info.provider);
@@ -250,12 +286,26 @@ export async function runPostTranscription(
     translation: !!context.translationRequested,
     wakeWord: false,
   };
+  // Assistant and translation recordings never carry a style.
+  const style =
+    !intents.voiceAgent &&
+    !intents.translation &&
+    context.style &&
+    typeof context.style.id === "string" &&
+    context.style.id
+      ? {
+          id: context.style.id,
+          runMode: (context.style.runMode === "one-step"
+            ? "one-step"
+            : "two-step") as TraceStyleRunMode,
+        }
+      : null;
   const trace: PostTranscriptionTrace = {
     version: POST_TRANSCRIPTION_TRACE_VERSION,
     rawText,
     workingText: rawText,
     finalText: null,
-    context: { targetApp, intents },
+    context: { targetApp, intents, ...(style ? { style } : {}) },
     route: null,
     glossary: {
       revision: Number.isFinite(glossary?.revision)
@@ -276,8 +326,13 @@ export async function runPostTranscription(
   };
 
   // 1. Intent comes from what was said, before anything rewrites it. A
-  // translation recording ignores the wake word, as routing does.
-  if (!intents.translation && typeof detectWakeWord === "function" && hasTextContent(rawText)) {
+  // translation or styled recording ignores the wake word, as routing does.
+  if (
+    !intents.translation &&
+    !style &&
+    typeof detectWakeWord === "function" &&
+    hasTextContent(rawText)
+  ) {
     try {
       intents.wakeWord = !!detectWakeWord(rawText);
     } catch {
@@ -285,12 +340,16 @@ export async function runPostTranscription(
     }
   }
 
-  // 2. The glossary, once, to a separate working text.
+  // 2. The glossary, once, to a separate working text. With a style's
+  // app-scoped corrections off, the dictation is corrected as for an unknown app.
   const rules = Array.isArray(glossary?.rules) ? glossary.rules : [];
   let workingText = rawText;
   const glossaryStart = now();
   if (rules.length > 0 && hasTextContent(rawText)) {
-    const corrected = applyGlossary(rawText, rules, { targetApp, snippets });
+    const corrected = applyGlossary(rawText, rules, {
+      targetApp: context.appScopedGlossary === false ? null : targetApp,
+      snippets,
+    });
     workingText = corrected.text;
     trace.glossary.rulesFired = corrected.fired;
     trace.steps.push({
@@ -313,7 +372,7 @@ export async function runPostTranscription(
   }
   trace.workingText = workingText;
 
-  // 3. Cleanup, translation or the agent, on the working text.
+  // 3. Cleanup, translation, the agent or a style, on the working text.
   let text = workingText;
   if (typeof run === "function") {
     const ran = await run({
@@ -390,6 +449,14 @@ export function recordPastedText<T extends PostTranscriptionTrace | null | undef
       },
     ],
   };
+}
+
+/** The style a dictation's trace says it carried, or null for an unstyled one. */
+export function traceStyle(
+  trace: PostTranscriptionTrace | null | undefined
+): TraceStyleContext | null {
+  const style = trace?.context?.style;
+  return style && typeof style.id === "string" && style.id ? style : null;
 }
 
 /** Log-safe summary of what the glossary did: ids and counts, never text. */

@@ -26,7 +26,9 @@ export const tinfoilProvider: InferenceProvider = {
     const client = await getTinfoilChatClient(apiKey);
 
     const systemPrompt = config.systemPrompt || ctx.getSystemPrompt(agentName);
-    const userContent = config.systemPrompt ? text : wrapCleanupTranscript(text);
+    const userContent = config.systemPrompt
+      ? text
+      : (ctx.wrapCleanupTranscript ?? wrapCleanupTranscript)(text);
     const messages = [
       { role: "system", content: systemPrompt },
       { role: "user", content: userContent },

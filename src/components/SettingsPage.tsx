@@ -73,6 +73,7 @@ import { useClipboard } from "../hooks/useClipboard";
 import { useUpdater } from "../hooks/useUpdater";
 
 import PromptStudio from "./ui/PromptStudio";
+import StyleStudio from "./ui/StyleStudio";
 import { ProviderTabs } from "./ui/ProviderTabs";
 import { HotkeyListInput } from "./ui/HotkeyListInput";
 import { useHotkeyRegistration } from "../hooks/useHotkeyRegistration";
@@ -5063,6 +5064,13 @@ EOF`,
                     description={t("settingsPage.prompts.description")}
                   />
                   <PromptStudio />
+                </div>
+                <div className="border-t border-border/70 pt-6">
+                  <SectionHeader
+                    title={t("styles.section.title")}
+                    description={t("styles.section.description")}
+                  />
+                  <StyleStudio />
                 </div>
               </div>
             )}

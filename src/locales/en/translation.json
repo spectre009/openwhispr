@@ -736,7 +736,8 @@
           "failed": "Failed",
           "skipped": "Skipped",
           "fallback": "Kept previous text"
-        }
+        },
+        "deletedStyle": "Deleted style"
       },
       "export": {
         "button": "Export",
@@ -758,6 +759,12 @@
         "already": "Already in the test set",
         "failed": "Couldn't add to the test set",
         "noRawText": "This dictation has no raw transcript, and its cleaned text is never used as a test input."
+      },
+      "styledDictation": "Dictated with a style",
+      "styleDeleted": {
+        "title": "This dictation's style was deleted",
+        "description": "Retry it as Plain dictation (cleanup only)?",
+        "retryPlain": "Retry as Plain"
       }
     },
     "aiCta": {
@@ -1082,7 +1089,12 @@
       "pasteFailed": {
         "title": "Couldn't paste automatically"
       },
-      "interruptedRecordingRecovered": "Recovered after OpenWhispr closed before this dictation finished."
+      "interruptedRecordingRecovered": "Recovered after OpenWhispr closed before this dictation finished.",
+      "styleFallback": {
+        "title": "Couldn't apply {{name}}",
+        "failedDescription": "The cleaned-up text was pasted instead. You can retry it from History.",
+        "unreachableDescription": "No model is set up for Dictation Cleanup, so the text was pasted as transcribed."
+      }
     },
     "clipboard": {
       "pasteFailed": {
@@ -1757,7 +1769,12 @@
         "mustContain": "Must contain",
         "mustNotContain": "Must not contain",
         "checksHint": "One per line. Literal text, not patterns.",
-        "matchCase": "Match case"
+        "matchCase": "Match case",
+        "bulletsMin": "Bullets at least",
+        "bulletsMax": "Bullets at most",
+        "numberedMin": "Numbered items at least",
+        "numberedMax": "Numbered items at most",
+        "countsHint": "Counts lines that start with a bullet (- * •) or a number (1. or 1)). Leave empty to skip."
       },
       "run": {
         "promptA": "A, the prompt in use: {{name}}",
@@ -1832,7 +1849,11 @@
           "notRepeated": "Transcript not repeated",
           "contains": "Contains “{{text}}”",
           "notContains": "Doesn't contain “{{text}}”",
-          "notChecked": "not checked"
+          "notChecked": "not checked",
+          "bulletsMin": "At least {{limit}} bullet lines (found {{actual}})",
+          "bulletsMax": "At most {{limit}} bullet lines (found {{actual}})",
+          "numberedMin": "At least {{limit}} numbered items (found {{actual}})",
+          "numberedMax": "At most {{limit}} numbered items (found {{actual}})"
         },
         "fillersFound": "Fillers left (advisory): {{words}}"
       },
@@ -1841,7 +1862,22 @@
         "selfCorrection": "Self-correction",
         "question": "Dictated question",
         "ignoreRules": "“Ignore your rules”",
-        "littleBuddy": "Little Buddy (app-scoped glossary)"
+        "littleBuddy": "Little Buddy (app-scoped glossary)",
+        "style": {
+          "teamsUpdate": "Status update on bullets",
+          "teamsCasual": "A short reply stays short",
+          "teamsQuestion": "Dictated question",
+          "requirementsStatus": "Status update (no requirements)",
+          "requirementsNegation": "Negation and nice to have",
+          "requirementsDates": "Dates",
+          "requirementsCommitments": "Commitments",
+          "requirementsQuoted": "Quoted instruction",
+          "requirementsClosingTag": "“</text>” in the dictation",
+          "requirementsDump": "Requirements dump",
+          "emailGreeting": "Greeting and sign-off as spoken",
+          "emailList": "A list becomes bullets",
+          "emailNoGreeting": "No greeting added"
+        }
       }
     }
   },
@@ -5298,6 +5334,84 @@
       "connectedBody": "You can close this tab and return to OpenWhispr.",
       "failedTitle": "{{calendar}} wasn't connected",
       "failedBody": "Return to OpenWhispr to try again."
+    }
+  },
+  "styles": {
+    "section": {
+      "title": "Styles",
+      "description": "Restyle a dictation after cleanup, for example as a Teams message or a requirements list. Each style is a short instruction; your cleanup prompt stays the same."
+    },
+    "starters": {
+      "teams": "Teams chat",
+      "requirements": "Requirements",
+      "email": "Email"
+    },
+    "plain": {
+      "name": "Plain",
+      "detail": "Cleanup only",
+      "description": "Plain is cleanup only: the cleanup prompt in use, nothing else. It's what the dictation hotkey does until you pick a style for it, and it can't be edited or switched off."
+    },
+    "picker": {
+      "label": "Style for {{hotkey}}",
+      "ariaLabel": "Style for the dictation hotkey",
+      "description": "Dictations started with {{hotkey}} or from the pill get this style. Only styles that are switched on are listed.",
+      "noModel": "No model is set up for Dictation Cleanup, so styles can't run. Dictations are pasted as transcribed.",
+      "cleanupOff": "Cleanup is off, so a style restyles the transcript as it was transcribed, in one request."
+    },
+    "list": {
+      "title": "Your styles",
+      "new": "New style",
+      "inUse": "In use",
+      "toggle": "Switch {{name}} on or off"
+    },
+    "runMode": {
+      "twoSteps": "Two steps",
+      "oneStep": "One step",
+      "twoStepsDescription": "Cleanup first, then the style. The most reliable; about 1.5 s slower.",
+      "oneStepDescription": "Cleanup and the style in one request. About twice as fast; best for exact formats."
+    },
+    "editor": {
+      "untitled": "Untitled style",
+      "on": "On",
+      "off": "Off",
+      "appGlossaryOn": "App-scoped glossary corrections on",
+      "appGlossaryOff": "App-scoped glossary corrections off",
+      "noInstruction": "No instruction yet.",
+      "showRestylePrompt": "Show the prompt sent in step two",
+      "showOneStepBlock": "Show what one step adds to the cleanup prompt",
+      "emoji": "Emoji",
+      "name": "Name",
+      "namePlaceholder": "Teams chat",
+      "instruction": "Instruction",
+      "instructionPlaceholder": "Describe the format, for example: When there are two or more separate points, put each point on its own bullet.",
+      "instructionHint": "Be explicit about the format. Rules that keep facts, names, numbers, commitments and negations as spoken are added for you and outrank the style.",
+      "runMode": "How it runs",
+      "appGlossary": "Glossary corrections for chosen apps",
+      "appGlossaryDescription": "Glossary spellings limited to chosen apps apply to this style's dictations. Off: only corrections that apply anywhere.",
+      "incomplete": "A style needs a name and an instruction.",
+      "deleteTitle": "Delete {{name}}?",
+      "deleteDescription": "The style is removed. Dictations already pasted keep their text.",
+      "deleteInUseDescription": "This is the style for the dictation hotkey; Plain takes its place."
+    },
+    "test": {
+      "defaultInput": "hey team so um quick update the deployment went out this morning uh no issues so far and we should be ready for the next ring on thursday",
+      "oneStep": "One step",
+      "twoSteps": "Two steps",
+      "sideA": "A: the style in one step",
+      "sideB": "B: the style in two steps (cleanup first)",
+      "runsDraft": "The run uses this style's unsaved changes.",
+      "setIntro": "Runs every case through this style in one step (A) and in two steps (B), side by side, with automatic checks and both timings. Both use the cleanup prompt in use. Nothing you've saved changes.",
+      "emptyCases": "No cases of your own for this style yet. Save a Test input as a case, or add a dictation made with this style from History.",
+      "incomplete": "Give the style a name and an instruction first.",
+      "otherRunRunning": "Another test run is in progress. Wait for it to finish or stop it.",
+      "estimate": "{{cases}} cases × 2 run modes × {{runs}} runs = {{requests}} runs (two steps sends two requests), about {{duration}}.",
+      "removeAllTitle": "Remove this style's test cases?",
+      "removeAllDescription": "Removes every case of yours for this style, including those kept for this session. Built-in cases can only be hidden.",
+      "saveFirst": "Save the style first to run its test set.",
+      "single": "Runs this input through the style in one step, then in two steps, with the cleanup prompt in use, and shows both timings. Nothing you've saved changes.",
+      "singleDraft": "Runs this input through the style's unsaved draft in one step, then in two steps, with the cleanup prompt in use. Nothing you've saved changes.",
+      "runBoth": "Run one step and two steps",
+      "failed": "Failed: {{error}}"
     }
   }
 }

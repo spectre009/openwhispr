@@ -146,7 +146,10 @@ import {
   runPostTranscription,
   SERVER_PROMPT_REF,
   summarizeGlossaryTrace,
+  traceStyle,
 } from "./postTranscription";
+import { isStyleReachable, runStyledDictation } from "../services/dictationStyles";
+import { styleRouteKind } from "../config/styles/library";
 import { normalizeAgentSelectionContext } from "../utils/agentSelectionContext";
 import { getAgentName } from "../utils/agentName";
 import { shouldDisplayDictationPreview } from "../utils/transcriptionPreview";
@@ -715,6 +718,8 @@ class AudioManager {
     this.voiceAgentRequested = false;
     this.translationRequested = false;
     this.translationApplied = false;
+    // The style this recording carries, frozen when it started (null = Plain).
+    this.recordingStyle = null;
     this.pendingSelectionEdit = null;
     this.pendingAssistantConversation = null;
     this.pendingCleanupFailure = null;
@@ -774,7 +779,28 @@ class AudioManager {
   _startRecordingSpool() {
     const { dataRetentionEnabled, audioRetentionDays } = getEffectiveRetentionPreferences();
     if (!dataRetentionEnabled || audioRetentionDays <= 0) return null;
-    return startRecordingSpool(this.translationRequested ? "translation" : null);
+    return startRecordingSpool(this.getRecordingRouteKind());
+  }
+
+  // A styled recording is its own intent, like translation: assistant and
+  // translation recordings never carry one.
+  getActiveRecordingStyle() {
+    if (this.voiceAgentRequested || this.translationRequested) return null;
+    return this.recordingStyle || null;
+  }
+
+  // History's route_kind for this recording: "translation", "style:<id>" or null.
+  getRecordingRouteKind() {
+    if (this.translationRequested) return "translation";
+    return styleRouteKind(this.getActiveRecordingStyle()?.id);
+  }
+
+  // Frozen for the recording: set once when it starts, cleared by a cancel.
+  // A second press while holding or processing never starts a new recording,
+  // so it never reaches this.
+  setRecordingStyle(style) {
+    this.recordingStyle =
+      style && typeof style.id === "string" ? Object.freeze({ ...style }) : null;
   }
 
   _takeRecordingSpool() {
@@ -944,6 +970,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     onPartialTranscript,
     onStreamingCommit,
     onTranslationFallback,
+    onStyleFallback,
   }) {
     this.onStateChange = onStateChange;
     this.onError = onError;
@@ -952,11 +979,21 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     this.onPartialTranscript = onPartialTranscript;
     this.onStreamingCommit = onStreamingCommit;
     this.onTranslationFallback = onTranslationFallback;
+    this.onStyleFallback = onStyleFallback;
   }
 
   // Fail-open: translation degraded/failed but raw text is still pasted. Surface why.
   notifyTranslationFallback(reason) {
     this.onTranslationFallback?.({ reason });
+  }
+
+  // The style didn't apply: "failed" pastes the cleaned text, "unreachable"
+  // (no model for the cleanup scope) the transcript. Either way, say so.
+  notifyStyleFallback(style, reason) {
+    this.onStyleFallback?.({
+      reason,
+      style: style ? { id: style.id, name: style.name, emoji: style.emoji } : null,
+    });
   }
 
   setMicCaptureStatus(status) {
@@ -3226,6 +3263,59 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     }
   }
 
+  // One cleanup call, recorded as a "cleanup" step. `cleanup.mode` is
+  // "cloudReason" (OpenWhispr Cloud's cleanup endpoint, with the path's STT
+  // metadata in `cleanup.meta`) or "model" (the cleanup model through
+  // ReasoningService with `cleanupConfig`). Resolves the reply, or null when
+  // there is nothing to call. Shared by the translation chain and styles.
+  async _runCleanupStep(
+    currentText,
+    { settings, agentName, cleanup, cleanupConfig, recordStep = passthroughStep }
+  ) {
+    if (cleanup.mode === "cloudReason") {
+      return recordStep(
+        "cleanup",
+        { provider: "openwhispr", prompt: SERVER_PROMPT_REF },
+        async (dispatched) => {
+          const customPrompt = this.getCustomPrompt();
+          const reasonResult = await withSessionRefresh(async () => {
+            const res = await window.electronAPI.cloudReason(currentText, {
+              agentName,
+              promptMode: "cleanup",
+              purpose: "cleanup",
+              customDictionary: getDictionaryHintWords(settings),
+              customPrompt,
+              language: this.getCleanupLanguage(settings),
+              locale: settings.uiLanguage || "en",
+              ...(cleanup.meta || {}),
+            });
+            if (!res.success) {
+              const err = new Error(res.error || "Cloud reasoning failed");
+              err.code = res.code;
+              throw err;
+            }
+            return res;
+          });
+          dispatched({ model: reasonResult.model });
+          if (!customPrompt && hasTextContent(reasonResult.text)) {
+            assertValidCleanupOutput(currentText, reasonResult.text);
+          }
+          return reasonResult.success && reasonResult.text ? reasonResult.text : null;
+        }
+      );
+    }
+    const cleanupModel = cleanup.model;
+    if (cleanupModel) {
+      return recordStep("cleanup", {}, (dispatched) =>
+        this.processWithReasoningModel(currentText, cleanupModel, agentName, {
+          ...cleanupConfig,
+          onDispatch: dispatched,
+        })
+      );
+    }
+    return null;
+  }
+
   // Cleanup-then-translate chain shared by batch, cloud, and streaming paths: Step 1
   // (optional cleanup) soft-fails to input; Step 2 translates unless source === target.
   // `recordStep` (from the post-transcription boundary) records each call it makes.
@@ -3237,50 +3327,14 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     cleanup,
     recordStep = passthroughStep,
   }) {
-    const runCleanup = async (currentText) => {
-      if (cleanup.mode === "cloudReason") {
-        return recordStep(
-          "cleanup",
-          { provider: "openwhispr", prompt: SERVER_PROMPT_REF },
-          async (dispatched) => {
-            const customPrompt = this.getCustomPrompt();
-            const reasonResult = await withSessionRefresh(async () => {
-              const res = await window.electronAPI.cloudReason(currentText, {
-                agentName,
-                promptMode: "cleanup",
-                purpose: "cleanup",
-                customDictionary: getDictionaryHintWords(settings),
-                customPrompt,
-                language: this.getCleanupLanguage(settings),
-                locale: settings.uiLanguage || "en",
-                ...(cleanup.meta || {}),
-              });
-              if (!res.success) {
-                const err = new Error(res.error || "Cloud reasoning failed");
-                err.code = res.code;
-                throw err;
-              }
-              return res;
-            });
-            dispatched({ model: reasonResult.model });
-            if (!customPrompt && hasTextContent(reasonResult.text)) {
-              assertValidCleanupOutput(currentText, reasonResult.text);
-            }
-            return reasonResult.success && reasonResult.text ? reasonResult.text : null;
-          }
-        );
-      }
-      const cleanupModel = cleanup.model;
-      if (cleanupModel) {
-        return recordStep("cleanup", {}, (dispatched) =>
-          this.processWithReasoningModel(currentText, cleanupModel, agentName, {
-            ...route.cleanupConfig,
-            onDispatch: dispatched,
-          })
-        );
-      }
-      return null;
-    };
+    const runCleanup = (currentText) =>
+      this._runCleanupStep(currentText, {
+        settings,
+        agentName,
+        cleanup,
+        cleanupConfig: route.cleanupConfig,
+        recordStep,
+      });
 
     const runTranslate = async (currentText) =>
       recordStep("translation", {}, (dispatched) =>
@@ -3339,6 +3393,13 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
   // and works on `workingText`; it returns the text to paste before the
   // Chinese script pass, which the boundary applies last. Returns
   // `{ text, trace }`; the trace travels on the result object.
+  //
+  // A styled recording (Stage 3) is its own intent: the path's `run` is
+  // replaced by the style route, so batch, Cloud, streaming and the
+  // streaming→batch fallback each apply the style exactly once (this boundary
+  // runs once per recording). `cleanupRoute` is how the path cleans up:
+  // `{ mode: "cloudReason", meta }` on the Cloud and streaming paths that call
+  // Cloud's cleanup endpoint directly, otherwise the cleanup model.
   async postTranscribe(
     rawText,
     {
@@ -3348,6 +3409,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       stt = null,
       detectedLanguage,
       run,
+      cleanupRoute = null,
     }
   ) {
     const agentName = currentAgentName();
@@ -3355,24 +3417,37 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     // begins it now, alongside the model call.
     const stepHistoryRun = this.stepHistoryRunPromise || requestStepHistoryRun();
     const targetApp = await this.getRecordingTargetApp();
+    const style = this.getActiveRecordingStyle();
     const result = await runPostTranscription(rawText, {
       context: {
         targetApp,
         voiceAgentRequested: this.voiceAgentRequested,
         translationRequested: this.translationRequested,
+        ...(style
+          ? {
+              style: { id: style.id, runMode: style.runMode },
+              appScopedGlossary: style.appGlossary !== false,
+            }
+          : {}),
       },
       glossary: getGlossarySnapshot(),
       snippets: settings?.snippets,
       stt,
-      detectWakeWord: (text) =>
-        !!agentName &&
-        detectAgentName(
-          text,
-          agentName,
-          resolveWakeWordLanguage(settings, detectedLanguage, text),
-          settings?.snippets
-        ),
-      run,
+      // A styled recording never wakes the assistant, as a translation never does.
+      detectWakeWord: style
+        ? null
+        : (text) =>
+            !!agentName &&
+            detectAgentName(
+              text,
+              agentName,
+              resolveWakeWordLanguage(settings, detectedLanguage, text),
+              settings?.snippets
+            ),
+      run: style
+        ? (args) =>
+            this.runStyleRoute(args, { style, settings, source, wasCancelled, cleanupRoute })
+        : run,
       finalize: (text) => this.finalizeChineseScript(text, settings),
       wasCancelled,
     });
@@ -3390,6 +3465,99 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       );
     }
     return result;
+  }
+
+  // The style route, inside the boundary's `run`: two steps (cleanup with the
+  // prompt in use, then the restyle) or one step (the cleanup prompt plus the
+  // style), whenever a model is reachable for the cleanup scope, even with
+  // cleanup switched off (then it restyles the corrected transcript). A
+  // failed restyle pastes the cleaned text and says so; a failed cleanup
+  // restyles the corrected transcript; no model keeps today's behaviour (the
+  // corrected transcript) with the same notice. Never the wake word or a
+  // selection edit: a styled recording is its own intent.
+  async runStyleRoute(
+    { workingText, recordStep, setRoute },
+    { style, settings = getSettings(), source, wasCancelled = neverCancelled, cleanupRoute = null }
+  ) {
+    const input = typeof workingText === "string" ? workingText.trim() : "";
+    if (!input || wasCancelled()) return input;
+    if (!isStyleReachable(settings)) {
+      logger.logReasoning("STYLE_SKIPPED", { reason: "No model for the cleanup scope", source });
+      setRoute("none");
+      this.notifyStyleFallback(style, "unreachable");
+      return input;
+    }
+    setRoute("style");
+    const agentName = currentAgentName();
+    const cleanupConfig = buildDictationCleanupConfig(settings);
+    const cleanupModel = getEffectiveCleanupModel() || "";
+    const cleanupOn = !!settings.useCleanupModel;
+    logger.logReasoning("STYLE_ROUTE", {
+      source,
+      styleId: style.id,
+      runMode: cleanupOn ? style.runMode : "two-step",
+      cleanupOn,
+      textLength: input.length,
+    });
+    let styleFailed = false;
+    const started = performance.now();
+    const result = await runStyledDictation({
+      text: input,
+      style,
+      settings,
+      agentName,
+      cleanupOn,
+      recordStep,
+      process: (text, model, name, config) =>
+        this.processWithReasoningModel(text, model, name, config),
+      runCleanup: (text) =>
+        // Cloud's cleanup endpoint only when Cloud is the cleanup provider;
+        // otherwise the cleanup model the user chose.
+        cleanupRoute?.mode === "cloudReason" && isCloudCleanupMode()
+          ? this._runCleanupStep(text, {
+              settings,
+              agentName,
+              cleanup: cleanupRoute,
+              cleanupConfig,
+              recordStep,
+            })
+          : recordStep("cleanup", {}, (dispatched) =>
+              this.processWithReasoningModel(text, cleanupModel, agentName, {
+                ...cleanupConfig,
+                onDispatch: dispatched,
+              })
+            ),
+      onCleanupError: (error) => {
+        if (wasCancelled()) return;
+        logger.warn(
+          "Cleanup failed in a styled dictation, restyling the transcript",
+          { source, error: error?.message },
+          "transcription"
+        );
+        this.pendingCleanupFailure = cleanupFailureFromError(error);
+      },
+      onStyleError: (error) => {
+        styleFailed = true;
+        if (wasCancelled()) return;
+        logger.warn(
+          "Style not applied, keeping the cleaned text",
+          { source, styleId: style.id, error: error?.message ?? "empty reply" },
+          "transcription"
+        );
+      },
+      wasCancelled,
+    });
+    if (styleFailed && !wasCancelled()) this.notifyStyleFallback(style, "failed");
+    logger.logReasoning("STYLE_ROUTE_COMPLETE", {
+      source,
+      styleId: style.id,
+      mode: result.mode,
+      applied: result.applied,
+      cleaned: result.cleaned,
+      durationMs: Math.round(performance.now() - started),
+      resultLength: result.text.length,
+    });
+    return hasTextContent(result.text) ? result.text : input;
   }
 
   // Batch dictation's boundary call: local, BYOK, proxied and local-fallback
@@ -3818,6 +3986,26 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
         model: result.sttModel || null,
         ms: timings.transcriptionProcessingDurationMs,
       },
+      // A styled recording cleans up through the same Cloud endpoint, with the
+      // same metadata, as the cleanup route below.
+      cleanupRoute:
+        cleanupCloudMode === "openwhispr"
+          ? {
+              mode: "cloudReason",
+              meta: {
+                streamingFallbackReason,
+                ...detectedLanguageFields,
+                sttProvider: result.sttProvider,
+                sttModel: result.sttModel,
+                sttProcessingMs: result.sttProcessingMs,
+                sttWordCount: result.sttWordCount,
+                sttLanguage: result.sttLanguage,
+                audioDurationMs: result.audioDurationMs,
+                audioSizeBytes,
+                audioFormat,
+              },
+            }
+          : null,
       run: async ({ rawText: routeText, workingText, recordStep, setRoute }) => {
         let processedText = workingText;
         if (!processedText) return processedText;
@@ -4638,7 +4826,13 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     try {
       const result = await window.electronAPI.saveTranscription(text, rawText, {
         clientTranscriptionId: eventId,
-        routeKind: this.translationRequested ? "translation" : null,
+        // A styled dictation's style comes from its own trace: the recording
+        // it belongs to, even if another one has started since.
+        routeKind: this.translationRequested
+          ? "translation"
+          : trace
+            ? styleRouteKind(traceStyle(trace)?.id)
+            : this.getRecordingRouteKind(),
         analyticsOccurredAt: occurredAt.toISOString(),
         // Main writes its steps in the row's transaction, if ownership and the
         // history setting still allow them when it arrives.
@@ -4685,7 +4879,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
         status: "failed",
         errorMessage,
         errorCode,
-        routeKind: this.translationRequested ? "translation" : null,
+        routeKind: this.getRecordingRouteKind(),
         ...(metadata?.analyticsOccurredAt
           ? { analyticsOccurredAt: metadata.analyticsOccurredAt }
           : {}),
@@ -4733,7 +4927,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     try {
       const result = await window.electronAPI.saveTranscription("", null, {
         status: "discarded",
-        routeKind: this.translationRequested ? "translation" : null,
+        routeKind: this.getRecordingRouteKind(),
         ...(analyticsOccurredAt ? { analyticsOccurredAt } : {}),
       });
       if (!result?.id) return;
@@ -5984,6 +6178,27 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
             model: streamingSttModel,
             ms: streamingSttProcessingMs,
           },
+          // A styled recording cleans up through the same Cloud endpoint, with
+          // the same metadata, as the cleanup route below.
+          cleanupRoute:
+            cleanupCloudMode === "openwhispr"
+              ? {
+                  mode: "cloudReason",
+                  meta: {
+                    sttProvider: this.getStreamingProviderName(),
+                    sttModel: streamingSttModel,
+                    sttProcessingMs: streamingSttProcessingMs,
+                    sttWordCount: streamingSttWordCount,
+                    sttLanguage: streamingSttLanguage,
+                    ...detectedLanguageFields,
+                    audioDurationMs: durationSeconds
+                      ? Math.round(durationSeconds * 1000)
+                      : undefined,
+                    audioSizeBytes: streamingAudioBytesSent || undefined,
+                    audioFormat: "linear16",
+                  },
+                }
+              : null,
           run: async ({ rawText: routeText, workingText, recordStep, setRoute }) => {
             let text = workingText;
             const reasoningStart = performance.now();
@@ -6160,6 +6375,16 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       if (wasCancelled()) return true;
       finalText = post.text;
       streamingTrace = post.trace;
+      // A styled recording's Cloud cleanup ran inside the style route.
+      if (
+        traceStyle(post.trace) &&
+        post.trace.steps.some(
+          (step) =>
+            step.kind === "cleanup" && step.provider === "openwhispr" && step.outcome === "ok"
+        )
+      ) {
+        usedCloudReasoning = true;
+      }
     }
     // If streaming produced no text, fall back to batch — routed so BYOK audio
     // and cloud audio never cross over (see resolveStreamingFallbackTarget).

@@ -997,7 +997,9 @@ class WindowManager {
     return required;
   }
 
-  startWindowsPushToTalk(key, keyTiming) {
+  // `styleId` (Stage 4 style keys) is frozen with the push: prepare and start
+  // both carry the style of the key that began it.
+  startWindowsPushToTalk(key, keyTiming, { styleId } = {}) {
     if (!this._isOnboardingInputAllowed("dictation")) return;
     if (this.winPushState?.active || this.isDictationProcessing()) {
       return;
@@ -1015,9 +1017,10 @@ class WindowManager {
       hookAt: keyTiming?.hookAt,
       mainAt: downTime,
     };
+    const pushStyleId = typeof styleId === "string" && styleId ? styleId : undefined;
 
     this.showDictationPanel({ reposition: true });
-    this.sendPrepareDictation({ trace });
+    this.sendPrepareDictation({ trace, styleId: pushStyleId });
 
     const safetyTimeoutId = setTimeout(() => {
       if (!this.winPushState || this.winPushState.downTime !== downTime) return;
@@ -1028,6 +1031,7 @@ class WindowManager {
     this.winPushState = {
       active: true,
       key,
+      styleId: pushStyleId ?? null,
       downTime,
       isRecording: false,
       safetyTimeoutId,
@@ -1040,7 +1044,7 @@ class WindowManager {
 
       if (!this.winPushState.isRecording) {
         this.winPushState.isRecording = true;
-        this.sendStartDictation({ trace });
+        this.sendStartDictation({ trace, styleId: this.winPushState.styleId ?? undefined });
       }
     }, MIN_HOLD_DURATION_MS);
   }
@@ -1141,7 +1145,7 @@ class WindowManager {
     return blocked;
   }
 
-  _sendDictationToggle(channel, inputKind) {
+  _sendDictationToggle(channel, inputKind, payload) {
     if (!this._isOnboardingInputAllowed(inputKind)) return;
     if (this._shouldBlockDictationInput(inputKind)) {
       return;
@@ -1180,9 +1184,10 @@ class WindowManager {
       // toggle's own kind so the pre-warm survives the assistant demo, whose
       // gate rejects "dictation".
       if (isStarting) {
-        this.sendPrepareDictation({ inputKind });
+        this.sendPrepareDictation({ inputKind, styleId: payload?.styleId });
       }
-      this.mainWindow.webContents.send(channel);
+      if (payload) this.mainWindow.webContents.send(channel, payload);
+      else this.mainWindow.webContents.send(channel);
     }
   }
 
@@ -1400,8 +1405,14 @@ class WindowManager {
     return shouldIgnoreDictationHotkey(this._dictationLifecycleState);
   }
 
-  sendToggleDictation() {
-    this._sendDictationToggle("toggle-dictation", "dictation");
+  sendToggleDictation({ styleId } = {}) {
+    // A style key (Stage 4) names its style; the dictation hotkey names none,
+    // so the renderer applies the style chosen for it.
+    this._sendDictationToggle(
+      "toggle-dictation",
+      "dictation",
+      typeof styleId === "string" && styleId ? { styleId } : undefined
+    );
   }
 
   sendToggleVoiceAgent() {
@@ -1423,7 +1434,7 @@ class WindowManager {
     this.mainWindow.webContents.send("open-assistant-panel");
   }
 
-  sendStartDictation({ trace } = {}) {
+  sendStartDictation({ trace, styleId } = {}) {
     if (!this._isOnboardingInputAllowed("dictation")) return;
     if (this._shouldBlockDictationInput("dictation")) {
       return;
@@ -1438,9 +1449,17 @@ class WindowManager {
       const targetPidPromise = this.textEditMonitor?.captureTargetPid?.();
       void this.selectionManager?.captureTarget?.();
       this.showDictationPanel({ reposition: true, targetPidPromise });
+      // The style travels with the start, so the recording carries the style
+      // of the key that started it (Stage 4); none means the hotkey's style.
+      const hasStyle = typeof styleId === "string" && styleId.length > 0;
       this.mainWindow.webContents.send(
         "start-dictation",
-        trace ? { trace: { ...trace, startSentAt: Date.now() } } : undefined
+        trace || hasStyle
+          ? {
+              ...(trace ? { trace: { ...trace, startSentAt: Date.now() } } : {}),
+              ...(hasStyle ? { styleId } : {}),
+            }
+          : undefined
       );
     }
   }
@@ -1454,7 +1473,7 @@ class WindowManager {
     }
   }
 
-  sendPrepareDictation({ inputKind = "dictation", trace } = {}) {
+  sendPrepareDictation({ inputKind = "dictation", trace, styleId } = {}) {
     if (!this._isOnboardingInputAllowed(inputKind)) return;
     if (this._shouldBlockDictationInput(inputKind)) {
       return;
@@ -1469,6 +1488,7 @@ class WindowManager {
       this.mainWindow.webContents.send("prepare-dictation", {
         inputKind,
         ...(trace && { trace: { ...trace, prepareSentAt: Date.now() } }),
+        ...(typeof styleId === "string" && styleId && { styleId }),
       });
     }
   }

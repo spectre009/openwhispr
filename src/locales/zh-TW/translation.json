@@ -736,7 +736,8 @@
           "failed": "失敗",
           "skipped": "已略過",
           "fallback": "保留了先前的文字"
-        }
+        },
+        "deletedStyle": "已刪除的風格"
       },
       "export": {
         "button": "匯出",
@@ -758,6 +759,12 @@
         "already": "已在測試集中",
         "failed": "無法加入測試集",
         "noRawText": "此聽寫沒有原始轉錄，而清理後的文字從不用作測試輸入。"
+      },
+      "styledDictation": "使用風格的口述",
+      "styleDeleted": {
+        "title": "此口述的風格已被刪除",
+        "description": "以一般口述（僅清理）重試？",
+        "retryPlain": "以一般方式重試"
       }
     },
     "aiCta": {
@@ -1082,7 +1089,12 @@
       "pasteFailed": {
         "title": "無法自動貼上"
       },
-      "interruptedRecordingRecovered": "OpenWhispr 在本次語音輸入完成前關閉，已復原此錄音。"
+      "interruptedRecordingRecovered": "OpenWhispr 在本次語音輸入完成前關閉，已復原此錄音。",
+      "styleFallback": {
+        "title": "無法套用 {{name}}",
+        "failedDescription": "已改為貼上清理後的文字。你可以在歷史記錄中重試。",
+        "unreachableDescription": "尚未為口述清理設定模型，因此依轉寫原樣貼上了文字。"
+      }
     },
     "clipboard": {
       "pasteFailed": {
@@ -1663,7 +1675,12 @@
         "mustContain": "必須包含",
         "mustNotContain": "不得包含",
         "checksHint": "每行一項。依字面文字比對，不是模式。",
-        "matchCase": "區分大小寫"
+        "matchCase": "區分大小寫",
+        "bulletsMin": "項目符號至少",
+        "bulletsMax": "項目符號至多",
+        "numberedMin": "編號項目至少",
+        "numberedMax": "編號項目至多",
+        "countsHint": "計算以項目符號（- * •）或編號（1. 或 1)）開頭的行。留空則不檢查。"
       },
       "run": {
         "promptA": "A，使用中的提示詞：{{name}}",
@@ -1738,7 +1755,11 @@
           "notRepeated": "轉錄內容未重複",
           "contains": "包含「{{text}}」",
           "notContains": "不包含「{{text}}」",
-          "notChecked": "未檢查"
+          "notChecked": "未檢查",
+          "bulletsMin": "至少 {{limit}} 行項目符號（實際：{{actual}}）",
+          "bulletsMax": "至多 {{limit}} 行項目符號（實際：{{actual}}）",
+          "numberedMin": "至少 {{limit}} 個編號項目（實際：{{actual}}）",
+          "numberedMax": "至多 {{limit}} 個編號項目（實際：{{actual}}）"
         },
         "fillersFound": "殘留的語助詞（僅供參考）：{{words}}"
       },
@@ -1747,7 +1768,22 @@
         "selfCorrection": "自我更正",
         "question": "聽寫的問題",
         "ignoreRules": "「忽略你的規則」",
-        "littleBuddy": "Little Buddy（依應用程式的詞彙表）"
+        "littleBuddy": "Little Buddy（依應用程式的詞彙表）",
+        "style": {
+          "teamsUpdate": "狀態更新改為項目符號",
+          "teamsCasual": "簡短回覆保持簡短",
+          "teamsQuestion": "口述的問題",
+          "requirementsStatus": "狀態更新（無需求）",
+          "requirementsNegation": "否定與「錦上添花」",
+          "requirementsDates": "日期",
+          "requirementsCommitments": "承諾",
+          "requirementsQuoted": "引用的指令",
+          "requirementsClosingTag": "口述中的「</text>」",
+          "requirementsDump": "需求羅列",
+          "emailGreeting": "問候和結尾語依原話保留",
+          "emailList": "列舉改為項目符號",
+          "emailNoGreeting": "不加入問候語"
+        }
       }
     }
   },
@@ -5298,6 +5334,84 @@
       "connectedBody": "你可以關閉此分頁並返回 OpenWhispr。",
       "failedTitle": "{{calendar}} 未連線",
       "failedBody": "請返回 OpenWhispr 再試一次。"
+    }
+  },
+  "styles": {
+    "section": {
+      "title": "風格",
+      "description": "在清理之後為口述換一種風格，例如 Teams 訊息或需求清單。每種風格都是一條簡短的指令；你的清理提示詞保持不變。"
+    },
+    "starters": {
+      "teams": "Teams 聊天",
+      "requirements": "需求",
+      "email": "電子郵件"
+    },
+    "plain": {
+      "name": "一般",
+      "detail": "僅清理",
+      "description": "一般只做清理：使用目前的清理提示詞，不做其他處理。在你為口述快速鍵選擇風格之前，它就是快速鍵的行為，且無法編輯或關閉。"
+    },
+    "picker": {
+      "label": "{{hotkey}} 的風格",
+      "ariaLabel": "口述快速鍵的風格",
+      "description": "以 {{hotkey}} 或從浮動條開始的口述會套用此風格。只列出已開啟的風格。",
+      "noModel": "尚未為口述清理設定模型，因此風格無法執行。口述會依轉寫原樣貼上。",
+      "cleanupOff": "清理已關閉，因此風格會在一次請求中直接改寫轉寫原文。"
+    },
+    "list": {
+      "title": "你的風格",
+      "new": "新增風格",
+      "inUse": "使用中",
+      "toggle": "開啟或關閉 {{name}}"
+    },
+    "runMode": {
+      "twoSteps": "兩步",
+      "oneStep": "一步",
+      "twoStepsDescription": "先清理，再套用風格。最可靠；約慢 1.5 秒。",
+      "oneStepDescription": "清理與風格合併為一次請求。速度約快一倍；最適合固定格式。"
+    },
+    "editor": {
+      "untitled": "未命名風格",
+      "on": "開啟",
+      "off": "關閉",
+      "appGlossaryOn": "限定應用程式的詞彙表更正：開啟",
+      "appGlossaryOff": "限定應用程式的詞彙表更正：關閉",
+      "noInstruction": "還沒有指令。",
+      "showRestylePrompt": "顯示第二步傳送的提示詞",
+      "showOneStepBlock": "顯示一步模式加入清理提示詞的內容",
+      "emoji": "表情符號",
+      "name": "名稱",
+      "namePlaceholder": "Teams 聊天",
+      "instruction": "指令",
+      "instructionPlaceholder": "描述格式，例如：當有兩個或更多獨立要點時，每個要點各自使用一個項目符號。",
+      "instructionHint": "請明確描述格式。讓事實、姓名、數字、承諾與否定維持口述原樣的規則會自動加入，且優先於風格。",
+      "runMode": "執行方式",
+      "appGlossary": "針對所選應用程式的詞彙表更正",
+      "appGlossaryDescription": "僅限所選應用程式的詞彙表拼寫也會用於此風格的口述。關閉：只使用在任何地方都適用的更正。",
+      "incomplete": "風格需要名稱和指令。",
+      "deleteTitle": "刪除 {{name}}？",
+      "deleteDescription": "此風格將被刪除。已貼上的口述保留其文字。",
+      "deleteInUseDescription": "這是口述快速鍵的風格；將由一般取而代之。"
+    },
+    "test": {
+      "defaultInput": "大家好 嗯 簡單更新一下 部署今天早上已經發出 呃 目前沒有問題 我們應該週四就能準備好下一個環",
+      "oneStep": "一步",
+      "twoSteps": "兩步",
+      "sideA": "A：以一步執行風格",
+      "sideB": "B：以兩步執行風格（先清理）",
+      "runsDraft": "本次執行使用此風格未儲存的變更。",
+      "setIntro": "將每個案例分別以一步（A）和兩步（B）執行此風格，並排顯示自動檢查結果與兩種耗時。兩者都使用目前的清理提示詞。已儲存的內容不會改變。",
+      "emptyCases": "此風格還沒有你自己的案例。可將測試輸入儲存為案例，或從歷史記錄加入以此風格完成的口述。",
+      "incomplete": "請先為風格填寫名稱和指令。",
+      "otherRunRunning": "另一個測試正在執行。請等待其完成或將其停止。",
+      "estimate": "{{cases}} 個案例 × 2 種方式 × {{runs}} 次 = {{requests}} 次執行（兩步會傳送兩個請求），約 {{duration}}。",
+      "removeAllTitle": "移除此風格的測試案例？",
+      "removeAllDescription": "移除你為此風格加入的所有案例，包括僅在本次工作階段保留的案例。內建案例只能隱藏。",
+      "saveFirst": "請先儲存風格，再執行其測試集。",
+      "single": "將此輸入先以一步、再以兩步執行此風格，使用目前的清理提示詞，並顯示兩種耗時。已儲存的內容不會改變。",
+      "singleDraft": "將此輸入先以一步、再以兩步執行風格的未儲存草稿，使用目前的清理提示詞。已儲存的內容不會改變。",
+      "runBoth": "執行一步和兩步",
+      "failed": "失敗：{{error}}"
     }
   }
 }

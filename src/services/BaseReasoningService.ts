@@ -41,6 +41,14 @@ export interface ReasoningConfig {
    */
   cleanupPrompt?: CleanupPromptOverride;
   /**
+   * Cleanup requests only (no systemPrompt): a dictation style run in the same
+   * request as cleanup (a style's one-step mode). `block` is appended to the
+   * cleanup system prompt (and to the prompt OpenWhispr Cloud is given), and
+   * the transcript's closing line names the style. Read by processText and
+   * never forwarded to a provider.
+   */
+  cleanupStyle?: CleanupStyle;
+  /**
    * Told the provider and model a request is actually dispatched to, once
    * routing (managed scopes, implicit cleanup providers) has resolved them,
    * and the system prompt it sends (see DispatchedPrompt). Called once per
@@ -65,6 +73,14 @@ export interface ReasoningConfig {
    * it, freeing the model, when one starts; it fails as YIELDED_TO_DICTATION.
    */
   yieldToDictation?: boolean;
+}
+
+/** A style folded into a cleanup request (ReasoningConfig.cleanupStyle). */
+export interface CleanupStyle {
+  /** The style's name, quoted in the transcript's closing line. */
+  name: string;
+  /** Appended to the cleanup system prompt, after a blank line. */
+  block: string;
 }
 
 /** What a cleanup system prompt is built from besides its template. */

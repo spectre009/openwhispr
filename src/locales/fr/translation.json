@@ -736,7 +736,8 @@
           "failed": "Échec",
           "skipped": "Ignorée",
           "fallback": "Texte précédent conservé"
-        }
+        },
+        "deletedStyle": "Style supprimé"
       },
       "export": {
         "button": "Exporter",
@@ -758,6 +759,12 @@
         "already": "Déjà dans le jeu de tests",
         "failed": "Impossible d'ajouter au jeu de tests",
         "noRawText": "Cette dictée n'a pas de transcription brute, et son texte nettoyé n'est jamais utilisé comme entrée de test."
+      },
+      "styledDictation": "Dictée avec un style",
+      "styleDeleted": {
+        "title": "Le style de cette dictée a été supprimé",
+        "description": "La réessayer en dictée Simple (nettoyage seul) ?",
+        "retryPlain": "Réessayer en Simple"
       }
     },
     "aiCta": {
@@ -1082,7 +1089,12 @@
       "pasteFailed": {
         "title": "Collage automatique impossible"
       },
-      "interruptedRecordingRecovered": "Récupérée après la fermeture d'OpenWhispr avant la fin de cette dictée."
+      "interruptedRecordingRecovered": "Récupérée après la fermeture d'OpenWhispr avant la fin de cette dictée.",
+      "styleFallback": {
+        "title": "Impossible d'appliquer {{name}}",
+        "failedDescription": "Le texte nettoyé a été collé à la place. Vous pouvez réessayer depuis l'Historique.",
+        "unreachableDescription": "Aucun modèle n'est configuré pour le nettoyage des dictées, le texte a donc été collé tel que transcrit."
+      }
     },
     "clipboard": {
       "pasteFailed": {
@@ -1757,7 +1769,12 @@
         "mustContain": "Doit contenir",
         "mustNotContain": "Ne doit pas contenir",
         "checksHint": "Un par ligne. Texte littéral, pas de motifs.",
-        "matchCase": "Respecter la casse"
+        "matchCase": "Respecter la casse",
+        "bulletsMin": "Puces au moins",
+        "bulletsMax": "Puces au plus",
+        "numberedMin": "Éléments numérotés au moins",
+        "numberedMax": "Éléments numérotés au plus",
+        "countsHint": "Compte les lignes qui commencent par une puce (- * •) ou un numéro (1. ou 1)). Laissez vide pour ignorer."
       },
       "run": {
         "promptA": "A, le prompt utilisé : {{name}}",
@@ -1832,7 +1849,11 @@
           "notRepeated": "Transcription non répétée",
           "contains": "Contient « {{text}} »",
           "notContains": "Ne contient pas « {{text}} »",
-          "notChecked": "non vérifié"
+          "notChecked": "non vérifié",
+          "bulletsMin": "Au moins {{limit}} lignes à puce (trouvées : {{actual}})",
+          "bulletsMax": "Au plus {{limit}} lignes à puce (trouvées : {{actual}})",
+          "numberedMin": "Au moins {{limit}} éléments numérotés (trouvés : {{actual}})",
+          "numberedMax": "Au plus {{limit}} éléments numérotés (trouvés : {{actual}})"
         },
         "fillersFound": "Mots de remplissage restants (indicatif) : {{words}}"
       },
@@ -1841,7 +1862,22 @@
         "selfCorrection": "Autocorrection",
         "question": "Question dictée",
         "ignoreRules": "« Ignore tes règles »",
-        "littleBuddy": "Little Buddy (glossaire limité à certaines applis)"
+        "littleBuddy": "Little Buddy (glossaire limité à certaines applis)",
+        "style": {
+          "teamsUpdate": "Point d'avancement en puces",
+          "teamsCasual": "Une réponse courte reste courte",
+          "teamsQuestion": "Question dictée",
+          "requirementsStatus": "Point d'avancement (aucune exigence)",
+          "requirementsNegation": "Négation et souhaitable",
+          "requirementsDates": "Dates",
+          "requirementsCommitments": "Engagements",
+          "requirementsQuoted": "Instruction citée",
+          "requirementsClosingTag": "« </text> » dans la dictée",
+          "requirementsDump": "Liste d'exigences",
+          "emailGreeting": "Salutation et formule finale telles que dites",
+          "emailList": "Une liste devient des puces",
+          "emailNoGreeting": "Aucune salutation ajoutée"
+        }
       }
     }
   },
@@ -5298,6 +5334,84 @@
       "connectedBody": "Vous pouvez fermer cet onglet et revenir à OpenWhispr.",
       "failedTitle": "{{calendar}} n'a pas été connecté",
       "failedBody": "Revenez à OpenWhispr pour réessayer."
+    }
+  },
+  "styles": {
+    "section": {
+      "title": "Styles",
+      "description": "Remettez en forme une dictée après le nettoyage, par exemple en message Teams ou en liste d'exigences. Chaque style est une courte instruction ; votre prompt de nettoyage reste le même."
+    },
+    "starters": {
+      "teams": "Chat Teams",
+      "requirements": "Exigences",
+      "email": "E-mail"
+    },
+    "plain": {
+      "name": "Simple",
+      "detail": "Nettoyage seul",
+      "description": "Simple, c'est le nettoyage seul : le prompt de nettoyage utilisé, rien d'autre. C'est ce que fait le raccourci de dictée tant que vous ne lui attribuez pas de style. Il ne peut être ni modifié ni désactivé."
+    },
+    "picker": {
+      "label": "Style pour {{hotkey}}",
+      "ariaLabel": "Style du raccourci de dictée",
+      "description": "Les dictées lancées avec {{hotkey}} ou depuis la pastille reçoivent ce style. Seuls les styles activés sont proposés.",
+      "noModel": "Aucun modèle n'est configuré pour le nettoyage des dictées, les styles ne peuvent donc pas s'exécuter. Les dictées sont collées telles que transcrites.",
+      "cleanupOff": "Le nettoyage est désactivé : un style remet donc en forme la transcription telle quelle, en une seule requête."
+    },
+    "list": {
+      "title": "Vos styles",
+      "new": "Nouveau style",
+      "inUse": "Utilisé",
+      "toggle": "Activer ou désactiver {{name}}"
+    },
+    "runMode": {
+      "twoSteps": "Deux étapes",
+      "oneStep": "Une étape",
+      "twoStepsDescription": "D'abord le nettoyage, puis le style. Le plus fiable ; environ 1,5 s de plus.",
+      "oneStepDescription": "Nettoyage et style en une seule requête. Environ deux fois plus rapide ; idéal pour les formats précis."
+    },
+    "editor": {
+      "untitled": "Style sans nom",
+      "on": "Activé",
+      "off": "Désactivé",
+      "appGlossaryOn": "Corrections du glossaire par application activées",
+      "appGlossaryOff": "Corrections du glossaire par application désactivées",
+      "noInstruction": "Pas encore d'instruction.",
+      "showRestylePrompt": "Afficher le prompt envoyé à la deuxième étape",
+      "showOneStepBlock": "Afficher ce qu'une étape ajoute au prompt de nettoyage",
+      "emoji": "Emoji",
+      "name": "Nom",
+      "namePlaceholder": "Chat Teams",
+      "instruction": "Instruction",
+      "instructionPlaceholder": "Décrivez le format, par exemple : Quand il y a deux points distincts ou plus, mettez chaque point sur sa propre puce.",
+      "instructionHint": "Soyez explicite sur le format. Des règles qui conservent les faits, noms, chiffres, engagements et négations tels qu'ils ont été dits sont ajoutées pour vous et priment sur le style.",
+      "runMode": "Exécution",
+      "appGlossary": "Corrections du glossaire pour les applications choisies",
+      "appGlossaryDescription": "Les graphies du glossaire limitées à des applications choisies s'appliquent aux dictées de ce style. Désactivé : seules les corrections valables partout.",
+      "incomplete": "Un style a besoin d'un nom et d'une instruction.",
+      "deleteTitle": "Supprimer {{name}} ?",
+      "deleteDescription": "Le style est supprimé. Les dictées déjà collées gardent leur texte.",
+      "deleteInUseDescription": "C'est le style du raccourci de dictée ; Simple le remplace."
+    },
+    "test": {
+      "defaultInput": "salut l'équipe euh petit point le déploiement est parti ce matin hum aucun problème pour l'instant et on devrait être prêts pour le prochain anneau jeudi",
+      "oneStep": "Une étape",
+      "twoSteps": "Deux étapes",
+      "sideA": "A : le style en une étape",
+      "sideB": "B : le style en deux étapes (nettoyage d'abord)",
+      "runsDraft": "L'exécution utilise les modifications non enregistrées de ce style.",
+      "setIntro": "Passe chaque cas dans ce style en une étape (A) et en deux étapes (B), côte à côte, avec des vérifications automatiques et les deux durées. Les deux utilisent le prompt de nettoyage actif. Rien de ce que vous avez enregistré ne change.",
+      "emptyCases": "Pas encore de cas à vous pour ce style. Enregistrez une saisie de Test comme cas, ou ajoutez depuis l'Historique une dictée faite avec ce style.",
+      "incomplete": "Donnez d'abord un nom et une instruction au style.",
+      "otherRunRunning": "Une autre exécution de test est en cours. Attendez qu'elle se termine ou arrêtez-la.",
+      "estimate": "{{cases}} cas × 2 modes × {{runs}} exécutions = {{requests}} exécutions (deux étapes envoient deux requêtes), environ {{duration}}.",
+      "removeAllTitle": "Supprimer les cas de test de ce style ?",
+      "removeAllDescription": "Supprime tous vos cas pour ce style, y compris ceux gardés pour cette session. Les cas intégrés peuvent seulement être masqués.",
+      "saveFirst": "Enregistrez d'abord le style pour exécuter son jeu de tests.",
+      "single": "Passe cette saisie dans le style en une étape, puis en deux étapes, avec le prompt de nettoyage actif, et affiche les deux durées. Rien de ce que vous avez enregistré ne change.",
+      "singleDraft": "Passe cette saisie dans le brouillon non enregistré du style en une étape, puis en deux étapes, avec le prompt de nettoyage actif. Rien de ce que vous avez enregistré ne change.",
+      "runBoth": "Exécuter en une et en deux étapes",
+      "failed": "Échec : {{error}}"
     }
   }
 }

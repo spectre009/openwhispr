@@ -736,7 +736,8 @@
           "failed": "失敗",
           "skipped": "スキップ",
           "fallback": "前のテキストを保持"
-        }
+        },
+        "deletedStyle": "削除されたスタイル"
       },
       "export": {
         "button": "エクスポート",
@@ -758,6 +759,12 @@
         "already": "すでにテストセットにあります",
         "failed": "テストセットに追加できませんでした",
         "noRawText": "このディクテーションには生の文字起こしがありません。クリーンアップ後のテキストがテスト入力に使われることはありません。"
+      },
+      "styledDictation": "スタイル付きの口述",
+      "styleDeleted": {
+        "title": "この口述のスタイルは削除されています",
+        "description": "プレーン（クリーンアップのみ）で再試行しますか？",
+        "retryPlain": "プレーンで再試行"
       }
     },
     "aiCta": {
@@ -1082,7 +1089,12 @@
       "pasteFailed": {
         "title": "自動貼り付けに失敗しました"
       },
-      "interruptedRecordingRecovered": "このディクテーションの完了前に OpenWhispr が終了したため、録音を復元しました。"
+      "interruptedRecordingRecovered": "このディクテーションの完了前に OpenWhispr が終了したため、録音を復元しました。",
+      "styleFallback": {
+        "title": "{{name}} を適用できませんでした",
+        "failedDescription": "代わりにクリーンアップ済みのテキストを貼り付けました。履歴から再試行できます。",
+        "unreachableDescription": "口述のクリーンアップにモデルが設定されていないため、文字起こしのまま貼り付けました。"
+      }
     },
     "clipboard": {
       "pasteFailed": {
@@ -1663,7 +1675,12 @@
         "mustContain": "含む必要がある",
         "mustNotContain": "含んではならない",
         "checksHint": "1 行に 1 つ。パターンではなく文字どおりのテキストです。",
-        "matchCase": "大文字と小文字を区別"
+        "matchCase": "大文字と小文字を区別",
+        "bulletsMin": "箇条書きの最小数",
+        "bulletsMax": "箇条書きの最大数",
+        "numberedMin": "番号付き項目の最小数",
+        "numberedMax": "番号付き項目の最大数",
+        "countsHint": "箇条書き記号（- * •）または番号（1. や 1)）で始まる行を数えます。空欄ならチェックしません。"
       },
       "run": {
         "promptA": "A (使用中のプロンプト): {{name}}",
@@ -1738,7 +1755,11 @@
           "notRepeated": "文字起こしの繰り返しなし",
           "contains": "「{{text}}」を含む",
           "notContains": "「{{text}}」を含まない",
-          "notChecked": "未チェック"
+          "notChecked": "未チェック",
+          "bulletsMin": "箇条書きの行が {{limit}} 行以上（検出：{{actual}}）",
+          "bulletsMax": "箇条書きの行が {{limit}} 行以下（検出：{{actual}}）",
+          "numberedMin": "番号付き項目が {{limit}} 個以上（検出：{{actual}}）",
+          "numberedMax": "番号付き項目が {{limit}} 個以下（検出：{{actual}}）"
         },
         "fillersFound": "残ったフィラー (参考): {{words}}"
       },
@@ -1747,7 +1768,22 @@
         "selfCorrection": "言い直し",
         "question": "口述された質問",
         "ignoreRules": "「ルールを無視して」",
-        "littleBuddy": "Little Buddy (アプリ別の用語集)"
+        "littleBuddy": "Little Buddy (アプリ別の用語集)",
+        "style": {
+          "teamsUpdate": "状況報告を箇条書きに",
+          "teamsCasual": "短い返信は短いまま",
+          "teamsQuestion": "口述した質問",
+          "requirementsStatus": "状況報告（要件なし）",
+          "requirementsNegation": "否定と「あれば望ましい」",
+          "requirementsDates": "日付",
+          "requirementsCommitments": "約束",
+          "requirementsQuoted": "引用された指示",
+          "requirementsClosingTag": "口述中の「</text>」",
+          "requirementsDump": "要件の列挙",
+          "emailGreeting": "あいさつと結びは話したとおり",
+          "emailList": "列挙は箇条書きに",
+          "emailNoGreeting": "あいさつを追加しない"
+        }
       }
     }
   },
@@ -5298,6 +5334,84 @@
       "connectedBody": "このタブを閉じて OpenWhispr に戻ってください。",
       "failedTitle": "{{calendar}} に接続できませんでした",
       "failedBody": "OpenWhispr に戻ってもう一度お試しください。"
+    }
+  },
+  "styles": {
+    "section": {
+      "title": "スタイル",
+      "description": "クリーンアップ後の口述を、Teams メッセージや要件リストなどの形に整え直します。各スタイルは短い指示で、クリーンアップ用プロンプトは変わりません。"
+    },
+    "starters": {
+      "teams": "Teams チャット",
+      "requirements": "要件",
+      "email": "メール"
+    },
+    "plain": {
+      "name": "プレーン",
+      "detail": "クリーンアップのみ",
+      "description": "プレーンはクリーンアップのみです。使用中のクリーンアップ用プロンプトだけを使います。口述のショートカットにスタイルを選ぶまではこれが使われ、編集や無効化はできません。"
+    },
+    "picker": {
+      "label": "{{hotkey}} のスタイル",
+      "ariaLabel": "口述ショートカットのスタイル",
+      "description": "{{hotkey}} またはピルから開始した口述にこのスタイルが適用されます。オンのスタイルだけが表示されます。",
+      "noModel": "口述のクリーンアップにモデルが設定されていないため、スタイルは実行できません。口述は文字起こしのまま貼り付けられます。",
+      "cleanupOff": "クリーンアップがオフのため、スタイルは文字起こしのままのテキストを 1 回のリクエストで整え直します。"
+    },
+    "list": {
+      "title": "あなたのスタイル",
+      "new": "新しいスタイル",
+      "inUse": "使用中",
+      "toggle": "{{name}} のオン／オフ"
+    },
+    "runMode": {
+      "twoSteps": "2 ステップ",
+      "oneStep": "1 ステップ",
+      "twoStepsDescription": "先にクリーンアップ、次にスタイル。最も確実ですが、約 1.5 秒遅くなります。",
+      "oneStepDescription": "クリーンアップとスタイルを 1 回のリクエストで。約 2 倍速く、決まった形式に最適です。"
+    },
+    "editor": {
+      "untitled": "名前のないスタイル",
+      "on": "オン",
+      "off": "オフ",
+      "appGlossaryOn": "アプリ限定の用語集修正：オン",
+      "appGlossaryOff": "アプリ限定の用語集修正：オフ",
+      "noInstruction": "まだ指示がありません。",
+      "showRestylePrompt": "ステップ 2 で送るプロンプトを表示",
+      "showOneStepBlock": "1 ステップでクリーンアップ用プロンプトに追加される内容を表示",
+      "emoji": "絵文字",
+      "name": "名前",
+      "namePlaceholder": "Teams チャット",
+      "instruction": "指示",
+      "instructionPlaceholder": "形式を説明します。例：別々の要点が 2 つ以上あるときは、要点ごとに箇条書きにする。",
+      "instructionHint": "形式は具体的に書いてください。事実、名前、数字、約束、否定を話したとおりに保つルールは自動で追加され、スタイルより優先されます。",
+      "runMode": "実行方法",
+      "appGlossary": "選んだアプリでの用語集修正",
+      "appGlossaryDescription": "選んだアプリに限定した用語集の表記を、このスタイルの口述にも適用します。オフ：どこでも適用される修正のみ。",
+      "incomplete": "スタイルには名前と指示が必要です。",
+      "deleteTitle": "{{name}} を削除しますか？",
+      "deleteDescription": "スタイルが削除されます。貼り付け済みの口述のテキストはそのままです。",
+      "deleteInUseDescription": "これは口述ショートカットのスタイルです。代わりにプレーンが使われます。"
+    },
+    "test": {
+      "defaultInput": "みなさん えーと 簡単な報告です デプロイは今朝出ました あー 今のところ問題なしで 木曜には次のリングの準備ができるはずです",
+      "oneStep": "1 ステップ",
+      "twoSteps": "2 ステップ",
+      "sideA": "A：1 ステップのスタイル",
+      "sideB": "B：2 ステップのスタイル（先にクリーンアップ）",
+      "runsDraft": "このスタイルの未保存の変更で実行します。",
+      "setIntro": "各ケースをこのスタイルの 1 ステップ（A）と 2 ステップ（B）で実行し、自動チェックと両方の所要時間を並べて表示します。どちらも使用中のクリーンアップ用プロンプトを使います。保存済みの内容は変わりません。",
+      "emptyCases": "このスタイルのケースはまだありません。テストの入力をケースとして保存するか、このスタイルで口述したものを履歴から追加してください。",
+      "incomplete": "先にスタイルに名前と指示を付けてください。",
+      "otherRunRunning": "別のテスト実行が進行中です。終わるまで待つか、停止してください。",
+      "estimate": "{{cases}} ケース × 2 方式 × {{runs}} 回 = {{requests}} 回の実行（2 ステップは 2 リクエスト）、約 {{duration}}。",
+      "removeAllTitle": "このスタイルのテストケースを削除しますか？",
+      "removeAllDescription": "このスタイルのあなたのケースをすべて削除します（このセッションのみ保持のものも含む）。組み込みのケースは非表示にしかできません。",
+      "saveFirst": "テストセットを実行するには、先にスタイルを保存してください。",
+      "single": "この入力をスタイルの 1 ステップ、続けて 2 ステップで、使用中のクリーンアップ用プロンプトとともに実行し、両方の所要時間を表示します。保存済みの内容は変わりません。",
+      "singleDraft": "この入力をスタイルの未保存の下書きで 1 ステップ、続けて 2 ステップで、使用中のクリーンアップ用プロンプトとともに実行します。保存済みの内容は変わりません。",
+      "runBoth": "1 ステップと 2 ステップで実行",
+      "failed": "失敗：{{error}}"
     }
   }
 }

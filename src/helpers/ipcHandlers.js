@@ -683,6 +683,8 @@ class IPCHandlers {
     this._autoLearnEnabled = true; // Default on, synced from renderer
     this._autoLearnDebounceTimer = null;
     this._autoLearnLatestData = null;
+    // Counts pastes, so a newer paste cancels the monitoring an older one scheduled.
+    this._autoLearnPasteSeq = 0;
     this._textEditHandler = null;
     this._activeRecordingPipeline = null;
     this._onboardingDemoSession = null;
@@ -1971,8 +1973,8 @@ class IPCHandlers {
     ipcMain.handle("test-cases-delete", (_event, id) =>
       testCaseCall("Failed to delete a test case", () => this.promptTestCases.remove(id))
     );
-    ipcMain.handle("test-cases-clear", () =>
-      testCaseCall("Failed to clear test cases", () => this.promptTestCases.clear())
+    ipcMain.handle("test-cases-clear", (_event, target) =>
+      testCaseCall("Failed to clear test cases", () => this.promptTestCases.clear(target))
     );
 
     // The dictation lifecycle main tracks (windowManager), for windows that
@@ -3453,6 +3455,10 @@ class IPCHandlers {
     });
 
     ipcMain.handle("paste-text", async (event, text, options) => {
+      // Decided per paste: a styled dictation's text isn't what was said, so
+      // edits to it would teach the dictionary words nobody dictated. The
+      // option stays here; the clipboard never sees it.
+      const { suppressAutoLearn = false, ...pasteOptions } = options || {};
       // An onboarding demo already puts the transcript in its own textarea from
       // the demo event, and that textarea is what has focus — pasting on top of
       // it appends the same sentence a second time. This is a successful no-op,
@@ -3512,7 +3518,7 @@ class IPCHandlers {
       let pasteResult;
       try {
         pasteResult = await this.clipboardManager.pasteText(textToPaste, {
-          ...options,
+          ...pasteOptions,
           webContents: event.sender,
           targetWindow,
           silentAccessibilityCheck: true,
@@ -3529,14 +3535,27 @@ class IPCHandlers {
         };
       }
       const pasted = pasteResult?.pasted !== false;
+      // Each paste supersedes the monitoring an earlier one was about to arm.
+      const pasteSeq = (this._autoLearnPasteSeq = (this._autoLearnPasteSeq || 0) + 1);
+      const styledPaste = suppressAutoLearn === true;
       debugLogger.debug("[AutoLearn] Paste completed", {
         autoLearnEnabled: this._autoLearnEnabled,
         hasMonitor: !!this.textEditMonitor,
         targetPid,
         pasted,
+        styledPaste,
       });
-      if (pasted && this.textEditMonitor && this._autoLearnEnabled) {
+      if (pasted && styledPaste) {
+        // Nor may a plain paste's monitoring still running see the styled text
+        // land in the field as the user's edit. The next plain paste arms it again.
+        try {
+          this.textEditMonitor?.stopMonitoring?.();
+        } catch (err) {
+          debugLogger.debug("[AutoLearn] Failed to stop monitoring", { error: err.message });
+        }
+      } else if (pasted && this.textEditMonitor && this._autoLearnEnabled) {
         setTimeout(() => {
+          if (pasteSeq !== this._autoLearnPasteSeq) return;
           try {
             debugLogger.debug("[AutoLearn] Starting monitoring", {
               textPreview: text.substring(0, 80),

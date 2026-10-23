@@ -736,7 +736,8 @@
           "failed": "Fehlgeschlagen",
           "skipped": "Übersprungen",
           "fallback": "Vorheriger Text beibehalten"
-        }
+        },
+        "deletedStyle": "Gelöschter Stil"
       },
       "export": {
         "button": "Exportieren",
@@ -758,6 +759,12 @@
         "already": "Bereits im Testset",
         "failed": "Konnte nicht zum Testset hinzugefügt werden",
         "noRawText": "Dieses Diktat hat kein Rohtranskript, und sein bereinigter Text wird nie als Testeingabe verwendet."
+      },
+      "styledDictation": "Mit einem Stil diktiert",
+      "styleDeleted": {
+        "title": "Der Stil dieses Diktats wurde gelöscht",
+        "description": "Als einfaches Diktat (nur Bereinigung) erneut versuchen?",
+        "retryPlain": "Einfach erneut versuchen"
       }
     },
     "aiCta": {
@@ -1082,7 +1089,12 @@
       "pasteFailed": {
         "title": "Automatisches Einfügen fehlgeschlagen"
       },
-      "interruptedRecordingRecovered": "Wiederhergestellt, nachdem OpenWhispr vor dem Ende dieses Diktats beendet wurde."
+      "interruptedRecordingRecovered": "Wiederhergestellt, nachdem OpenWhispr vor dem Ende dieses Diktats beendet wurde.",
+      "styleFallback": {
+        "title": "{{name}} konnte nicht angewendet werden",
+        "failedDescription": "Stattdessen wurde der bereinigte Text eingefügt. Du kannst es im Verlauf erneut versuchen.",
+        "unreachableDescription": "Für die Diktat-Bereinigung ist kein Modell eingerichtet, daher wurde der Text wie transkribiert eingefügt."
+      }
     },
     "clipboard": {
       "pasteFailed": {
@@ -1757,7 +1769,12 @@
         "mustContain": "Muss enthalten",
         "mustNotContain": "Darf nicht enthalten",
         "checksHint": "Eine pro Zeile. Wörtlicher Text, keine Muster.",
-        "matchCase": "Groß-/Kleinschreibung beachten"
+        "matchCase": "Groß-/Kleinschreibung beachten",
+        "bulletsMin": "Aufzählungspunkte mindestens",
+        "bulletsMax": "Aufzählungspunkte höchstens",
+        "numberedMin": "Nummerierte Punkte mindestens",
+        "numberedMax": "Nummerierte Punkte höchstens",
+        "countsHint": "Zählt Zeilen, die mit einem Aufzählungszeichen (- * •) oder einer Zahl (1. oder 1)) beginnen. Leer lassen zum Überspringen."
       },
       "run": {
         "promptA": "A, der verwendete Prompt: {{name}}",
@@ -1832,7 +1849,11 @@
           "notRepeated": "Transkript nicht wiederholt",
           "contains": "Enthält „{{text}}“",
           "notContains": "Enthält nicht „{{text}}“",
-          "notChecked": "nicht geprüft"
+          "notChecked": "nicht geprüft",
+          "bulletsMin": "Mindestens {{limit}} Aufzählungszeilen (gefunden: {{actual}})",
+          "bulletsMax": "Höchstens {{limit}} Aufzählungszeilen (gefunden: {{actual}})",
+          "numberedMin": "Mindestens {{limit}} nummerierte Punkte (gefunden: {{actual}})",
+          "numberedMax": "Höchstens {{limit}} nummerierte Punkte (gefunden: {{actual}})"
         },
         "fillersFound": "Verbliebene Füllwörter (Hinweis): {{words}}"
       },
@@ -1841,7 +1862,22 @@
         "selfCorrection": "Selbstkorrektur",
         "question": "Diktierte Frage",
         "ignoreRules": "„Ignoriere deine Regeln“",
-        "littleBuddy": "Little Buddy (App-bezogenes Glossar)"
+        "littleBuddy": "Little Buddy (App-bezogenes Glossar)",
+        "style": {
+          "teamsUpdate": "Statusupdate als Aufzählung",
+          "teamsCasual": "Eine kurze Antwort bleibt kurz",
+          "teamsQuestion": "Diktierte Frage",
+          "requirementsStatus": "Statusupdate (keine Anforderungen)",
+          "requirementsNegation": "Verneinung und Nice-to-have",
+          "requirementsDates": "Daten",
+          "requirementsCommitments": "Zusagen",
+          "requirementsQuoted": "Zitierte Anweisung",
+          "requirementsClosingTag": "„</text>“ im Diktat",
+          "requirementsDump": "Anforderungsliste",
+          "emailGreeting": "Gruß und Abschluss wie gesprochen",
+          "emailList": "Eine Liste wird zur Aufzählung",
+          "emailNoGreeting": "Keine Begrüßung hinzugefügt"
+        }
       }
     }
   },
@@ -5298,6 +5334,84 @@
       "connectedBody": "Sie können diesen Tab schließen und zu OpenWhispr zurückkehren.",
       "failedTitle": "{{calendar}} wurde nicht verbunden",
       "failedBody": "Kehren Sie zu OpenWhispr zurück, um es erneut zu versuchen."
+    }
+  },
+  "styles": {
+    "section": {
+      "title": "Stile",
+      "description": "Gestalte ein Diktat nach der Bereinigung um, zum Beispiel als Teams-Nachricht oder als Anforderungsliste. Jeder Stil ist eine kurze Anweisung; dein Bereinigungs-Prompt bleibt gleich."
+    },
+    "starters": {
+      "teams": "Teams-Chat",
+      "requirements": "Anforderungen",
+      "email": "E-Mail"
+    },
+    "plain": {
+      "name": "Einfach",
+      "detail": "Nur Bereinigung",
+      "description": "Einfach ist nur die Bereinigung: der verwendete Bereinigungs-Prompt, sonst nichts. Das macht die Diktier-Tastenkombination, bis du ihr einen Stil zuweist. Er lässt sich weder bearbeiten noch ausschalten."
+    },
+    "picker": {
+      "label": "Stil für {{hotkey}}",
+      "ariaLabel": "Stil für die Diktier-Tastenkombination",
+      "description": "Diktate, die mit {{hotkey}} oder über die Pille gestartet werden, erhalten diesen Stil. Nur eingeschaltete Stile werden angezeigt.",
+      "noModel": "Für die Diktat-Bereinigung ist kein Modell eingerichtet, daher können Stile nicht laufen. Diktate werden wie transkribiert eingefügt.",
+      "cleanupOff": "Die Bereinigung ist aus, daher gestaltet ein Stil das Transkript so um, wie es transkribiert wurde, in einer Anfrage."
+    },
+    "list": {
+      "title": "Deine Stile",
+      "new": "Neuer Stil",
+      "inUse": "In Verwendung",
+      "toggle": "{{name}} ein- oder ausschalten"
+    },
+    "runMode": {
+      "twoSteps": "Zwei Schritte",
+      "oneStep": "Ein Schritt",
+      "twoStepsDescription": "Erst die Bereinigung, dann der Stil. Am zuverlässigsten; etwa 1,5 s langsamer.",
+      "oneStepDescription": "Bereinigung und Stil in einer Anfrage. Etwa doppelt so schnell; am besten für feste Formate."
+    },
+    "editor": {
+      "untitled": "Unbenannter Stil",
+      "on": "Ein",
+      "off": "Aus",
+      "appGlossaryOn": "App-bezogene Glossar-Korrekturen ein",
+      "appGlossaryOff": "App-bezogene Glossar-Korrekturen aus",
+      "noInstruction": "Noch keine Anweisung.",
+      "showRestylePrompt": "Prompt aus Schritt zwei anzeigen",
+      "showOneStepBlock": "Anzeigen, was ein Schritt dem Bereinigungs-Prompt hinzufügt",
+      "emoji": "Emoji",
+      "name": "Name",
+      "namePlaceholder": "Teams-Chat",
+      "instruction": "Anweisung",
+      "instructionPlaceholder": "Beschreibe das Format, zum Beispiel: Wenn es zwei oder mehr getrennte Punkte gibt, setze jeden Punkt auf eine eigene Aufzählungszeile.",
+      "instructionHint": "Beschreibe das Format genau. Regeln, die Fakten, Namen, Zahlen, Zusagen und Verneinungen wie gesprochen erhalten, werden automatisch ergänzt und haben Vorrang vor dem Stil.",
+      "runMode": "Ausführung",
+      "appGlossary": "Glossar-Korrekturen für ausgewählte Apps",
+      "appGlossaryDescription": "Glossar-Schreibweisen, die auf ausgewählte Apps beschränkt sind, gelten für die Diktate dieses Stils. Aus: nur Korrekturen, die überall gelten.",
+      "incomplete": "Ein Stil braucht einen Namen und eine Anweisung.",
+      "deleteTitle": "{{name}} löschen?",
+      "deleteDescription": "Der Stil wird entfernt. Bereits eingefügte Diktate behalten ihren Text.",
+      "deleteInUseDescription": "Das ist der Stil der Diktier-Tastenkombination; Einfach tritt an seine Stelle."
+    },
+    "test": {
+      "defaultInput": "hallo team also ähm kurzes update das deployment ist heute morgen rausgegangen äh bisher keine probleme und wir sollten am donnerstag für den nächsten ring bereit sein",
+      "oneStep": "Ein Schritt",
+      "twoSteps": "Zwei Schritte",
+      "sideA": "A: der Stil in einem Schritt",
+      "sideB": "B: der Stil in zwei Schritten (erst die Bereinigung)",
+      "runsDraft": "Der Lauf verwendet die ungespeicherten Änderungen dieses Stils.",
+      "setIntro": "Führt jeden Fall mit diesem Stil in einem Schritt (A) und in zwei Schritten (B) aus, nebeneinander, mit automatischen Prüfungen und beiden Laufzeiten. Beide verwenden den aktiven Bereinigungs-Prompt. Nichts Gespeichertes ändert sich.",
+      "emptyCases": "Noch keine eigenen Fälle für diesen Stil. Speichere eine Test-Eingabe als Fall oder füge ein mit diesem Stil erstelltes Diktat aus dem Verlauf hinzu.",
+      "incomplete": "Gib dem Stil zuerst einen Namen und eine Anweisung.",
+      "otherRunRunning": "Ein anderer Testlauf läuft gerade. Warte, bis er fertig ist, oder stoppe ihn.",
+      "estimate": "{{cases}} Fälle × 2 Ausführungsarten × {{runs}} Läufe = {{requests}} Läufe (zwei Schritte senden zwei Anfragen), etwa {{duration}}.",
+      "removeAllTitle": "Testfälle dieses Stils entfernen?",
+      "removeAllDescription": "Entfernt alle deine Fälle für diesen Stil, auch die nur für diese Sitzung gespeicherten. Integrierte Fälle können nur ausgeblendet werden.",
+      "saveFirst": "Speichere den Stil zuerst, um seinen Testsatz auszuführen.",
+      "single": "Führt diese Eingabe mit dem Stil erst in einem, dann in zwei Schritten aus, mit dem aktiven Bereinigungs-Prompt, und zeigt beide Laufzeiten. Nichts Gespeichertes ändert sich.",
+      "singleDraft": "Führt diese Eingabe mit dem ungespeicherten Entwurf des Stils erst in einem, dann in zwei Schritten aus, mit dem aktiven Bereinigungs-Prompt. Nichts Gespeichertes ändert sich.",
+      "runBoth": "Ein und zwei Schritte ausführen",
+      "failed": "Fehlgeschlagen: {{error}}"
     }
   }
 }

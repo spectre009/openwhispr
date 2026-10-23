@@ -26,8 +26,8 @@ const TRACE_VERSION = 1;
 const EXPORT_FORMAT = "openwhispr.dictations";
 const EXPORT_VERSION = 1;
 
-// "style" (Stage 3), "voice" and "edited" are reserved so later stages only
-// add producers, never a migration.
+// "voice" and "edited" are reserved so later stages only add producers, never
+// a migration; "style" is written by Stage 3's styled dictations.
 const STEP_KINDS = new Set([
   "stt",
   "glossary",
@@ -40,8 +40,9 @@ const STEP_KINDS = new Set([
   "edited",
 ]);
 const STEP_OUTCOMES = new Set(["ok", "failed", "skipped", "fallback"]);
-const ROUTES = new Set(["cleanup", "translation", "agent", "skip", "none"]);
+const ROUTES = new Set(["cleanup", "translation", "agent", "style", "skip", "none"]);
 const PROMPT_SOURCES = new Set(["resolved", "server"]);
+const STYLE_RUN_MODES = new Set(["two-step", "one-step"]);
 
 const MAX_STEPS = 32;
 const MAX_STEP_TEXT = 500_000;
@@ -100,6 +101,14 @@ function normalizeRulesFired(fired) {
     }));
 }
 
+/** A styled dictation's style (`{ styleId, runMode }` on steps, `{ id, runMode }` on context). */
+function normalizeStyleRef(ref, idKey) {
+  if (!ref || typeof ref !== "object") return null;
+  const id = shortText(ref[idKey]);
+  if (!id) return null;
+  return { [idKey]: id, runMode: STYLE_RUN_MODES.has(ref.runMode) ? ref.runMode : null };
+}
+
 /**
  * Validates a renderer trace into what the database stores, or null when it
  * isn't a version 1 trace with at least one step. `rawTextIsNull`: the
@@ -109,6 +118,7 @@ function normalizeTrace(trace, { rawTextIsNull = false } = {}) {
   if (!trace || typeof trace !== "object" || trace.version !== TRACE_VERSION) return null;
   if (!Array.isArray(trace.steps)) return null;
   const intents = trace.context?.intents || {};
+  const style = normalizeStyleRef(trace.context?.style, "id");
   const context = {
     targetApp: shortText(trace.context?.targetApp),
     intents: {
@@ -116,6 +126,7 @@ function normalizeTrace(trace, { rawTextIsNull = false } = {}) {
       translation: intents.translation === true,
       wakeWord: intents.wakeWord === true,
     },
+    ...(style ? { style } : {}),
   };
   const glossary = {
     revision: Number.isFinite(trace.glossary?.revision) ? trace.glossary.revision : null,
@@ -130,6 +141,7 @@ function normalizeTrace(trace, { rawTextIsNull = false } = {}) {
     if (step.kind === "glossary") detail = glossary;
     else if (step.kind === "finalize" && step.detail?.snippets === true)
       detail = { snippets: true };
+    else if (step.kind === "style") detail = normalizeStyleRef(step.detail, "styleId");
     steps.push({
       kind: step.kind,
       outcome: step.outcome,

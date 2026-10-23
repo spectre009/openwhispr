@@ -26,7 +26,9 @@ export const enterpriseProvider: InferenceProvider = {
     logger.logReasoning("ENTERPRISE_START", { provider: enterpriseId, model, agentName });
 
     const systemPrompt = config.systemPrompt || ctx.getSystemPrompt(agentName);
-    const userContent = config.systemPrompt ? text : wrapCleanupTranscript(text);
+    const userContent = config.systemPrompt
+      ? text
+      : (ctx.wrapCleanupTranscript ?? wrapCleanupTranscript)(text);
     const { supportsTemperature } = getOpenAiApiConfig(model);
 
     const startTime = Date.now();

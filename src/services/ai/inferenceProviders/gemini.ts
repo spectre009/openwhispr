@@ -58,7 +58,9 @@ export const geminiProvider: InferenceProvider = {
     logger.logReasoning("GEMINI_API_KEY", { hasApiKey: !!apiKey, keyLength: apiKey?.length || 0 });
 
     const systemPrompt = config.systemPrompt || ctx.getSystemPrompt(agentName);
-    const userContent = config.systemPrompt ? text : wrapCleanupTranscript(text);
+    const userContent = config.systemPrompt
+      ? text
+      : (ctx.wrapCleanupTranscript ?? wrapCleanupTranscript)(text);
 
     const isGemini = model.startsWith("gemini-");
     const isGemini3 = model.startsWith("gemini-3-") || model.startsWith("gemini-3.");

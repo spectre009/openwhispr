@@ -110,7 +110,10 @@ contextBridge.exposeInMainWorld("electronAPI", {
   openSettingsSection: (section) => ipcRenderer.invoke("open-settings-section", section),
   captureDictationTarget: () => ipcRenderer.invoke("capture-dictation-target"),
   getDictationTargetApp: () => ipcRenderer.invoke("get-dictation-target-app"),
-  onToggleDictation: registerListener("toggle-dictation", (callback) => () => callback()),
+  onToggleDictation: registerListener(
+    "toggle-dictation",
+    (callback) => (_event, payload) => callback(payload)
+  ),
   onToggleVoiceAgent: registerListener("toggle-voice-agent", (callback) => () => callback()),
   onToggleTranslation: registerListener("toggle-translation", (callback) => () => callback()),
   onOpenAssistantPanel: registerListener("open-assistant-panel", (callback) => () => callback()),
@@ -215,7 +218,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
   saveTestCase: (input) => ipcRenderer.invoke("test-cases-save", input),
   updateTestCase: (id, patch) => ipcRenderer.invoke("test-cases-update", id, patch),
   deleteTestCase: (id) => ipcRenderer.invoke("test-cases-delete", id),
-  clearTestCases: () => ipcRenderer.invoke("test-cases-clear"),
+  clearTestCases: (target) => ipcRenderer.invoke("test-cases-clear", target),
   onTestCasesChanged: registerListener(
     "prompt-test-cases-changed",
     (callback) => (_event, change) => callback(change)

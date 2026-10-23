@@ -715,7 +715,8 @@
           "failed": "Falhou",
           "skipped": "Ignorada",
           "fallback": "Texto anterior mantido"
-        }
+        },
+        "deletedStyle": "Estilo excluído"
       },
       "export": {
         "button": "Exportar",
@@ -737,6 +738,12 @@
         "already": "Já está no conjunto de testes",
         "failed": "Não foi possível adicionar ao conjunto de testes",
         "noRawText": "Este ditado não tem transcrição bruta, e seu texto limpo nunca é usado como entrada de teste."
+      },
+      "styledDictation": "Ditado com um estilo",
+      "styleDeleted": {
+        "title": "O estilo deste ditado foi excluído",
+        "description": "Tentar de novo como ditado Simples (só limpeza)?",
+        "retryPlain": "Tentar como Simples"
       }
     },
     "aiCta": {
@@ -1061,7 +1068,12 @@
       "pasteFailed": {
         "title": "Não foi possível colar automaticamente"
       },
-      "interruptedRecordingRecovered": "Recuperado após o OpenWhispr fechar antes de terminar este ditado."
+      "interruptedRecordingRecovered": "Recuperado após o OpenWhispr fechar antes de terminar este ditado.",
+      "styleFallback": {
+        "title": "Não foi possível aplicar {{name}}",
+        "failedDescription": "O texto limpo foi colado no lugar. Você pode tentar de novo pelo Histórico.",
+        "unreachableDescription": "Nenhum modelo está configurado para a limpeza de ditado, então o texto foi colado como foi transcrito."
+      }
     },
     "clipboard": {
       "pasteFailed": {
@@ -1642,7 +1654,12 @@
         "mustContain": "Deve conter",
         "mustNotContain": "Não deve conter",
         "checksHint": "Um por linha. Texto literal, não padrões.",
-        "matchCase": "Diferenciar maiúsculas"
+        "matchCase": "Diferenciar maiúsculas",
+        "bulletsMin": "Marcadores no mínimo",
+        "bulletsMax": "Marcadores no máximo",
+        "numberedMin": "Itens numerados no mínimo",
+        "numberedMax": "Itens numerados no máximo",
+        "countsHint": "Conta as linhas que começam com um marcador (- * •) ou um número (1. ou 1)). Deixe em branco para ignorar."
       },
       "run": {
         "promptA": "A, o prompt em uso: {{name}}",
@@ -1717,7 +1734,11 @@
           "notRepeated": "Transcrição não repetida",
           "contains": "Contém “{{text}}”",
           "notContains": "Não contém “{{text}}”",
-          "notChecked": "não verificado"
+          "notChecked": "não verificado",
+          "bulletsMin": "Pelo menos {{limit}} linhas com marcador (encontradas: {{actual}})",
+          "bulletsMax": "No máximo {{limit}} linhas com marcador (encontradas: {{actual}})",
+          "numberedMin": "Pelo menos {{limit}} itens numerados (encontrados: {{actual}})",
+          "numberedMax": "No máximo {{limit}} itens numerados (encontrados: {{actual}})"
         },
         "fillersFound": "Vícios de linguagem restantes (indicativo): {{words}}"
       },
@@ -1726,7 +1747,22 @@
         "selfCorrection": "Autocorreção",
         "question": "Pergunta ditada",
         "ignoreRules": "“Ignore suas regras”",
-        "littleBuddy": "Little Buddy (glossário por app)"
+        "littleBuddy": "Little Buddy (glossário por app)",
+        "style": {
+          "teamsUpdate": "Atualização de status em marcadores",
+          "teamsCasual": "Uma resposta curta continua curta",
+          "teamsQuestion": "Pergunta ditada",
+          "requirementsStatus": "Atualização de status (sem requisitos)",
+          "requirementsNegation": "Negação e desejável",
+          "requirementsDates": "Datas",
+          "requirementsCommitments": "Compromissos",
+          "requirementsQuoted": "Instrução citada",
+          "requirementsClosingTag": "“</text>” no ditado",
+          "requirementsDump": "Lista de requisitos",
+          "emailGreeting": "Saudação e despedida como ditas",
+          "emailList": "Uma lista vira marcadores",
+          "emailNoGreeting": "Nenhuma saudação adicionada"
+        }
       }
     }
   },
@@ -5298,6 +5334,84 @@
       "connectedBody": "Você pode fechar esta aba e voltar ao OpenWhispr.",
       "failedTitle": "{{calendar}} não foi conectado",
       "failedBody": "Volte ao OpenWhispr para tentar novamente."
+    }
+  },
+  "styles": {
+    "section": {
+      "title": "Estilos",
+      "description": "Dê outro estilo a um ditado depois da limpeza, por exemplo como mensagem do Teams ou como lista de requisitos. Cada estilo é uma instrução curta; seu prompt de limpeza continua o mesmo."
+    },
+    "starters": {
+      "teams": "Chat do Teams",
+      "requirements": "Requisitos",
+      "email": "E-mail"
+    },
+    "plain": {
+      "name": "Simples",
+      "detail": "Só limpeza",
+      "description": "Simples é só a limpeza: o prompt de limpeza em uso, nada mais. É o que o atalho de ditado faz até você escolher um estilo para ele, e não pode ser editado nem desativado."
+    },
+    "picker": {
+      "label": "Estilo para {{hotkey}}",
+      "ariaLabel": "Estilo do atalho de ditado",
+      "description": "Ditados iniciados com {{hotkey}} ou pela pílula recebem este estilo. Só aparecem os estilos ativados.",
+      "noModel": "Nenhum modelo está configurado para a limpeza de ditado, então os estilos não podem ser executados. Os ditados são colados como foram transcritos.",
+      "cleanupOff": "A limpeza está desativada, então um estilo reformula a transcrição como foi transcrita, em uma única solicitação."
+    },
+    "list": {
+      "title": "Seus estilos",
+      "new": "Novo estilo",
+      "inUse": "Em uso",
+      "toggle": "Ativar ou desativar {{name}}"
+    },
+    "runMode": {
+      "twoSteps": "Duas etapas",
+      "oneStep": "Uma etapa",
+      "twoStepsDescription": "Primeiro a limpeza, depois o estilo. O mais confiável; cerca de 1,5 s mais lento.",
+      "oneStepDescription": "Limpeza e estilo em uma única solicitação. Cerca de duas vezes mais rápido; ideal para formatos exatos."
+    },
+    "editor": {
+      "untitled": "Estilo sem nome",
+      "on": "Ativado",
+      "off": "Desativado",
+      "appGlossaryOn": "Correções do glossário por app ativadas",
+      "appGlossaryOff": "Correções do glossário por app desativadas",
+      "noInstruction": "Ainda sem instrução.",
+      "showRestylePrompt": "Mostrar o prompt enviado na segunda etapa",
+      "showOneStepBlock": "Mostrar o que uma etapa acrescenta ao prompt de limpeza",
+      "emoji": "Emoji",
+      "name": "Nome",
+      "namePlaceholder": "Chat do Teams",
+      "instruction": "Instrução",
+      "instructionPlaceholder": "Descreva o formato, por exemplo: Quando houver dois ou mais pontos separados, coloque cada ponto em seu próprio marcador.",
+      "instructionHint": "Seja explícito sobre o formato. Regras que mantêm fatos, nomes, números, compromissos e negações como foram ditos são adicionadas para você e têm prioridade sobre o estilo.",
+      "runMode": "Como é executado",
+      "appGlossary": "Correções do glossário para apps escolhidos",
+      "appGlossaryDescription": "Grafias do glossário limitadas a apps escolhidos se aplicam aos ditados deste estilo. Desativado: só as correções que valem em qualquer lugar.",
+      "incomplete": "Um estilo precisa de um nome e de uma instrução.",
+      "deleteTitle": "Excluir {{name}}?",
+      "deleteDescription": "O estilo é removido. Ditados já colados mantêm o texto.",
+      "deleteInUseDescription": "Este é o estilo do atalho de ditado; Simples assume o lugar dele."
+    },
+    "test": {
+      "defaultInput": "oi pessoal então hum uma atualização rápida a implantação saiu hoje de manhã é nenhum problema até agora e devemos estar prontos para o próximo anel na quinta",
+      "oneStep": "Uma etapa",
+      "twoSteps": "Duas etapas",
+      "sideA": "A: o estilo em uma etapa",
+      "sideB": "B: o estilo em duas etapas (limpeza primeiro)",
+      "runsDraft": "A execução usa as alterações não salvas deste estilo.",
+      "setIntro": "Passa cada caso por este estilo em uma etapa (A) e em duas etapas (B), lado a lado, com verificações automáticas e os dois tempos. Ambos usam o prompt de limpeza em uso. Nada do que você salvou muda.",
+      "emptyCases": "Ainda não há casos seus para este estilo. Salve uma entrada do Teste como caso ou adicione pelo Histórico um ditado feito com este estilo.",
+      "incomplete": "Primeiro dê ao estilo um nome e uma instrução.",
+      "otherRunRunning": "Outra execução de teste está em andamento. Aguarde terminar ou pare-a.",
+      "estimate": "{{cases}} casos × 2 modos × {{runs}} execuções = {{requests}} execuções (duas etapas enviam duas solicitações), cerca de {{duration}}.",
+      "removeAllTitle": "Remover os casos de teste deste estilo?",
+      "removeAllDescription": "Remove todos os seus casos deste estilo, inclusive os guardados só para esta sessão. Casos integrados só podem ser ocultados.",
+      "saveFirst": "Salve o estilo primeiro para executar o conjunto de testes dele.",
+      "single": "Passa esta entrada pelo estilo em uma etapa e depois em duas etapas, com o prompt de limpeza em uso, e mostra os dois tempos. Nada do que você salvou muda.",
+      "singleDraft": "Passa esta entrada pelo rascunho não salvo do estilo em uma etapa e depois em duas etapas, com o prompt de limpeza em uso. Nada do que você salvou muda.",
+      "runBoth": "Executar em uma e em duas etapas",
+      "failed": "Falhou: {{error}}"
     }
   }
 }

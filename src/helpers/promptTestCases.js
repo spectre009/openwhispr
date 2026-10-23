@@ -1,6 +1,8 @@
 // Prompt test cases: the inputs Prompt Studio's test set runs two cleanup
-// prompts against. A case is a dictation's raw transcript, copied, with an
-// optional label, target app and literal checks.
+// prompts against, and a style editor's Test runs one step against two steps
+// (`target` "style:<id>"). A case is a dictation's raw transcript, copied,
+// with an optional label, target app, literal checks and, for a style, bullet
+// and numbered-item counts.
 //
 // Main is the only authority here:
 // - Ownership: a case belongs to an account ("account:<id>") or to the
@@ -25,9 +27,10 @@
 const crypto = require("crypto");
 const { SIGNED_OUT_OWNER } = require("./stepHistory");
 
-// What a case tests. Stage 3 adds style targets ("style:<id>").
+// What a case tests: "cleanup", or a style ("style:<id>", Stage 3).
 const TARGETS = new Set(["cleanup"]);
 const DEFAULT_TARGET = "cleanup";
+const STYLE_TARGET = /^style:[A-Za-z0-9_-]{1,80}$/;
 
 const MAX_RAW_TEXT = 50_000;
 const MAX_REFERENCE_TEXT = 50_000;
@@ -36,6 +39,9 @@ const MAX_TARGET_APP = 260;
 const MAX_CHECKS = 20;
 const MAX_CHECK_TEXT = 200;
 const MAX_CASES_PER_OWNER = 500;
+// Style cases: bullet lines and numbered items, at least / at most.
+const STYLE_CHECK_KEYS = ["bulletsMin", "bulletsMax", "numberedMin", "numberedMax"];
+const MAX_STYLE_COUNT = 100;
 
 const STORAGE_REASONS = Object.freeze({
   HISTORY_OFF: "history-off",
@@ -66,6 +72,47 @@ function normalizeChecks(value) {
   return out;
 }
 
+/** Whether `target` is something a case can test: cleanup, or a style. */
+function isValidTarget(target) {
+  return TARGETS.has(target) || (typeof target === "string" && STYLE_TARGET.test(target));
+}
+
+function normalizeTarget(target) {
+  return isValidTarget(target) ? target : DEFAULT_TARGET;
+}
+
+/** A style case's counts: each a whole number 0–100, or null (not checked). */
+function normalizeStyleChecks(value) {
+  const source = value && typeof value === "object" ? value : {};
+  const checks = {};
+  for (const key of STYLE_CHECK_KEYS) {
+    const raw = source[key];
+    const n = typeof raw === "string" && raw.trim() !== "" ? Number(raw) : raw;
+    checks[key] =
+      typeof n === "number" && Number.isFinite(n) && n >= 0
+        ? Math.min(MAX_STYLE_COUNT, Math.floor(n))
+        : null;
+  }
+  return checks;
+}
+
+/** Stored as JSON, or null when no count is set. */
+function serializeStyleChecks(checks) {
+  const normalized = normalizeStyleChecks(checks);
+  return STYLE_CHECK_KEYS.some((key) => normalized[key] !== null)
+    ? JSON.stringify(normalized)
+    : null;
+}
+
+function parseStyleChecks(value) {
+  if (typeof value !== "string" || !value) return normalizeStyleChecks(null);
+  try {
+    return normalizeStyleChecks(JSON.parse(value));
+  } catch {
+    return normalizeStyleChecks(null);
+  }
+}
+
 /** The fields a user may edit, from untrusted renderer input. */
 function normalizeEditable(input = {}) {
   return {
@@ -74,6 +121,7 @@ function normalizeEditable(input = {}) {
     mustContain: normalizeChecks(input.mustContain),
     mustNotContain: normalizeChecks(input.mustNotContain),
     matchCase: input.matchCase === true,
+    styleChecks: normalizeStyleChecks(input.styleChecks),
   };
 }
 
@@ -98,6 +146,7 @@ function caseFromRow(row, durable) {
     mustContain: parseList(row.must_contain),
     mustNotContain: parseList(row.must_not_contain),
     matchCase: row.match_case === 1 || row.match_case === true,
+    styleChecks: parseStyleChecks(row.style_checks),
     source: row.source,
     sourceTranscriptionId: Number.isInteger(row.source_transcription_id)
       ? row.source_transcription_id
@@ -257,8 +306,11 @@ function createPromptTestCases({
     return durable + (session.get(owner)?.size ?? 0);
   }
 
-  function insert(owner, { rawText, referenceText, source, sourceTranscriptionId, editable }) {
-    const target = DEFAULT_TARGET;
+  function insert(
+    owner,
+    { rawText, referenceText, source, sourceTranscriptionId, editable, target: requested }
+  ) {
+    const target = normalizeTarget(requested);
     const storage = storageFor(owner);
     const existing = findByText(owner, target, rawText);
     if (existing) {
@@ -284,6 +336,7 @@ function createPromptTestCases({
       must_contain: JSON.stringify(editable.mustContain),
       must_not_contain: JSON.stringify(editable.mustNotContain),
       match_case: editable.matchCase ? 1 : 0,
+      style_checks: serializeStyleChecks(editable.styleChecks),
       source,
       source_transcription_id: sourceTranscriptionId ?? null,
       created_at: stamp,
@@ -359,16 +412,22 @@ function createPromptTestCases({
       } catch {
         targetApp = null;
       }
+      // A styled dictation becomes a case for its style ("style:<id>").
+      const routeKind = typeof row.route_kind === "string" ? row.route_kind : "";
       return insert(owner, {
         rawText: row.raw_text,
         referenceText: typeof row.text === "string" ? row.text : null,
         source: "history",
         sourceTranscriptionId: transcriptionId,
         editable: normalizeEditable({ targetApp }),
+        target: STYLE_TARGET.test(routeKind) ? routeKind : DEFAULT_TARGET,
       });
     },
 
-    /** "Save as test case" from Prompt Studio's single Test: the input as typed. */
+    /**
+     * "Save as test case" from a single Test: the input as typed, for cleanup
+     * or for a style (`target`).
+     */
     save(input) {
       const owner = currentOwner();
       if (!owner) return { success: false, code: "OWNER_UNKNOWN" };
@@ -377,16 +436,20 @@ function createPromptTestCases({
         return { success: false, code: "INVALID_INPUT" };
       }
       if (rawText.length > MAX_RAW_TEXT) return { success: false, code: "TOO_LONG" };
+      if (input?.target !== undefined && !isValidTarget(input.target)) {
+        return { success: false, code: "INVALID_INPUT" };
+      }
       return insert(owner, {
         rawText,
         referenceText: null,
         source: "test",
         sourceTranscriptionId: null,
         editable: normalizeEditable(input),
+        target: input?.target,
       });
     },
 
-    /** Replaces a case's label, target app and checks. Its input never changes. */
+    /** Replaces a case's label, target app and checks. Its input and target never change. */
     update(id, patch) {
       const owner = currentOwner();
       if (!owner) return { success: false, code: "OWNER_UNKNOWN" };
@@ -400,6 +463,7 @@ function createPromptTestCases({
         must_contain: JSON.stringify(editable.mustContain),
         must_not_contain: JSON.stringify(editable.mustNotContain),
         match_case: editable.matchCase ? 1 : 0,
+        style_checks: serializeStyleChecks(editable.styleChecks),
         updated_at: now().toISOString(),
       };
       let row;
@@ -425,14 +489,35 @@ function createPromptTestCases({
       return { success: true };
     },
 
-    /** Removes every case of the current owner, stored and session-only. */
-    clear() {
+    /**
+     * Removes the current owner's cases, stored and session-only: every one,
+     * or only one target's ("cleanup", "style:<id>").
+     */
+    clear(target) {
       const owner = currentOwner();
       if (!owner) return { success: false, code: "OWNER_UNKNOWN" };
-      const inMemory = session.get(owner)?.size ?? 0;
-      session.delete(owner);
-      const stored = db.promptTestCasesReady ? db.clearPromptTestCases(owner) : 0;
-      log("Prompt test cases cleared", { removed: inMemory + stored });
+      if (target !== undefined && target !== null && !isValidTarget(target)) {
+        return { success: false, code: "INVALID_INPUT" };
+      }
+      const only = isValidTarget(target) ? target : null;
+      let inMemory = 0;
+      if (only) {
+        const memory = session.get(owner);
+        for (const [id, row] of memory ?? []) {
+          if (row.target !== only) continue;
+          memory.delete(id);
+          inMemory += 1;
+        }
+      } else {
+        inMemory = session.get(owner)?.size ?? 0;
+        session.delete(owner);
+      }
+      const stored = db.promptTestCasesReady
+        ? only
+          ? db.clearPromptTestCases(owner, only)
+          : db.clearPromptTestCases(owner)
+        : 0;
+      log("Prompt test cases cleared", { removed: inMemory + stored, target: only ?? "all" });
       notify(owner, "cleared");
       return { success: true, removed: inMemory + stored };
     },
@@ -466,9 +551,12 @@ module.exports = {
   MAX_CHECKS,
   MAX_RAW_TEXT,
   STORAGE_REASONS,
+  STYLE_CHECK_KEYS,
   TARGETS,
   caseFromRow,
   createPromptTestCases,
+  isValidTarget,
   normalizeChecks,
   normalizeEditable,
+  normalizeStyleChecks,
 };

@@ -2637,7 +2637,7 @@ class DatabaseManager {
   // to an account ("account:<id>") or the signed-out namespace, and every
   // statement below is scoped to one owner. `source_transcription_id` only
   // links back for "open in history": no foreign key, the case is a copy.
-  // `target` is what the case tests ("cleanup"; Stage 3 adds styles). Local
+  // `target` is what the case tests ("cleanup", or a style's "style:<id>"). Local
   // only: cloud sync selects transcription columns explicitly, the vector
   // triggers cover notes only, and the dictation export reads other tables.
   _initPromptTestCases() {
@@ -2661,6 +2661,11 @@ class DatabaseManager {
       CREATE INDEX IF NOT EXISTS idx_prompt_test_cases_owner
         ON prompt_test_cases(owner, created_at);
     `);
+    // Stage 3: a style case's bullet and numbered-item counts (JSON, null = none).
+    const columns = this.db.prepare("PRAGMA table_info(prompt_test_cases)").all();
+    if (!columns.some((column) => column.name === "style_checks")) {
+      this.db.exec("ALTER TABLE prompt_test_cases ADD COLUMN style_checks TEXT");
+    }
     this.promptTestCasesReady = true;
   }
 
@@ -2712,9 +2717,9 @@ class DatabaseManager {
     db.prepare(
       `INSERT INTO prompt_test_cases (
          id, owner, target, label, raw_text, reference_text, target_app,
-         must_contain, must_not_contain, match_case, source, source_transcription_id,
-         created_at, updated_at
-       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+         must_contain, must_not_contain, match_case, style_checks, source,
+         source_transcription_id, created_at, updated_at
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     ).run(
       row.id,
       row.owner,
@@ -2726,6 +2731,7 @@ class DatabaseManager {
       row.must_contain ?? "[]",
       row.must_not_contain ?? "[]",
       row.match_case ? 1 : 0,
+      row.style_checks ?? null,
       row.source,
       row.source_transcription_id ?? null,
       row.created_at,
@@ -2740,7 +2746,7 @@ class DatabaseManager {
       .prepare(
         `UPDATE prompt_test_cases
          SET label = ?, target_app = ?, must_contain = ?, must_not_contain = ?,
-             match_case = ?, updated_at = ?
+             match_case = ?, style_checks = ?, updated_at = ?
          WHERE owner = ? AND id = ?`
       )
       .run(
@@ -2749,6 +2755,7 @@ class DatabaseManager {
         fields.must_contain ?? "[]",
         fields.must_not_contain ?? "[]",
         fields.match_case ? 1 : 0,
+        fields.style_checks ?? null,
         fields.updated_at,
         owner,
         id
@@ -2764,11 +2771,15 @@ class DatabaseManager {
     );
   }
 
-  /** Deletes every case of one owner; other owners keep theirs. */
-  clearPromptTestCases(owner) {
-    return this._promptTestCasesDb()
-      .prepare("DELETE FROM prompt_test_cases WHERE owner = ?")
-      .run(owner).changes;
+  /** Deletes every case of one owner, or only one target's; other owners keep theirs. */
+  clearPromptTestCases(owner, target = null) {
+    const db = this._promptTestCasesDb();
+    if (typeof target === "string" && target) {
+      return db
+        .prepare("DELETE FROM prompt_test_cases WHERE owner = ? AND target = ?")
+        .run(owner, target).changes;
+    }
+    return db.prepare("DELETE FROM prompt_test_cases WHERE owner = ?").run(owner).changes;
   }
 
   /** Removes and returns one owner's cases, in one transaction (a policy forbade keeping them). */
