@@ -18,7 +18,9 @@ import {
   AlertCircle,
   ArchiveRestore,
   MoreVertical,
+  ListOrdered,
 } from "../icons";
+import TranscriptionSteps from "./TranscriptionSteps";
 import type {
   TranscriptionItem as TranscriptionItemType,
   TranscriptionErrorCode,
@@ -65,6 +67,7 @@ export default function TranscriptionItem({
 }: TranscriptionItemProps) {
   const { t, i18n } = useTranslation();
   const [isExpanded, setIsExpanded] = useState(false);
+  const [showSteps, setShowSteps] = useState(false);
   const [isRetrying, setIsRetrying] = useState(false);
 
   const timestampSource = item.timestamp.endsWith("Z") ? item.timestamp : `${item.timestamp}Z`;
@@ -134,6 +137,12 @@ export default function TranscriptionItem({
         label: t("controlPanel.history.viewRawTranscript"),
         onSelect: () => setIsExpanded((expanded) => !expanded),
       },
+    isTranscribed && {
+      key: "steps",
+      icon: ListOrdered,
+      label: t("controlPanel.history.steps.viewSteps"),
+      onSelect: () => setShowSteps((shown) => !shown),
+    },
     hasAudio && {
       key: "folder",
       icon: FolderOpen,
@@ -325,6 +334,18 @@ export default function TranscriptionItem({
                 </p>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {isTranscribed && showSteps && (
+        <div className="mt-2 border-t border-border/70 pt-2">
+          <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+            {t("controlPanel.history.steps.title")}
+          </span>
+          <div className="mt-1">
+            {/* Mounted only while open, so steps are read from main on demand. */}
+            <TranscriptionSteps id={item.id} revision={item.text} />
           </div>
         </div>
       )}

@@ -201,9 +201,13 @@ contextBridge.exposeInMainWorld("electronAPI", {
   deleteAllAudio: () => ipcRenderer.invoke("delete-all-audio"),
   syncRetentionSettings: (settings) => ipcRenderer.send("retention-settings-changed", settings),
   retryTranscription: (id, settings) => ipcRenderer.invoke("retry-transcription", id, settings),
-  updateTranscriptionText: (id, text, rawText) =>
-    ipcRenderer.invoke("update-transcription-text", id, text, rawText),
+  updateTranscriptionText: (id, text, rawText, options) =>
+    ipcRenderer.invoke("update-transcription-text", id, text, rawText, options),
   getTranscriptionById: (id) => ipcRenderer.invoke("get-transcription-by-id", id),
+  // Step history: main owns ownership, policy and the export's Save dialog.
+  beginStepHistoryRun: () => ipcRenderer.invoke("step-history-begin-run"),
+  getTranscriptionSteps: (id) => ipcRenderer.invoke("history-get-steps", id),
+  exportDictations: () => ipcRenderer.invoke("history-export-dictations"),
 
   // Dictionary functions
   getDictionary: () => ipcRenderer.invoke("db-get-dictionary"),

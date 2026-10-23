@@ -9,6 +9,7 @@ import { getRecordingErrorTitle, getRecordingErrorDescription } from "../utils/r
 import { providerErrorActions } from "../utils/describeProviderError";
 import { isAccessibilitySkipped } from "../utils/permissions";
 import { needsSttConfigBeforeStart } from "../helpers/sttConfigPolicy";
+import { recordPastedText } from "../helpers/postTranscription";
 import {
   isAgentAllowed,
   isScreenContextAllowed,
@@ -214,6 +215,8 @@ export const useAudioRecording = (toast, options = {}) => {
         // (Hold and Tap both arrive here); fetch it without holding the start.
         // Without a fresh freeze the app stays unknown rather than a stale one.
         if (targetFrozen) audioManagerRef.current.beginRecordingTargetCapture?.();
+        // Step history: main captures who owns this dictation's steps now.
+        audioManagerRef.current.beginStepHistoryRun?.();
         // Covers the toggle path with freshly-set flags; the signature dedup
         // makes this a no-op when the prepare handler already reported the
         // same kind ahead of the flags being set.
@@ -791,6 +794,9 @@ export const useAudioRecording = (toast, options = {}) => {
               ...(result.analyticsOccurredAt
                 ? { analyticsOccurredAt: result.analyticsOccurredAt }
                 : {}),
+              // The boundary's trace goes to main with the row (step history),
+              // ending with what was pasted: snippets expanded above.
+              ...(result.trace ? { trace: recordPastedText(result.trace, result.text) } : {}),
             })
             .then(
               (persisted) => {

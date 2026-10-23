@@ -706,7 +706,50 @@
         "recover": "Recupera",
         "recovered": "Recuperata"
       },
-      "retryTranslationMode": "Modalità Traduzione"
+      "retryTranslationMode": "Modalità Traduzione",
+      "steps": {
+        "title": "Passaggi",
+        "viewSteps": "Mostra passaggi",
+        "loading": "Caricamento dei passaggi…",
+        "loadError": "Impossibile caricare i passaggi",
+        "notCaptured": "Passaggi non registrati",
+        "otherOwner": "Questi passaggi sono stati salvati con un altro accesso",
+        "targetApp": "App: {{app}}",
+        "durationMs": "{{ms}} ms",
+        "corrections": "Correzioni: {{n}}",
+        "errorCode": "Errore: {{code}}",
+        "promptServer": "Prompt del server, non disponibile",
+        "promptBuiltIn": "Prompt integrato",
+        "promptHash": "Prompt {{hash}}",
+        "showPrompt": "Mostra prompt",
+        "kinds": {
+          "stt": "Riconoscimento vocale",
+          "glossary": "Glossario",
+          "cleanup": "Correzione",
+          "translation": "Traduzione",
+          "agent": "Assistente",
+          "style": "Stile",
+          "finalize": "Ritocchi finali",
+          "snippets": "Snippet"
+        },
+        "outcomes": {
+          "failed": "Non riuscito",
+          "skipped": "Saltato",
+          "fallback": "Testo precedente mantenuto"
+        }
+      },
+      "export": {
+        "button": "Esporta",
+        "success": "Dettature esportate: {{n}}",
+        "error": "Impossibile esportare le tue dettature",
+        "accountChanged": "Il tuo account è cambiato, quindi non è stato esportato nulla",
+        "dialogTitle": "Esporta le mie dettature",
+        "warningMessage": "Questo file conterrà le tue dettature e i tuoi prompt privati.",
+        "warningDetail": "Viene salvato fuori da OpenWhispr, quindi né le impostazioni della cronologia né Cancella tutto lo rimuoveranno. In una cartella sincronizzata con il cloud, verrà caricato online.",
+        "continue": "Continua",
+        "cancel": "Annulla",
+        "fileType": "JSON Lines"
+      }
     },
     "aiCta": {
       "title": "Migliora le tue trascrizioni con l'IA",

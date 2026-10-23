@@ -706,7 +706,50 @@
         "recover": "Récupérer",
         "recovered": "Récupérée"
       },
-      "retryTranslationMode": "Mode Traduction"
+      "retryTranslationMode": "Mode Traduction",
+      "steps": {
+        "title": "Étapes",
+        "viewSteps": "Voir les étapes",
+        "loading": "Chargement des étapes…",
+        "loadError": "Impossible de charger les étapes",
+        "notCaptured": "Étapes non enregistrées",
+        "otherOwner": "Ces étapes ont été enregistrées sous une autre connexion",
+        "targetApp": "App : {{app}}",
+        "durationMs": "{{ms}} ms",
+        "corrections": "Corrections : {{n}}",
+        "errorCode": "Erreur : {{code}}",
+        "promptServer": "Prompt du serveur, non disponible",
+        "promptBuiltIn": "Prompt intégré",
+        "promptHash": "Prompt {{hash}}",
+        "showPrompt": "Afficher le prompt",
+        "kinds": {
+          "stt": "Reconnaissance vocale",
+          "glossary": "Glossaire",
+          "cleanup": "Correction",
+          "translation": "Traduction",
+          "agent": "Assistant",
+          "style": "Style",
+          "finalize": "Touches finales",
+          "snippets": "Snippets"
+        },
+        "outcomes": {
+          "failed": "Échec",
+          "skipped": "Ignorée",
+          "fallback": "Texte précédent conservé"
+        }
+      },
+      "export": {
+        "button": "Exporter",
+        "success": "Dictées exportées : {{n}}",
+        "error": "Impossible d'exporter vos dictées",
+        "accountChanged": "Votre compte a changé, rien n'a donc été exporté",
+        "dialogTitle": "Exporter mes dictées",
+        "warningMessage": "Ce fichier contiendra vos dictées et prompts privés.",
+        "warningDetail": "Il est enregistré en dehors d'OpenWhispr : ni vos réglages d'historique ni « Tout effacer » ne le supprimeront. Dans un dossier synchronisé avec le cloud, il sera envoyé en ligne.",
+        "continue": "Continuer",
+        "cancel": "Annuler",
+        "fileType": "JSON Lines"
+      }
     },
     "aiCta": {
       "title": "Améliorez vos transcriptions avec l'IA",

@@ -706,7 +706,50 @@
       "audioNotFound": "Archivo de audio no encontrado o expirado",
       "noAiProcessing": "No se aplicó procesamiento de IA a esta transcripción",
       "rawTranscript": "Transcripción sin procesar",
-      "retryTranslationMode": "Modo Traducción"
+      "retryTranslationMode": "Modo Traducción",
+      "steps": {
+        "title": "Pasos",
+        "viewSteps": "Ver pasos",
+        "loading": "Cargando pasos…",
+        "loadError": "No se pudieron cargar los pasos",
+        "notCaptured": "Pasos no registrados",
+        "otherOwner": "Estos pasos se guardaron con otro inicio de sesión",
+        "targetApp": "App: {{app}}",
+        "durationMs": "{{ms}} ms",
+        "corrections": "Correcciones: {{n}}",
+        "errorCode": "Error: {{code}}",
+        "promptServer": "Prompt del servidor, no disponible",
+        "promptBuiltIn": "Prompt integrado",
+        "promptHash": "Prompt {{hash}}",
+        "showPrompt": "Mostrar prompt",
+        "kinds": {
+          "stt": "Conversión de voz a texto",
+          "glossary": "Glosario",
+          "cleanup": "Corrección",
+          "translation": "Traducción",
+          "agent": "Asistente",
+          "style": "Estilo",
+          "finalize": "Toques finales",
+          "snippets": "Snippets"
+        },
+        "outcomes": {
+          "failed": "Falló",
+          "skipped": "Omitido",
+          "fallback": "Se mantuvo el texto anterior"
+        }
+      },
+      "export": {
+        "button": "Exportar",
+        "success": "Dictados exportados: {{n}}",
+        "error": "No se pudieron exportar tus dictados",
+        "accountChanged": "Tu cuenta cambió, así que no se exportó nada",
+        "dialogTitle": "Exportar mis dictados",
+        "warningMessage": "Este archivo contendrá tus dictados y prompts privados.",
+        "warningDetail": "Se guarda fuera de OpenWhispr, así que ni tu configuración del historial ni Borrar todo lo eliminarán. En una carpeta que se sincroniza con la nube, se subirá.",
+        "continue": "Continuar",
+        "cancel": "Cancelar",
+        "fileType": "JSON Lines"
+      }
     },
     "aiCta": {
       "title": "Mejora tus transcripciones con IA",

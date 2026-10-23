@@ -706,7 +706,50 @@
         "recover": "復元",
         "recovered": "復元しました"
       },
-      "retryTranslationMode": "翻訳モード"
+      "retryTranslationMode": "翻訳モード",
+      "steps": {
+        "title": "ステップ",
+        "viewSteps": "ステップを表示",
+        "loading": "ステップを読み込み中…",
+        "loadError": "ステップを読み込めませんでした",
+        "notCaptured": "ステップは記録されていません",
+        "otherOwner": "このステップは別のサインインで保存されました",
+        "targetApp": "アプリ: {{app}}",
+        "durationMs": "{{ms}} ms",
+        "corrections": "修正: {{n}}",
+        "errorCode": "エラー: {{code}}",
+        "promptServer": "サーバーのプロンプト（利用不可）",
+        "promptBuiltIn": "組み込みプロンプト",
+        "promptHash": "プロンプト {{hash}}",
+        "showPrompt": "プロンプトを表示",
+        "kinds": {
+          "stt": "音声認識",
+          "glossary": "用語集",
+          "cleanup": "クリーンアップ",
+          "translation": "翻訳",
+          "agent": "アシスタント",
+          "style": "スタイル",
+          "finalize": "仕上げ",
+          "snippets": "スニペット"
+        },
+        "outcomes": {
+          "failed": "失敗",
+          "skipped": "スキップ",
+          "fallback": "前のテキストを保持"
+        }
+      },
+      "export": {
+        "button": "エクスポート",
+        "success": "エクスポートしたディクテーション: {{n}}",
+        "error": "ディクテーションをエクスポートできませんでした",
+        "accountChanged": "アカウントが変わったため、何もエクスポートされませんでした",
+        "dialogTitle": "ディクテーションをエクスポート",
+        "warningMessage": "このファイルには、あなたの非公開のディクテーションとプロンプトが含まれます。",
+        "warningDetail": "OpenWhispr の外に保存されるため、履歴の設定や「すべて削除」では削除されません。クラウドと同期するフォルダーに保存すると、アップロードされます。",
+        "continue": "続ける",
+        "cancel": "キャンセル",
+        "fileType": "JSON Lines"
+      }
     },
     "aiCta": {
       "title": "AI で文字起こしを向上させましょう",

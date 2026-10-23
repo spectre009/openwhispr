@@ -4,7 +4,7 @@ import { cn } from "./lib/utils";
 import { useUiLocale } from "../hooks/useUiLocale";
 import { Button } from "./ui/button";
 import { PAGE_CONTENT_WIDTH_CLASS } from "./ui/pageWidth";
-import { Loader2, Sparkles, X, Trash2, Archive } from "./icons";
+import { Loader2, Sparkles, X, Trash2, Archive, Download } from "./icons";
 import TranscriptionItem from "./ui/TranscriptionItem";
 import ThemedEmptyIllustration from "./ui/ThemedEmptyIllustration";
 import DictationHotkeyHint from "./ui/DictationHotkeyHint";
@@ -29,6 +29,7 @@ interface HistoryViewProps {
   copyToClipboard: (text: string) => void;
   deleteTranscription: (id: number) => void;
   clearAllTranscriptions: () => void;
+  onExportDictations: () => void;
   onOpenSettings: (section?: string) => void;
   onOpenIntegrations: () => void;
   onShowAudioInFolder: (id: number) => void;
@@ -48,6 +49,7 @@ export default function HistoryView({
   copyToClipboard,
   deleteTranscription,
   clearAllTranscriptions,
+  onExportDictations,
   onOpenSettings,
   onOpenIntegrations,
   onShowAudioInFolder,
@@ -198,6 +200,13 @@ export default function HistoryView({
                     {index === 0 && (
                       <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity duration-200">
                         {discardedToggle}
+                        <button
+                          onClick={onExportDictations}
+                          className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] text-muted-foreground/70 hover:!text-foreground hover:!bg-black/5 dark:hover:!bg-white/5 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/30 transition-all duration-200"
+                        >
+                          <Download size={11} />
+                          <span>{t("controlPanel.history.export.button")}</span>
+                        </button>
                         <button
                           onClick={clearAllTranscriptions}
                           className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] text-muted-foreground/70 hover:!text-destructive hover:!bg-destructive/8 dark:hover:!bg-destructive/10 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/30 transition-all duration-200"

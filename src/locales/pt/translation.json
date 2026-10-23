@@ -685,7 +685,50 @@
         "recover": "Recuperar",
         "recovered": "Recuperada"
       },
-      "retryTranslationMode": "Modo de Tradução"
+      "retryTranslationMode": "Modo de Tradução",
+      "steps": {
+        "title": "Etapas",
+        "viewSteps": "Ver etapas",
+        "loading": "Carregando etapas…",
+        "loadError": "Não foi possível carregar as etapas",
+        "notCaptured": "Etapas não registradas",
+        "otherOwner": "Estas etapas foram salvas com outro login",
+        "targetApp": "App: {{app}}",
+        "durationMs": "{{ms}} ms",
+        "corrections": "Correções: {{n}}",
+        "errorCode": "Erro: {{code}}",
+        "promptServer": "Prompt do servidor, não disponível",
+        "promptBuiltIn": "Prompt integrado",
+        "promptHash": "Prompt {{hash}}",
+        "showPrompt": "Mostrar prompt",
+        "kinds": {
+          "stt": "Voz para texto",
+          "glossary": "Glossário",
+          "cleanup": "Limpeza",
+          "translation": "Tradução",
+          "agent": "Assistente",
+          "style": "Estilo",
+          "finalize": "Toques finais",
+          "snippets": "Snippets"
+        },
+        "outcomes": {
+          "failed": "Falhou",
+          "skipped": "Ignorada",
+          "fallback": "Texto anterior mantido"
+        }
+      },
+      "export": {
+        "button": "Exportar",
+        "success": "Ditados exportados: {{n}}",
+        "error": "Não foi possível exportar seus ditados",
+        "accountChanged": "Sua conta mudou, então nada foi exportado",
+        "dialogTitle": "Exportar meus ditados",
+        "warningMessage": "Este arquivo conterá seus ditados e prompts privados.",
+        "warningDetail": "Ele é salvo fora do OpenWhispr, então nem as configurações do histórico nem Limpar tudo o removerão. Em uma pasta sincronizada com a nuvem, ele será enviado.",
+        "continue": "Continuar",
+        "cancel": "Cancelar",
+        "fileType": "JSON Lines"
+      }
     },
     "aiCta": {
       "title": "Melhore suas transcrições com IA",

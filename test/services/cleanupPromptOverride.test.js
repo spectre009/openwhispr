@@ -254,6 +254,18 @@ for (const [name, provider] of Object.entries(PROVIDERS)) {
       assert.deepEqual(tested.result, active.result, `${candidate.label}: same validation`);
       assert.equal(dispatched.length, 1, "the provenance hook still fires");
 
+      // Step history: the prompt reference is the system prompt as sent, and
+      // Cloud, which builds its own on the server, is never reconstructed.
+      const { prompt } = dispatched[0];
+      assert.equal(prompt.entryId, candidate.saved ? null : "default");
+      if (provider.channel === "cloud") {
+        assert.equal(prompt.source, "server");
+        assert.equal("text" in prompt, false);
+      } else {
+        assert.equal(prompt.source, "resolved");
+        assert.equal(prompt.text, systemPromptOf(tested.request), "exactly what was sent");
+      }
+
       if (provider.channel === "cloud") {
         const opts = active.request.opts;
         assert.equal(opts.promptMode, "cleanup");
@@ -286,6 +298,37 @@ for (const [name, provider] of Object.entries(PROVIDERS)) {
     }
   });
 }
+
+test("a dictation's prompt reference names the library entry in use", async (t) => {
+  const ctx = await setup(t);
+  ctx.setReply(CLEAN);
+  ctx.useSettingsStore.setState(PROVIDERS.openai.settings);
+
+  const dispatchFor = async () => {
+    const dispatched = [];
+    const { model, config } = ctx.override.buildDictationCleanupRequest();
+    const sent = await ctx.outcome(() =>
+      ctx.service.processText(RAW, model, AGENT, {
+        ...config,
+        onDispatch: (info) => dispatched.push(info),
+      })
+    );
+    assert.equal(dispatched.length, 1);
+    return { prompt: dispatched[0].prompt, sent: systemPromptOf(sent.request) };
+  };
+
+  ctx.saveInUse(CANDIDATE);
+  const saved = await dispatchFor();
+  assert.equal(saved.prompt.entryId, ctx.getSettings().promptLibraries.cleanup.activeId);
+  assert.notEqual(saved.prompt.entryId, "default");
+  assert.equal(saved.prompt.text, saved.sent);
+  assert.ok(saved.prompt.text.startsWith("Tidy this dictation for Jarvis."));
+
+  ctx.saveInUse("");
+  const builtIn = await dispatchFor();
+  assert.equal(builtIn.prompt.entryId, "default");
+  assert.equal(builtIn.prompt.text, builtIn.sent);
+});
 
 test("cleanup sampling and completeness survive the override", async (t) => {
   const ctx = await setup(t);

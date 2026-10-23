@@ -44,19 +44,29 @@
 //     steps: [{ kind: "stt" | "glossary" | "cleanup" | "translation" | "agent" | "finalize",
 //               outcome: "ok" | "failed" | "skipped" | "fallback",
 //               output: string | null, provider: string | null, model: string | null,
-//               ms: number | null, errorCode?: string }] }   // in execution order
+//               ms: number | null, errorCode?: string,
+//               prompt?: { source: "resolved", text, entryId? }    // model steps, when known
+//                      | { source: "server", entryId? },
+//               detail?: { snippets: true } }],               // in execution order
+//     runId?: string }   // main's step-history run (ownership), set before saving
 //
 // `provider`/`model` on model steps are what was actually dispatched
-// (ReasoningConfig.onDispatch), not settings re-read afterwards. Later stages
-// add step kinds (Stage 3: "style") and pass `glossary: null` to skip it.
+// (ReasoningConfig.onDispatch), not settings re-read afterwards. `prompt` is
+// the system prompt as sent, reported by the same hook: "resolved" carries the
+// exact text after substitutions, the language instruction and the dictionary
+// suffix; "server" means OpenWhispr Cloud built it on its server, so it is not
+// available and never reconstructed. Later stages add step kinds (Stage 3:
+// "style") and pass `glossary: null` to skip it. Optional fields are only
+// present when known, so version 1 readers keep working.
 //
 // The trace (PostTranscriptionTrace below) is carried on the result object,
-// never kept on a shared manager. It holds dictated text: it may be persisted
-// (Stage 2 step history) but must never be logged. Log rule ids and counts
-// only (summarizeGlossaryTrace).
+// never kept on a shared manager. It holds dictated text and prompts: main
+// persists it as step history (helpers/stepHistory.js) but it must never be
+// logged. Log rule ids and counts only (summarizeGlossaryTrace).
 
 import { applyGlossary, type GlossaryFiredRule, type GlossarySnapshot } from "../utils/glossary";
 import type { Snippet } from "../utils/snippets";
+import type { DispatchedPrompt } from "../services/BaseReasoningService";
 import { hasTextContent } from "./translationChain";
 
 export const POST_TRANSCRIPTION_TRACE_VERSION = 1;
@@ -65,6 +75,12 @@ export type TraceStepKind = "stt" | "glossary" | "cleanup" | "translation" | "ag
 export type TraceStepOutcome = "ok" | "failed" | "skipped" | "fallback";
 /** "none": no model was reachable, or reasoning was off. Null: never routed. */
 export type TraceRoute = "cleanup" | "translation" | "agent" | "skip" | "none" | null;
+
+/** The system prompt a model step ran with; see the contract above. Never log `text`. */
+export type TracePromptRef = DispatchedPrompt;
+
+/** OpenWhispr Cloud cleanup: the server builds the prompt, so none is recorded. */
+export const SERVER_PROMPT_REF: TracePromptRef = Object.freeze({ source: "server" as const });
 
 export interface TraceStep {
   kind: TraceStepKind;
@@ -76,6 +92,10 @@ export interface TraceStep {
   model: string | null;
   ms: number | null;
   errorCode?: string;
+  /** Model steps: the system prompt as sent. Absent when unknown. */
+  prompt?: TracePromptRef;
+  /** Kind-specific extras, e.g. `{ snippets: true }` on a finalize step. */
+  detail?: { snippets?: boolean };
 }
 
 export interface PostTranscriptionContext {
@@ -98,11 +118,25 @@ export interface PostTranscriptionTrace {
   route: TraceRoute;
   glossary: { revision: number | null; rulesFired: GlossaryFiredRule[] };
   steps: TraceStep[];
+  /**
+   * The main-process step-history run this dictation belongs to, begun when the
+   * recording (or retry) started. Main checks ownership with it before it
+   * saves the steps; it says nothing about the dictation itself.
+   */
+  runId?: string;
 }
 
 export interface DispatchInfo {
   provider?: string | null;
   model?: string | null;
+  prompt?: TracePromptRef | null;
+}
+
+function isPromptRef(value: unknown): value is TracePromptRef {
+  const ref = value as TracePromptRef | null;
+  if (!ref || typeof ref !== "object") return false;
+  if (ref.source === "server") return true;
+  return ref.source === "resolved" && typeof ref.text === "string";
 }
 
 export type RecordStep = <T>(
@@ -159,10 +193,16 @@ function createStepRecorder(trace: PostTranscriptionTrace, now: () => number): R
       model: meta?.model ?? null,
       ms: 0,
     };
+    const metaPrompt = meta?.prompt;
+    if (isPromptRef(metaPrompt)) step.prompt = metaPrompt;
     const dispatched = (info: DispatchInfo) => {
       if (!info || typeof info !== "object") return;
       if (info.provider) step.provider = String(info.provider);
       if (info.model) step.model = String(info.model);
+      // A retried dispatch (e.g. a screenshot request rerun text-only) reports
+      // the prompt it actually sent, which replaces the first one.
+      const prompt = info.prompt;
+      if (isPromptRef(prompt)) step.prompt = prompt;
     };
     const started = now();
     try {
@@ -322,6 +362,34 @@ export async function runPostTranscription(
 
   trace.finalText = text;
   return { text, trace };
+}
+
+/**
+ * The text pasted can differ from the boundary's final text: snippets expand
+ * after it, in the dictation hook. Records that as a last finalize step so the
+ * trace ends with what was pasted. Returns the trace unchanged otherwise.
+ */
+export function recordPastedText<T extends PostTranscriptionTrace | null | undefined>(
+  trace: T,
+  pastedText: string
+): T {
+  if (!trace || typeof pastedText !== "string" || pastedText === trace.finalText) return trace;
+  return {
+    ...trace,
+    finalText: pastedText,
+    steps: [
+      ...trace.steps,
+      {
+        kind: "finalize",
+        outcome: "ok",
+        output: pastedText,
+        provider: null,
+        model: null,
+        ms: 0,
+        detail: { snippets: true },
+      },
+    ],
+  };
 }
 
 /** Log-safe summary of what the glossary did: ids and counts, never text. */

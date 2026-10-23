@@ -33,6 +33,7 @@ import type {
   NoteAttendeesRequest,
 } from "./connectors";
 import type { GlossaryRule, GlossarySnapshot, GlossarySpelling } from "../utils/glossary";
+import type { PostTranscriptionTrace } from "../helpers/postTranscription";
 
 export type LocalTranscriptionProvider = "whisper" | "nvidia" | "cohere";
 
@@ -382,6 +383,48 @@ export interface TranscriptionItem {
   cloud_id: string | null;
   sync_status: "synced" | "pending" | "error";
   deleted_at: string | null;
+}
+
+/** One stored stage of a dictation (main's transcription_steps), as History shows it. */
+export interface TranscriptionStepRecord {
+  kind: string;
+  outcome: "ok" | "failed" | "skipped" | "fallback";
+  output: string | null;
+  provider: string | null;
+  model: string | null;
+  ms: number | null;
+  errorCode: string | null;
+  /** "server": OpenWhispr Cloud built the prompt, so it isn't available. */
+  prompt: {
+    source: "resolved" | "server";
+    hash: string | null;
+    entryId: string | null;
+    text?: string | null;
+  } | null;
+  /** Glossary steps: `{ revision, rulesFired }`; snippet finalize: `{ snippets: true }`. */
+  detail: {
+    revision?: number | null;
+    rulesFired?: Array<{ ruleId: string | null; from: string | null; to: string | null }>;
+    snippets?: boolean;
+  } | null;
+}
+
+export interface TranscriptionStepsResult {
+  success: boolean;
+  /** "otherOwner": saved under another account, or while signed out. */
+  status: "captured" | "none" | "otherOwner";
+  route?: string | null;
+  context?: { targetApp: string | null } | null;
+  steps: TranscriptionStepRecord[];
+}
+
+export interface ExportDictationsResult {
+  success: boolean;
+  /** Rows written, and how many of them carried this owner's steps. */
+  dictations?: number;
+  withSteps?: number;
+  canceled?: boolean;
+  code?: "OWNER_UNKNOWN" | "ACCOUNT_CHANGED" | "EXPORT_FAILED";
 }
 
 export type AnalyticsMode = "local" | "openwhispr_cloud" | "byok" | "self_hosted" | "unknown";
@@ -1583,6 +1626,9 @@ declare global {
           errorCode?: TranscriptionErrorCode;
           clientTranscriptionId?: string;
           analyticsOccurredAt?: string;
+          routeKind?: string | null;
+          /** The boundary's trace; main saves it as step history if it may. */
+          trace?: PostTranscriptionTrace;
         }
       ) => Promise<{ id: number; success: boolean; transcription?: TranscriptionItem }>;
       getTranscriptions: (
@@ -1682,12 +1728,24 @@ declare global {
         error?: string;
         code?: TranscriptionErrorCode;
         messageKey?: string;
+        /** Main's step-history run for this retry; put it on the trace as `runId`. */
+        stepRunId?: string | null;
       }>;
       updateTranscriptionText: (
         id: number,
         text: string,
-        rawText: string
-      ) => Promise<{ success: boolean; transcription?: TranscriptionItem; error?: string }>;
+        rawText: string,
+        options?: { trace?: PostTranscriptionTrace }
+      ) => Promise<{
+        success: boolean;
+        transcription?: TranscriptionItem;
+        error?: string;
+        /** A newer retry of the same row overtook this one; nothing was written. */
+        stale?: boolean;
+      }>;
+      beginStepHistoryRun?: () => Promise<{ runId: string | null }>;
+      getTranscriptionSteps?: (id: number) => Promise<TranscriptionStepsResult>;
+      exportDictations?: () => Promise<ExportDictationsResult>;
 
       // Dictionary operations
       getDictionary: () => Promise<string[]>;

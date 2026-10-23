@@ -706,7 +706,50 @@
         "recover": "Recover",
         "recovered": "Recovered"
       },
-      "retryTranslationMode": "Translation Mode"
+      "retryTranslationMode": "Translation Mode",
+      "steps": {
+        "title": "Steps",
+        "viewSteps": "View steps",
+        "loading": "Loading steps…",
+        "loadError": "Couldn't load the steps",
+        "notCaptured": "Steps not captured",
+        "otherOwner": "These steps were saved under a different sign-in",
+        "targetApp": "App: {{app}}",
+        "durationMs": "{{ms}} ms",
+        "corrections": "Corrections: {{n}}",
+        "errorCode": "Error: {{code}}",
+        "promptServer": "Server prompt, not available",
+        "promptBuiltIn": "Built-in prompt",
+        "promptHash": "Prompt {{hash}}",
+        "showPrompt": "Show prompt",
+        "kinds": {
+          "stt": "Speech-to-Text",
+          "glossary": "Glossary",
+          "cleanup": "Cleanup",
+          "translation": "Translation",
+          "agent": "Assistant",
+          "style": "Style",
+          "finalize": "Final touches",
+          "snippets": "Snippets"
+        },
+        "outcomes": {
+          "failed": "Failed",
+          "skipped": "Skipped",
+          "fallback": "Kept previous text"
+        }
+      },
+      "export": {
+        "button": "Export",
+        "success": "Dictations exported: {{n}}",
+        "error": "Couldn't export your dictations",
+        "accountChanged": "Your account changed, so nothing was exported",
+        "dialogTitle": "Export my dictations",
+        "warningMessage": "This file will contain your private dictations and prompts.",
+        "warningDetail": "It is saved outside OpenWhispr, so your history settings and Clear all won't remove it. In a folder that syncs to the cloud, it will be uploaded.",
+        "continue": "Continue",
+        "cancel": "Cancel",
+        "fileType": "JSON Lines"
+      }
     },
     "aiCta": {
       "title": "Enhance your transcriptions with AI",

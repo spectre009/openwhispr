@@ -706,7 +706,50 @@
         "recover": "Wiederherstellen",
         "recovered": "Wiederhergestellt"
       },
-      "retryTranslationMode": "Übersetzungsmodus"
+      "retryTranslationMode": "Übersetzungsmodus",
+      "steps": {
+        "title": "Schritte",
+        "viewSteps": "Schritte anzeigen",
+        "loading": "Schritte werden geladen…",
+        "loadError": "Die Schritte konnten nicht geladen werden",
+        "notCaptured": "Keine Schritte erfasst",
+        "otherOwner": "Diese Schritte wurden unter einer anderen Anmeldung gespeichert",
+        "targetApp": "App: {{app}}",
+        "durationMs": "{{ms}} ms",
+        "corrections": "Korrekturen: {{n}}",
+        "errorCode": "Fehler: {{code}}",
+        "promptServer": "Server-Prompt, nicht verfügbar",
+        "promptBuiltIn": "Integrierter Prompt",
+        "promptHash": "Prompt {{hash}}",
+        "showPrompt": "Prompt anzeigen",
+        "kinds": {
+          "stt": "Spracherkennung",
+          "glossary": "Glossar",
+          "cleanup": "Textbereinigung",
+          "translation": "Übersetzung",
+          "agent": "Assistent",
+          "style": "Stil",
+          "finalize": "Letzter Schliff",
+          "snippets": "Snippets"
+        },
+        "outcomes": {
+          "failed": "Fehlgeschlagen",
+          "skipped": "Übersprungen",
+          "fallback": "Vorheriger Text beibehalten"
+        }
+      },
+      "export": {
+        "button": "Exportieren",
+        "success": "Exportierte Diktate: {{n}}",
+        "error": "Ihre Diktate konnten nicht exportiert werden",
+        "accountChanged": "Ihr Konto hat sich geändert, daher wurde nichts exportiert",
+        "dialogTitle": "Meine Diktate exportieren",
+        "warningMessage": "Diese Datei enthält Ihre privaten Diktate und Prompts.",
+        "warningDetail": "Sie wird außerhalb von OpenWhispr gespeichert, daher entfernen weder Ihre Verlaufseinstellungen noch „Alle löschen“ sie. In einem Ordner, der mit der Cloud synchronisiert wird, wird sie hochgeladen.",
+        "continue": "Weiter",
+        "cancel": "Abbrechen",
+        "fileType": "JSON Lines"
+      }
     },
     "aiCta": {
       "title": "Verbessern Sie Ihre Transkriptionen mit KI",

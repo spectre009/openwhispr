@@ -30,6 +30,7 @@ const {
   normalizeGlossaryRuleInput,
   glossaryRuleFromRow,
 } = require("./glossaryRules");
+const { ownerKeyFor } = require("./stepHistory");
 
 // Server-enforced trigger cap (openwhispr-api); enforced here so one oversized
 // trigger can't 400 the whole sync batch.
@@ -195,6 +196,7 @@ class DatabaseManager {
   constructor() {
     this.db = null;
     this.activeAccountId = null;
+    this.stepHistoryReady = false;
     this.initDatabase();
   }
 
@@ -1513,6 +1515,19 @@ class DatabaseManager {
         debugLogger.error("Glossary rules unavailable", { error: error.message }, "database");
       }
       try {
+        this._initStepHistory();
+      } catch (error) {
+        // Step history records how dictations were made: it must never keep
+        // the history database from opening. Without its tables, dictations
+        // save without steps and every step write and delete is skipped.
+        this.stepHistoryReady = false;
+        debugLogger.error("Step history unavailable", { error: error.message }, "database");
+      }
+      // Step history's ON DELETE CASCADE needs foreign keys. better-sqlite3
+      // turns them on by default and the folders rebuild above restores them,
+      // but say so once more after every migration rather than rely on both.
+      this.db.pragma("foreign_keys = ON");
+      try {
         noteUndo.initializeNoteUndo(this.db);
         this.noteUndoReady = true;
       } catch (error) {
@@ -1538,6 +1553,7 @@ class DatabaseManager {
       routeKind = null,
       clientTranscriptionId = randomUUID(),
       analyticsOccurredAt = null,
+      steps = null,
     } = {}
   ) {
     try {
@@ -1558,16 +1574,21 @@ class DatabaseManager {
            client_transcription_id, timestamp
          ) VALUES (?, ?, ?, ?, ?, ?, ?, COALESCE(?, CURRENT_TIMESTAMP))`
       );
-      const result = stmt.run(
-        text,
-        rawText,
-        status,
-        errorMessage,
-        errorCode,
-        routeKind,
-        clientTranscriptionId,
-        occurredAt
-      );
+      // The row and its steps (stepHistory.js validated them) commit together.
+      const result = this.db.transaction(() => {
+        const inserted = stmt.run(
+          text,
+          rawText,
+          status,
+          errorMessage,
+          errorCode,
+          routeKind,
+          clientTranscriptionId,
+          occurredAt
+        );
+        if (steps) this._writeTranscriptionSteps(inserted.lastInsertRowid, steps);
+        return inserted;
+      })();
 
       const fetchStmt = this.db.prepare("SELECT * FROM transcriptions WHERE id = ?");
       const transcription = fetchStmt.get(result.lastInsertRowid);
@@ -2182,6 +2203,9 @@ class DatabaseManager {
       );
       const clearedThrough = new Date().toISOString();
       const clearAll = this.db.transaction(() => {
+        // Every dictation goes, so every step goes: tombstoned rows keep no
+        // steps, and the hard-deleted ones would cascade anyway.
+        this._deleteTranscriptionSteps("1 = 1");
         const cleared = tombstone.run().changes + hardDelete.run().changes;
         updateDeviceClearState.run(clearedThrough);
         // The account-wide cutoff is what erases rows this device no longer
@@ -2249,6 +2273,15 @@ class DatabaseManager {
       );
       let analyticsPurged = 0;
       this.db.transaction(() => {
+        // A tombstone keeps the row, so its steps go explicitly, with the mark.
+        // Hard-deleted rows take theirs through ON DELETE CASCADE.
+        this._deleteTranscriptionSteps(
+          `transcription_id IN (
+             SELECT id FROM transcriptions
+             WHERE cloud_id IS NOT NULL AND deleted_at IS NULL AND created_at < ?
+           )`,
+          cutoff
+        );
         tombstone.run(cutoff);
         hardDelete.run(cutoff);
         analyticsPurged =
@@ -2274,12 +2307,19 @@ class DatabaseManager {
         .prepare("SELECT cloud_id, deleted_at FROM transcriptions WHERE id = ?")
         .get(id);
       if (!row || row.deleted_at) return { success: false, id };
-      const stmt = row.cloud_id
-        ? this.db.prepare(
-            "UPDATE transcriptions SET deleted_at = datetime('now'), sync_status = 'pending' WHERE id = ? AND deleted_at IS NULL"
-          )
-        : this.db.prepare("DELETE FROM transcriptions WHERE id = ?");
-      const result = stmt.run(id);
+      if (!row.cloud_id) {
+        // Physical delete: ON DELETE CASCADE removes the steps with the row.
+        const result = this.db.prepare("DELETE FROM transcriptions WHERE id = ?").run(id);
+        return { success: result.changes > 0, id };
+      }
+      // A synced row is only marked, so its steps are deleted with the mark.
+      const tombstone = this.db.prepare(
+        "UPDATE transcriptions SET deleted_at = datetime('now'), sync_status = 'pending' WHERE id = ? AND deleted_at IS NULL"
+      );
+      const result = this.db.transaction(() => {
+        this._deleteTranscriptionSteps("transcription_id = ?", id);
+        return tombstone.run(id);
+      })();
       return { success: result.changes > 0, id };
     } catch (error) {
       debugLogger.error("Error deleting transcription", { error: error.message }, "database");
@@ -2301,18 +2341,29 @@ class DatabaseManager {
     }
   }
 
-  updateTranscriptionText(id, text, rawText) {
+  /**
+   * Rewrites a row's text. `options.steps` (a retry's validated trace, or
+   * null) replaces the row's steps in the same transaction. Without it, steps
+   * that no longer describe the text (it changed) are removed.
+   */
+  updateTranscriptionText(id, text, rawText, options = {}) {
     try {
       if (!this.db) throw new Error("Database not initialized");
+      const replacesSteps = Object.prototype.hasOwnProperty.call(options || {}, "steps");
       const stmt = this.db.prepare("UPDATE transcriptions SET text = ?, raw_text = ? WHERE id = ?");
       this.db.transaction(() => {
         const existing = this.db
-          .prepare("SELECT text, raw_text FROM transcriptions WHERE id = ?")
+          .prepare("SELECT text, raw_text, deleted_at FROM transcriptions WHERE id = ?")
           .get(id);
-        if (existing && (existing.text !== text || existing.raw_text !== rawText)) {
+        const changed = existing && (existing.text !== text || existing.raw_text !== rawText);
+        if (changed) {
           this._invalidateAnalyticsHistoryFromTranscription(id);
         }
         stmt.run(text, rawText, id);
+        if (replacesSteps || changed) this._deleteTranscriptionSteps("transcription_id = ?", id);
+        if (replacesSteps && options.steps && existing && !existing.deleted_at) {
+          this._writeTranscriptionSteps(id, options.steps);
+        }
       })();
       return { success: true };
     } catch (error) {
@@ -2372,6 +2423,202 @@ class DatabaseManager {
       debugLogger.error("Error clearing audio flags", { error: error.message }, "database");
       throw error;
     }
+  }
+
+  // Step history (see helpers/stepHistory.js): one row per stage of a
+  // dictation, owned by an account ("account:<id>") or the signed-out
+  // namespace, plus the resolved prompts those stages sent, keyed by hash.
+  // Local only: cloud sync selects transcription columns explicitly, and the
+  // vector triggers cover notes only. Steps leave with their dictation: a
+  // physical delete cascades, and every tombstone deletes them explicitly in
+  // the transaction that marks the row. A prompt version goes when the last
+  // step that references it does, in any account (the trigger below).
+  _initStepHistory() {
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS prompt_versions (
+        hash TEXT PRIMARY KEY,
+        text TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE TABLE IF NOT EXISTS transcription_steps (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        transcription_id INTEGER NOT NULL
+          REFERENCES transcriptions(id) ON DELETE CASCADE,
+        owner TEXT NOT NULL,
+        seq INTEGER NOT NULL,
+        kind TEXT NOT NULL,
+        outcome TEXT NOT NULL,
+        output TEXT,
+        provider TEXT,
+        model TEXT,
+        prompt_source TEXT,
+        prompt_hash TEXT REFERENCES prompt_versions(hash),
+        prompt_entry_id TEXT,
+        duration_ms INTEGER,
+        error_code TEXT,
+        detail TEXT,
+        route TEXT,
+        context TEXT,
+        trace_version INTEGER NOT NULL,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE (transcription_id, seq)
+      );
+      CREATE INDEX IF NOT EXISTS idx_transcription_steps_owner
+        ON transcription_steps(owner, transcription_id);
+      CREATE INDEX IF NOT EXISTS idx_transcription_steps_prompt
+        ON transcription_steps(prompt_hash) WHERE prompt_hash IS NOT NULL;
+      CREATE TRIGGER IF NOT EXISTS transcription_steps_release_prompt
+      AFTER DELETE ON transcription_steps
+      WHEN old.prompt_hash IS NOT NULL
+      BEGIN
+        DELETE FROM prompt_versions
+        WHERE hash = old.prompt_hash
+          AND NOT EXISTS (
+            SELECT 1 FROM transcription_steps WHERE prompt_hash = old.prompt_hash
+          );
+      END;
+    `);
+    // Versions a crash or an older build left behind with no step to explain them.
+    this.db.exec(`
+      DELETE FROM prompt_versions
+      WHERE NOT EXISTS (
+        SELECT 1 FROM transcription_steps WHERE transcription_steps.prompt_hash = prompt_versions.hash
+      )
+    `);
+    this.stepHistoryReady = true;
+  }
+
+  // Inside a caller's transaction. A no-op without the tables, so a failed
+  // step-history setup never blocks deleting or clearing history.
+  _deleteTranscriptionSteps(whereSql, ...params) {
+    if (!this.stepHistoryReady) return 0;
+    return this.db.prepare(`DELETE FROM transcription_steps WHERE ${whereSql}`).run(...params)
+      .changes;
+  }
+
+  // Inside a caller's transaction, as a savepoint: a step that fails to write
+  // drops the steps, never the dictation they describe.
+  _writeTranscriptionSteps(transcriptionId, trace) {
+    if (!this.stepHistoryReady || !trace || !Array.isArray(trace.steps)) return false;
+    const insertPrompt = this.db.prepare(
+      "INSERT OR IGNORE INTO prompt_versions (hash, text) VALUES (?, ?)"
+    );
+    const insertStep = this.db.prepare(
+      `INSERT INTO transcription_steps (
+         transcription_id, owner, seq, kind, outcome, output, provider, model,
+         prompt_source, prompt_hash, prompt_entry_id, duration_ms, error_code,
+         detail, route, context, trace_version
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    );
+    const context = trace.context ? JSON.stringify(trace.context) : null;
+    try {
+      this.db.transaction(() => {
+        trace.steps.forEach((step, seq) => {
+          const prompt = step.prompt || null;
+          if (prompt?.hash) insertPrompt.run(prompt.hash, prompt.text);
+          insertStep.run(
+            transcriptionId,
+            trace.owner,
+            seq,
+            step.kind,
+            step.outcome,
+            step.output ?? null,
+            step.provider ?? null,
+            step.model ?? null,
+            prompt?.source ?? null,
+            prompt?.hash ?? null,
+            prompt?.entryId ?? null,
+            step.ms ?? null,
+            step.errorCode ?? null,
+            step.detail ? JSON.stringify(step.detail) : null,
+            trace.route ?? null,
+            context,
+            trace.version
+          );
+        });
+      })();
+      return true;
+    } catch (error) {
+      debugLogger.error(
+        "Step history not saved",
+        { error: error.message, steps: trace.steps.length },
+        "database"
+      );
+      return false;
+    }
+  }
+
+  /**
+   * One row's steps for one owner, with the prompt texts they reference.
+   * status: "captured", "none" (old, pulled or not traced) or "otherOwner"
+   * (saved under another account or signed out; never shown to this one).
+   */
+  getTranscriptionSteps(id, owner) {
+    if (!this.db) throw new Error("Database not initialized");
+    const row = this.db.prepare("SELECT deleted_at FROM transcriptions WHERE id = ?").get(id);
+    if (!row || row.deleted_at || !this.stepHistoryReady) return { status: "none", rows: [] };
+    const rows = this.db
+      .prepare(
+        `SELECT s.*, p.text AS prompt_text
+         FROM transcription_steps s
+         LEFT JOIN prompt_versions p ON p.hash = s.prompt_hash
+         WHERE s.transcription_id = ? AND s.owner = ?
+         ORDER BY s.seq`
+      )
+      .all(id, owner);
+    if (rows.length > 0) {
+      let context = null;
+      try {
+        context = rows[0].context ? JSON.parse(rows[0].context) : null;
+      } catch {
+        context = null;
+      }
+      return { status: "captured", route: rows[0].route ?? null, context, rows };
+    }
+    const other = this.db
+      .prepare(
+        "SELECT 1 FROM transcription_steps WHERE transcription_id = ? AND owner != ? LIMIT 1"
+      )
+      .get(id, owner);
+    return { status: other ? "otherOwner" : "none", rows: [] };
+  }
+
+  /** What "Export my dictations" writes: every completed row, and this owner's steps and prompts. */
+  getStepHistoryExport(owner) {
+    if (!this.db) throw new Error("Database not initialized");
+    const dictations = this.db
+      .prepare(
+        `SELECT id, client_transcription_id, timestamp, created_at, text, raw_text,
+                route_kind, provider, model
+         FROM transcriptions
+         WHERE deleted_at IS NULL AND status = 'completed'
+         ORDER BY timestamp ASC, id ASC`
+      )
+      .all();
+    if (!this.stepHistoryReady) return { dictations, steps: [], prompts: [] };
+    const steps = this.db
+      .prepare(
+        `SELECT s.*
+         FROM transcription_steps s
+         JOIN transcriptions t ON t.id = s.transcription_id
+         WHERE s.owner = ? AND t.deleted_at IS NULL AND t.status = 'completed'
+         ORDER BY s.transcription_id, s.seq`
+      )
+      .all(owner);
+    const prompts = this.db
+      .prepare(
+        `SELECT hash, text FROM prompt_versions
+         WHERE hash IN (
+           SELECT s.prompt_hash
+           FROM transcription_steps s
+           JOIN transcriptions t ON t.id = s.transcription_id
+           WHERE s.owner = ? AND s.prompt_hash IS NOT NULL
+             AND t.deleted_at IS NULL AND t.status = 'completed'
+         )
+         ORDER BY created_at, hash`
+      )
+      .all(owner);
+    return { dictations, steps, prompts };
   }
 
   getDictionary() {
@@ -3725,6 +3972,9 @@ class DatabaseManager {
       this.db.prepare("DELETE FROM analytics_clear_requests WHERE account_id = ?").run(accountId);
       this.db.prepare("DELETE FROM connector_actions WHERE account_id = ?").run(accountId);
       this.db.prepare("DELETE FROM space_accounts WHERE account_id = ?").run(accountId);
+      // The account's step history. The dictations themselves are device-wide
+      // and stay; the signed-out namespace and other accounts keep theirs.
+      this._deleteTranscriptionSteps("owner = ?", ownerKeyFor(accountId));
     };
 
     if (typeof this.db.transaction === "function") {
@@ -7795,6 +8045,10 @@ class DatabaseManager {
           (existing.text !== text || existing.raw_text !== rawText || existing.status !== status)
         ) {
           this._invalidateAnalyticsHistoryFromTranscription(existing.id);
+        }
+        // Steps describe this device's text; a cloud copy that differs makes them stale.
+        if (existing && (existing.text !== text || existing.raw_text !== rawText)) {
+          this._deleteTranscriptionSteps("transcription_id = ?", existing.id);
         }
         stmt.run(
           cloudTranscription.client_transcription_id,

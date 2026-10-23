@@ -706,7 +706,50 @@
         "recover": "復原",
         "recovered": "已復原"
       },
-      "retryTranslationMode": "翻譯模式"
+      "retryTranslationMode": "翻譯模式",
+      "steps": {
+        "title": "步驟",
+        "viewSteps": "檢視步驟",
+        "loading": "正在載入步驟…",
+        "loadError": "無法載入步驟",
+        "notCaptured": "未記錄步驟",
+        "otherOwner": "這些步驟是在另一個登入狀態下儲存的",
+        "targetApp": "應用程式：{{app}}",
+        "durationMs": "{{ms}} 毫秒",
+        "corrections": "更正：{{n}}",
+        "errorCode": "錯誤：{{code}}",
+        "promptServer": "伺服器提示詞，無法取得",
+        "promptBuiltIn": "內建提示詞",
+        "promptHash": "提示詞 {{hash}}",
+        "showPrompt": "顯示提示詞",
+        "kinds": {
+          "stt": "語音轉文字",
+          "glossary": "詞彙表",
+          "cleanup": "文字整理",
+          "translation": "翻譯",
+          "agent": "助理",
+          "style": "風格",
+          "finalize": "最後處理",
+          "snippets": "片段"
+        },
+        "outcomes": {
+          "failed": "失敗",
+          "skipped": "已略過",
+          "fallback": "保留了先前的文字"
+        }
+      },
+      "export": {
+        "button": "匯出",
+        "success": "已匯出聽寫：{{n}}",
+        "error": "無法匯出你的聽寫",
+        "accountChanged": "你的帳戶已變更，因此未匯出任何內容",
+        "dialogTitle": "匯出我的聽寫",
+        "warningMessage": "此檔案將包含你的私人聽寫和提示詞。",
+        "warningDetail": "它儲存在 OpenWhispr 之外，因此歷史記錄設定和「全部清除」都不會刪除它。如果儲存在與雲端同步的資料夾中，它會被上傳。",
+        "continue": "繼續",
+        "cancel": "取消",
+        "fileType": "JSON Lines"
+      }
     },
     "aiCta": {
       "title": "用 AI 增強你的轉錄品質",

@@ -6,7 +6,11 @@ import {
   isEnterpriseProvider,
   type EnterpriseProvider,
 } from "../models/ModelRegistry";
-import { BaseReasoningService, ReasoningConfig } from "./BaseReasoningService";
+import {
+  BaseReasoningService,
+  ReasoningConfig,
+  type DispatchedPrompt,
+} from "./BaseReasoningService";
 import { SecureCache } from "../utils/SecureCache";
 import { withRetry, createApiRetryStrategy, httpError } from "../utils/retry";
 import { API_ENDPOINTS, TOKEN_LIMITS, buildApiUrl, ensureV1Suffix } from "../config/constants";
@@ -14,6 +18,7 @@ import logger from "../utils/logger";
 import { assertValidCleanupOutput } from "../utils/cleanupOutput";
 import { getSettings, isCloudCleanupMode } from "../stores/settingsStore";
 import { resolveCleanupPromptTemplate, wrapCleanupTranscript } from "../config/prompts";
+import { activeEntryIdFor, DEFAULT_PROMPT_ID } from "../config/prompts/library";
 import { stripThinkingTags } from "../helpers/stripThinking.js";
 import {
   getLlmRequestTimeoutSeconds,
@@ -295,11 +300,23 @@ class ReasoningService extends BaseReasoningService {
 
   // One request's view of the provider context: every cleanup dispatch reads the
   // cleanup prompt fixed when processText started (the saved one, or the
-  // request's cleanupPrompt override) rather than the store at call time.
+  // request's cleanupPrompt override) rather than the store at call time. The
+  // substituted prompt is built once per assistant name, so the copy recorded
+  // for step history (processText's onDispatch) is the one providers send.
   private providerContextFor(cleanupTemplate: string): ProviderContext {
+    const resolved = new Map<string, string>();
+    const cleanupSystemPrompt = (agentName: string | null): string => {
+      const key = agentName ?? "";
+      let prompt = resolved.get(key);
+      if (prompt === undefined) {
+        prompt = this.getSystemPrompt(agentName, cleanupTemplate);
+        resolved.set(key, prompt);
+      }
+      return prompt;
+    };
     return {
       ...this.providerContext,
-      getSystemPrompt: (agentName) => this.getSystemPrompt(agentName, cleanupTemplate),
+      getSystemPrompt: cleanupSystemPrompt,
       getCleanupCustomPrompt: () => cleanupTemplate || undefined,
       callChatCompletionsApi: (endpoint, apiKey, model, text, agentName, config, providerName) =>
         this.callChatCompletionsApi(
@@ -310,7 +327,7 @@ class ReasoningService extends BaseReasoningService {
           agentName,
           config,
           providerName,
-          cleanupTemplate
+          cleanupSystemPrompt
         ),
     };
   }
@@ -323,12 +340,14 @@ class ReasoningService extends BaseReasoningService {
     agentName: string | null,
     config: ReasoningConfig,
     providerName: string,
-    cleanupTemplate?: string
+    cleanupSystemPrompt?: (agentName: string | null) => string
   ): Promise<string> {
     // No systemPrompt override means the default cleanup path: a deterministic
     // transform, so zero temperature and a delimited transcript.
     const isCleanup = !config.systemPrompt;
-    const systemPrompt = config.systemPrompt || this.getSystemPrompt(agentName, cleanupTemplate);
+    const systemPrompt =
+      config.systemPrompt ||
+      (cleanupSystemPrompt ? cleanupSystemPrompt(agentName) : this.getSystemPrompt(agentName));
     const userPrompt = isCleanup ? wrapCleanupTranscript(text) : text;
 
     const messages = [
@@ -502,6 +521,36 @@ class ReasoningService extends BaseReasoningService {
     return responseText;
   }
 
+  // The system prompt this dispatch sends, for step history. Read from the same
+  // per-request context the provider reads, never rebuilt from settings later.
+  // OpenWhispr Cloud builds its prompt on the server, so none is recorded.
+  private dispatchedPrompt(
+    providerId: string,
+    config: ReasoningConfig,
+    agentName: string | null,
+    ctx: ProviderContext,
+    {
+      cleanupPrompt,
+      cleanupTemplate,
+    }: { cleanupPrompt: ReasoningConfig["cleanupPrompt"]; cleanupTemplate: string }
+  ): DispatchedPrompt {
+    const isCleanup = !config.systemPrompt;
+    const entryId = !isCleanup
+      ? undefined
+      : !cleanupPrompt || cleanupPrompt.mode === "inherit"
+        ? activeEntryIdFor(getSettings().promptLibraries?.cleanup, cleanupTemplate)
+        : cleanupPrompt.mode === "builtin"
+          ? DEFAULT_PROMPT_ID
+          : null;
+    const withEntry = entryId === undefined ? {} : { entryId };
+    if (providerId === "openwhispr") return { source: "server", ...withEntry };
+    return {
+      source: "resolved",
+      text: config.systemPrompt || ctx.getSystemPrompt(agentName),
+      ...withEntry,
+    };
+  }
+
   async processText(
     text: string,
     model: string = "",
@@ -590,10 +639,20 @@ class ReasoningService extends BaseReasoningService {
       throw new Error(`Unsupported reasoning provider: ${providerId}`);
     }
 
-    try {
-      onDispatch?.({ provider: providerId, model: trimmedModel });
-    } catch {
-      // Recording what was dispatched must never cost the request.
+    const ctx = this.providerContextFor(cleanupTemplate);
+    if (onDispatch) {
+      try {
+        onDispatch({
+          provider: providerId,
+          model: trimmedModel,
+          prompt: this.dispatchedPrompt(providerId, dispatchConfig, agentName, ctx, {
+            cleanupPrompt,
+            cleanupTemplate,
+          }),
+        });
+      } catch {
+        // Recording what was dispatched must never cost the request.
+      }
     }
 
     const startTime = Date.now();
@@ -603,7 +662,7 @@ class ReasoningService extends BaseReasoningService {
         model: trimmedModel,
         agentName,
         config: dispatchConfig,
-        ctx: this.providerContextFor(cleanupTemplate),
+        ctx,
       });
 
       if (validateCleanup) assertValidCleanupOutput(text, result);

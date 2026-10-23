@@ -117,6 +117,19 @@ export function activePromptText(library: PromptLibrary): string {
   return findPromptEntry(library, library.activeId)?.text ?? "";
 }
 
+/**
+ * The id of the entry in use when `template` is its text (DEFAULT_PROMPT_ID for
+ * ""), or null when the record and the template disagree, e.g. a window that
+ * has not caught up with another one's change yet.
+ */
+export function activeEntryIdFor(
+  library: PromptLibrary | null | undefined,
+  template: string
+): string | null {
+  if (!library) return null;
+  return activePromptText(library) === (template || "") ? library.activeId : null;
+}
+
 /** A pre-library install's override becomes the active "migrated" entry. */
 function libraryFromCache(storage: PromptStorage, kind: PromptKind, migratedName: string) {
   const library = createEmptyPromptLibrary();

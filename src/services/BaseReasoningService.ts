@@ -42,11 +42,25 @@ export interface ReasoningConfig {
   cleanupPrompt?: CleanupPromptOverride;
   /**
    * Told the provider and model a request is actually dispatched to, once
-   * routing (managed scopes, implicit cleanup providers) has resolved them.
-   * Read by processText and never forwarded to a provider.
+   * routing (managed scopes, implicit cleanup providers) has resolved them,
+   * and the system prompt it sends (see DispatchedPrompt). Called once per
+   * dispatch. Read by processText and never forwarded to a provider.
    */
-  onDispatch?: (dispatched: { provider: string; model: string }) => void;
+  onDispatch?: (dispatched: { provider: string; model: string; prompt?: DispatchedPrompt }) => void;
 }
+
+/**
+ * The system prompt one request is sent with, for step history:
+ * - resolved: `text` is exactly what the app sent (after substitutions, the
+ *   language instruction and the dictionary suffix);
+ * - server: OpenWhispr Cloud builds the prompt on its server, so it isn't
+ *   available here and is never reconstructed.
+ * `entryId` is the prompt library entry in use ("default" = built-in) when
+ * known. The text is private: persist it, never log it.
+ */
+export type DispatchedPrompt =
+  | { source: "resolved"; text: string; entryId?: string | null }
+  | { source: "server"; entryId?: string | null };
 
 export abstract class BaseReasoningService {
   protected isProcessing = false;

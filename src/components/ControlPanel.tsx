@@ -616,6 +616,33 @@ export default function ControlPanel({ initialSettingsSection }: ControlPanelPro
     });
   }, [isSignedIn, showConfirmDialog, showAlertDialog, toast, t]);
 
+  // Main shows its own privacy warning and Save dialog, and writes the file.
+  const exportDictations = useCallback(async () => {
+    try {
+      const result = await window.electronAPI.exportDictations?.();
+      if (!result) return;
+      if (result.success) {
+        toast({
+          title: t("controlPanel.history.export.success", { n: result.dictations }),
+          variant: "success",
+          duration: 3000,
+        });
+        return;
+      }
+      if (result.canceled) return;
+      toast({
+        title: t(
+          result.code === "ACCOUNT_CHANGED"
+            ? "controlPanel.history.export.accountChanged"
+            : "controlPanel.history.export.error"
+        ),
+        variant: "destructive",
+      });
+    } catch {
+      toast({ title: t("controlPanel.history.export.error"), variant: "destructive" });
+    }
+  }, [toast, t]);
+
   const showAudioInFolder = useCallback(
     async (id: number) => {
       try {
@@ -679,7 +706,7 @@ export default function ControlPanel({ initialSettingsSection }: ControlPanelPro
 
           // The same post-speech-to-text boundary a live dictation runs. History
           // records no target app, so only "anywhere" glossary corrections apply.
-          const { text: finalText } = await runPostTranscription(rawText, {
+          const { text: finalText, trace } = await runPostTranscription(rawText, {
             context: {
               targetApp: null,
               voiceAgentRequested: false,
@@ -830,12 +857,18 @@ export default function ControlPanel({ initialSettingsSection }: ControlPanelPro
             },
           });
 
-          if (finalText !== finalTranscription.text) {
+          // Main began this retry's step-history run; its steps replace the
+          // row's old ones together with the text, even when the text is unchanged.
+          if (result.stepRunId) trace.runId = result.stepRunId;
+          if (finalText !== finalTranscription.text || trace.runId) {
             const updated = await window.electronAPI.updateTranscriptionText(
               id,
               finalText,
-              rawText
+              rawText,
+              { trace }
             );
+            // A newer retry of this row overtook this one; it reports its own result.
+            if (updated.stale) return;
             if (updated.success && updated.transcription) {
               finalTranscription = updated.transcription;
             }
@@ -1241,6 +1274,7 @@ export default function ControlPanel({ initialSettingsSection }: ControlPanelPro
                   copyToClipboard={copyToClipboard}
                   deleteTranscription={deleteTranscription}
                   clearAllTranscriptions={clearAllTranscriptions}
+                  onExportDictations={exportDictations}
                   onShowAudioInFolder={showAudioInFolder}
                   onRetryTranscription={retryTranscription}
                   showDiscarded={showDiscarded}

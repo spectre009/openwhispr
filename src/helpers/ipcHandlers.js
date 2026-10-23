@@ -150,6 +150,7 @@ const {
   DEFAULT_RETENTION_SETTINGS,
   createRetentionSettingsHandler,
 } = require("./retentionSettings");
+const { createStepHistory, ownerKeyFor } = require("./stepHistory");
 const {
   transcriptsOverlap,
   transcriptsLooselyOverlap,
@@ -688,6 +689,24 @@ class IPCHandlers {
     this._retentionCleanupInterval = null;
     this._retentionSettings = { ...DEFAULT_RETENTION_SETTINGS }; // Synced from renderer
     this._retentionSettingsSynced = false;
+    // Step history: owned by the account bound to the credential in use (the
+    // binding connectors use, not the database scope that lags a switch), and
+    // written only while the dictation window's effective "keep local
+    // history" setting is on. Until that setting has synced it reads as off.
+    this.stepHistory = createStepHistory({
+      db: this.databaseManager,
+      getOwner: () =>
+        ownerKeyFor(
+          accountScopeBinding.resolveActiveAccountScope({
+            ...tokenStore.getState(),
+            binding: accountScopeBinding.read(),
+          })?.accountId ?? null
+        ),
+      isEnabled: () =>
+        this._retentionSettingsSynced === true &&
+        this._retentionSettings?.dataRetentionEnabled === true,
+      logger: debugLogger,
+    });
     this._noteFilesEnabled = false;
     this._granolaImportPending = null;
     this._analyticsHistoryBackfillPromise = null;
@@ -1807,13 +1826,72 @@ class IPCHandlers {
     }
 
     ipcMain.handle("db-save-transcription", async (event, text, rawText, options) => {
-      const result = this.databaseManager.saveTranscription(text, rawText, options);
+      // The trace's steps are written in the row's transaction, if main allows them.
+      const result = this.stepHistory.saveTranscription(text, rawText, options);
       if (result?.success && result?.transcription) {
         setImmediate(() => {
           broadcastToWindows("transcription-added", result.transcription);
         });
       }
       return result;
+    });
+
+    // Begun when a recording starts: main captures who will own its steps.
+    ipcMain.handle("step-history-begin-run", () => ({ runId: this.stepHistory.beginRun() }));
+
+    ipcMain.handle("history-get-steps", (_event, id) => {
+      try {
+        return { success: true, ...this.stepHistory.getSteps(id) };
+      } catch (error) {
+        debugLogger.error("Failed to read step history", { error: error.message }, "database");
+        return { success: false, status: "none", steps: [] };
+      }
+    });
+
+    ipcMain.handle("history-export-dictations", async (event) => {
+      const { dialog } = require("electron");
+      const parent = BrowserWindow.fromWebContents(event.sender) || undefined;
+      const t = (key) => i18nMain.t(`controlPanel.history.export.${key}`);
+      try {
+        return await this.stepHistory.exportDictations({
+          // Main's own warning, then main's own Save dialog: the renderer
+          // never chooses where private dictations are written.
+          choosePath: async () => {
+            const warning = {
+              type: "warning",
+              title: t("dialogTitle"),
+              message: t("warningMessage"),
+              detail: t("warningDetail"),
+              buttons: [t("continue"), t("cancel")],
+              defaultId: 0,
+              cancelId: 1,
+              noLink: true,
+            };
+            const confirmed = parent
+              ? await dialog.showMessageBox(parent, warning)
+              : await dialog.showMessageBox(warning);
+            if (confirmed.response !== 0) return null;
+            const stamp = new Date().toISOString().slice(0, 10);
+            const options = {
+              title: t("dialogTitle"),
+              defaultPath: path.join(
+                app.getPath("documents"),
+                `openwhispr-dictations-${stamp}.jsonl`
+              ),
+              filters: [{ name: t("fileType"), extensions: ["jsonl"] }],
+            };
+            const saved = parent
+              ? await dialog.showSaveDialog(parent, options)
+              : await dialog.showSaveDialog(options);
+            return saved.canceled || !saved.filePath ? null : saved.filePath;
+          },
+          writeFile: (filePath, content) =>
+            fs.promises.writeFile(filePath, content, { encoding: "utf8", mode: 0o600 }),
+        });
+      } catch (error) {
+        debugLogger.error("Dictation export failed", { error: error.message }, "database");
+        return { success: false, code: "EXPORT_FAILED" };
+      }
     });
 
     ipcMain.handle("db-get-transcriptions", async (event, limit = 50, options = {}) => {
@@ -6865,6 +6943,9 @@ class IPCHandlers {
     ipcMain.handle("retry-transcription", async (event, id, settings) => {
       const buffer = this.audioStorageManager.getAudioBuffer(id);
       if (!buffer) return { success: false, error: "Audio file not found" };
+      // This retry's step-history run: it captures the owner now and becomes
+      // the row's newest revision, so an older retry's completion is dropped.
+      const stepRunId = this.stepHistory.beginRun({ transcriptionId: id });
       let providerErrorContext = null;
       try {
         let result;
@@ -7188,7 +7269,7 @@ class IPCHandlers {
             void this._ensureAnalyticsHistoryBackfilled();
           });
         }
-        return { success: true, transcription: updated };
+        return { success: true, transcription: updated, stepRunId };
       } catch (rawError) {
         const error = providerErrorContext
           ? asProviderError(rawError, providerErrorContext)
@@ -9937,9 +10018,12 @@ class IPCHandlers {
       return { success: true, streamed, text: streamedText };
     });
 
-    ipcMain.handle("update-transcription-text", async (_event, id, text, rawText) => {
+    ipcMain.handle("update-transcription-text", async (_event, id, text, rawText, options) => {
       try {
-        this.databaseManager.updateTranscriptionText(id, text, rawText);
+        // A retry's trace replaces the row's steps with its text, atomically;
+        // a completion a newer retry overtook writes nothing.
+        const completion = this.stepHistory.completeRetry(id, text, rawText, options);
+        if (completion.stale) return { success: false, stale: true };
         const updated = this.databaseManager.getTranscriptionById(id);
         return { success: true, transcription: updated };
       } catch (error) {

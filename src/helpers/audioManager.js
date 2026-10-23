@@ -141,7 +141,12 @@ import { buildDictionaryHints, resolveHintTarget } from "../utils/dictionaryHint
 import { getGlossaryCanonicalTerms } from "../utils/glossaryTerms";
 import { getGlossarySnapshot } from "../stores/glossaryStore";
 import { getLearnedDictionaryWords } from "../stores/dictionarySourcesStore";
-import { passthroughStep, runPostTranscription, summarizeGlossaryTrace } from "./postTranscription";
+import {
+  passthroughStep,
+  runPostTranscription,
+  SERVER_PROMPT_REF,
+  summarizeGlossaryTrace,
+} from "./postTranscription";
 import { normalizeAgentSelectionContext } from "../utils/agentSelectionContext";
 import { getAgentName } from "../utils/agentName";
 import { shouldDisplayDictationPreview } from "../utils/transcriptionPreview";
@@ -179,6 +184,35 @@ const MIN_UNIQUE_WORD_GAIN = 2;
 // The target-app probe gives up after 700 ms (selectionManager), so a frozen
 // target is known long before transcription ends; this only bounds a lost reply.
 const RECORDING_TARGET_WAIT_MS = 1000;
+// Begun when the recording started, so its reply is in long before the
+// dictation is; this only bounds a lost one. A trace without a run saves no steps.
+const STEP_HISTORY_RUN_WAIT_MS = 250;
+
+// Asks main to begin a step-history run: main captures who owns this
+// dictation's steps now, and checks it again when the dictation is saved.
+// Resolves the run id, or null without one (no bridge, or an older main).
+function requestStepHistoryRun() {
+  const request =
+    typeof window !== "undefined" ? window.electronAPI?.beginStepHistoryRun?.() : undefined;
+  if (!request) return Promise.resolve(null);
+  return Promise.resolve(request)
+    .then((reply) => (typeof reply?.runId === "string" ? reply.runId : null))
+    .catch(() => null);
+}
+
+async function settleStepHistoryRun(pending) {
+  let timer;
+  try {
+    return await Promise.race([
+      pending,
+      new Promise((resolve) => {
+        timer = setTimeout(() => resolve(null), STEP_HISTORY_RUN_WAIT_MS);
+      }),
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 // Same guard processTranscriptionCore has always used: node test harnesses
 // run without localStorage.
@@ -690,6 +724,7 @@ class AudioManager {
     this.screenContextPromise = null;
     this.selectionCapturePromise = null;
     this.recordingTargetPromise = null;
+    this.stepHistoryRunPromise = null;
     this.sttConfig = null;
     this.sttConfigFetchedAt = null;
     this.streamingFallbackReason = null;
@@ -994,6 +1029,14 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     // And for the target app: a recording that never asked for its own (the
     // agent overlay) must not inherit an earlier recording's app.
     this.recordingTargetPromise = null;
+    // Nor an earlier recording's step-history run (and its owner).
+    this.stepHistoryRunPromise = null;
+  }
+
+  // Begins this recording's step-history run in main (see
+  // requestStepHistoryRun). Never awaited at start; postTranscribe reads it.
+  beginStepHistoryRun() {
+    this.stepHistoryRunPromise = requestStepHistoryRun();
   }
 
   // Asks main for the target app it froze when this recording started (see
@@ -3196,32 +3239,36 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
   }) {
     const runCleanup = async (currentText) => {
       if (cleanup.mode === "cloudReason") {
-        return recordStep("cleanup", { provider: "openwhispr" }, async (dispatched) => {
-          const customPrompt = this.getCustomPrompt();
-          const reasonResult = await withSessionRefresh(async () => {
-            const res = await window.electronAPI.cloudReason(currentText, {
-              agentName,
-              promptMode: "cleanup",
-              purpose: "cleanup",
-              customDictionary: getDictionaryHintWords(settings),
-              customPrompt,
-              language: this.getCleanupLanguage(settings),
-              locale: settings.uiLanguage || "en",
-              ...(cleanup.meta || {}),
+        return recordStep(
+          "cleanup",
+          { provider: "openwhispr", prompt: SERVER_PROMPT_REF },
+          async (dispatched) => {
+            const customPrompt = this.getCustomPrompt();
+            const reasonResult = await withSessionRefresh(async () => {
+              const res = await window.electronAPI.cloudReason(currentText, {
+                agentName,
+                promptMode: "cleanup",
+                purpose: "cleanup",
+                customDictionary: getDictionaryHintWords(settings),
+                customPrompt,
+                language: this.getCleanupLanguage(settings),
+                locale: settings.uiLanguage || "en",
+                ...(cleanup.meta || {}),
+              });
+              if (!res.success) {
+                const err = new Error(res.error || "Cloud reasoning failed");
+                err.code = res.code;
+                throw err;
+              }
+              return res;
             });
-            if (!res.success) {
-              const err = new Error(res.error || "Cloud reasoning failed");
-              err.code = res.code;
-              throw err;
+            dispatched({ model: reasonResult.model });
+            if (!customPrompt && hasTextContent(reasonResult.text)) {
+              assertValidCleanupOutput(currentText, reasonResult.text);
             }
-            return res;
-          });
-          dispatched({ model: reasonResult.model });
-          if (!customPrompt && hasTextContent(reasonResult.text)) {
-            assertValidCleanupOutput(currentText, reasonResult.text);
+            return reasonResult.success && reasonResult.text ? reasonResult.text : null;
           }
-          return reasonResult.success && reasonResult.text ? reasonResult.text : null;
-        });
+        );
       }
       const cleanupModel = cleanup.model;
       if (cleanupModel) {
@@ -3304,6 +3351,9 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     }
   ) {
     const agentName = currentAgentName();
+    // This recording's run, begun when it started; a path that never began one
+    // begins it now, alongside the model call.
+    const stepHistoryRun = this.stepHistoryRunPromise || requestStepHistoryRun();
     const targetApp = await this.getRecordingTargetApp();
     const result = await runPostTranscription(rawText, {
       context: {
@@ -3326,6 +3376,8 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       finalize: (text) => this.finalizeChineseScript(text, settings),
       wasCancelled,
     });
+    const runId = await settleStepHistoryRun(stepHistoryRun);
+    if (runId) result.trace.runId = runId;
     // Rule ids and counts only: the trace holds dictated text and never reaches a log.
     const glossary = summarizeGlossaryTrace(result.trace);
     if (glossary.fired > 0) {
@@ -3805,7 +3857,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
           } else if (route.kind === "cleanup" && cleanupCloudMode === "openwhispr") {
             const cleaned = await recordStep(
               "cleanup",
-              { provider: "openwhispr" },
+              { provider: "openwhispr", prompt: SERVER_PROMPT_REF },
               async (dispatched) => {
                 const customPrompt = this.getCustomPrompt();
                 const reasonResult = await withSessionRefresh(async () => {
@@ -4551,7 +4603,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
   async saveTranscription(
     text,
     rawText = null,
-    { clientTranscriptionId, analyticsOccurredAt } = {}
+    { clientTranscriptionId, analyticsOccurredAt, trace } = {}
   ) {
     const { dataRetentionEnabled, audioRetentionDays } = getEffectiveRetentionPreferences();
     if (!dataRetentionEnabled) {
@@ -4588,6 +4640,9 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
         clientTranscriptionId: eventId,
         routeKind: this.translationRequested ? "translation" : null,
         analyticsOccurredAt: occurredAt.toISOString(),
+        // Main writes its steps in the row's transaction, if ownership and the
+        // history setting still allow them when it arrives.
+        ...(trace ? { trace } : {}),
       });
       if (result?.id) syncService.debouncedPush("transcription", result.id);
 
@@ -5976,7 +6031,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
                 let cloudModel = null;
                 const cleaned = await recordStep(
                   "cleanup",
-                  { provider: "openwhispr" },
+                  { provider: "openwhispr", prompt: SERVER_PROMPT_REF },
                   async (dispatched) => {
                     const customPrompt = this.getCustomPrompt();
                     const reasonResult = await withSessionRefresh(async () => {
