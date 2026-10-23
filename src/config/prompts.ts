@@ -1,4 +1,4 @@
-import { resolvePrompt } from "./prompts/index";
+import { resolvePrompt, resolvePromptText } from "./prompts/index";
 import { SOURCE_FIDELITY_RULE } from "../helpers/sourceFidelity.js";
 import {
   CONNECTOR_NAMES,
@@ -9,22 +9,33 @@ import { NOTE_TAKER_LABEL } from "../utils/transcriptEvidence";
 
 export {
   resolvePrompt,
+  resolvePromptText,
+  resolveCleanupPromptTemplate,
   getDefaultPromptText,
   appendDictionarySuffix,
   appendScreenContextSuffix,
   appendPlainTextResponseSuffix,
   wrapCleanupTranscript,
+  type CleanupPromptOverride,
 } from "./prompts/index";
 export { PROMPT_KINDS, PROMPT_KIND_LIST, type PromptKind } from "./prompts/registry";
 export { detectAgentName } from "./agentDetection";
 
+/**
+ * `template` is the cleanup prompt a request runs ("" for the built-in
+ * default); left out, it is the saved one.
+ */
 export function getCleanupSystemPrompt(
   agentName: string | null,
   customDictionary?: string[],
   language?: string,
-  uiLanguage?: string
+  uiLanguage?: string,
+  template?: string
 ): string {
-  return resolvePrompt("cleanup", { agentName, language, customDictionary, uiLanguage });
+  const opts = { agentName, language, customDictionary, uiLanguage };
+  return template === undefined
+    ? resolvePrompt("cleanup", opts)
+    : resolvePromptText("cleanup", template, opts);
 }
 
 export function getWordBoost(customDictionary?: string[]): string[] {

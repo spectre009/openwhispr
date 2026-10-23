@@ -2,7 +2,13 @@ import type { ReasoningConfig } from "../../BaseReasoningService";
 
 export interface ProviderContext {
   getApiKey(provider: string): Promise<string>;
+  /** The cleanup system prompt of this request (its cleanup prompt, substituted). */
   getSystemPrompt(agentName: string | null): string;
+  /**
+   * The request's unsubstituted cleanup prompt, or undefined for the built-in
+   * default: what OpenWhispr Cloud takes as `customPrompt`.
+   */
+  getCleanupCustomPrompt(): string | undefined;
   getCustomDictionary(): string[];
   getPreferredLanguage(): string;
   getUiLanguage(): string;

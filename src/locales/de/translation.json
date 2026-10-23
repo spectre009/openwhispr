@@ -1563,26 +1563,67 @@
     "common": {
       "copied": "Kopiert",
       "copy": "Kopieren",
-      "reset": "Zurücksetzen",
       "save": "Speichern"
     },
     "defaultTestInput": "Hey Whispr, wie ist das Wetter heute?",
-    "dialogs": {
-      "reset": {
-        "description": "Der Prompt wurde auf den Standardwert zurückgesetzt.",
-        "title": "Zurücksetzen abgeschlossen"
-      },
-      "saved": {
-        "description": "Ihr benutzerdefinierter Prompt wird für alle zukünftigen KI-Verarbeitungen verwendet.",
-        "title": "Prompt gespeichert"
-      }
-    },
     "edit": {
       "agentNameLabel": "Assistent-Name:",
       "cautionLabel": "Vorsicht",
       "cautionTextPrefix": "Änderungen an diesem Prompt können die Transkriptionsqualität beeinträchtigen.",
       "cautionTextSuffix": "Behalten Sie den Platzhalter {{agentName}} bei, um die Assistent-Erkennung zu gewährleisten.",
       "placeholder": "Geben Sie Ihren benutzerdefinierten System-Prompt ein..."
+    },
+    "library": {
+      "actions": {
+        "delete": "Löschen",
+        "discard": "Verwerfen",
+        "duplicate": "Duplizieren",
+        "duplicateToCustomize": "Zum Anpassen duplizieren",
+        "new": "Neuer Prompt",
+        "rename": "Umbenennen",
+        "saveAsNew": "Als neu speichern…",
+        "useDefault": "Standard verwenden",
+        "useThis": "Diesen Prompt verwenden"
+      },
+      "builtinLabel": "Integrierter Prompt",
+      "builtinReadOnly": "Der integrierte Prompt kann nicht bearbeitet werden. Erstelle eine eigene Kopie, um ihn anzupassen; der integrierte bleibt unverändert und erhält weiterhin App-Updates.",
+      "copyName": "{{name}} (Kopie)",
+      "defaultName": "Standard (integriert)",
+      "defaultShort": "Standard",
+      "deletedElsewhere": "Dieser Prompt wurde in einem anderen Fenster gelöscht, daher wurden deine Änderungen als neuer Prompt gespeichert.",
+      "dialogs": {
+        "cancel": "Abbrechen",
+        "createConfirm": "Erstellen",
+        "deleteDescription": "Der gespeicherte Prompt wird entfernt. Das lässt sich nicht rückgängig machen.",
+        "deleteInUseDescription": "Dieser Prompt ist in Verwendung, daher tritt der integrierte Standard an seine Stelle. Das lässt sich nicht rückgängig machen.",
+        "deleteTitle": "{{name}} löschen?",
+        "discardDescription": "Deine ungespeicherten Änderungen an {{name}} gehen verloren.",
+        "discardTitle": "Ungespeicherte Änderungen verwerfen?",
+        "duplicateTitle": "Prompt duplizieren",
+        "nameLabel": "Name",
+        "newTitle": "Neuer Prompt",
+        "renameConfirm": "Umbenennen",
+        "renameTitle": "Prompt umbenennen",
+        "saveAsNewTitle": "Als neuen Prompt speichern"
+      },
+      "emptyPrompt": "Schreibe diesen Prompt und speichere ihn zuerst.",
+      "inUse": "In Verwendung",
+      "migratedName": "Mein Prompt",
+      "newName": "Neuer Prompt",
+      "notInUse": "Dieser Prompt wird nicht verwendet. Aktuell in Verwendung: {{active}}.",
+      "pickerLabel": "Prompt",
+      "readOnly": "Schreibgeschützt",
+      "saveFirst": "Speichere oder verwirf deine Änderungen, um ihn zu verwenden.",
+      "saved": "Gespeichert",
+      "savedLabel": "Gespeicherter Prompt",
+      "selectedInUse": "Dieser Prompt ist in Verwendung.",
+      "testRunsActive": "Führt {{name}} aus, den Prompt in Verwendung.",
+      "testRunsDraft": "Führt deinen ungespeicherten Entwurf aus, ohne ihn zu speichern oder zu ihm zu wechseln. {{active}} bleibt in Verwendung.",
+      "testRunsSelected": "Führt {{name}} aus, ohne zu ihm zu wechseln. {{active}} bleibt in Verwendung.",
+      "unsaved": "Ungespeicherte Änderungen",
+      "untitled": "Unbenannter Prompt",
+      "viewShowsSaved": "Das ist die gespeicherte Version. Deine ungespeicherten Änderungen findest du unter „Anpassen“.",
+      "yours": "Deiner"
     },
     "tabs": {
       "customize": "Anpassen",
@@ -1616,11 +1657,6 @@
       "translationDisabled": "Aktiviere die Diktatübersetzung, um diesen Prompt zu testen",
       "noTargetLanguage": "Wähle zuerst eine Zielsprache",
       "agentDisabled": "Aktiviere den Sprachassistenten, um diesen Prompt zu testen"
-    },
-    "view": {
-      "customPrompt": "Benutzerdefinierter Prompt",
-      "defaultPrompt": "Standard-Prompt",
-      "modified": "Geändert"
     },
     "defaultTestInputTranslate": "Das Wetter ist heute wunderschön, hast du Lust auf einen Spaziergang?"
   },

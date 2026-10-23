@@ -15,9 +15,41 @@ export interface ResolvePromptOptions {
 }
 
 export function resolvePrompt(kind: PromptKind, opts: ResolvePromptOptions): string {
-  const custom = useSettingsStore.getState().customPrompts[kind];
-  const template = custom || getDefaultPromptText(kind, opts.uiLanguage);
-  return applySubstitutions(template, opts);
+  return resolvePromptText(kind, useSettingsStore.getState().customPrompts[kind], opts);
+}
+
+/**
+ * resolvePrompt for an explicit template instead of the saved one: the same
+ * substitutions and suffixes, with "" meaning the built-in default. Lets a
+ * candidate prompt be tried without saving it.
+ */
+export function resolvePromptText(
+  kind: PromptKind,
+  template: string,
+  opts: ResolvePromptOptions
+): string {
+  return applySubstitutions(template || getDefaultPromptText(kind, opts.uiLanguage), opts);
+}
+
+/**
+ * Which cleanup prompt one request runs, without touching saved settings:
+ * - inherit: the saved prompt (what a dictation uses), read when the request starts;
+ * - builtin: the built-in default, as if no prompt were saved;
+ * - text: this text, as if it were the saved prompt ("" is the built-in default).
+ * It changes only the prompt: the transcript wrapper, sampling, completeness and
+ * output validation stay those of a real cleanup request.
+ */
+export type CleanupPromptOverride =
+  { mode: "inherit" } | { mode: "builtin" } | { mode: "text"; text: string };
+
+/** The cleanup template a request uses; "" is the built-in default. */
+export function resolveCleanupPromptTemplate(
+  override: CleanupPromptOverride | undefined,
+  savedTemplate: string
+): string {
+  if (!override || override.mode === "inherit") return savedTemplate || "";
+  if (override.mode === "builtin") return "";
+  return typeof override.text === "string" ? override.text : "";
 }
 
 export function getDefaultPromptText(kind: PromptKind, uiLanguage?: string): string {

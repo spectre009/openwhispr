@@ -50,6 +50,9 @@ test("Prompt Studio labels dictation-agent runs for policy enforcement", async (
           if (modules[source]) return `\0prompt-studio-${modules[source]}`;
           if (source.endsWith("/hooks/useDialogs")) return "\0prompt-studio-dialogs";
           if (source.endsWith("/hooks/usePolicy")) return "\0prompt-studio-policy";
+          if (source.endsWith("/hooks/usePromptLibraryEditor")) return "\0prompt-studio-library";
+          if (source === "./PromptLibraryBar") return "\0prompt-studio-library-bar";
+          if (source.endsWith("/services/cleanupWithPrompt")) return "\0prompt-studio-cleanup";
           if (source.endsWith("/utils/agentName")) return "\0prompt-studio-agent-name";
           if (source.endsWith("/services/ReasoningService")) return "\0prompt-studio-reasoning";
           if (source.endsWith("/models/ModelRegistry")) return "\0prompt-studio-models";
@@ -104,6 +107,37 @@ test("Prompt Studio labels dictation-agent runs for policy enforcement", async (
               export const TestTube = () => null;
               export const AlertTriangle = () => null;
               export const Check = () => null;
+              export const Info = () => null;
+            `;
+          }
+          if (id === "\0prompt-studio-library") {
+            return `
+              export function usePromptLibraryEditor() {
+                return {
+                  library: { version: 1, activeId: "default", entries: [] },
+                  selectedId: "default",
+                  selectedEntry: null,
+                  isDefaultSelected: true,
+                  isSelectedActive: true,
+                  savedText: "default prompt",
+                  editorText: "default prompt",
+                  isDirty: false,
+                  displayName: () => "Default",
+                };
+              }
+            `;
+          }
+          if (id === "\0prompt-studio-library-bar") {
+            return `
+              export default function PromptLibraryBar() { return null; }
+              export function PromptDraftActions() { return null; }
+            `;
+          }
+          if (id === "\0prompt-studio-cleanup") {
+            return `
+              export async function runCleanupWithPrompt() {
+                throw new Error("the agent test must not run the cleanup request");
+              }
             `;
           }
           if (id === "\0prompt-studio-dialog") return "export function AlertDialog() {}";
@@ -146,8 +180,10 @@ test("Prompt Studio labels dictation-agent runs for policy enforcement", async (
           }
           if (id === "\0prompt-studio-prompts") {
             return `
-              export function getDefaultPromptText() { return "default prompt"; }
-              export function resolvePrompt() { return "resolved agent prompt"; }
+              export function resolvePromptText(kind, template) {
+                globalThis.__promptStudioResolved = { kind, template };
+                return "resolved agent prompt";
+              }
             `;
           }
           if (id === "\0prompt-studio-settings") {
@@ -223,6 +259,7 @@ test("Prompt Studio labels dictation-agent runs for policy enforcement", async (
     await vite.close();
     fs.rmSync(cacheDir, { recursive: true, force: true });
     delete globalThis.__promptStudioReasoningCalls;
+    delete globalThis.__promptStudioResolved;
   });
 
   const { default: PromptStudio } = await vite.ssrLoadModule("/components/ui/PromptStudio.tsx");
@@ -234,4 +271,7 @@ test("Prompt Studio labels dictation-agent runs for policy enforcement", async (
 
   assert.equal(calls.length, 1);
   assert.equal(calls[0][3].requiresAgent, true);
+  // The selected prompt goes into the request itself; Default is the empty template.
+  assert.equal(calls[0][3].systemPrompt, "resolved agent prompt");
+  assert.deepEqual(globalThis.__promptStudioResolved, { kind: "dictationAgent", template: "" });
 });

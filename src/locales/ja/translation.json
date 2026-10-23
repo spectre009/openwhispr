@@ -1469,26 +1469,67 @@
     "common": {
       "copied": "コピーしました",
       "copy": "コピー",
-      "reset": "リセット",
       "save": "保存"
     },
     "defaultTestInput": "ねぇ Whispr、今日の天気はどう？",
-    "dialogs": {
-      "reset": {
-        "description": "プロンプトをデフォルト値にリセットしました。",
-        "title": "リセット完了"
-      },
-      "saved": {
-        "description": "カスタムプロンプトが今後すべての AI 処理に使用されます。",
-        "title": "プロンプトを保存しました"
-      }
-    },
     "edit": {
       "agentNameLabel": "アシスタント名:",
       "cautionLabel": "注意",
       "cautionTextPrefix": "このプロンプトを変更すると文字起こしの品質に影響する場合があります。",
       "cautionTextSuffix": "アシスタント検出を維持するために {{agentName}} プレースホルダーを残してください。",
       "placeholder": "カスタムシステムプロンプトを入力..."
+    },
+    "library": {
+      "actions": {
+        "delete": "削除",
+        "discard": "破棄",
+        "duplicate": "複製",
+        "duplicateToCustomize": "複製してカスタマイズ",
+        "new": "新しいプロンプト",
+        "rename": "名前を変更",
+        "saveAsNew": "新規として保存…",
+        "useDefault": "デフォルトを使用",
+        "useThis": "このプロンプトを使用"
+      },
+      "builtinLabel": "組み込みプロンプト",
+      "builtinReadOnly": "組み込みプロンプトは編集できません。変更するには自分用のコピーを作成してください。組み込みプロンプトはそのまま残り、アプリの更新も引き続き反映されます。",
+      "copyName": "{{name}}（コピー）",
+      "defaultName": "デフォルト（組み込み）",
+      "defaultShort": "デフォルト",
+      "deletedElsewhere": "このプロンプトは別のウィンドウで削除されたため、変更は新しいプロンプトとして保存されました。",
+      "dialogs": {
+        "cancel": "キャンセル",
+        "createConfirm": "作成",
+        "deleteDescription": "保存したプロンプトが削除されます。この操作は元に戻せません。",
+        "deleteInUseDescription": "このプロンプトは使用中のため、組み込みのデフォルトに切り替わります。この操作は元に戻せません。",
+        "deleteTitle": "{{name}} を削除しますか？",
+        "discardDescription": "{{name}} への未保存の変更は失われます。",
+        "discardTitle": "未保存の変更を破棄しますか？",
+        "duplicateTitle": "プロンプトを複製",
+        "nameLabel": "名前",
+        "newTitle": "新しいプロンプト",
+        "renameConfirm": "名前を変更",
+        "renameTitle": "プロンプトの名前を変更",
+        "saveAsNewTitle": "新しいプロンプトとして保存"
+      },
+      "emptyPrompt": "先にこのプロンプトを書いて保存してください。",
+      "inUse": "使用中",
+      "migratedName": "マイプロンプト",
+      "newName": "新しいプロンプト",
+      "notInUse": "このプロンプトは使用されていません。現在使用中: {{active}}。",
+      "pickerLabel": "プロンプト",
+      "readOnly": "読み取り専用",
+      "saveFirst": "使用するには変更を保存するか破棄してください。",
+      "saved": "保存しました",
+      "savedLabel": "保存したプロンプト",
+      "selectedInUse": "このプロンプトは使用中です。",
+      "testRunsActive": "使用中のプロンプト {{name}} を実行します。",
+      "testRunsDraft": "未保存の下書きを、保存も切り替えもせずに実行します。{{active}} は引き続き使用されます。",
+      "testRunsSelected": "{{name}} を切り替えずに実行します。{{active}} は引き続き使用されます。",
+      "unsaved": "未保存の変更",
+      "untitled": "無題のプロンプト",
+      "viewShowsSaved": "これは保存済みのバージョンです。未保存の変更は「カスタマイズ」にあります。",
+      "yours": "自分用"
     },
     "tabs": {
       "customize": "カスタマイズ",
@@ -1522,11 +1563,6 @@
       "translationDisabled": "このプロンプトをテストするには音声入力翻訳を有効にしてください",
       "noTargetLanguage": "先に翻訳先の言語を選択してください",
       "agentDisabled": "このプロンプトをテストするには音声アシスタントを有効にしてください"
-    },
-    "view": {
-      "customPrompt": "カスタムプロンプト",
-      "defaultPrompt": "デフォルトプロンプト",
-      "modified": "変更済み"
     },
     "defaultTestInputTranslate": "今日はいい天気ですね、散歩に行きませんか？"
   },

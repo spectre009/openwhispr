@@ -65,6 +65,7 @@ test("OpenWhispr reasoning labels only dictation-agent requests for server enfor
     getCustomDictionary: () => [],
     getPreferredLanguage: () => "en",
     getUiLanguage: () => "en",
+    getCleanupCustomPrompt: () => undefined,
   };
 
   await openwhisprProvider.call({

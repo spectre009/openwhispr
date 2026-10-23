@@ -1563,26 +1563,67 @@
     "common": {
       "copied": "Copied",
       "copy": "Copy",
-      "reset": "Reset",
       "save": "Save"
     },
     "defaultTestInput": "Hey Whispr, what's the weather like today?",
-    "dialogs": {
-      "reset": {
-        "description": "Prompt has been reset to the default value.",
-        "title": "Reset Complete"
-      },
-      "saved": {
-        "description": "Your custom prompt will be used for all future AI processing.",
-        "title": "Prompt Saved"
-      }
-    },
     "edit": {
       "agentNameLabel": "Assistant name:",
       "cautionLabel": "Caution",
       "cautionTextPrefix": "Modifying this prompt may affect transcription quality.",
       "cautionTextSuffix": "Keep the {{agentName}} placeholder to preserve assistant detection.",
       "placeholder": "Enter your custom system prompt..."
+    },
+    "library": {
+      "actions": {
+        "delete": "Delete",
+        "discard": "Discard",
+        "duplicate": "Duplicate",
+        "duplicateToCustomize": "Duplicate to customize",
+        "new": "New prompt",
+        "rename": "Rename",
+        "saveAsNew": "Save as new…",
+        "useDefault": "Use default",
+        "useThis": "Use this prompt"
+      },
+      "builtinLabel": "Built-in prompt",
+      "builtinReadOnly": "The built-in prompt can't be edited. Make your own copy to change it; the built-in one stays as it is and keeps getting app updates.",
+      "copyName": "{{name}} (copy)",
+      "defaultName": "Default (built-in)",
+      "defaultShort": "Default",
+      "deletedElsewhere": "This prompt was deleted in another window, so your changes were saved as a new prompt.",
+      "dialogs": {
+        "cancel": "Cancel",
+        "createConfirm": "Create",
+        "deleteDescription": "The saved prompt will be removed. This can't be undone.",
+        "deleteInUseDescription": "This prompt is in use, so the built-in default will take its place. This can't be undone.",
+        "deleteTitle": "Delete {{name}}?",
+        "discardDescription": "Your unsaved changes to {{name}} will be lost.",
+        "discardTitle": "Discard unsaved changes?",
+        "duplicateTitle": "Duplicate prompt",
+        "nameLabel": "Name",
+        "newTitle": "New prompt",
+        "renameConfirm": "Rename",
+        "renameTitle": "Rename prompt",
+        "saveAsNewTitle": "Save as a new prompt"
+      },
+      "emptyPrompt": "Write this prompt and save it first.",
+      "inUse": "In use",
+      "migratedName": "My prompt",
+      "newName": "New prompt",
+      "notInUse": "This prompt isn't in use. In use now: {{active}}.",
+      "pickerLabel": "Prompt",
+      "readOnly": "Read-only",
+      "saveFirst": "Save or discard your changes to use it.",
+      "saved": "Saved",
+      "savedLabel": "Saved prompt",
+      "selectedInUse": "This prompt is in use.",
+      "testRunsActive": "Runs {{name}}, the prompt in use.",
+      "testRunsDraft": "Runs your unsaved draft without saving it or switching to it. {{active}} stays in use.",
+      "testRunsSelected": "Runs {{name}} without switching to it. {{active}} stays in use.",
+      "unsaved": "Unsaved changes",
+      "untitled": "Untitled prompt",
+      "viewShowsSaved": "This is the saved version. Your unsaved changes are in Customize.",
+      "yours": "Yours"
     },
     "tabs": {
       "customize": "Customize",
@@ -1616,11 +1657,6 @@
       "translationDisabled": "Enable Dictation Translation to test this prompt",
       "noTargetLanguage": "Pick a target language first",
       "agentDisabled": "Enable the voice assistant to test this prompt"
-    },
-    "view": {
-      "customPrompt": "Custom prompt",
-      "defaultPrompt": "Default prompt",
-      "modified": "Modified"
     },
     "defaultTestInputTranslate": "The weather is beautiful today, want to go for a walk?"
   },

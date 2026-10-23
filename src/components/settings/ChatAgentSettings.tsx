@@ -1,12 +1,20 @@
 import { useTranslation } from "react-i18next";
 import { useSettingsStore } from "../../stores/settingsStore";
 import { SectionHeader } from "../ui/SettingsSection";
+import { Button } from "../ui/button";
+import { Copy } from "../icons";
+import PromptLibraryBar, { PromptDraftActions } from "../ui/PromptLibraryBar";
+import { usePromptLibraryEditor } from "../../hooks/usePromptLibraryEditor";
 import InferenceConfigEditor from "./InferenceConfigEditor";
+
+const TEXTAREA_CLASS =
+  "w-full text-xs bg-transparent border border-border/70 rounded-md px-3 py-2 resize-y focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-primary/30 placeholder:text-muted-foreground/70";
 
 export default function ChatAgentSettings() {
   const { t } = useTranslation();
-  const chatAgentPrompt = useSettingsStore((s) => s.customPrompts.chatAgent);
-  const setCustomPrompt = useSettingsStore((s) => s.setCustomPrompt);
+  const uiLanguage = useSettingsStore((s) => s.uiLanguage);
+  // The textarea edits a draft; only Save / Save as new write the library.
+  const editor = usePromptLibraryEditor("chatAgent", { uiLanguage });
 
   return (
     <div className="space-y-6">
@@ -17,14 +25,39 @@ export default function ChatAgentSettings() {
           title={t("agentMode.settings.systemPrompt")}
           description={t("agentMode.settings.systemPromptDescription")}
         />
-        <textarea
-          dir="auto"
-          value={chatAgentPrompt}
-          onChange={(e) => setCustomPrompt("chatAgent", e.target.value)}
-          placeholder={t("agentMode.settings.systemPromptPlaceholder")}
-          rows={4}
-          className="w-full text-xs bg-transparent border border-border/70 rounded-md px-3 py-2 resize-y focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-primary/30 placeholder:text-muted-foreground/70"
-        />
+        <PromptLibraryBar editor={editor} className="mb-3" />
+        {editor.isDefaultSelected ? (
+          <div className="space-y-2">
+            <textarea
+              dir="auto"
+              value={editor.savedText}
+              readOnly
+              rows={4}
+              className={`${TEXTAREA_CLASS} text-muted-foreground`}
+            />
+            <div className="flex flex-wrap items-center gap-3">
+              <p className="flex-1 min-w-48 text-xs text-muted-foreground">
+                {t("promptStudio.library.builtinReadOnly")}
+              </p>
+              <Button onClick={editor.startDuplicate} size="sm" className="h-8">
+                <Copy className="w-3.5 h-3.5" />
+                {t("promptStudio.library.actions.duplicateToCustomize")}
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <textarea
+              dir="auto"
+              value={editor.editorText}
+              onChange={(e) => editor.setDraft(e.target.value)}
+              placeholder={t("agentMode.settings.systemPromptPlaceholder")}
+              rows={4}
+              className={TEXTAREA_CLASS}
+            />
+            <PromptDraftActions editor={editor} />
+          </div>
+        )}
       </div>
     </div>
   );

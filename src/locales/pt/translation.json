@@ -1448,26 +1448,67 @@
     "common": {
       "copied": "Copiado",
       "copy": "Copiar",
-      "reset": "Redefinir",
       "save": "Salvar"
     },
     "defaultTestInput": "Ei Whispr, como está o tempo hoje?",
-    "dialogs": {
-      "reset": {
-        "description": "O prompt foi redefinido para o valor padrão.",
-        "title": "Redefinição concluída"
-      },
-      "saved": {
-        "description": "Seu prompt personalizado será usado em todo processamento de IA futuro.",
-        "title": "Prompt salvo"
-      }
-    },
     "edit": {
       "agentNameLabel": "Nome do assistente:",
       "cautionLabel": "Cuidado",
       "cautionTextPrefix": "Modificar este prompt pode afetar a qualidade da transcrição.",
       "cautionTextSuffix": "Mantenha o marcador {{agentName}} para preservar a detecção do assistente.",
       "placeholder": "Digite seu prompt de sistema personalizado..."
+    },
+    "library": {
+      "actions": {
+        "delete": "Excluir",
+        "discard": "Descartar",
+        "duplicate": "Duplicar",
+        "duplicateToCustomize": "Duplicar para personalizar",
+        "new": "Novo prompt",
+        "rename": "Renomear",
+        "saveAsNew": "Salvar como novo…",
+        "useDefault": "Usar o padrão",
+        "useThis": "Usar este prompt"
+      },
+      "builtinLabel": "Prompt integrado",
+      "builtinReadOnly": "O prompt integrado não pode ser editado. Faça sua própria cópia para alterá-lo; o integrado continua como está e segue recebendo as atualizações do app.",
+      "copyName": "{{name}} (cópia)",
+      "defaultName": "Padrão (integrado)",
+      "defaultShort": "Padrão",
+      "deletedElsewhere": "Este prompt foi excluído em outra janela, então suas alterações foram salvas como um novo prompt.",
+      "dialogs": {
+        "cancel": "Cancelar",
+        "createConfirm": "Criar",
+        "deleteDescription": "O prompt salvo será removido. Isso não pode ser desfeito.",
+        "deleteInUseDescription": "Este prompt está em uso, então o padrão integrado tomará o lugar dele. Isso não pode ser desfeito.",
+        "deleteTitle": "Excluir {{name}}?",
+        "discardDescription": "Suas alterações não salvas em {{name}} serão perdidas.",
+        "discardTitle": "Descartar alterações não salvas?",
+        "duplicateTitle": "Duplicar prompt",
+        "nameLabel": "Nome",
+        "newTitle": "Novo prompt",
+        "renameConfirm": "Renomear",
+        "renameTitle": "Renomear prompt",
+        "saveAsNewTitle": "Salvar como novo prompt"
+      },
+      "emptyPrompt": "Escreva este prompt e salve-o primeiro.",
+      "inUse": "Em uso",
+      "migratedName": "Meu prompt",
+      "newName": "Novo prompt",
+      "notInUse": "Este prompt não está em uso. Em uso agora: {{active}}.",
+      "pickerLabel": "Prompt",
+      "readOnly": "Somente leitura",
+      "saveFirst": "Salve ou descarte suas alterações para usá-lo.",
+      "saved": "Salvo",
+      "savedLabel": "Prompt salvo",
+      "selectedInUse": "Este prompt está em uso.",
+      "testRunsActive": "Executa {{name}}, o prompt em uso.",
+      "testRunsDraft": "Executa seu rascunho não salvo sem salvá-lo nem mudar para ele. {{active}} continua em uso.",
+      "testRunsSelected": "Executa {{name}} sem mudar para ele. {{active}} continua em uso.",
+      "unsaved": "Alterações não salvas",
+      "untitled": "Prompt sem título",
+      "viewShowsSaved": "Esta é a versão salva. Suas alterações não salvas estão em “Personalizar”.",
+      "yours": "Seu"
     },
     "tabs": {
       "customize": "Personalizar",
@@ -1501,11 +1542,6 @@
       "translationDisabled": "Ative a tradução de ditado para testar este prompt",
       "noTargetLanguage": "Escolha primeiro um idioma de destino",
       "agentDisabled": "Ative o assistente de voz para testar este prompt"
-    },
-    "view": {
-      "customPrompt": "Prompt personalizado",
-      "defaultPrompt": "Prompt padrão",
-      "modified": "Modificado"
     },
     "defaultTestInputTranslate": "O tempo está lindo hoje, quer dar um passeio?"
   },

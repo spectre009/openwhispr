@@ -1,4 +1,4 @@
-import { getCleanupSystemPrompt } from "../config/prompts";
+import { getCleanupSystemPrompt, type CleanupPromptOverride } from "../config/prompts";
 import { getSettings } from "../stores/settingsStore";
 import { resolveCleanupLanguage } from "../utils/chineseScript";
 import { getDictionaryHintWords } from "../utils/snippets";
@@ -35,6 +35,12 @@ export interface ReasoningConfig {
   requiresAgent?: boolean;
   inferenceScope?: InferenceScope;
   /**
+   * Cleanup requests only (no systemPrompt): which cleanup prompt to run in
+   * place of the saved one, as a real dictation would if it were saved. Read
+   * by processText and never forwarded to a provider.
+   */
+  cleanupPrompt?: CleanupPromptOverride;
+  /**
    * Told the provider and model a request is actually dispatched to, once
    * routing (managed scopes, implicit cleanup providers) has resolved them.
    * Read by processText and never forwarded to a provider.
@@ -60,12 +66,14 @@ export abstract class BaseReasoningService {
     return getSettings().uiLanguage || "en";
   }
 
-  protected getSystemPrompt(agentName: string | null): string {
+  /** `cleanupTemplate` is the request's cleanup prompt ("" = built-in); omitted, the saved one. */
+  protected getSystemPrompt(agentName: string | null, cleanupTemplate?: string): string {
     return getCleanupSystemPrompt(
       agentName,
       this.getCustomDictionary(),
       this.getPreferredLanguage(),
-      this.getUiLanguage()
+      this.getUiLanguage(),
+      cleanupTemplate
     );
   }
 

@@ -1469,26 +1469,67 @@
     "common": {
       "copied": "Copiato",
       "copy": "Copia",
-      "reset": "Reimposta",
       "save": "Salva"
     },
     "defaultTestInput": "Ehi Whispr, che tempo fa oggi?",
-    "dialogs": {
-      "reset": {
-        "description": "Il prompt è stato reimpostato al valore predefinito.",
-        "title": "Reimpostazione completata"
-      },
-      "saved": {
-        "description": "Il tuo prompt personalizzato verrà usato per tutta l'elaborazione IA futura.",
-        "title": "Prompt salvato"
-      }
-    },
     "edit": {
       "agentNameLabel": "Nome dell'assistente:",
       "cautionLabel": "Attenzione",
       "cautionTextPrefix": "La modifica di questo prompt potrebbe influire sulla qualità della trascrizione.",
       "cautionTextSuffix": "Mantieni il segnaposto {{agentName}} per preservare il rilevamento dell'assistente.",
       "placeholder": "Inserisci il tuo prompt di sistema personalizzato..."
+    },
+    "library": {
+      "actions": {
+        "delete": "Elimina",
+        "discard": "Scarta",
+        "duplicate": "Duplica",
+        "duplicateToCustomize": "Duplica per personalizzare",
+        "new": "Nuovo prompt",
+        "rename": "Rinomina",
+        "saveAsNew": "Salva come nuovo…",
+        "useDefault": "Usa il predefinito",
+        "useThis": "Usa questo prompt"
+      },
+      "builtinLabel": "Prompt integrato",
+      "builtinReadOnly": "Il prompt integrato non si può modificare. Crea una tua copia per cambiarlo; quello integrato resta com'è e continua a ricevere gli aggiornamenti dell'app.",
+      "copyName": "{{name}} (copia)",
+      "defaultName": "Predefinito (integrato)",
+      "defaultShort": "Predefinito",
+      "deletedElsewhere": "Questo prompt è stato eliminato in un'altra finestra, quindi le modifiche sono state salvate come nuovo prompt.",
+      "dialogs": {
+        "cancel": "Annulla",
+        "createConfirm": "Crea",
+        "deleteDescription": "Il prompt salvato verrà rimosso. L'operazione non si può annullare.",
+        "deleteInUseDescription": "Questo prompt è in uso, quindi il predefinito integrato ne prenderà il posto. L'operazione non si può annullare.",
+        "deleteTitle": "Eliminare {{name}}?",
+        "discardDescription": "Le modifiche non salvate a {{name}} andranno perse.",
+        "discardTitle": "Scartare le modifiche non salvate?",
+        "duplicateTitle": "Duplica prompt",
+        "nameLabel": "Nome",
+        "newTitle": "Nuovo prompt",
+        "renameConfirm": "Rinomina",
+        "renameTitle": "Rinomina prompt",
+        "saveAsNewTitle": "Salva come nuovo prompt"
+      },
+      "emptyPrompt": "Scrivi questo prompt e salvalo prima.",
+      "inUse": "In uso",
+      "migratedName": "Il mio prompt",
+      "newName": "Nuovo prompt",
+      "notInUse": "Questo prompt non è in uso. In uso ora: {{active}}.",
+      "pickerLabel": "Prompt",
+      "readOnly": "Sola lettura",
+      "saveFirst": "Salva o scarta le modifiche per usarlo.",
+      "saved": "Salvato",
+      "savedLabel": "Prompt salvato",
+      "selectedInUse": "Questo prompt è in uso.",
+      "testRunsActive": "Esegue {{name}}, il prompt in uso.",
+      "testRunsDraft": "Esegue la bozza non salvata senza salvarla né passare a essa. {{active}} resta in uso.",
+      "testRunsSelected": "Esegue {{name}} senza passare a esso. {{active}} resta in uso.",
+      "unsaved": "Modifiche non salvate",
+      "untitled": "Prompt senza titolo",
+      "viewShowsSaved": "Questa è la versione salvata. Le modifiche non salvate sono in «Personalizza».",
+      "yours": "Tuo"
     },
     "tabs": {
       "customize": "Personalizza",
@@ -1522,11 +1563,6 @@
       "translationDisabled": "Attiva la traduzione della dettatura per testare questo prompt",
       "noTargetLanguage": "Scegli prima una lingua di destinazione",
       "agentDisabled": "Abilita l'assistente vocale per testare questo prompt"
-    },
-    "view": {
-      "customPrompt": "Prompt personalizzato",
-      "defaultPrompt": "Prompt predefinito",
-      "modified": "Modificato"
     },
     "defaultTestInputTranslate": "Che bella giornata oggi, ti va di fare due passi?"
   },

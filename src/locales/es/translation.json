@@ -1521,26 +1521,67 @@
     "common": {
       "copied": "Copiado",
       "copy": "Copiar",
-      "reset": "Restablecer",
       "save": "Guardar"
     },
     "defaultTestInput": "Hola Whispr, ¿cómo está el clima hoy?",
-    "dialogs": {
-      "reset": {
-        "description": "El prompt ha sido restablecido al valor predeterminado.",
-        "title": "Restablecimiento completado"
-      },
-      "saved": {
-        "description": "Tu prompt personalizado se usará en todo el procesamiento de IA futuro.",
-        "title": "Prompt guardado"
-      }
-    },
     "edit": {
       "agentNameLabel": "Nombre del asistente:",
       "cautionLabel": "Precaución",
       "cautionTextPrefix": "Modificar este prompt puede afectar la calidad de transcripción.",
       "cautionTextSuffix": "Mantén el marcador {{agentName}} para preservar la detección del asistente.",
       "placeholder": "Introduce tu prompt de sistema personalizado..."
+    },
+    "library": {
+      "actions": {
+        "delete": "Eliminar",
+        "discard": "Descartar",
+        "duplicate": "Duplicar",
+        "duplicateToCustomize": "Duplicar para personalizar",
+        "new": "Nuevo prompt",
+        "rename": "Cambiar nombre",
+        "saveAsNew": "Guardar como nuevo…",
+        "useDefault": "Usar el predeterminado",
+        "useThis": "Usar este prompt"
+      },
+      "builtinLabel": "Prompt integrado",
+      "builtinReadOnly": "El prompt integrado no se puede editar. Haz tu propia copia para cambiarlo; el integrado se queda como está y sigue recibiendo las actualizaciones de la app.",
+      "copyName": "{{name}} (copia)",
+      "defaultName": "Predeterminado (integrado)",
+      "defaultShort": "Predeterminado",
+      "deletedElsewhere": "Este prompt se eliminó en otra ventana, así que tus cambios se guardaron como un prompt nuevo.",
+      "dialogs": {
+        "cancel": "Cancelar",
+        "createConfirm": "Crear",
+        "deleteDescription": "Se eliminará el prompt guardado. No se puede deshacer.",
+        "deleteInUseDescription": "Este prompt está en uso, así que el predeterminado integrado ocupará su lugar. No se puede deshacer.",
+        "deleteTitle": "¿Eliminar {{name}}?",
+        "discardDescription": "Se perderán tus cambios sin guardar en {{name}}.",
+        "discardTitle": "¿Descartar los cambios sin guardar?",
+        "duplicateTitle": "Duplicar prompt",
+        "nameLabel": "Nombre",
+        "newTitle": "Nuevo prompt",
+        "renameConfirm": "Cambiar nombre",
+        "renameTitle": "Cambiar el nombre del prompt",
+        "saveAsNewTitle": "Guardar como prompt nuevo"
+      },
+      "emptyPrompt": "Escribe este prompt y guárdalo primero.",
+      "inUse": "En uso",
+      "migratedName": "Mi prompt",
+      "newName": "Nuevo prompt",
+      "notInUse": "Este prompt no está en uso. En uso ahora: {{active}}.",
+      "pickerLabel": "Prompt",
+      "readOnly": "Solo lectura",
+      "saveFirst": "Guarda o descarta tus cambios para usarlo.",
+      "saved": "Guardado",
+      "savedLabel": "Prompt guardado",
+      "selectedInUse": "Este prompt está en uso.",
+      "testRunsActive": "Ejecuta {{name}}, el prompt en uso.",
+      "testRunsDraft": "Ejecuta tu borrador sin guardar, sin guardarlo ni cambiar a él. {{active}} sigue en uso.",
+      "testRunsSelected": "Ejecuta {{name}} sin cambiar a él. {{active}} sigue en uso.",
+      "unsaved": "Cambios sin guardar",
+      "untitled": "Prompt sin título",
+      "viewShowsSaved": "Esta es la versión guardada. Tus cambios sin guardar están en «Personalizar».",
+      "yours": "Tuyo"
     },
     "tabs": {
       "customize": "Personalizar",
@@ -1574,11 +1615,6 @@
       "translationDisabled": "Activa la traducción de dictado para probar este prompt",
       "noTargetLanguage": "Elige primero un idioma de destino",
       "agentDisabled": "Activa el asistente de voz para probar este prompt"
-    },
-    "view": {
-      "customPrompt": "Prompt personalizado",
-      "defaultPrompt": "Prompt predeterminado",
-      "modified": "Modificado"
     },
     "defaultTestInputTranslate": "Hace un día precioso hoy, ¿te apetece dar un paseo?"
   },

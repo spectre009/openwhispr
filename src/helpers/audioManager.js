@@ -119,6 +119,7 @@ import {
 import { providerSupportsImages } from "../services/ai/inferenceProviders";
 import { resolveDictationTranslationInference } from "./dictationTranslationInference";
 import { resolvePrompt, appendScreenContextSuffix } from "../config/prompts";
+import { buildDictationCleanupConfig } from "./dictationCleanupConfig";
 import { syncService } from "../services/SyncService.js";
 import { evaluateFinishedRecording, withSalvageWarning } from "./recordingValidation";
 import { isEmptyRecording } from "./recordingGuard";
@@ -264,11 +265,6 @@ function resolveReasoningRoute(
 ) {
   const wakeWordLanguage = resolveWakeWordLanguage(settings, detectedLanguage, text);
   const cleanup = selectResolvedLLMConfig(settings, "dictationCleanup");
-  // Pin cleanup to 0 where supported; bridges otherwise default to 0.7 (local)
-  // or 0.3 (Anthropic/enterprise). Zero does not guarantee determinism.
-  // Direct Gemini owns its defaults (3: 1.0, older: 0); check mode to ignore stale providers.
-  const cleanupTemperature =
-    cleanup.mode === "providers" && cleanup.provider === "gemini" ? undefined : 0;
   const cleanupReachable =
     !!settings.useCleanupModel && (!!cleanup.model?.trim() || isCloudCleanupMode());
   const agent = resolveDictationAgentInference(settings, {
@@ -311,16 +307,9 @@ function resolveReasoningRoute(
       "transcription"
     );
   }
-  // Shared by ordinary cleanup and the translation chain's cleanup step.
-  // A truncated reply must fail rather than replace the dictation with its first part:
-  // the cleanup route pastes the raw transcript and the chain translates it, and both
-  // raise the cleanup-failed toast (#2091).
-  const cleanupConfig = {
-    inferenceScope: /** @type {const} */ ("dictationCleanup"),
-    disableThinking: settings.cleanupDisableThinking,
-    temperature: cleanupTemperature,
-    requireCompleteOutput: true,
-  };
+  // Shared by ordinary cleanup and the translation chain's cleanup step (and by
+  // Prompt Studio's tests, so they send what a dictation would).
+  const cleanupConfig = buildDictationCleanupConfig(settings);
   if (kind === "translation") {
     return {
       kind: "translation",

@@ -63,6 +63,8 @@ const EXPECTED_SHARED_FIELD_DIRECTIONS = {
   "src/components/DictionaryView.tsx": ["auto", "auto", "auto"],
   "src/components/EnterpriseProviderConfig.tsx": ["ltr", "ltr", "ltr", "ltr", "ltr", "ltr"],
   "src/components/ForgotPasswordView.tsx": ["ltr"],
+  // Canonical form and spellings are words in any script; the app is an exe name.
+  "src/components/GlossaryView.tsx": ["auto", "auto", "ltr"],
   "src/components/InviteTeammateDialog.tsx": ["ltr"],
   "src/components/LeaderboardSection.tsx": ["ltr"],
   "src/components/OpenAICompatiblePanel.tsx": ["ltr"],
@@ -81,6 +83,8 @@ const EXPECTED_SHARED_FIELD_DIRECTIONS = {
   "src/components/settings/WorkspaceSection.tsx": ["auto"],
   "src/components/ui/ApiKeyInput.tsx": ["ltr"],
   "src/components/ui/CustomModelInput.tsx": ["ltr"],
+  // A saved prompt's name: prose in any script.
+  "src/components/ui/PromptLibraryBar.tsx": ["auto"],
   "src/components/ui/PromptStudio.tsx": ["auto", "auto"],
   "src/components/ui/SearchableModelList.tsx": ["ltr"],
 };
@@ -112,7 +116,8 @@ const EXPECTED_NATIVE_FIELD_DIRECTIONS = {
   "src/components/onboarding/DemoStep.tsx": ["auto"],
   "src/components/onboarding/LanguageSelectionStep.tsx": ["auto"],
   "src/components/onboarding/UseCaseStep.tsx": ["auto"],
-  "src/components/settings/ChatAgentSettings.tsx": ["auto"],
+  // The built-in prompt (read-only) and the draft of a saved one.
+  "src/components/settings/ChatAgentSettings.tsx": ["auto", "auto"],
   "src/components/settings/ProfileSection.tsx": ["inherit"],
   // The custom recording color: a color value, no text.
   "src/components/settings/RecordingIndicatorRows.tsx": ["inherit"],

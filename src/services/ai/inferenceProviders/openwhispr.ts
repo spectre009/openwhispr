@@ -1,7 +1,6 @@
 import type { InferenceProvider } from "./types";
 import { INFERENCE_SCOPES } from "../../../config/inferenceScopes";
 import { withSessionRefresh } from "../../../lib/auth";
-import { getSettings } from "../../../stores/settingsStore";
 import logger from "../../../utils/logger";
 
 export const openwhisprProvider: InferenceProvider = {
@@ -14,9 +13,9 @@ export const openwhisprProvider: InferenceProvider = {
       hasScreenContext: !!config.screenContext,
     });
 
-    const customPrompt = config.systemPrompt
-      ? undefined
-      : getSettings().customPrompts.cleanup || undefined;
+    // The request's own cleanup prompt (a Prompt Studio test may run one that
+    // isn't saved); the server applies it as the saved prompt.
+    const customPrompt = config.systemPrompt ? undefined : ctx.getCleanupCustomPrompt();
 
     // "agent" only rides with a screenshot (which already requires the new
     // API) — older servers reject unknown promptMode values, so plain agent

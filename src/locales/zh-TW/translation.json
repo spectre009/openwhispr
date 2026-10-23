@@ -1469,26 +1469,67 @@
     "common": {
       "copied": "已複製",
       "copy": "複製",
-      "reset": "重設",
       "save": "儲存"
     },
     "defaultTestInput": "嘿 Whispr，今天天氣怎麼樣？",
-    "dialogs": {
-      "reset": {
-        "description": "提示詞已重設為預設值。",
-        "title": "重設完成"
-      },
-      "saved": {
-        "description": "你的自訂提示詞將用於所有後續的 AI 處理。",
-        "title": "提示詞已儲存"
-      }
-    },
     "edit": {
       "agentNameLabel": "助理名稱：",
       "cautionLabel": "注意",
       "cautionTextPrefix": "修改此提示詞可能影響轉錄品質。",
       "cautionTextSuffix": "請保留 {{agentName}} 佔位符以維持助理偵測功能。",
       "placeholder": "輸入你的自訂系統提示詞..."
+    },
+    "library": {
+      "actions": {
+        "delete": "刪除",
+        "discard": "捨棄",
+        "duplicate": "複製",
+        "duplicateToCustomize": "複製後自訂",
+        "new": "新增提示詞",
+        "rename": "重新命名",
+        "saveAsNew": "另存為新提示詞…",
+        "useDefault": "使用預設",
+        "useThis": "使用此提示詞"
+      },
+      "builtinLabel": "內建提示詞",
+      "builtinReadOnly": "內建提示詞無法編輯。若要修改，請建立你自己的副本；內建提示詞會保持不變，並持續隨應用程式更新。",
+      "copyName": "{{name}}（副本）",
+      "defaultName": "預設（內建）",
+      "defaultShort": "預設",
+      "deletedElsewhere": "此提示詞已在另一個視窗中刪除，因此你的變更已另存為新的提示詞。",
+      "dialogs": {
+        "cancel": "取消",
+        "createConfirm": "建立",
+        "deleteDescription": "已儲存的提示詞將被刪除。此動作無法復原。",
+        "deleteInUseDescription": "此提示詞正在使用中，刪除後將改用內建預設提示詞。此動作無法復原。",
+        "deleteTitle": "刪除 {{name}}？",
+        "discardDescription": "你對 {{name}} 未儲存的變更將會遺失。",
+        "discardTitle": "捨棄未儲存的變更？",
+        "duplicateTitle": "複製提示詞",
+        "nameLabel": "名稱",
+        "newTitle": "新增提示詞",
+        "renameConfirm": "重新命名",
+        "renameTitle": "重新命名提示詞",
+        "saveAsNewTitle": "另存為新提示詞"
+      },
+      "emptyPrompt": "請先撰寫並儲存此提示詞。",
+      "inUse": "使用中",
+      "migratedName": "我的提示詞",
+      "newName": "新提示詞",
+      "notInUse": "此提示詞未在使用中。目前使用：{{active}}。",
+      "pickerLabel": "提示詞",
+      "readOnly": "唯讀",
+      "saveFirst": "請儲存或捨棄變更後再使用。",
+      "saved": "已儲存",
+      "savedLabel": "已儲存的提示詞",
+      "selectedInUse": "此提示詞正在使用中。",
+      "testRunsActive": "執行目前使用中的提示詞 {{name}}。",
+      "testRunsDraft": "執行你未儲存的草稿，不會儲存也不會切換。{{active}} 仍在使用中。",
+      "testRunsSelected": "執行 {{name}}，但不會切換到它。{{active}} 仍在使用中。",
+      "unsaved": "未儲存的變更",
+      "untitled": "未命名的提示詞",
+      "viewShowsSaved": "這是已儲存的版本。未儲存的變更在「自訂」中。",
+      "yours": "我的"
     },
     "tabs": {
       "customize": "自訂",
@@ -1522,11 +1563,6 @@
       "translationDisabled": "啟用聽寫翻譯以測試此提示詞",
       "noTargetLanguage": "請先選擇目標語言",
       "agentDisabled": "啟用語音助理以測試此提示詞"
-    },
-    "view": {
-      "customPrompt": "自訂提示詞",
-      "defaultPrompt": "預設提示詞",
-      "modified": "已修改"
     },
     "defaultTestInputTranslate": "今天天氣真好，要不要出去走走？"
   },

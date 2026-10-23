@@ -1563,26 +1563,67 @@
     "common": {
       "copied": "Copié",
       "copy": "Copier",
-      "reset": "Réinitialiser",
       "save": "Enregistrer"
     },
     "defaultTestInput": "Hey Whispr, quel temps fait-il aujourd'hui ?",
-    "dialogs": {
-      "reset": {
-        "description": "Le prompt a été réinitialisé à la valeur par défaut.",
-        "title": "Réinitialisation terminée"
-      },
-      "saved": {
-        "description": "Votre prompt personnalisé sera utilisé pour tout le traitement IA futur.",
-        "title": "Prompt enregistré"
-      }
-    },
     "edit": {
       "agentNameLabel": "Nom de l'assistant :",
       "cautionLabel": "Attention",
       "cautionTextPrefix": "Modifier ce prompt peut affecter la qualité de la transcription.",
       "cautionTextSuffix": "Conservez le placeholder {{agentName}} pour préserver la détection de l'assistant.",
       "placeholder": "Saisissez votre prompt système personnalisé..."
+    },
+    "library": {
+      "actions": {
+        "delete": "Supprimer",
+        "discard": "Abandonner",
+        "duplicate": "Dupliquer",
+        "duplicateToCustomize": "Dupliquer pour personnaliser",
+        "new": "Nouveau prompt",
+        "rename": "Renommer",
+        "saveAsNew": "Enregistrer comme nouveau…",
+        "useDefault": "Utiliser le prompt par défaut",
+        "useThis": "Utiliser ce prompt"
+      },
+      "builtinLabel": "Prompt intégré",
+      "builtinReadOnly": "Le prompt intégré ne peut pas être modifié. Créez votre propre copie pour le changer ; le prompt intégré reste tel quel et continue de recevoir les mises à jour de l'app.",
+      "copyName": "{{name}} (copie)",
+      "defaultName": "Par défaut (intégré)",
+      "defaultShort": "Par défaut",
+      "deletedElsewhere": "Ce prompt a été supprimé dans une autre fenêtre ; vos modifications ont donc été enregistrées comme nouveau prompt.",
+      "dialogs": {
+        "cancel": "Annuler",
+        "createConfirm": "Créer",
+        "deleteDescription": "Le prompt enregistré sera supprimé. Cette action est irréversible.",
+        "deleteInUseDescription": "Ce prompt est utilisé : le prompt intégré par défaut prendra sa place. Cette action est irréversible.",
+        "deleteTitle": "Supprimer {{name}} ?",
+        "discardDescription": "Vos modifications non enregistrées de {{name}} seront perdues.",
+        "discardTitle": "Abandonner les modifications non enregistrées ?",
+        "duplicateTitle": "Dupliquer le prompt",
+        "nameLabel": "Nom",
+        "newTitle": "Nouveau prompt",
+        "renameConfirm": "Renommer",
+        "renameTitle": "Renommer le prompt",
+        "saveAsNewTitle": "Enregistrer comme nouveau prompt"
+      },
+      "emptyPrompt": "Rédigez ce prompt et enregistrez-le d'abord.",
+      "inUse": "Utilisé",
+      "migratedName": "Mon prompt",
+      "newName": "Nouveau prompt",
+      "notInUse": "Ce prompt n'est pas utilisé. Utilisé actuellement : {{active}}.",
+      "pickerLabel": "Prompt",
+      "readOnly": "Lecture seule",
+      "saveFirst": "Enregistrez ou abandonnez vos modifications pour l'utiliser.",
+      "saved": "Enregistré",
+      "savedLabel": "Prompt enregistré",
+      "selectedInUse": "Ce prompt est utilisé.",
+      "testRunsActive": "Exécute {{name}}, le prompt utilisé.",
+      "testRunsDraft": "Exécute votre brouillon non enregistré sans l'enregistrer ni basculer dessus. {{active}} reste utilisé.",
+      "testRunsSelected": "Exécute {{name}} sans basculer dessus. {{active}} reste utilisé.",
+      "unsaved": "Modifications non enregistrées",
+      "untitled": "Prompt sans titre",
+      "viewShowsSaved": "Voici la version enregistrée. Vos modifications non enregistrées sont dans « Personnaliser ».",
+      "yours": "Le vôtre"
     },
     "tabs": {
       "customize": "Personnaliser",
@@ -1616,11 +1657,6 @@
       "translationDisabled": "Activez la traduction de dictée pour tester ce prompt",
       "noTargetLanguage": "Choisissez d’abord une langue cible",
       "agentDisabled": "Activez l'assistant vocal pour tester ce prompt"
-    },
-    "view": {
-      "customPrompt": "Prompt personnalisé",
-      "defaultPrompt": "Prompt par défaut",
-      "modified": "Modifié"
     },
     "defaultTestInputTranslate": "Il fait très beau aujourd'hui, ça te dit d'aller te promener ?"
   },

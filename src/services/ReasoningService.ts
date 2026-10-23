@@ -13,7 +13,7 @@ import { API_ENDPOINTS, TOKEN_LIMITS, buildApiUrl, ensureV1Suffix } from "../con
 import logger from "../utils/logger";
 import { assertValidCleanupOutput } from "../utils/cleanupOutput";
 import { getSettings, isCloudCleanupMode } from "../stores/settingsStore";
-import { wrapCleanupTranscript } from "../config/prompts";
+import { resolveCleanupPromptTemplate, wrapCleanupTranscript } from "../config/prompts";
 import { stripThinkingTags } from "../helpers/stripThinking.js";
 import {
   getLlmRequestTimeoutSeconds,
@@ -139,7 +139,8 @@ class ReasoningService extends BaseReasoningService {
     this.providerContext = {
       getApiKey: (provider: string) =>
         this.getApiKey(provider as Parameters<ReasoningService["getApiKey"]>[0]),
-      getSystemPrompt: this.getSystemPrompt.bind(this),
+      getSystemPrompt: (agentName) => this.getSystemPrompt(agentName),
+      getCleanupCustomPrompt: () => getSettings().customPrompts.cleanup || undefined,
       getCustomDictionary: this.getCustomDictionary.bind(this),
       getPreferredLanguage: this.getPreferredLanguage.bind(this),
       getUiLanguage: this.getUiLanguage.bind(this),
@@ -292,6 +293,28 @@ class ReasoningService extends BaseReasoningService {
     return { apiKey, baseURL };
   }
 
+  // One request's view of the provider context: every cleanup dispatch reads the
+  // cleanup prompt fixed when processText started (the saved one, or the
+  // request's cleanupPrompt override) rather than the store at call time.
+  private providerContextFor(cleanupTemplate: string): ProviderContext {
+    return {
+      ...this.providerContext,
+      getSystemPrompt: (agentName) => this.getSystemPrompt(agentName, cleanupTemplate),
+      getCleanupCustomPrompt: () => cleanupTemplate || undefined,
+      callChatCompletionsApi: (endpoint, apiKey, model, text, agentName, config, providerName) =>
+        this.callChatCompletionsApi(
+          endpoint,
+          apiKey,
+          model,
+          text,
+          agentName,
+          config,
+          providerName,
+          cleanupTemplate
+        ),
+    };
+  }
+
   private async callChatCompletionsApi(
     endpoint: string,
     apiKey: string,
@@ -299,12 +322,13 @@ class ReasoningService extends BaseReasoningService {
     text: string,
     agentName: string | null,
     config: ReasoningConfig,
-    providerName: string
+    providerName: string,
+    cleanupTemplate?: string
   ): Promise<string> {
     // No systemPrompt override means the default cleanup path: a deterministic
     // transform, so zero temperature and a delimited transcript.
     const isCleanup = !config.systemPrompt;
-    const systemPrompt = config.systemPrompt || this.getSystemPrompt(agentName);
+    const systemPrompt = config.systemPrompt || this.getSystemPrompt(agentName, cleanupTemplate);
     const userPrompt = isCleanup ? wrapCleanupTranscript(text) : text;
 
     const messages = [
@@ -485,17 +509,23 @@ class ReasoningService extends BaseReasoningService {
     config: ReasoningConfig = {}
   ): Promise<string> {
     // A callback must never reach a provider: some cross IPC with the config.
-    const { onDispatch, ...configWithoutHook } = config;
+    // Nor does the cleanup override: it is resolved here, once, into the prompt
+    // every dispatch below uses, so the request equals a real dictation's.
+    const { onDispatch, cleanupPrompt, ...configWithoutHook } = config;
     config = configWithoutHook;
     const managed = this.resolveManagedScope(model, config.provider, config, "dictationCleanup");
     ({ model, config } = managed);
     const trimmedModel = model?.trim?.() || "";
     const settings = getSettings();
+    const cleanupTemplate = resolveCleanupPromptTemplate(
+      cleanupPrompt,
+      settings.customPrompts?.cleanup ?? ""
+    );
     const validateCleanup =
       config.inferenceScope === "dictationCleanup" &&
       !config.systemPrompt &&
       !config.requiresAgent &&
-      !settings.customPrompts.cleanup;
+      !cleanupTemplate;
     const isImplicitCleanup =
       config.provider === undefined && config.baseUrl === undefined && config.lanUrl === undefined;
     const implicitProvider =
@@ -573,7 +603,7 @@ class ReasoningService extends BaseReasoningService {
         model: trimmedModel,
         agentName,
         config: dispatchConfig,
-        ctx: this.providerContext,
+        ctx: this.providerContextFor(cleanupTemplate),
       });
 
       if (validateCleanup) assertValidCleanupOutput(text, result);

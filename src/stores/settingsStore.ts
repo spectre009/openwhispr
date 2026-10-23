@@ -32,7 +32,22 @@ import {
 import type { CalendarAccount, MicrosoftCalendarAccount } from "../types/calendar";
 import { normalizeEmailDraftTarget, type EmailDraftTargetSetting } from "../utils/emailDraftTarget";
 import { PROMPT_KIND_LIST, type PromptKind } from "../config/prompts/registry";
-import { sweepRetiredPromptOverrides } from "../config/retiredPrompts";
+import {
+  activePromptText,
+  addPromptEntry,
+  createEmptyPromptLibrary,
+  migratePromptLibrary,
+  parsePromptLibrary,
+  readPromptLibrary,
+  removePromptEntry,
+  renamePromptEntry,
+  savePromptEntryText,
+  setActivePrompt,
+  sweepRetiredPromptEntries,
+  updatePromptLibrary,
+  type PromptLibrary,
+} from "../config/prompts/library";
+import { isRetiredDefaultPrompt } from "../config/retiredPrompts";
 import { sweepRetiredCloudModelSelections } from "../config/retiredCloudModels";
 import {
   deriveReasoningMode,
@@ -703,20 +718,70 @@ function migrateCustomPrompts() {
 
 migrateCustomPrompts();
 
-// Overrides that byte-match a retired shipped default were persisted defaults,
-// not user customizations; clear them so current defaults apply again.
+// The name a pre-library override gets when it becomes the first saved prompt.
+function migratedPromptName(): string {
+  try {
+    const locale = normalizeUiLanguage(
+      (isBrowser ? localStorage.getItem("uiLanguage") : null) || i18n.language
+    );
+    return i18n.getFixedT(locale)("promptStudio.library.migratedName", {
+      defaultValue: "My prompt",
+    });
+  } catch {
+    return "My prompt";
+  }
+}
+
+// One-time and idempotent: each prompt kind gets its library record, built from
+// the override it has today (after the legacy-key migration above).
+function migratePromptLibraries() {
+  if (!isBrowser) return;
+  const name = migratedPromptName();
+  for (const kind of PROMPT_KIND_LIST) {
+    try {
+      migratePromptLibrary(localStorage, kind, name);
+    } catch (error) {
+      logger.warn(
+        "Prompt library migration failed",
+        { kind, error: error instanceof Error ? error.message : String(error) },
+        "settings"
+      );
+    }
+  }
+}
+
+migratePromptLibraries();
+
+// A saved prompt that byte-matches a retired shipped default was a persisted
+// default, not a customization: the migrated entry holding it is removed and
+// the kind goes back to Default. Entries the user saved are never touched.
 function sweepRetiredCustomPrompts() {
   if (!isBrowser) return;
-  void sweepRetiredPromptOverrides(localStorage, PROMPT_KIND_LIST)
+  void sweepRetiredPromptEntries(
+    localStorage,
+    PROMPT_KIND_LIST,
+    isRetiredDefaultPrompt,
+    migratedPromptName()
+  )
     .then((swept) => {
       if (swept.length === 0) return;
       useSettingsStore.setState((s) => ({
+        promptLibraries: {
+          ...s.promptLibraries,
+          ...Object.fromEntries(swept.map(({ kind, library }) => [kind, library])),
+        },
         customPrompts: {
           ...s.customPrompts,
-          ...Object.fromEntries(swept.map((kind) => [kind, ""])),
+          ...Object.fromEntries(
+            swept.map(({ kind, library }) => [kind, activePromptText(library)])
+          ),
         },
       }));
-      logger.info("Cleared retired default prompt overrides", { kinds: swept }, "settings");
+      logger.info(
+        "Cleared retired default prompt overrides",
+        { kinds: swept.map(({ kind }) => kind) },
+        "settings"
+      );
     })
     .catch((error) => {
       logger.warn(
@@ -728,6 +793,51 @@ function sweepRetiredCustomPrompts() {
 }
 
 sweepRetiredCustomPrompts();
+
+// Every library change in this window: one read-modify-write of the stored
+// record (re-read inside the write, so another window's change is never
+// overwritten by this window's copy), then the store mirrors what was written.
+function changePromptLibrary(kind: PromptKind, change: (library: PromptLibrary) => boolean) {
+  if (!isBrowser) return false;
+  const { library, changed } = updatePromptLibrary(
+    localStorage,
+    kind,
+    migratedPromptName(),
+    change
+  );
+  useSettingsStore.setState((s) => ({
+    promptLibraries: { ...s.promptLibraries, [kind]: library },
+    customPrompts: { ...s.customPrompts, [kind]: activePromptText(library) },
+  }));
+  return changed;
+}
+
+/**
+ * Applies another window's write of a prompt key to this window's store.
+ * Returns whether the key was a prompt key (handled or deliberately ignored).
+ */
+export function applyPromptStorageChange(key: string, newValue: string): boolean {
+  if (key.startsWith("promptLibrary.")) {
+    const kind = key.slice("promptLibrary.".length) as PromptKind;
+    if (!PROMPT_KIND_LIST.includes(kind)) return true;
+    const library = parsePromptLibrary(newValue);
+    if (!library) return true;
+    useSettingsStore.setState((s) => ({
+      promptLibraries: { ...s.promptLibraries, [kind]: library },
+      customPrompts: { ...s.customPrompts, [kind]: activePromptText(library) },
+    }));
+    return true;
+  }
+  if (key.startsWith("customPrompt.")) {
+    const kind = key.slice("customPrompt.".length) as PromptKind;
+    if (!PROMPT_KIND_LIST.includes(kind)) return true;
+    useSettingsStore.setState((s) => ({
+      customPrompts: { ...s.customPrompts, [kind]: newValue },
+    }));
+    return true;
+  }
+  return false;
+}
 
 // One-time migration of legacy LLM-scope localStorage keys. Safe to delete
 // after a few releases.
@@ -1080,8 +1190,19 @@ export interface SettingsState
   noteFormattingDisableThinking: boolean;
   chatAgentDisableThinking: boolean;
 
+  /** Read by every prompt consumer; a cache of each kind's library (active entry's text, "" = Default). */
   customPrompts: Record<PromptKind, string>;
-  setCustomPrompt: (kind: PromptKind, value: string) => void;
+  /** Each kind's saved prompts: the authority customPrompts is written from. */
+  promptLibraries: Record<PromptKind, PromptLibrary>;
+  /** Saves a new prompt (not put in use); returns its id. */
+  createPrompt: (kind: PromptKind, input: { name: string; text: string }) => string | null;
+  /** False when the prompt no longer exists, the text is empty, or nothing changed. */
+  savePrompt: (kind: PromptKind, id: string, text: string) => boolean;
+  renamePrompt: (kind: PromptKind, id: string, name: string) => boolean;
+  /** Deleting the prompt in use switches the kind to Default. */
+  deletePrompt: (kind: PromptKind, id: string) => boolean;
+  /** Puts a saved prompt, or DEFAULT_PROMPT_ID, in use. */
+  activatePrompt: (kind: PromptKind, id: string) => boolean;
 
   setDictationAgentMode: (mode: InferenceMode) => void;
   setDictationAgentProvider: (value: string) => void;
@@ -2067,12 +2188,29 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
     (acc, kind) => ({ ...acc, [kind]: readString(`customPrompt.${kind}`, "") }),
     {} as Record<PromptKind, string>
   ),
-  setCustomPrompt: (kind, value) => {
-    if (isBrowser) localStorage.setItem(`customPrompt.${kind}`, value);
-    useSettingsStore.setState((s) => ({
-      customPrompts: { ...s.customPrompts, [kind]: value },
-    }));
+  promptLibraries: PROMPT_KIND_LIST.reduce(
+    (acc, kind) => ({
+      ...acc,
+      [kind]: isBrowser ? readPromptLibrary(localStorage, kind) : createEmptyPromptLibrary(),
+    }),
+    {} as Record<PromptKind, PromptLibrary>
+  ),
+  createPrompt: (kind, input) => {
+    let id: string | null = null;
+    changePromptLibrary(kind, (library) => {
+      id = addPromptEntry(library, input).id;
+      return true;
+    });
+    return id;
   },
+  savePrompt: (kind, id, text) =>
+    changePromptLibrary(kind, (library) => savePromptEntryText(library, id, text)),
+  renamePrompt: (kind, id, name) =>
+    changePromptLibrary(kind, (library) => renamePromptEntry(library, id, name)),
+  deletePrompt: (kind, id) =>
+    changePromptLibrary(kind, (library) => removePromptEntry(library, id)),
+  activatePrompt: (kind, id) =>
+    changePromptLibrary(kind, (library) => setActivePrompt(library, id)),
 
   setDictationAgentMode: createStringSetter("dictationAgentMode") as (mode: InferenceMode) => void,
   setDictationAgentProvider: createStringSetter("dictationAgentProvider"),
@@ -3412,8 +3550,8 @@ export function reconcileRetiredCloudModelSelections(): void {
   }
 }
 
-export function getEffectiveCleanupModel() {
-  const state = getSettings();
+/** The model a dictation's cleanup call uses ("" on OpenWhispr Cloud, which picks its own). */
+export function getEffectiveCleanupModel(state: SettingsState = getSettings()) {
   if (selectIsCloudCleanupMode(state)) {
     return "";
   }
@@ -3940,14 +4078,7 @@ export async function initializeSettings(): Promise<void> {
 
     const { key, newValue } = event;
 
-    if (key.startsWith("customPrompt.")) {
-      const kind = key.slice("customPrompt.".length) as PromptKind;
-      if (!PROMPT_KIND_LIST.includes(kind)) return;
-      useSettingsStore.setState((s) => ({
-        customPrompts: { ...s.customPrompts, [kind]: newValue },
-      }));
-      return;
-    }
+    if (applyPromptStorageChange(key, newValue)) return;
 
     const state = useSettingsStore.getState();
     if (!(key in state) || typeof (state as unknown as Record<string, unknown>)[key] === "function")
