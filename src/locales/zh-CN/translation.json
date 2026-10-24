@@ -2000,6 +2000,7 @@
   },
   "settingsSearch": {
     "placeholder": "搜索设置",
+    "placeholderWithShortcut": "搜索设置（{{shortcut}}）",
     "clear": "清除搜索",
     "breadcrumb": "搜索",
     "resultsTitle": "“{{query}}”的搜索结果",

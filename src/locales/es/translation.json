@@ -2052,6 +2052,7 @@
   },
   "settingsSearch": {
     "placeholder": "Buscar en ajustes",
+    "placeholderWithShortcut": "Buscar en ajustes ({{shortcut}})",
     "clear": "Borrar búsqueda",
     "breadcrumb": "Búsqueda",
     "resultsTitle": "Resultados para «{{query}}»",

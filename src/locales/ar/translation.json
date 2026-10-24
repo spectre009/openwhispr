@@ -3462,6 +3462,7 @@
   },
   "settingsSearch": {
     "placeholder": "البحث في الإعدادات",
+    "placeholderWithShortcut": "البحث في الإعدادات ({{shortcut}})",
     "clear": "مسح البحث",
     "breadcrumb": "البحث",
     "resultsTitle": "نتائج «{{query}}»",

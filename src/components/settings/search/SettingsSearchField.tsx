@@ -25,7 +25,10 @@ export default function SettingsSearchField({
   activeDescendant,
 }: SettingsSearchFieldProps) {
   const { t } = useTranslation();
-  const shortcut = getCachedPlatform() === "darwin" ? "⌘F" : "Ctrl F";
+  const isMac = getCachedPlatform() === "darwin";
+  const placeholder = t("settingsSearch.placeholderWithShortcut", {
+    shortcut: isMac ? "⌘F" : "Ctrl+F",
+  });
 
   return (
     <div className="px-2 pt-2">
@@ -38,8 +41,9 @@ export default function SettingsSearchField({
           value={value}
           onChange={(event) => onChange(event.target.value)}
           onKeyDown={onKeyDown}
-          placeholder={t("settingsSearch.placeholder")}
+          placeholder={placeholder}
           aria-label={t("settingsSearch.placeholder")}
+          aria-keyshortcuts={isMac ? "Meta+F" : "Control+F"}
           role="combobox"
           aria-expanded={!!listId}
           aria-controls={listId}
@@ -47,9 +51,10 @@ export default function SettingsSearchField({
           aria-autocomplete="list"
           autoComplete="off"
           spellCheck={false}
-          className="min-w-0 flex-1 bg-transparent text-[13px] text-foreground outline-none placeholder:text-muted-foreground/70 [&::-webkit-search-cancel-button]:hidden"
+          // input-inline: the label draws the field, so the global input border and fill stay off.
+          className="input-inline min-w-0 flex-1 text-ellipsis bg-transparent text-[13px] text-foreground outline-none placeholder:text-muted-foreground/70 [&::-webkit-search-cancel-button]:hidden"
         />
-        {value ? (
+        {value && (
           <button
             type="button"
             onClick={onClear}
@@ -59,14 +64,6 @@ export default function SettingsSearchField({
           >
             <X size={12} />
           </button>
-        ) : (
-          <kbd
-            dir="ltr"
-            aria-hidden="true"
-            className="shrink-0 font-sans text-[10px] text-muted-foreground/60"
-          >
-            {shortcut}
-          </kbd>
         )}
       </label>
     </div>

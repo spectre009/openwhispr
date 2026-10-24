@@ -2094,6 +2094,7 @@
   },
   "settingsSearch": {
     "placeholder": "Search settings",
+    "placeholderWithShortcut": "Search settings ({{shortcut}})",
     "clear": "Clear search",
     "breadcrumb": "Search",
     "resultsTitle": "Results for “{{query}}”",

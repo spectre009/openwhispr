@@ -2000,6 +2000,7 @@
   },
   "settingsSearch": {
     "placeholder": "搜尋設定",
+    "placeholderWithShortcut": "搜尋設定（{{shortcut}}）",
     "clear": "清除搜尋",
     "breadcrumb": "搜尋",
     "resultsTitle": "「{{query}}」的搜尋結果",

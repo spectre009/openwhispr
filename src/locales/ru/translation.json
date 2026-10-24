@@ -2000,6 +2000,7 @@
   },
   "settingsSearch": {
     "placeholder": "Поиск по настройкам",
+    "placeholderWithShortcut": "Поиск по настройкам ({{shortcut}})",
     "clear": "Очистить поиск",
     "breadcrumb": "Поиск",
     "resultsTitle": "Результаты по запросу «{{query}}»",

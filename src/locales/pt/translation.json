@@ -1979,6 +1979,7 @@
   },
   "settingsSearch": {
     "placeholder": "Pesquisar configurações",
+    "placeholderWithShortcut": "Pesquisar configurações ({{shortcut}})",
     "clear": "Limpar pesquisa",
     "breadcrumb": "Pesquisa",
     "resultsTitle": "Resultados para “{{query}}”",

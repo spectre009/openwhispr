@@ -2094,6 +2094,7 @@
   },
   "settingsSearch": {
     "placeholder": "Einstellungen durchsuchen",
+    "placeholderWithShortcut": "Einstellungen durchsuchen ({{shortcut}})",
     "clear": "Suche löschen",
     "breadcrumb": "Suche",
     "resultsTitle": "Ergebnisse für „{{query}}“",

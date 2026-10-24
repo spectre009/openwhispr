@@ -2000,6 +2000,7 @@
   },
   "settingsSearch": {
     "placeholder": "設定を検索",
+    "placeholderWithShortcut": "設定を検索（{{shortcut}}）",
     "clear": "検索をクリア",
     "breadcrumb": "検索",
     "resultsTitle": "「{{query}}」の検索結果",

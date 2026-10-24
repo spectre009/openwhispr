@@ -2000,6 +2000,7 @@
   },
   "settingsSearch": {
     "placeholder": "Cerca nelle impostazioni",
+    "placeholderWithShortcut": "Cerca nelle impostazioni ({{shortcut}})",
     "clear": "Cancella ricerca",
     "breadcrumb": "Ricerca",
     "resultsTitle": "Risultati per «{{query}}»",

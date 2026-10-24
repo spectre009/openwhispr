@@ -2094,6 +2094,7 @@
   },
   "settingsSearch": {
     "placeholder": "Rechercher dans les paramètres",
+    "placeholderWithShortcut": "Rechercher dans les paramètres ({{shortcut}})",
     "clear": "Effacer la recherche",
     "breadcrumb": "Recherche",
     "resultsTitle": "Résultats pour « {{query}} »",
