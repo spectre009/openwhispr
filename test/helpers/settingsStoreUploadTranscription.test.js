@@ -7,9 +7,9 @@ const { createRendererServer, installBrowserGlobals } = require("../lib/renderer
 
 // Upload inherits unset values from dictation, but a realtime-only dictation
 // provider has no batch route — inheriting it would fail every upload closed
-// on transcriptionRoute's guard. The picker hides those providers for the
-// upload scope and reconciles an unset selection to the first provider, so the
-// resolved value must land on the same default.
+// on transcriptionRoute's guard. The upload picker hides those providers, and an
+// unset selection must resolve to the default provider (the one the old picker
+// reconciled it to).
 test("upload transcription never inherits a realtime-only dictation provider", async (t) => {
   installBrowserGlobals(t);
   const vite = await createRendererServer(t, {

@@ -5795,6 +5795,44 @@
         "server": "Server",
         "model": "Model"
       }
+    },
+    "stt": {
+      "description": "Pick a speech-to-text connection and model. API keys live in AI Connections.",
+      "reasons": {
+        "selfHostedLiveRecording": "Not available for live recording yet",
+        "requiresMacOS": "Needs macOS {{version}} or later",
+        "localUnavailable": "Can't run on this computer",
+        "notDownloaded": "This model isn't downloaded",
+        "needsStreaming": "Live recording needs a streaming model",
+        "liveOnly": "A live-only provider: file transcription can't use it",
+        "noLocalModel": "No {{engine}} model downloaded: pick another model, or download one in AI Connections"
+      },
+      "custom": {
+        "sub": "Any OpenAI-compatible speech-to-text API",
+        "browseHint": "Enter the endpoint and a model below to switch {{feature}} to it.",
+        "keyShared": "One key for every speech-to-text custom endpoint."
+      },
+      "local": {
+        "cohereSub": "Cohere · one language at a time",
+        "cohereSubSized": "Cohere · {{size}} · one language at a time",
+        "cohereNote": "Cohere Transcribe doesn't detect the language: it transcribes in your transcription language (English while that's set to auto-detect) and restarts when you change it."
+      },
+      "selfHosted": {
+        "sub": "A transcription server on your network: URL and model"
+      },
+      "enterprise": {
+        "label": "Your organization's speech-to-text",
+        "sub": "Azure, set up by your organization"
+      },
+      "trigger": {
+        "serverDefault": "The server's default model"
+      },
+      "inherit": {
+        "default": "Provider default",
+        "engine": "Engine",
+        "localEngine": "{{engine}} (local)",
+        "defaultModel": "Default ({{model}})"
+      }
     }
   }
 }

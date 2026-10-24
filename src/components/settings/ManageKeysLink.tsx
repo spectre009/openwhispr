@@ -33,8 +33,8 @@ export function SettingsLink({
 }
 
 /**
- * "Manage keys in AI Connections ›" under a feature's model picker, or beside
- * a speech-to-text key field: opens that provider's card.
+ * "Manage keys in AI Connections ›" under a feature's model picker (language
+ * models and speech-to-text): opens that provider's card.
  */
 export default function ManageKeysLink({
   provider,

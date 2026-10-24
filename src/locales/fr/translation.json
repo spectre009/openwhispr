@@ -5795,6 +5795,44 @@
         "server": "Serveur",
         "model": "Modèle"
       }
+    },
+    "stt": {
+      "description": "Choisissez une connexion et un modèle de transcription. Les clés API se trouvent dans Connexions IA.",
+      "reasons": {
+        "selfHostedLiveRecording": "Pas encore disponible pour l'enregistrement en direct",
+        "requiresMacOS": "Nécessite macOS {{version}} ou version ultérieure",
+        "localUnavailable": "Ne peut pas fonctionner sur cet ordinateur",
+        "notDownloaded": "Ce modèle n'est pas téléchargé",
+        "needsStreaming": "L'enregistrement en direct nécessite un modèle en streaming",
+        "liveOnly": "Un fournisseur uniquement en direct : la transcription de fichiers ne peut pas l'utiliser",
+        "noLocalModel": "Aucun modèle {{engine}} téléchargé : choisissez un autre modèle ou téléchargez-en un dans Connexions IA"
+      },
+      "custom": {
+        "sub": "Toute API de transcription compatible OpenAI",
+        "browseHint": "Saisissez ci-dessous le point de terminaison et un modèle pour y basculer {{feature}}.",
+        "keyShared": "Une seule clé pour tous les points de terminaison de transcription personnalisés."
+      },
+      "local": {
+        "cohereSub": "Cohere · une langue à la fois",
+        "cohereSubSized": "Cohere · {{size}} · une langue à la fois",
+        "cohereNote": "Cohere Transcribe ne détecte pas la langue : il transcrit dans votre langue de transcription (l'anglais tant qu'elle est en détection automatique) et redémarre quand vous la changez."
+      },
+      "selfHosted": {
+        "sub": "Un serveur de transcription sur votre réseau : URL et modèle"
+      },
+      "enterprise": {
+        "label": "La transcription de votre organisation",
+        "sub": "Azure, configuré par votre organisation"
+      },
+      "trigger": {
+        "serverDefault": "Modèle par défaut du serveur"
+      },
+      "inherit": {
+        "default": "Valeur par défaut du fournisseur",
+        "engine": "Moteur",
+        "localEngine": "{{engine}} (local)",
+        "defaultModel": "Par défaut ({{model}})"
+      }
     }
   }
 }

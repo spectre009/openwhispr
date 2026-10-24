@@ -9,8 +9,9 @@ const {
   installHookDom,
 } = require("../lib/rendererTestHarness");
 
-// The GPU card in the transcription model picker shows the whisper-server error
-// line that main saved with a GPU->CPU fallback (#1736).
+// The Whisper GPU card (settings/WhisperGpuCard.tsx, under a speech-to-text model
+// picker while a Whisper model is selected) shows the whisper-server error line
+// that main saved with a GPU->CPU fallback (#1736).
 const DEVICE_LOST = "vk::PhysicalDevice::createDevice: ErrorDeviceLost";
 const OUT_OF_DEVICE_MEMORY = "vk::Device::allocateMemory: ErrorOutOfDeviceMemory";
 const KERNEL_IMAGE = "CUDA error: no kernel image is available for execution on the device";
@@ -75,7 +76,7 @@ const bothPacks = ({ gpuInfo = NVIDIA, inUse, cuda = {}, vulkan = {} }) => ({
   }),
 });
 
-// Lets the picker's IPC reads (status on mount, re-read after a fallback) land
+// Lets the card's IPC reads (status on mount, re-read after a fallback) land
 function settle() {
   return React.act(async () => {
     await new Promise((resolve) => setTimeout(resolve, 20));
@@ -129,17 +130,13 @@ async function mountPicker(t, vulkanStatus, cudaStatus = cudaPack(), gpuAccelera
     deleteCudaWhisperBinary: record("delete-cuda", { success: true }),
     deleteVulkanWhisperBinary: record("delete-vulkan", { success: true, deletedCount: 1 }),
   });
-  const { default: Picker } = await vite.ssrLoadModule("/components/TranscriptionModelPicker.tsx");
+  // The card's strings come from the app's i18n instance (English).
+  await vite.ssrLoadModule("/i18n.ts");
+  const { default: Card } = await vite.ssrLoadModule("/components/settings/WhisperGpuCard.tsx");
   const { ToastContext } = await vite.ssrLoadModule("/components/ui/useToast.ts");
   let tree;
   function Harness() {
-    tree = Picker({
-      selectedLocalProvider: "whisper",
-      selectedLocalModel: "base",
-      useLocalWhisper: true,
-      onLocalModelSelect: noop,
-      onModeChange: noop,
-    });
+    tree = Card();
     return null;
   }
   const root = createRoot(container);

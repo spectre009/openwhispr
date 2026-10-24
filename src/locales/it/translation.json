@@ -5795,6 +5795,44 @@
         "server": "Server",
         "model": "Modello"
       }
+    },
+    "stt": {
+      "description": "Scegli una connessione e un modello di trascrizione. Le chiavi API si trovano in Connessioni IA.",
+      "reasons": {
+        "selfHostedLiveRecording": "Non ancora disponibile per la registrazione dal vivo",
+        "requiresMacOS": "Richiede macOS {{version}} o successivo",
+        "localUnavailable": "Non può funzionare su questo computer",
+        "notDownloaded": "Questo modello non è scaricato",
+        "needsStreaming": "La registrazione dal vivo richiede un modello in streaming",
+        "liveOnly": "Un provider solo dal vivo: la trascrizione di file non può usarlo",
+        "noLocalModel": "Nessun modello {{engine}} scaricato: scegli un altro modello o scaricane uno in Connessioni IA"
+      },
+      "custom": {
+        "sub": "Qualsiasi API di trascrizione compatibile con OpenAI",
+        "browseHint": "Inserisci qui sotto l'endpoint e un modello per passare {{feature}} a quello.",
+        "keyShared": "Un'unica chiave per tutti gli endpoint di trascrizione personalizzati."
+      },
+      "local": {
+        "cohereSub": "Cohere · una lingua alla volta",
+        "cohereSubSized": "Cohere · {{size}} · una lingua alla volta",
+        "cohereNote": "Cohere Transcribe non rileva la lingua: trascrive nella tua lingua di trascrizione (inglese finché è impostata sul rilevamento automatico) e si riavvia quando la cambi."
+      },
+      "selfHosted": {
+        "sub": "Un server di trascrizione sulla tua rete: URL e modello"
+      },
+      "enterprise": {
+        "label": "La trascrizione della tua organizzazione",
+        "sub": "Azure, configurato dalla tua organizzazione"
+      },
+      "trigger": {
+        "serverDefault": "Modello predefinito del server"
+      },
+      "inherit": {
+        "default": "Predefinito del provider",
+        "engine": "Motore",
+        "localEngine": "{{engine}} (locale)",
+        "defaultModel": "Predefinito ({{model}})"
+      }
     }
   }
 }

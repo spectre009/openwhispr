@@ -60,6 +60,8 @@ export type PickerLink =
 
 export interface PickerUnavailable {
   reasonKey: string;
+  /** Interpolation values for the reason (the speech-to-text picker's macOS version). */
+  reasonParams?: Record<string, string>;
   link?: PickerLink;
 }
 
@@ -80,18 +82,19 @@ export type PickerAction =
   | "useManaged"
   | "link";
 
-export interface ModelPickerOption {
+/**
+ * What `ModelPicker` reads from an option. The language-model picker's options
+ * (`ModelPickerOption`) and the speech-to-text picker's (`SttPickerOption`,
+ * sttOptions.ts) both extend it with what their selection adapter writes.
+ */
+export interface PickerOptionBase {
   id: string;
   label: PickerText;
   sub?: PickerText;
   /** Icon id: a provider id, or "cloud" | "local" | "selfHosted" | "enterprise" | "custom". */
   icon: string;
-  mode: InferenceMode;
-  cloudMode: "openwhispr" | "byok";
-  /** Empty for entries that pick only a mode (Cloud, self-hosted, enterprise). */
-  provider: string;
-  model: string;
-  action?: PickerAction;
+  /** "link" entries only follow `link`; other actions are the adapter's. */
+  action?: string;
   /** Where a `link` entry goes. */
   link?: PickerLink;
   available: PickerAvailability;
@@ -99,13 +102,24 @@ export interface ModelPickerOption {
   terms?: readonly string[];
 }
 
-export interface ModelPickerGroup {
+export interface ModelPickerOption extends PickerOptionBase {
+  mode: InferenceMode;
+  cloudMode: "openwhispr" | "byok";
+  /** Empty for entries that pick only a mode (Cloud, self-hosted, enterprise). */
+  provider: string;
+  model: string;
+  action?: PickerAction;
+}
+
+export interface PickerGroup<O extends PickerOptionBase> {
   id: string;
   icon: string;
   title: PickerText;
   meta?: PickerText;
-  options: ModelPickerOption[];
+  options: O[];
 }
+
+export type ModelPickerGroup = PickerGroup<ModelPickerOption>;
 
 export interface PickerModel {
   id: string;

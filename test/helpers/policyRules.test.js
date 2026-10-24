@@ -1003,12 +1003,12 @@ test("enterprise transcription resolves through the transcription policy section
   );
 });
 
-// Mirrors what TranscriptionSection/UploadTranscriptionPanel do: the
-// "enterprise" tile is only appended to the raw option list when the policy
-// snapshot is managed, before that list is ever handed to
-// filterModeOptionsByPolicy. Selecting it with no managed org behind it
-// writes a mode with no personal configuration surface and no managed
-// resolution, which then fails every dictation/upload closed.
+// Mirrors the speech-to-text pickers (sttModeCandidates in sttOptions.ts): the
+// "enterprise" entry is only a candidate when the policy snapshot is managed,
+// before that list is ever handed to filterModeOptionsByPolicy. Selecting it
+// with no managed org behind it writes a mode with no personal configuration
+// surface and no managed resolution, which then fails every dictation/upload
+// closed.
 test("the enterprise transcription tile is offered only to a managed policy snapshot", async () => {
   const { isEnterpriseTranscriptionOfferable, filterModeOptionsByPolicy } = await load();
   const baseOptions = [

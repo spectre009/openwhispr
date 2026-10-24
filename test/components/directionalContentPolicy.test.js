@@ -113,7 +113,7 @@ test("technical output values remain LTR inside an Arabic document", () => {
       "src/components/onboarding/RequiredModelDownloadStep.tsx",
       /<span\s+dir="ltr"[\s\S]*?\{info\?\.name \?\? modelId\}/,
     ],
-    ["src/components/TranscriptionModelPicker.tsx", /<p\s+dir="ltr"[^>]*>\s*\{gpuFailReason\}/],
+    ["src/components/settings/WhisperGpuCard.tsx", /<p\s+dir="ltr"[^>]*>\s*\{gpuFailReason\}/],
   ];
 
   for (const [file, pattern] of expectations) {

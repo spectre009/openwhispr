@@ -25,9 +25,9 @@ import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from "../../ui
 import { ProviderIcon } from "../../ui/ProviderIcon";
 import { cn } from "../../lib/utils";
 import type {
-  ModelPickerGroup,
-  ModelPickerOption,
+  PickerGroup,
   PickerLink,
+  PickerOptionBase,
   PickerSelectionSummary,
   PickerText,
 } from "./options";
@@ -49,19 +49,19 @@ export function PickerIcon({ icon, className = "h-4 w-4" }: { icon: string; clas
   return <ProviderIcon provider={icon} className={cn(className, "shrink-0")} />;
 }
 
-interface FlatOption {
-  option: ModelPickerOption;
-  group: ModelPickerGroup;
+interface FlatOption<O extends PickerOptionBase> {
+  option: O;
+  group: PickerGroup<O>;
   label: string;
   sub: string;
   reason: string;
 }
 
-interface ModelPickerProps {
-  groups: readonly ModelPickerGroup[];
+interface ModelPickerProps<O extends PickerOptionBase> {
+  groups: readonly PickerGroup<O>[];
   selectedId: string | null;
   summary: PickerSelectionSummary;
-  onSelect: (option: ModelPickerOption) => void;
+  onSelect: (option: O) => void;
   /** Follows an unavailable entry's link (or a link entry). */
   onLink: (link: PickerLink) => void;
   /** Whether a link can be followed here (Settings links hide outside Settings). */
@@ -86,9 +86,10 @@ interface ModelPickerProps {
  * options grouped by connection. Type to filter, ↑/↓ to move, Enter to pick,
  * Esc closes the menu only (it's a Radix popover, so Settings' Esc and close
  * rules see it). Unavailable entries stay listed and focusable with their
- * reason; they can't be picked, but their link can be followed.
+ * reason; they can't be picked, but their link can be followed. Generic over
+ * the option type: the language-model and speech-to-text pickers share it.
  */
-export default function ModelPicker({
+export default function ModelPicker<O extends PickerOptionBase>({
   groups,
   selectedId,
   summary,
@@ -101,7 +102,7 @@ export default function ModelPicker({
   onOpenChange,
   renderAnchor,
   className,
-}: ModelPickerProps) {
+}: ModelPickerProps<O>) {
   const { t } = useTranslation();
   const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
   const open = controlledOpen ?? uncontrolledOpen;
@@ -111,7 +112,7 @@ export default function ModelPicker({
   const listRef = useRef<HTMLDivElement>(null);
   const listId = useId();
 
-  const flat = useMemo<FlatOption[]>(
+  const flat = useMemo<FlatOption<O>[]>(
     () =>
       groups.flatMap((group) =>
         group.options.map((option) => ({
@@ -119,7 +120,10 @@ export default function ModelPicker({
           group,
           label: resolveText(t, option.label),
           sub: resolveText(t, option.sub),
-          reason: option.available === true ? "" : t(option.available.reasonKey),
+          reason:
+            option.available === true
+              ? ""
+              : t(option.available.reasonKey, option.available.reasonParams),
         }))
       ),
     [groups, t]
@@ -189,7 +193,7 @@ export default function ModelPicker({
     onLink(link);
   };
 
-  const choose = (entry: FlatOption | undefined) => {
+  const choose = (entry: FlatOption<O> | undefined) => {
     if (!entry) return;
     const { option } = entry;
     if (option.available !== true) {

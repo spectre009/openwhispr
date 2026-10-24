@@ -5795,6 +5795,44 @@
         "server": "サーバー",
         "model": "モデル"
       }
+    },
+    "stt": {
+      "description": "音声認識の接続とモデルを選びます。API キーは AI 接続で管理します。",
+      "reasons": {
+        "selfHostedLiveRecording": "ライブ録音ではまだ利用できません",
+        "requiresMacOS": "macOS {{version}} 以降が必要です",
+        "localUnavailable": "このコンピューターでは実行できません",
+        "notDownloaded": "このモデルはダウンロードされていません",
+        "needsStreaming": "ライブ録音にはストリーミングモデルが必要です",
+        "liveOnly": "ライブ専用のプロバイダーです。ファイルの文字起こしでは使えません",
+        "noLocalModel": "{{engine}} のモデルがダウンロードされていません。別のモデルを選ぶか、AI 接続でダウンロードしてください"
+      },
+      "custom": {
+        "sub": "OpenAI 互換の任意の音声認識 API",
+        "browseHint": "下にエンドポイントとモデルを入力すると、{{feature}}がそのモデルに切り替わります。",
+        "keyShared": "音声認識のすべてのカスタムエンドポイントで共通のキーです。"
+      },
+      "local": {
+        "cohereSub": "Cohere · 一度に 1 言語",
+        "cohereSubSized": "Cohere · {{size}} · 一度に 1 言語",
+        "cohereNote": "Cohere Transcribe は言語を検出しません。文字起こしの言語で認識し（自動検出に設定している間は英語）、言語を変えると再起動します。"
+      },
+      "selfHosted": {
+        "sub": "ネットワーク上の文字起こしサーバー：URL とモデル"
+      },
+      "enterprise": {
+        "label": "組織の音声認識",
+        "sub": "組織が設定した Azure"
+      },
+      "trigger": {
+        "serverDefault": "サーバーの既定のモデル"
+      },
+      "inherit": {
+        "default": "プロバイダーの既定",
+        "engine": "エンジン",
+        "localEngine": "{{engine}}（ローカル）",
+        "defaultModel": "既定（{{model}}）"
+      }
     }
   }
 }

@@ -3,12 +3,7 @@ const assert = require("node:assert/strict");
 const React = require("react");
 const path = require("node:path");
 const { renderToStaticMarkup } = require("react-dom/server");
-const { createRoot } = require("react-dom/client");
-const {
-  createRendererServer,
-  installBrowserGlobals,
-  installHookDom,
-} = require("../lib/rendererTestHarness");
+const { createRendererServer, installBrowserGlobals } = require("../lib/rendererTestHarness");
 
 const noop = () => {};
 async function renderer(t) {
@@ -49,44 +44,66 @@ test("onboarding restores an Oruk draft without mixing NVIDIA models", async (t)
   assert.doesNotMatch(markup, />Parakeet TDT/);
 });
 
-test("all three model pickers restore the Oruk tab from the persisted Orukeet choice", async (t) => {
+// The speech-to-text pickers list downloaded local models under their
+// organization: Orukeet (Oruk) and stock Parakeet (NVIDIA) both run as the
+// "nvidia" local provider, and a saved choice shows as itself, not the other.
+const UNMANAGED = { status: "unmanaged", policy: null, appVersion: "1.10.3" };
+const SHERPA = [
+  { id: "orukeet-v0.1.0", engine: "sherpa" },
+  { id: "parakeet-tdt-0.6b-v3", engine: "sherpa" },
+];
+const localContext = (localModel, overrides = {}) => ({
+  policy: UNMANAGED,
+  cloudDisabled: false,
+  isSignedIn: true,
+  keys: {},
+  localModels: SHERPA,
+  current: {
+    mode: "local",
+    cloudProvider: "openai",
+    cloudModel: "gpt-transcribe",
+    cloudBaseUrl: "",
+    localProvider: "nvidia",
+    localModel,
+    remoteUrl: "",
+    remoteModel: "",
+  },
+  ...overrides,
+});
+const localOptions = (groups) => groups.find((group) => group.id === "local").options;
+
+test("all three model pickers show the persisted Orukeet choice under Oruk", async (t) => {
   const vite = await renderer(t);
-  const { default: Picker } = await vite.ssrLoadModule("/components/TranscriptionModelPicker.tsx");
-  for (const transcriptionContext of ["dictation", "upload", "meeting"]) {
-    const markup = await render(
-      vite,
-      React.createElement(Picker, {
-        transcriptionContext,
-        selectedLocalProvider: "nvidia",
-        selectedLocalModel: "orukeet-v0.1.0",
-        useLocalWhisper: true,
-        onLocalModelSelect: noop,
-        onModeChange: noop,
-      })
-    );
-    assert.match(markup, />Orukeet</, transcriptionContext);
-    assert.doesNotMatch(markup, />Parakeet TDT/, transcriptionContext);
+  const stt = await vite.ssrLoadModule("/components/settings/modelPicker/sttOptions.ts");
+  for (const surface of ["dictation", "fileTranscription", "liveRecording"]) {
+    const ctx = localContext("orukeet-v0.1.0");
+    const options = localOptions(stt.buildSttPickerOptions(surface, ctx));
+    const oruk = options.find((option) => option.id === "local:orukeet-v0.1.0");
+    assert.equal(oruk.icon, "oruk", surface);
+    assert.equal(oruk.provider, "nvidia", surface);
+    assert.equal(oruk.label.text, "Orukeet", surface);
+    assert.match(oruk.sub.text, /^Oruk/, surface);
+    assert.equal(stt.selectedSttOptionId(ctx.current), "local:orukeet-v0.1.0", surface);
+    const summary = stt.describeSttSelection(surface, ctx);
+    assert.equal(summary.icon, "oruk", surface);
+    assert.equal(summary.title.text, "Orukeet", surface);
+    // Oruk leads the local list, as its tab led the organizations.
+    assert.equal(options[0].id, "local:orukeet-v0.1.0", surface);
   }
 });
 
-test("a saved stock Parakeet choice opens NVIDIA while retaining Oruk as a selectable organization", async (t) => {
+test("a saved stock Parakeet choice shows under NVIDIA, with Orukeet still selectable", async (t) => {
   const vite = await renderer(t);
-  const { default: Picker } = await vite.ssrLoadModule("/components/TranscriptionModelPicker.tsx");
-  const markup = await render(
-    vite,
-    React.createElement(Picker, {
-      selectedLocalProvider: "nvidia",
-      selectedLocalModel: "parakeet-tdt-0.6b-v3",
-      useLocalWhisper: true,
-      onLocalModelSelect: noop,
-      onModeChange: noop,
-    })
-  );
-  assert.match(markup, />Oruk</);
-  assert.match(markup, />Parakeet TDT/);
-  assert.doesNotMatch(markup, />Orukeet</);
+  const stt = await vite.ssrLoadModule("/components/settings/modelPicker/sttOptions.ts");
+  const ctx = localContext("parakeet-tdt-0.6b-v3");
+  const options = localOptions(stt.buildSttPickerOptions("dictation", ctx));
+  const parakeet = options.find((option) => option.id === "local:parakeet-tdt-0.6b-v3");
+  assert.equal(parakeet.icon, "nvidia");
+  assert.equal(parakeet.label.text, "Parakeet TDT 0.6B");
+  assert.equal(stt.selectedSttOptionId(ctx.current), "local:parakeet-tdt-0.6b-v3");
+  assert.equal(stt.describeSttSelection("dictation", ctx).icon, "nvidia");
+  assert.equal(options.find((option) => option.id === "local:orukeet-v0.1.0").available, true);
 });
-
 test("adding Orukeet preserves fresh-install transcription modes and existing backend defaults", async (t) => {
   const vite = await renderer(t);
   const { useSettingsStore } = await vite.ssrLoadModule("/stores/settingsStore.ts");
@@ -99,60 +116,28 @@ test("adding Orukeet preserves fresh-install transcription modes and existing ba
   }
 });
 
-test("Oruk's model-picker tab follows the same unsupported-macOS fallback as Parakeet", async (t) => {
+test("on a macOS sherpa-onnx can't run, Oruk and NVIDIA models are listed unavailable", async (t) => {
   const vite = await renderer(t);
-  const container = installHookDom(t);
-  globalThis.window.electronAPI.checkParakeetInstallation = async () => ({
-    supported: false,
-    minimumMacOSVersion: "15.5",
+  const stt = await vite.ssrLoadModule("/components/settings/modelPicker/sttOptions.ts");
+  const ctx = localContext("orukeet-v0.1.0", {
+    localModels: [...SHERPA, { id: "base", engine: "whisper" }],
+    sherpa: { supported: false, minimumMacOSVersion: "15.5" },
   });
-  globalThis.window.electronAPI.listParakeetModels = async () => ({ success: true, models: [] });
-  globalThis.window.electronAPI.listWhisperModels = async () => ({ success: true, models: [] });
-  globalThis.window.electronAPI.onWhisperDownloadProgress = () => noop;
-  globalThis.window.electronAPI.onParakeetDownloadProgress = () => noop;
-  const { default: Picker } = await vite.ssrLoadModule("/components/TranscriptionModelPicker.tsx");
-  const { ToastContext } = await vite.ssrLoadModule("/components/ui/useToast.ts");
-  const selectedProviders = [];
-  let tree;
-  function Harness() {
-    tree = Picker({
-      selectedLocalProvider: "nvidia",
-      selectedLocalModel: "orukeet-v0.1.0",
-      useLocalWhisper: true,
-      onLocalModelSelect: noop,
-      onLocalProviderSelect: (provider) => selectedProviders.push(provider),
-      onModeChange: noop,
-    });
-    return null;
+  const options = localOptions(stt.buildSttPickerOptions("dictation", ctx));
+  for (const id of ["local:orukeet-v0.1.0", "local:parakeet-tdt-0.6b-v3"]) {
+    const option = options.find((entry) => entry.id === id);
+    assert.equal(option.available.reasonKey, "modelPicker.stt.reasons.requiresMacOS", id);
+    assert.deepEqual(option.available.reasonParams, { version: "15.5" }, id);
   }
-  const root = createRoot(container);
-  try {
-    await React.act(async () => {
-      root.render(
-        React.createElement(
-          ToastContext.Provider,
-          { value: { toast: noop } },
-          React.createElement(Harness)
-        )
-      );
-    });
-    function find(node) {
-      if (Array.isArray(node)) return node.map(find).find(Boolean);
-      if (!node || typeof node !== "object") return null;
-      if (node.props?.providers?.some((provider) => provider.id === "oruk")) return node;
-      return find(node.props?.children);
-    }
-    const tabs = find(tree);
-    assert.ok(tabs);
-    for (const organization of ["oruk", "nvidia", "cohere"]) {
-      assert.equal(
-        tabs.props.providers.find((provider) => provider.id === organization).disabled,
-        true
-      );
-    }
-    assert.equal(tabs.props.selectedId, "whisper");
-    assert.ok(selectedProviders.includes("whisper"));
-  } finally {
-    await React.act(async () => root.unmount());
-  }
+  assert.equal(options.find((entry) => entry.id === "local:base").available, true);
+  // The selection says why it can't run; nothing switches it behind the user's back.
+  assert.deepEqual(stt.describeSttSelection("dictation", ctx).warning, {
+    key: "modelPicker.stt.reasons.requiresMacOS",
+    params: { version: "15.5" },
+  });
+  const pick = { mode: "local", provider: "nvidia", model: "orukeet-v0.1.0" };
+  assert.equal(
+    stt.sttPickAvailability("dictation", pick, ctx).reasonKey,
+    "modelPicker.stt.reasons.requiresMacOS"
+  );
 });

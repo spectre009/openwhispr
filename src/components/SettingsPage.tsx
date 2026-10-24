@@ -16,9 +16,6 @@ import {
   Moon,
   Monitor,
   Cloud,
-  Key,
-  Cpu,
-  Network,
   ShieldCheck,
   Sparkles,
   AlertTriangle,
@@ -44,8 +41,8 @@ import MicrophoneSettings from "./ui/MicrophoneSettings";
 import PermissionCard from "./ui/PermissionCard";
 import PasteToolsInfo from "./ui/PasteToolsInfo";
 import NixOsPasteInfo from "./ui/NixOsPasteInfo";
-import TranscriptionModelPicker from "./TranscriptionModelPicker";
-import SelfHostedPanel from "./SelfHostedPanel";
+import TranscriptionConfigEditor from "./settings/TranscriptionConfigEditor";
+import { useSttEffectiveMode } from "./settings/modelPicker/useSttPickerContext";
 import {
   ConfirmDialog,
   AlertDialog,
@@ -98,19 +95,9 @@ import { Skeleton } from "./ui/skeleton";
 import { Progress } from "./ui/progress";
 import { useToast } from "./ui/useToast";
 import { useTheme } from "../hooks/useTheme";
-import type {
-  ChineseScriptPreference,
-  LocalTranscriptionProvider,
-  InferenceMode,
-} from "../types/electron";
+import type { ChineseScriptPreference, InferenceMode } from "../types/electron";
 import logger from "../utils/logger";
-import {
-  SettingsRow,
-  SettingsPanel,
-  SettingsPanelRow,
-  InferenceModeSelector,
-} from "./ui/SettingsSection";
-import type { InferenceModeOption } from "./ui/SettingsSection";
+import { SettingsRow, SettingsPanel, SettingsPanelRow } from "./ui/SettingsSection";
 import { FloatingIconPlacementRows } from "./settings/FloatingIconPlacementRows";
 import { RecordingIndicatorRows } from "./settings/RecordingIndicatorRows";
 import { OpenWhisprCloudSwitch } from "./settings/OpenWhisprCloudSwitch";
@@ -131,8 +118,6 @@ import { syncService } from "../services/SyncService.js";
 import { formatBytes } from "../utils/formatBytes";
 import {
   clearMissingLocalModelSelections,
-  TRANSCRIPTION_ENTERPRISE_POLICY_PROVIDER_IDS,
-  TRANSCRIPTION_POLICY_PROVIDER_IDS,
   useSettingsStore,
   type HotkeyRegistrationResult,
 } from "../stores/settingsStore";
@@ -145,11 +130,10 @@ import {
   effectiveLocalHistoryEnabled,
   isAgentAllowed,
   isCloudBackupAllowed,
-  isEnterpriseTranscriptionOfferable,
   lockedLocalHistoryValue,
   maxAudioRetentionDays,
 } from "../stores/policyRules";
-import { usePolicyModeOptions, usePolicySnapshot } from "../hooks/usePolicy";
+import { usePolicySnapshot } from "../hooks/usePolicy";
 import { stopRecording } from "../stores/meetingRecordingStore";
 import { requestSignIn } from "../utils/requestSignIn";
 import { canManageSystemAudioInApp } from "../utils/systemAudioAccess";
@@ -217,8 +201,6 @@ const RETENTION_DAY_OPTIONS = [1, 7, 14, 30, 60, 90];
 
 const RETENTION_SELECT_CLASS =
   "h-7 rounded border border-border/70 bg-surface-1/80 px-2.5 text-xs font-medium text-foreground shadow-sm hover:border-border-hover hover:bg-surface-2/70 focus:outline-none focus:ring-2 focus:ring-ring/30 focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50 transition-colors duration-200";
-
-const noop = () => {};
 
 function SectionHeader({
   title,
@@ -478,32 +460,8 @@ function GranolaImportSection({
 }
 
 interface TranscriptionSectionProps {
-  isSignedIn: boolean;
-  cloudTranscriptionMode: string;
-  setCloudTranscriptionMode: (mode: string) => void;
-  useLocalWhisper: boolean;
-  setUseLocalWhisper: (value: boolean) => void;
-  updateTranscriptionSettings: (settings: { useLocalWhisper: boolean }) => void;
   cloudTranscriptionProvider: string;
-  setCloudTranscriptionProvider: (provider: string) => void;
   cloudTranscriptionModel: string;
-  setCloudTranscriptionModel: (model: string) => void;
-  localTranscriptionProvider: string;
-  setLocalTranscriptionProvider: (provider: LocalTranscriptionProvider) => void;
-  whisperModel: string;
-  setWhisperModel: (model: string) => void;
-  parakeetModel: string;
-  setParakeetModel: (model: string) => void;
-  cohereModel: string;
-  setCohereModel: (model: string) => void;
-  cloudTranscriptionBaseUrl?: string;
-  setCloudTranscriptionBaseUrl: (url: string) => void;
-  transcriptionMode: InferenceMode;
-  setTranscriptionMode: (mode: InferenceMode) => void;
-  remoteTranscriptionUrl: string;
-  setRemoteTranscriptionUrl: (url: string) => void;
-  remoteTranscriptionModel: string;
-  setRemoteTranscriptionModel: (model: string) => void;
   showTranscriptionPreview: boolean;
   setShowTranscriptionPreview: (value: boolean) => void;
   toast: (opts: {
@@ -514,39 +472,22 @@ interface TranscriptionSectionProps {
   }) => void;
 }
 
+const TRANSCRIPTION_MODE_TOASTS: Record<InferenceMode, string> = {
+  openwhispr: "switchedCloud",
+  providers: "switchedProviders",
+  local: "switchedLocal",
+  "self-hosted": "switchedSelfHosted",
+  enterprise: "switchedEnterprise",
+};
+
 function TranscriptionSection({
-  isSignedIn,
-  cloudTranscriptionMode,
-  setCloudTranscriptionMode,
-  useLocalWhisper,
-  setUseLocalWhisper,
-  updateTranscriptionSettings,
   cloudTranscriptionProvider,
-  setCloudTranscriptionProvider,
   cloudTranscriptionModel,
-  setCloudTranscriptionModel,
-  localTranscriptionProvider,
-  setLocalTranscriptionProvider,
-  whisperModel,
-  setWhisperModel,
-  parakeetModel,
-  setParakeetModel,
-  cohereModel,
-  setCohereModel,
-  cloudTranscriptionBaseUrl,
-  setCloudTranscriptionBaseUrl,
-  transcriptionMode,
-  setTranscriptionMode,
-  remoteTranscriptionUrl,
-  setRemoteTranscriptionUrl,
-  remoteTranscriptionModel,
-  setRemoteTranscriptionModel,
   showTranscriptionPreview,
   setShowTranscriptionPreview,
   toast,
 }: TranscriptionSectionProps) {
   const { t } = useTranslation();
-  const policySnapshot = usePolicySnapshot();
   const enterpriseTranscriptionSetupMode = useSettingsStore(
     (s) => s.enterpriseTranscriptionSetupMode
   );
@@ -555,96 +496,20 @@ function TranscriptionSection({
   );
   const managed = useManagedScopeResolution("transcription", enterpriseTranscriptionSetupMode);
   const managedAvailable = useManagedScopeResolution("transcription", "managed");
-  const {
-    modes: transcriptionModes,
-    effectiveMode: effectiveTranscriptionMode,
-    isModeAllowed,
-  } = usePolicyModeOptions<InferenceModeOption>(
-    [
-      {
-        id: "openwhispr",
-        label: t("settingsPage.transcription.modes.openwhispr"),
-        description: t("settingsPage.transcription.modes.openwhisprDesc"),
-        icon: <Cloud className="w-4 h-4" />,
-        disabled: !isSignedIn,
-        signInRequired: !isSignedIn,
-      },
-      {
-        id: "providers",
-        label: t("settingsPage.transcription.modes.providers"),
-        description: t("settingsPage.transcription.modes.providersDesc"),
-        icon: <Key className="w-4 h-4" />,
-      },
-      {
-        id: "local",
-        label: t("settingsPage.transcription.modes.local"),
-        description: t("settingsPage.transcription.modes.localDesc"),
-        icon: <Cpu className="w-4 h-4" />,
-      },
-      {
-        id: "self-hosted",
-        label: t("settingsPage.transcription.modes.selfHosted"),
-        description: t("settingsPage.transcription.modes.selfHostedDesc"),
-        icon: <Network className="w-4 h-4" />,
-      },
-      ...(isEnterpriseTranscriptionOfferable(policySnapshot)
-        ? [
-            {
-              id: "enterprise" as const,
-              label: t("settingsPage.transcription.modes.enterprise"),
-              description: t("settingsPage.transcription.modes.enterpriseDesc"),
-              icon: <ShieldCheck className="w-4 h-4" />,
-            },
-          ]
-        : []),
-    ],
-    "transcription",
-    transcriptionMode,
-    {
-      byokProviders: TRANSCRIPTION_POLICY_PROVIDER_IDS,
-      enterpriseProviders: TRANSCRIPTION_ENTERPRISE_POLICY_PROVIDER_IDS,
-    }
-  );
-  const handleTranscriptionModeSelect = (mode: InferenceMode) => {
-    if (!isModeAllowed(mode)) return;
-    if (mode === "openwhispr" && !isSignedIn) {
-      requestSignIn();
-      return;
-    }
-    if (mode === effectiveTranscriptionMode) return;
-    setTranscriptionMode(mode);
-    setUseLocalWhisper(mode === "local");
-    updateTranscriptionSettings({ useLocalWhisper: mode === "local" });
-    setCloudTranscriptionMode(mode === "openwhispr" ? "openwhispr" : "byok");
-    if (mode === "enterprise") setEnterpriseTranscriptionSetupMode("managed");
+  const effectiveTranscriptionMode = useSttEffectiveMode("dictation");
 
-    const toastKey = {
-      openwhispr: "switchedCloud",
-      providers: "switchedProviders",
-      local: "switchedLocal",
-      "self-hosted": "switchedSelfHosted",
-      enterprise: "switchedEnterprise",
-    }[mode];
-    toast({
-      title: t(`settingsPage.transcription.toasts.${toastKey}.title`),
-      description: t(`settingsPage.transcription.toasts.${toastKey}.description`),
-      variant: "success",
-      duration: 3000,
-    });
-  };
-
-  const handleLocalModelSelect = useCallback(
-    (modelId: string, providerId?: string) => {
-      const provider = providerId ?? localTranscriptionProvider;
-      if (provider === "nvidia") {
-        setParakeetModel(modelId);
-      } else if (provider === "cohere") {
-        setCohereModel(modelId);
-      } else {
-        setWhisperModel(modelId);
-      }
+  // The mode cards toasted each mode switch; the picker does on the same switches.
+  const handleModeChange = useCallback(
+    (mode: InferenceMode) => {
+      const toastKey = TRANSCRIPTION_MODE_TOASTS[mode];
+      toast({
+        title: t(`settingsPage.transcription.toasts.${toastKey}.title`),
+        description: t(`settingsPage.transcription.toasts.${toastKey}.description`),
+        variant: "success",
+        duration: 3000,
+      });
     },
-    [localTranscriptionProvider, setParakeetModel, setCohereModel, setWhisperModel]
+    [t, toast]
   );
 
   const selectedCloudModelStreams = Boolean(
@@ -652,10 +517,9 @@ function TranscriptionSection({
       (model) => model.id === cloudTranscriptionModel && model.streaming
     )
   );
-  const previewAvailable = supportsLiveTranscriptionPreview(
-    effectiveTranscriptionMode,
-    selectedCloudModelStreams
-  );
+  const previewAvailable =
+    !!effectiveTranscriptionMode &&
+    supportsLiveTranscriptionPreview(effectiveTranscriptionMode, selectedCloudModelStreams);
 
   const renderPreviewToggle = () => (
     <SettingsPanel>
@@ -668,39 +532,6 @@ function TranscriptionSection({
         </SettingsRow>
       </SettingsPanelRow>
     </SettingsPanel>
-  );
-
-  const renderTranscriptionPicker = (mode?: "cloud" | "local") => (
-    <TranscriptionModelPicker
-      selectedCloudProvider={cloudTranscriptionProvider}
-      onCloudProviderSelect={setCloudTranscriptionProvider}
-      selectedCloudModel={cloudTranscriptionModel}
-      onCloudModelSelect={setCloudTranscriptionModel}
-      selectedLocalModel={
-        localTranscriptionProvider === "nvidia"
-          ? parakeetModel
-          : localTranscriptionProvider === "cohere"
-            ? cohereModel
-            : whisperModel
-      }
-      onLocalModelSelect={handleLocalModelSelect}
-      selectedLocalProvider={localTranscriptionProvider}
-      onLocalProviderSelect={setLocalTranscriptionProvider}
-      useLocalWhisper={mode === "local" || (!mode && useLocalWhisper)}
-      onModeChange={
-        mode
-          ? noop
-          : (isLocal) => {
-              setUseLocalWhisper(isLocal);
-              updateTranscriptionSettings({ useLocalWhisper: isLocal });
-              if (isLocal) setCloudTranscriptionMode("byok");
-            }
-      }
-      mode={mode}
-      cloudTranscriptionBaseUrl={cloudTranscriptionBaseUrl}
-      setCloudTranscriptionBaseUrl={setCloudTranscriptionBaseUrl}
-      variant="settings"
-    />
   );
 
   // Local decoding still serves meetings and uploads under a managed-config
@@ -787,25 +618,8 @@ function TranscriptionSection({
               </Button>
             </div>
           )}
-          <InferenceModeSelector
-            modes={transcriptionModes}
-            activeMode={effectiveTranscriptionMode}
-            onSelect={handleTranscriptionModeSelect}
-          />
-
-          {effectiveTranscriptionMode === "providers" && renderTranscriptionPicker("cloud")}
-          {effectiveTranscriptionMode === "local" && renderTranscriptionPicker("local")}
+          <TranscriptionConfigEditor surface="dictation" onModeChange={handleModeChange} />
           {previewAvailable && renderPreviewToggle()}
-
-          {effectiveTranscriptionMode === "self-hosted" && (
-            <SelfHostedPanel
-              service="transcription"
-              url={remoteTranscriptionUrl}
-              onUrlChange={setRemoteTranscriptionUrl}
-              model={remoteTranscriptionModel}
-              onModelChange={setRemoteTranscriptionModel}
-            />
-          )}
         </>
       )}
 
@@ -814,7 +628,6 @@ function TranscriptionSection({
     </div>
   );
 }
-
 interface AiModelsSectionProps {
   useCleanupModel: boolean;
   setUseCleanupModel: (value: boolean) => void;
@@ -984,17 +797,12 @@ export default function SettingsPage({
   } = useDialogs();
 
   const {
-    useLocalWhisper,
-    whisperModel,
     localTranscriptionProvider,
-    parakeetModel,
-    cohereModel,
     uiLanguage,
     preferredLanguage,
     chineseScriptPreference,
     cloudTranscriptionProvider,
     cloudTranscriptionModel,
-    cloudTranscriptionBaseUrl,
     useCleanupModel,
     dictationKey,
     activationMode,
@@ -1006,15 +814,7 @@ export default function SettingsPage({
     setMicrophoneSelectionMode,
     setSelectedMicDevice,
     setMicWarmHoldSeconds,
-    setUseLocalWhisper,
     setUiLanguage,
-    setWhisperModel,
-    setLocalTranscriptionProvider,
-    setParakeetModel,
-    setCohereModel,
-    setCloudTranscriptionProvider,
-    setCloudTranscriptionModel,
-    setCloudTranscriptionBaseUrl,
     setUseCleanupModel,
     setDictationKey,
     meetingKey,
@@ -1025,14 +825,7 @@ export default function SettingsPage({
     setAutoLearnCorrections,
     updateTranscriptionSettings,
     updateCleanupSettings,
-    cloudTranscriptionMode,
-    setCloudTranscriptionMode,
     transcriptionMode,
-    setTranscriptionMode,
-    remoteTranscriptionUrl,
-    setRemoteTranscriptionUrl,
-    remoteTranscriptionModel,
-    setRemoteTranscriptionModel,
     notificationsEnabled,
     setNotificationsEnabled,
     notifyMeetingDetection,
@@ -4869,32 +4662,8 @@ EOF`,
         return (
           <div className="space-y-6">
             <TranscriptionSection
-              isSignedIn={isSignedIn ?? false}
-              cloudTranscriptionMode={cloudTranscriptionMode}
-              setCloudTranscriptionMode={setCloudTranscriptionMode}
-              useLocalWhisper={useLocalWhisper}
-              setUseLocalWhisper={setUseLocalWhisper}
-              updateTranscriptionSettings={updateTranscriptionSettings}
               cloudTranscriptionProvider={cloudTranscriptionProvider}
-              setCloudTranscriptionProvider={setCloudTranscriptionProvider}
               cloudTranscriptionModel={cloudTranscriptionModel}
-              setCloudTranscriptionModel={setCloudTranscriptionModel}
-              localTranscriptionProvider={localTranscriptionProvider}
-              setLocalTranscriptionProvider={setLocalTranscriptionProvider}
-              whisperModel={whisperModel}
-              setWhisperModel={setWhisperModel}
-              parakeetModel={parakeetModel}
-              setParakeetModel={setParakeetModel}
-              cohereModel={cohereModel}
-              setCohereModel={setCohereModel}
-              cloudTranscriptionBaseUrl={cloudTranscriptionBaseUrl}
-              setCloudTranscriptionBaseUrl={setCloudTranscriptionBaseUrl}
-              transcriptionMode={transcriptionMode}
-              setTranscriptionMode={setTranscriptionMode}
-              remoteTranscriptionUrl={remoteTranscriptionUrl}
-              setRemoteTranscriptionUrl={setRemoteTranscriptionUrl}
-              remoteTranscriptionModel={remoteTranscriptionModel}
-              setRemoteTranscriptionModel={setRemoteTranscriptionModel}
               showTranscriptionPreview={showTranscriptionPreview}
               setShowTranscriptionPreview={setShowTranscriptionPreview}
               toast={toast}

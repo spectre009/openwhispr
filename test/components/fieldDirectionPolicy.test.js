@@ -80,7 +80,6 @@ const EXPECTED_SHARED_FIELD_DIRECTIONS = {
   "src/components/SelfHostedPanel.tsx": ["ltr", "ltr"],
   "src/components/SettingsPage.tsx": ["ltr", "ltr", "ltr", "ltr", "ltr", "ltr"],
   "src/components/SnippetsView.tsx": ["auto", "auto", "auto", "auto"],
-  "src/components/TranscriptionModelPicker.tsx": ["ltr", "ltr", "ltr"],
   "src/components/notes/ActionManagerDialog.tsx": ["auto", "auto", "auto"],
   "src/components/notes/DeleteSpaceDialog.tsx": ["auto"],
   "src/components/notes/UploadAudioView.tsx": ["auto"],
@@ -92,6 +91,8 @@ const EXPECTED_SHARED_FIELD_DIRECTIONS = {
   // The model picker's filter: model and provider names, typed in any script.
   "src/components/settings/modelPicker/ModelPicker.tsx": ["auto"],
   "src/components/settings/ProfileSection.tsx": ["auto", "ltr", "ltr", "ltr"],
+  // A speech-to-text custom endpoint's URL and model id, and Corti's tenant id.
+  "src/components/settings/TranscriptionConfigEditor.tsx": ["ltr", "ltr", "ltr"],
   "src/components/settings/WorkspaceDeveloperTab.tsx": ["auto"],
   "src/components/settings/WorkspaceSection.tsx": ["auto"],
   "src/components/ui/ApiKeyInput.tsx": ["ltr"],

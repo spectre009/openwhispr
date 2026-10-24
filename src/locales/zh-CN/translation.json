@@ -5795,6 +5795,44 @@
         "server": "服务器",
         "model": "模型"
       }
+    },
+    "stt": {
+      "description": "选择一个语音转文字连接和模型。API 密钥在“AI 连接”中管理。",
+      "reasons": {
+        "selfHostedLiveRecording": "实时录音暂不支持",
+        "requiresMacOS": "需要 macOS {{version}} 或更高版本",
+        "localUnavailable": "无法在这台电脑上运行",
+        "notDownloaded": "此模型尚未下载",
+        "needsStreaming": "实时录音需要流式模型",
+        "liveOnly": "仅支持实时的服务商：文件转录无法使用",
+        "noLocalModel": "未下载 {{engine}} 模型：请选择其他模型，或在“AI 连接”中下载"
+      },
+      "custom": {
+        "sub": "任何兼容 OpenAI 的语音转文字 API",
+        "browseHint": "在下方输入端点和模型，即可将{{feature}}切换到该模型。",
+        "keyShared": "所有语音转文字自定义端点共用一个密钥。"
+      },
+      "local": {
+        "cohereSub": "Cohere · 一次一种语言",
+        "cohereSubSized": "Cohere · {{size}} · 一次一种语言",
+        "cohereNote": "Cohere Transcribe 不会检测语言：它按你的转录语言识别（设为自动检测时使用英语），更改语言后会重新启动。"
+      },
+      "selfHosted": {
+        "sub": "你网络中的转录服务器：URL 和模型"
+      },
+      "enterprise": {
+        "label": "你组织的语音转文字",
+        "sub": "由你的组织配置的 Azure"
+      },
+      "trigger": {
+        "serverDefault": "服务器的默认模型"
+      },
+      "inherit": {
+        "default": "服务商默认",
+        "engine": "引擎",
+        "localEngine": "{{engine}}（本地）",
+        "defaultModel": "默认（{{model}}）"
+      }
     }
   }
 }

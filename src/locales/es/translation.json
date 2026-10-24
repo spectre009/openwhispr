@@ -5795,6 +5795,44 @@
         "server": "Servidor",
         "model": "Modelo"
       }
+    },
+    "stt": {
+      "description": "Elige una conexión y un modelo de voz a texto. Las claves API están en Conexiones de IA.",
+      "reasons": {
+        "selfHostedLiveRecording": "Aún no disponible para la grabación en vivo",
+        "requiresMacOS": "Requiere macOS {{version}} o posterior",
+        "localUnavailable": "No puede ejecutarse en este equipo",
+        "notDownloaded": "Este modelo no está descargado",
+        "needsStreaming": "La grabación en vivo necesita un modelo de streaming",
+        "liveOnly": "Un proveedor solo en vivo: la transcripción de archivos no puede usarlo",
+        "noLocalModel": "No hay ningún modelo de {{engine}} descargado: elige otro modelo o descarga uno en Conexiones de IA"
+      },
+      "custom": {
+        "sub": "Cualquier API de voz a texto compatible con OpenAI",
+        "browseHint": "Introduce abajo el endpoint y un modelo para cambiar {{feature}} a él.",
+        "keyShared": "Una sola clave para todos los endpoints personalizados de voz a texto."
+      },
+      "local": {
+        "cohereSub": "Cohere · un idioma a la vez",
+        "cohereSubSized": "Cohere · {{size}} · un idioma a la vez",
+        "cohereNote": "Cohere Transcribe no detecta el idioma: transcribe en tu idioma de transcripción (inglés mientras esté en detección automática) y se reinicia cuando lo cambias."
+      },
+      "selfHosted": {
+        "sub": "Un servidor de transcripción en tu red: URL y modelo"
+      },
+      "enterprise": {
+        "label": "Voz a texto de tu organización",
+        "sub": "Azure, configurado por tu organización"
+      },
+      "trigger": {
+        "serverDefault": "Modelo predeterminado del servidor"
+      },
+      "inherit": {
+        "default": "Predeterminado del proveedor",
+        "engine": "Motor",
+        "localEngine": "{{engine}} (local)",
+        "defaultModel": "Predeterminado ({{model}})"
+      }
     }
   }
 }

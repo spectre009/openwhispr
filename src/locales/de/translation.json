@@ -5795,6 +5795,44 @@
         "server": "Server",
         "model": "Modell"
       }
+    },
+    "stt": {
+      "description": "Wähle eine Spracherkennungs-Verbindung und ein Modell. API-Schlüssel findest du unter KI-Verbindungen.",
+      "reasons": {
+        "selfHostedLiveRecording": "Für die Live-Aufnahme noch nicht verfügbar",
+        "requiresMacOS": "Benötigt macOS {{version}} oder neuer",
+        "localUnavailable": "Läuft nicht auf diesem Computer",
+        "notDownloaded": "Dieses Modell ist nicht heruntergeladen",
+        "needsStreaming": "Die Live-Aufnahme braucht ein Streaming-Modell",
+        "liveOnly": "Ein reiner Live-Anbieter: Die Dateitranskription kann ihn nicht nutzen",
+        "noLocalModel": "Kein {{engine}}-Modell heruntergeladen: Wähle ein anderes Modell oder lade eines unter KI-Verbindungen herunter"
+      },
+      "custom": {
+        "sub": "Jede OpenAI-kompatible Spracherkennungs-API",
+        "browseHint": "Gib unten den Endpunkt und ein Modell ein, um {{feature}} darauf umzustellen.",
+        "keyShared": "Ein Schlüssel für alle eigenen Spracherkennungs-Endpunkte."
+      },
+      "local": {
+        "cohereSub": "Cohere · eine Sprache auf einmal",
+        "cohereSubSized": "Cohere · {{size}} · eine Sprache auf einmal",
+        "cohereNote": "Cohere Transcribe erkennt die Sprache nicht: Es transkribiert in deiner Transkriptionssprache (Englisch, solange sie auf automatische Erkennung steht) und startet neu, wenn du sie änderst."
+      },
+      "selfHosted": {
+        "sub": "Ein Transkriptionsserver in deinem Netzwerk: URL und Modell"
+      },
+      "enterprise": {
+        "label": "Spracherkennung deiner Organisation",
+        "sub": "Azure, von deiner Organisation eingerichtet"
+      },
+      "trigger": {
+        "serverDefault": "Standardmodell des Servers"
+      },
+      "inherit": {
+        "default": "Standard des Anbieters",
+        "engine": "Engine",
+        "localEngine": "{{engine}} (lokal)",
+        "defaultModel": "Standard ({{model}})"
+      }
     }
   }
 }
