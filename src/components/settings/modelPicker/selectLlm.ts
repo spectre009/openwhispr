@@ -8,11 +8,20 @@ import {
 import type { InferenceMode } from "../../../types/electron";
 import type { EnterpriseSetupMode } from "../../../types/enterpriseIdentity";
 import type { InferenceScope } from "../../../config/inferenceScopes";
+import {
+  validateEndpoint,
+  type CustomConnection,
+  type CustomConnectionSlot,
+} from "../../../config/customConnection";
 import { isProviderValidForMode } from "../../../models/ModelRegistry";
 import { requestSignIn } from "../../../utils/requestSignIn";
 import { ToastContext } from "../../ui/useToast";
+import { LLM_KEY_SLOTS } from "../connectionUsage";
+import { connectionKeyFailed } from "./connectionOptions";
+import { applyConnectionKey, rememberConnectionModel } from "./connectionPick";
 import {
   pickAvailability,
+  unavailableReason,
   type LlmPick,
   type ModelPickerContext,
   type PickerUnavailable,
@@ -32,7 +41,10 @@ import {
  * - the organization's managed deployment sets the setup mode to managed
  *   (the "Use managed" banner's action); any other pick, if a managed
  *   deployment would otherwise answer this scope, sets it to manual;
- * - `onModeChange` (Cleanup's toast) fires only when the mode changed.
+ * - `onModeChange` (Cleanup's toast) fires only when the mode changed;
+ * - a model on the custom connection (`commitLlmConnectionSelection`) has
+ *   main copy the connection's key into the scope's own key slot first, then
+ *   makes the custom endpoint's pick with the connection's URL.
  * Optional scopes write their own override; nothing is written by opening the
  * picker or by browsing, so inherited fields are never materialized.
  */
@@ -64,7 +76,12 @@ export type LlmCommitResult =
   | { status: "refused"; reason: PickerUnavailable | null };
 
 /** Entries that only open fields under the picker; they never write. */
-const BROWSE_ONLY = new Set<LlmPick["action"]>(["configureCustom", "searchOpenRouter", "link"]);
+const BROWSE_ONLY = new Set<LlmPick["action"]>([
+  "configureCustom",
+  "searchOpenRouter",
+  "enterConnectionModel",
+  "link",
+]);
 
 export function commitLlmSelection(
   scope: InferenceScope,
@@ -72,6 +89,8 @@ export function commitLlmSelection(
   deps: LlmCommitDeps
 ): LlmCommitResult {
   if (BROWSE_ONLY.has(pick.action)) return { status: "browse" };
+  // A model on the custom connection is picked by commitLlmConnectionSelection.
+  if (pick.action === "useConnection") return { status: "refused", reason: null };
 
   const availability = pickAvailability(scope, pick, deps.context);
   if (pick.action === "useManaged") {
@@ -110,6 +129,55 @@ export function commitLlmSelection(
   return { status: "committed", patch, modeChanged };
 }
 
+/** What a pick on the custom connection needs besides the adapter's own deps. */
+export interface ConnectionCommitDeps {
+  /** The connection as stored; its endpoint gives the URL the pick writes. */
+  connection: CustomConnection | null;
+  /** Copies the connection's key into a key slot (main), awaited; throws when it can't. */
+  applyKey: (slot: CustomConnectionSlot) => Promise<void>;
+  /** Remembers the model on the connection, once the pick is committed. */
+  rememberModel: (model: string) => void;
+}
+
+/**
+ * A model on the custom connection, written through as a hand-entered custom
+ * endpoint with the same URL, model and key: revalidated first (as any pick);
+ * then the connection's key copied into the scope's own key slot, awaited
+ * (refused, with nothing written, if that fails); then the URL the request
+ * reads (the connection's language base, `{origin}/openai/v1` on Azure), then
+ * mode, provider `custom` and the model through `commitLlmSelection`; and
+ * only then the model is remembered on the connection.
+ */
+export async function commitLlmConnectionSelection(
+  scope: InferenceScope,
+  model: string,
+  deps: LlmCommitDeps & ConnectionCommitDeps
+): Promise<LlmCommitResult> {
+  const name = model.trim();
+  const availability = pickAvailability(
+    scope,
+    { mode: "providers", provider: "custom", model: name, action: "useConnection" },
+    deps.context
+  );
+  const target = deps.connection ? validateEndpoint(deps.connection.endpoint) : null;
+  if (availability !== true || !deps.connection || !target?.ok) {
+    return { status: "refused", reason: availability === true ? null : availability };
+  }
+  try {
+    await deps.applyKey(LLM_KEY_SLOTS[scope]);
+  } catch {
+    return { status: "refused", reason: connectionKeyFailed(deps.connection.name) };
+  }
+  deps.write(scope, { cloudBaseUrl: target.languageBase });
+  const result = commitLlmSelection(
+    scope,
+    { mode: "providers", provider: "custom", model: name },
+    deps
+  );
+  if (result.status === "committed") deps.rememberModel(name);
+  return result;
+}
+
 export interface UseLlmSelectionOptions {
   /** Reads the picker context as it is now (stores, live lists). */
   readContext: () => ModelPickerContext;
@@ -127,33 +195,81 @@ export function useLlmSelection(
   scope: InferenceScope,
   { readContext, managedAvailable, onModeChange }: UseLlmSelectionOptions
 ): (pick: LlmPick) => LlmCommitResult {
+  const deps = useLiveLlmDeps({ readContext, managedAvailable, onModeChange });
+  const explain = useRefusalToast();
+  return useCallback(
+    (pick: LlmPick) => {
+      const result = commitLlmSelection(scope, pick, deps());
+      explain(result);
+      return result;
+    },
+    [scope, deps, explain]
+  );
+}
+
+/**
+ * A model on the custom connection, with the live stores: the key goes through
+ * main (`applyConnectionKey`), the model is remembered for language models,
+ * and a refused pick explains why in a toast.
+ */
+export function useLlmConnectionSelection(
+  scope: InferenceScope,
+  { readContext, managedAvailable, onModeChange }: UseLlmSelectionOptions
+): (model: string) => Promise<LlmCommitResult> {
+  const deps = useLiveLlmDeps({ readContext, managedAvailable, onModeChange });
+  const explain = useRefusalToast();
+  return useCallback(
+    async (model: string) => {
+      const result = await commitLlmConnectionSelection(scope, model, {
+        ...deps(),
+        connection: useSettingsStore.getState().customConnection,
+        applyKey: applyConnectionKey,
+        rememberModel: (name) => rememberConnectionModel(name, "language"),
+      });
+      explain(result);
+      return result;
+    },
+    [scope, deps, explain]
+  );
+}
+
+function useLiveLlmDeps({
+  readContext,
+  managedAvailable,
+  onModeChange,
+}: UseLlmSelectionOptions): () => LlmCommitDeps {
+  return useCallback(() => {
+    const context = readContext();
+    const settings = useSettingsStore.getState();
+    return {
+      context,
+      effectiveMode: context.current.mode,
+      currentProvider: context.current.provider,
+      enterpriseSetupMode: settings.enterpriseSetupMode,
+      managedTakesOver: managedAvailable,
+      write: setResolvedLLMConfig,
+      setEnterpriseSetupMode: settings.setEnterpriseSetupMode,
+      requestSignIn,
+      onModeChange,
+    };
+  }, [readContext, managedAvailable, onModeChange]);
+}
+
+function useRefusalToast(): (result: LlmCommitResult) => void {
   const { t } = useTranslation();
   const toasts = useContext(ToastContext);
   return useCallback(
-    (pick: LlmPick) => {
-      const context = readContext();
-      const settings = useSettingsStore.getState();
-      const result = commitLlmSelection(scope, pick, {
-        context,
-        effectiveMode: context.current.mode,
-        currentProvider: context.current.provider,
-        enterpriseSetupMode: settings.enterpriseSetupMode,
-        managedTakesOver: managedAvailable,
-        write: setResolvedLLMConfig,
-        setEnterpriseSetupMode: settings.setEnterpriseSetupMode,
-        requestSignIn,
-        onModeChange,
+    (result: LlmCommitResult) => {
+      if (result.status !== "refused") return;
+      toasts?.toast({
+        title: t("modelPicker.refused.title"),
+        description: result.reason
+          ? unavailableReason(t, result.reason)
+          : t("modelPicker.refused.unavailable"),
+        variant: "destructive",
+        duration: 4000,
       });
-      if (result.status === "refused") {
-        toasts?.toast({
-          title: t("modelPicker.refused.title"),
-          description: t(result.reason?.reasonKey ?? "modelPicker.refused.unavailable"),
-          variant: "destructive",
-          duration: 4000,
-        });
-      }
-      return result;
     },
-    [scope, readContext, managedAvailable, onModeChange, t, toasts]
+    [t, toasts]
   );
 }

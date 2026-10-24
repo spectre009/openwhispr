@@ -11,7 +11,10 @@ const { createRendererServer, installBrowserGlobals } = require("../lib/renderer
 // server — is the same. Side effects: Cloud while signed out asks to sign in
 // and writes nothing; a pick that became invalid is refused; the mode-change
 // callback fires only on a mode change; the managed setup mode follows the
-// managed entry; nothing is written by building the menu or browsing.
+// managed entry; nothing is written by building the menu or browsing. A pick on
+// the custom connection leaves exactly what a hand-entered custom endpoint with
+// the same URL, model and key leaves, for every scope: main copies the key into
+// the scope's slot first (awaited, read back), and a refused copy writes nothing.
 
 const SCOPES = [
   "dictationCleanup",
@@ -55,10 +58,17 @@ let env;
 
 async function load(t) {
   if (env) return env;
-  installBrowserGlobals(t, {
+  const { storage } = installBrowserGlobals(t, {
     initialStorage: { _llmScopeKeysMigrated: "1", _dictationAgentSeeded: "1" },
+    window: { dispatchEvent: () => true },
   });
-  const vite = await createRendererServer(t, { cachePrefix: "openwhispr-model-picker-adapter-" });
+  const vite = await createRendererServer(t, {
+    cachePrefix: "openwhispr-model-picker-adapter-",
+    // A key read back from main clears the request service's key cache.
+    mockModules: {
+      "/services/ReasoningService": "export default { clearApiKeyCache() {} };",
+    },
+  });
   const registry = await vite.ssrLoadModule("/models/ModelRegistry.ts");
   const store = await vite.ssrLoadModule("/stores/settingsStore.ts");
   const scopes = await vite.ssrLoadModule("/config/inferenceScopes.ts");
@@ -66,7 +76,24 @@ async function load(t) {
   const adapter = await vite.ssrLoadModule("/components/settings/modelPicker/selectLlm.ts");
   const agent = await vite.ssrLoadModule("/helpers/dictationAgentInference.js");
   const translation = await vite.ssrLoadModule("/helpers/dictationTranslationInference.js");
-  env = { registry, store, scopes, options, adapter, agent, translation };
+  const connection = await vite.ssrLoadModule(
+    "/components/settings/modelPicker/connectionOptions.ts"
+  );
+  const pick = await vite.ssrLoadModule("/components/settings/modelPicker/connectionPick.ts");
+  const usage = await vite.ssrLoadModule("/components/settings/connectionUsage.ts");
+  env = {
+    storage,
+    registry,
+    store,
+    scopes,
+    options,
+    adapter,
+    agent,
+    translation,
+    connection,
+    pick,
+    usage,
+  };
   return env;
 }
 
@@ -696,6 +723,322 @@ test("enterprise setup mode: the managed entry switches to managed, a pick it wo
   });
   assert.deepEqual(untouched.calls.setupModes, []);
   assert.equal(store.useSettingsStore.getState().enterpriseSetupMode, "auto");
+});
+
+// ── The custom connection ─────────────────────────────────────────────────────
+
+const LB_ORIGIN = "https://littlebuddy-foundry-eus2.openai.azure.com";
+const LB_LANGUAGE = `${LB_ORIGIN}/openai/v1`;
+const LB = {
+  name: "Little Buddy",
+  endpoint: LB_ORIGIN,
+  models: { language: ["gpt-5-mini"], speech: ["gpt-4o-transcribe"] },
+};
+// Stands in for the connection's key; it only ever moves main → store here.
+const LB_KEY = "lb-test-key";
+
+/** Main, as the custom-connection IPCs and the key getters see it. */
+function installMain({ fail = false, hold = false } = {}) {
+  const main = { values: {}, calls: [], events: [], release: () => {} };
+  const api = {
+    customConnectionApplyKey: async (args) => {
+      main.calls.push(["apply", args.slots]);
+      main.events.push("apply:start");
+      if (hold) await new Promise((resolve) => (main.release = resolve));
+      if (fail) {
+        main.events.push("apply:failed");
+        throw new Error("The custom connection has no key");
+      }
+      for (const slot of args.slots) main.values[SLOT_STORE_KEYS[slot]] = LB_KEY;
+      main.events.push("apply:end");
+      return { success: true };
+    },
+  };
+  for (const [storeKey, getter] of Object.entries(KEY_GETTERS)) {
+    api[getter] = async () => {
+      main.calls.push(["get", storeKey]);
+      return main.values[storeKey] ?? "";
+    };
+  }
+  globalThis.window.electronAPI = api;
+  return main;
+}
+
+const SLOT_STORE_KEYS = {
+  CUSTOM_CLEANUP_API_KEY: "cleanupCustomApiKey",
+  DICTATION_AGENT_CUSTOM_API_KEY: "dictationAgentCustomApiKey",
+  DICTATION_AGENT_VISION_CUSTOM_API_KEY: "dictationAgentVisionCustomApiKey",
+  NOTE_FORMATTING_CUSTOM_API_KEY: "noteFormattingCustomApiKey",
+  CHAT_AGENT_CUSTOM_API_KEY: "chatAgentCustomApiKey",
+  TRANSLATION_CUSTOM_API_KEY: "translationCustomApiKey",
+};
+const KEY_GETTERS = {
+  cleanupCustomApiKey: "getCleanupCustomKey",
+  dictationAgentCustomApiKey: "getDictationAgentCustomKey",
+  dictationAgentVisionCustomApiKey: "getDictationAgentVisionCustomKey",
+  noteFormattingCustomApiKey: "getNoteFormattingCustomKey",
+  chatAgentCustomApiKey: "getChatAgentCustomKey",
+  translationCustomApiKey: "getTranslationCustomKey",
+};
+
+const lbConnection = (overrides = {}) => ({
+  ...env.connection.pickerConnection(LB, { capability: "language", hasKey: true }),
+  ...overrides,
+});
+
+/** A pick on Little Buddy, through the adapter with the real key step. */
+function commitOnConnection(scope, model, { policy = UNMANAGED, context = {} } = {}) {
+  const raw = env.store.useSettingsStore.getState();
+  const ctx = pickerContext(scope, policy, { connection: lbConnection(), ...context });
+  return env.adapter.commitLlmConnectionSelection(scope, model, {
+    context: ctx,
+    effectiveMode: ctx.current.mode,
+    currentProvider: ctx.current.provider,
+    enterpriseSetupMode: raw.enterpriseSetupMode,
+    managedTakesOver: false,
+    write: env.store.setResolvedLLMConfig,
+    setEnterpriseSetupMode: raw.setEnterpriseSetupMode,
+    requestSignIn: () => {},
+    onModeChange: () => {},
+    connection: LB,
+    applyKey: env.pick.applyConnectionKey,
+    rememberModel: (name) => env.pick.rememberConnectionModel(name, "language"),
+  });
+}
+
+/** The same choice made by hand: the Custom endpoint's URL, this feature's key, then a model. */
+function manualCustomPick(scope, model, policy) {
+  const keys = env.scopes.INFERENCE_SCOPES[scope].storeKeys;
+  env.store.setResolvedLLMConfig(scope, { cloudBaseUrl: LB_LANGUAGE });
+  // The key field's write to the store (its debounced save to main is the field's own).
+  env.store.useSettingsStore.setState({ [keys.customApiKey]: LB_KEY });
+  const { result } = commit(scope, { mode: "providers", provider: "custom", model }, { policy });
+  assert.equal(result.status, "committed");
+}
+
+/** The store keys, their persisted copies and every request route. */
+function fullSnapshot(policy = UNMANAGED) {
+  const scoped = new Set();
+  for (const scope of SCOPES) {
+    for (const key of Object.values(env.scopes.INFERENCE_SCOPES[scope].storeKeys)) scoped.add(key);
+  }
+  const persisted = Object.fromEntries(
+    [...scoped]
+      .filter((key) => env.storage.getItem(key) !== null)
+      .map((key) => [key, env.storage.getItem(key)])
+  );
+  return { ...snapshot(policy), persisted };
+}
+
+// A fresh store (no feature holds a custom key yet) and an empty persisted copy.
+const fresh = (state) => {
+  env.storage.clear();
+  reset({
+    ...Object.fromEntries(Object.keys(KEY_GETTERS).map((key) => [key, ""])),
+    customConnection: null,
+    ...state,
+  });
+};
+
+test("a pick on the connection leaves exactly what a hand-entered custom endpoint leaves", async (t) => {
+  await load(t);
+  const f = fixtures(env);
+  const { LLM_KEY_SLOTS } = env.usage;
+  const policies = [
+    ["unmanaged", UNMANAGED],
+    [
+      "managed",
+      managedPolicy({
+        allowedModes: ["providers", "local"],
+        allowedByokProviders: ["groq", "openai", "copilot", "custom"],
+      }),
+    ],
+  ];
+  let compared = 0;
+  let slotsChecked = 0;
+  for (const [policyName, policy] of policies) {
+    for (const [startName, start] of [
+      ["the daily setup", f.user],
+      ["everything local", f.allLocal],
+    ]) {
+      for (const scope of SCOPES) {
+        for (const model of ["gpt-5-mini", "gpt-4.1-mini"]) {
+          const label = `${policyName}, ${startName}, ${scope}: ${model}`;
+          fresh(start);
+          const offered = env.options.pickAvailability(
+            scope,
+            { mode: "providers", provider: "custom", model, action: "useConnection" },
+            pickerContext(scope, policy, { connection: lbConnection() })
+          );
+          assert.equal(offered, true, `${label} is offered`);
+
+          fresh(start);
+          manualCustomPick(scope, model, policy);
+          const expected = fullSnapshot(policy);
+
+          fresh(start);
+          const main = installMain();
+          const result = await commitOnConnection(scope, model, { policy });
+          assert.equal(result.status, "committed", label);
+          assert.deepEqual(fullSnapshot(policy), expected, label);
+          // Main copied the connection's key into the slot this scope's request reads.
+          assert.deepEqual(main.calls[0], ["apply", [LLM_KEY_SLOTS[scope]]], label);
+          const usage = env.usage
+            .computeConnectionUsage({
+              settings: env.store.useSettingsStore.getState(),
+              policy,
+              cloudDisabled: false,
+              stylesInUse: false,
+            })
+            .find((entry) => entry.feature === env.connection.SCOPE_USAGE_FEATURES[scope]);
+          if (usage?.connection.type === "custom") {
+            assert.equal(usage.customEndpoint.slot, LLM_KEY_SLOTS[scope], label);
+            slotsChecked += 1;
+          }
+          compared += 1;
+        }
+      }
+    }
+  }
+  assert.equal(compared, 2 * 2 * SCOPES.length * 2);
+  assert.ok(slotsChecked >= compared / 2, `${slotsChecked} key slots checked`);
+});
+
+test("the key is copied, and read back, before anything else is written", async (t) => {
+  await load(t);
+  const f = fixtures(env);
+  const { store } = env;
+  fresh(f.user);
+  const before = fullSnapshot();
+  const main = installMain({ hold: true });
+  // Each store and persisted write, with main's last step and the keys a request would pair.
+  const writes = [];
+  const unsubscribe = store.useSettingsStore.subscribe((state) =>
+    writes.push({
+      main: main.events.at(-1),
+      url: state.dictationAgentCloudBaseUrl,
+      key: state.dictationAgentCustomApiKey,
+    })
+  );
+  const setItem = env.storage.setItem;
+  env.storage.setItem = (key, value) => {
+    writes.push({ main: main.events.at(-1), persisted: key });
+    setItem(key, value);
+  };
+  t.after(() => {
+    unsubscribe();
+    env.storage.setItem = setItem;
+  });
+
+  const pending = commitOnConnection("dictationAgent", "gpt-5-mini");
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(main.events, ["apply:start"], "main is copying the key");
+  assert.deepEqual(writes, [], "nothing written while it does");
+  assert.deepEqual(fullSnapshot(), before);
+
+  main.release();
+  const result = await pending;
+  assert.equal(result.status, "committed");
+  assert.ok(writes.length > 0);
+  assert.ok(
+    writes.every((write) => write.main === "apply:end"),
+    "every write after main's copy"
+  );
+  // An observer never sees the new URL with the old key.
+  const firstUrl = writes.findIndex((write) => write.url === LB_LANGUAGE);
+  assert.ok(firstUrl > 0);
+  assert.ok(writes.slice(firstUrl).every((write) => !("key" in write) || write.key === LB_KEY));
+  assert.equal(writes[0].key, LB_KEY, "the key comes first");
+  assert.deepEqual(
+    main.calls.map(([call]) => call),
+    ["apply", "get"],
+    "applied, then read back"
+  );
+});
+
+test("a refused key copy writes nothing; so does a pick the connection can't make", async (t) => {
+  await load(t);
+  const f = fixtures(env);
+  fresh(f.user);
+  const before = fullSnapshot();
+
+  const failing = installMain({ fail: true });
+  const refused = await commitOnConnection("chatIntelligence", "gpt-5-mini");
+  assert.equal(refused.status, "refused");
+  assert.deepEqual(refused.reason, {
+    reasonKey: "modelPicker.connection.reasons.keyFailed",
+    reasonParams: { name: "Little Buddy" },
+  });
+  assert.deepEqual(fullSnapshot(), before, "nothing written");
+  assert.deepEqual(
+    failing.calls.map(([call]) => call),
+    ["apply"],
+    "nothing read back"
+  );
+
+  for (const [label, options] of [
+    ["no connection any more", { context: { connection: null } }],
+    ["the connection has no key", { context: { connection: lbConnection({ hasKey: false }) } }],
+    [
+      "policy now forbids custom endpoints",
+      { policy: managedPolicy({ allowedModes: ["providers"], allowedByokProviders: ["groq"] }) },
+    ],
+  ]) {
+    const main = installMain();
+    const result = await commitOnConnection("chatIntelligence", "gpt-5-mini", options);
+    assert.equal(result.status, "refused", label);
+    assert.deepEqual(main.calls, [], `${label}: main isn't asked`);
+    assert.deepEqual(fullSnapshot(), before, `${label}: nothing written`);
+  }
+  // Browsing ("Enter a deployment name…") writes nothing either.
+  const browse = commit("chatIntelligence", {
+    mode: "providers",
+    provider: "custom",
+    model: "",
+    action: "enterConnectionModel",
+  });
+  assert.equal(browse.result.status, "browse");
+  assert.deepEqual(fullSnapshot(), before);
+});
+
+test("a pending typed key for the slot is dropped, so it can't land after main's copy", async (t) => {
+  await load(t);
+  const f = fixtures(env);
+  fresh(f.user);
+  installMain();
+  const saved = [];
+  globalThis.window.electronAPI.saveDictationAgentCustomKey = async (key) => saved.push(key);
+  globalThis.window.electronAPI.saveAllKeysToEnv = async () => {};
+  env.store.useSettingsStore.getState().setDictationAgentCustomApiKey("typed-before-the-pick");
+  const result = await commitOnConnection("dictationAgent", "gpt-5-mini");
+  assert.equal(result.status, "committed");
+  // Past the setter's debounced save (250 ms) and its .env persist (1 s).
+  await new Promise((resolve) => setTimeout(resolve, 1100));
+  assert.deepEqual(saved, [], "the typed key was never sent");
+  assert.equal(env.store.useSettingsStore.getState().dictationAgentCustomApiKey, LB_KEY);
+});
+
+test("a committed pick is remembered on the connection; a refused one isn't", async (t) => {
+  await load(t);
+  const f = fixtures(env);
+  fresh({ ...f.user, customConnection: LB });
+  installMain();
+  await commitOnConnection("dictationAgent", "gpt-4.1-mini");
+  assert.deepEqual(env.store.useSettingsStore.getState().customConnection.models, {
+    language: ["gpt-5-mini", "gpt-4.1-mini"],
+    speech: ["gpt-4o-transcribe"],
+  });
+  assert.deepEqual(JSON.parse(env.storage.getItem("customConnection")).models.language, [
+    "gpt-5-mini",
+    "gpt-4.1-mini",
+  ]);
+
+  installMain({ fail: true });
+  await commitOnConnection("dictationAgent", "gpt-4.1-nano");
+  assert.deepEqual(env.store.useSettingsStore.getState().customConnection.models.language, [
+    "gpt-5-mini",
+    "gpt-4.1-mini",
+  ]);
 });
 
 nodeTest("the language-model selection adapter", async (t) => {

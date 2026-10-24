@@ -16,6 +16,8 @@ import { isCopilotScopeSupported } from "../../../config/copilot";
 import type { InferenceScope } from "../../../config/inferenceScopes";
 import type { InferenceMode, LocalLLMModelStatus } from "../../../types/electron";
 import { useSettingsVisible } from "../useSettingsVisible";
+import { pickerConnection } from "./connectionOptions";
+import { useConnectionCatalog, usePickerConnection } from "./usePickerConnection";
 import {
   offeredModes,
   savedKeyPresence,
@@ -51,8 +53,10 @@ function downloadedModels(result: unknown): PickerLocalModel[] | null {
  * Everything the language-model picker needs to build its options, from the
  * same sources the editor used: the policy snapshot, the Cloud switch and
  * sign-in, saved key presence (never a key), the Copilot sign-in and its live
- * model list, Tinfoil's live list, downloaded local models and the managed
- * enterprise deployment. Copilot's and Tinfoil's lists load only while the
+ * model list, Tinfoil's live list, downloaded local models, the managed
+ * enterprise deployment and the custom connection (key presence only; who
+ * runs which of its models, and an OpenAI-compatible one's `/models` list,
+ * while the menu is open). Copilot's and Tinfoil's lists load only while the
  * menu is open (listing Copilot's starts its runtime), as their tabs did.
  */
 export function useLlmPickerContext(
@@ -116,6 +120,17 @@ export function useLlmPickerContext(
   const managedProvider = managedAvailable ? managedResolution.provider : "";
   const managedModel = managedAvailable ? managedResolution.model : "";
 
+  const custom = usePickerConnection(open, policy, cloudDisabled);
+  const catalog = useConnectionCatalog(open, custom.connection);
+  const connection = useMemo(() => {
+    const base = pickerConnection(custom.connection, {
+      capability: "language",
+      hasKey: custom.hasKey,
+      uses: custom.uses,
+    });
+    return base ? { ...base, catalog } : null;
+  }, [custom.connection, custom.hasKey, custom.uses, catalog]);
+
   const context = useMemo<ModelPickerContext>(
     () => ({
       policy,
@@ -136,6 +151,7 @@ export function useLlmPickerContext(
         enterpriseSetupMode === "manual" && managedProvider
           ? { provider: managedProvider, model: managedModel }
           : null,
+      connection,
     }),
     [
       policy,
@@ -153,6 +169,7 @@ export function useLlmPickerContext(
       enterpriseSetupMode,
       managedProvider,
       managedModel,
+      connection,
     ]
   );
 
@@ -181,6 +198,11 @@ export function useLlmPickerContext(
           (!copilotLoadedNow || copilotNow.state === "checking" || copilotNow.state === "waiting"),
         login: copilotNow.login,
       },
+      // The stored connection and its key as they are now; a pick's model needn't be listed.
+      connection: pickerConnection(settings.customConnection, {
+        capability: "language",
+        hasKey: !!settings.customConnectionApiKey?.trim(),
+      }),
     };
   }, []);
 

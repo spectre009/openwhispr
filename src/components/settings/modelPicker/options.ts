@@ -28,25 +28,48 @@ import type { InferenceMode } from "../../../types/electron";
 import { connectionDestination, findConnectionProvider } from "../connectionProviders";
 import { endpointHost } from "../connectionUsage";
 import { noteFormattingInheritsCleanup } from "../featurePageStatus";
+import {
+  CONNECTION_ENTER_ID,
+  CONNECTION_GROUP_ID,
+  CONNECTION_NO_KEY,
+  SCOPE_USAGE_FEATURES,
+  connectionBadge,
+  connectionEnterLabel,
+  connectionModelList,
+  connectionModelOf,
+  connectionOptionId,
+  connectionTerms,
+  connectionTrigger,
+  connectionUsedBy,
+  type PickerConnection,
+} from "./connectionOptions";
 
 /**
  * The language-model picker's options: one group per connection (OpenWhispr
- * Cloud, GitHub Copilot, each API-key provider, a custom endpoint, local
- * models, a self-hosted server, enterprise), each entry carrying the mode,
- * cloud mode, provider and model it selects. The filters are the editor's:
+ * Cloud, GitHub Copilot, the custom connection, each API-key provider, a
+ * custom endpoint, local models, a self-hosted server, enterprise), each entry
+ * carrying the mode, cloud mode, provider and model it selects. The filters
+ * are the editor's:
  * `allowedModes`, the policy's modes and providers (`filterModeOptionsByPolicy`
  * with the scope's `llmPolicyProviderIds`, `isProviderAllowedByPolicy`), the
  * Cloud switch and sign-in, Copilot's scopes and sign-in, saved keys and
  * downloaded models. What policy or `allowedModes` rule out is hidden, as
  * before; what the user can fix is listed unavailable, with the reason and a
- * link to where it's fixed.
+ * link to where it's fixed. The custom connection is offered wherever the
+ * custom endpoint is, its models picked as a custom endpoint's are.
  *
  * Pure (no React, no store reads): `pickAvailability` is also what the
  * selection adapter revalidates a pick with at commit time.
  */
 
-/** Literal text (brand and model names) or an i18n key. */
-export type PickerText = { text: string } | { key: string; params?: Record<string, string> };
+/**
+ * Literal text (brand and model names) or an i18n key. `paramKeys` are
+ * interpolation values that are themselves i18n keys (a feature's name),
+ * translated first.
+ */
+export type PickerText =
+  | { text: string }
+  | { key: string; params?: Record<string, string>; paramKeys?: Record<string, string> };
 
 const lit = (text: string): PickerText => ({ text });
 const msg = (key: string, params?: Record<string, string>): PickerText =>
@@ -62,17 +85,46 @@ export interface PickerUnavailable {
   reasonKey: string;
   /** Interpolation values for the reason (the speech-to-text picker's macOS version). */
   reasonParams?: Record<string, string>;
+  /** Interpolation values that are i18n keys (a feature's name), translated first. */
+  reasonParamKeys?: Record<string, string>;
   link?: PickerLink;
 }
 
 export type PickerAvailability = true | PickerUnavailable;
+
+type Translate = (key: string, options?: Record<string, unknown>) => string;
+
+function pickerParams(
+  t: Translate,
+  params?: Record<string, string>,
+  paramKeys?: Record<string, string>
+): Record<string, string> | undefined {
+  if (!paramKeys) return params;
+  const translated = Object.fromEntries(
+    Object.entries(paramKeys).map(([name, key]) => [name, t(key)])
+  );
+  return { ...params, ...translated };
+}
+
+/** A picker text as shown. */
+export function resolvePickerText(t: Translate, text: PickerText | undefined): string {
+  if (!text) return "";
+  return "text" in text ? text.text : t(text.key, pickerParams(t, text.params, text.paramKeys));
+}
+
+/** Why an entry can't be picked, as shown. */
+export function unavailableReason(t: Translate, reason: PickerUnavailable): string {
+  return t(reason.reasonKey, pickerParams(t, reason.reasonParams, reason.reasonParamKeys));
+}
 
 /**
  * Entries that do more than select a model: the custom endpoint (opens its
  * fields; commits once a model is picked there, as the Custom tab did),
  * OpenRouter's catalog search, the self-hosted server and enterprise (pick
  * the mode, as their mode cards did, and open their fields), the
- * organization's managed deployment, and plain links.
+ * organization's managed deployment, a model on the custom connection (its
+ * key is copied first, then the custom endpoint's pick), the connection's
+ * "Enter a deployment name…" (opens a field for it), and plain links.
  */
 export type PickerAction =
   | "configureCustom"
@@ -80,6 +132,8 @@ export type PickerAction =
   | "configureSelfHosted"
   | "configureEnterprise"
   | "useManaged"
+  | "useConnection"
+  | "enterConnectionModel"
   | "link";
 
 /**
@@ -115,6 +169,8 @@ export interface PickerGroup<O extends PickerOptionBase> {
   id: string;
   icon: string;
   title: PickerText;
+  /** A pill beside the title (the custom connection's kind). */
+  badge?: { text: PickerText; tone: "accent" | "muted" };
   meta?: PickerText;
   options: O[];
 }
@@ -198,6 +254,19 @@ export interface ModelPickerContext {
   };
   /** The organization's deployment for this scope, offered while the setup mode is manual. */
   managedDeployment?: { provider: string; model: string } | null;
+  /** The custom connection, with its language models; null when there is none. */
+  connection?: LlmPickerConnection | null;
+}
+
+/** An OpenAI-compatible connection's own `/models` list, read while the menu is open. */
+export interface PickerConnectionCatalog {
+  status: "loading" | "ready" | "error";
+  models: readonly string[];
+}
+
+export interface LlmPickerConnection extends PickerConnection {
+  /** Never for Azure, whose list is the region's catalog, not the resource's deployments. */
+  catalog?: PickerConnectionCatalog | null;
 }
 
 const MODES: readonly InferenceMode[] = [
@@ -283,6 +352,9 @@ export function pickAvailability(
   ctx: ModelPickerContext
 ): PickerAvailability | null {
   if (pick.action === "link") return true;
+  if (pick.action === "useConnection" || pick.action === "enterConnectionModel") {
+    return connectionAvailability(scope, pick, ctx);
+  }
   if (!offeredModes(scope, ctx).has(pick.mode)) return null;
   if (pick.action === "useManaged") return ctx.managedDeployment ? true : null;
 
@@ -340,6 +412,27 @@ export function pickAvailability(
     default:
       return null;
   }
+}
+
+/**
+ * A model on the custom connection: offered exactly where a custom endpoint's
+ * model is (mode, policy, `allowedModes`), and only with a key to copy.
+ */
+function connectionAvailability(
+  scope: InferenceScope,
+  pick: LlmPick,
+  ctx: ModelPickerContext
+): PickerAvailability | null {
+  if (!ctx.connection) return null;
+  const custom = pickAvailability(
+    scope,
+    pick.action === "enterConnectionModel"
+      ? { mode: "providers", provider: "custom", model: "", action: "configureCustom" }
+      : { mode: "providers", provider: "custom", model: pick.model },
+    ctx
+  );
+  if (custom !== true) return custom;
+  return ctx.connection.hasKey ? true : CONNECTION_NO_KEY;
 }
 
 /** Builds an option, or null when the editor doesn't offer it. */
@@ -560,6 +653,56 @@ function customGroup(scope: InferenceScope, ctx: ModelPickerContext): ModelPicke
   };
 }
 
+/**
+ * The custom connection, named after it with its kind: its language models
+ * (remembered, then those its features run, the feature's own included), an
+ * OpenAI-compatible connection's `/models` list, then "Enter a deployment
+ * name…". Offered wherever the custom endpoint is.
+ */
+function connectionGroup(scope: InferenceScope, ctx: ModelPickerContext): ModelPickerGroup | null {
+  const { connection } = ctx;
+  if (!connection) return null;
+  const custom = { mode: "providers" as const, provider: "custom", model: "" };
+  if (pickAvailability(scope, { ...custom, action: "configureCustom" }, ctx) === null) return null;
+  const terms = connectionTerms(connection);
+  const current = connectionModelOf(connection, {
+    provider: ctx.current.mode === "providers" ? ctx.current.provider : "",
+    model: ctx.current.model,
+    url: ctx.current.cloudBaseUrl,
+  });
+  const catalog = connection.kind === "azure" ? [] : (connection.catalog?.models ?? []);
+  const self = SCOPE_USAGE_FEATURES[scope];
+  const models = compact(
+    connectionModelList(connection, current, catalog).map((model) =>
+      option(scope, ctx, {
+        ...custom,
+        id: connectionOptionId(model.id),
+        icon: "connection",
+        label: lit(model.id),
+        sub: connectionUsedBy(model.usedBy, self),
+        model: model.id,
+        action: "useConnection",
+        terms: [...terms, model.id],
+      })
+    )
+  );
+  const enter = option(scope, ctx, {
+    ...custom,
+    id: CONNECTION_ENTER_ID,
+    icon: "connection",
+    label: connectionEnterLabel(connection.kind),
+    action: "enterConnectionModel",
+    terms: [...terms, "deployment", "model"],
+  });
+  return {
+    id: CONNECTION_GROUP_ID,
+    icon: "connection",
+    title: lit(connection.name),
+    badge: connectionBadge(connection),
+    options: compact([...models, enter]),
+  };
+}
+
 function localGroup(scope: InferenceScope, ctx: ModelPickerContext): ModelPickerGroup | null {
   if (!offeredModes(scope, ctx).has("local")) return null;
   const models = compact(
@@ -676,9 +819,9 @@ function enterpriseGroup(scope: InferenceScope, ctx: ModelPickerContext): ModelP
 }
 
 /**
- * The picker's groups for a scope. API-key providers with a saved key come
- * right after Copilot, in the editor's order; those without one follow the
- * custom endpoint.
+ * The picker's groups for a scope. The custom connection comes after Copilot;
+ * API-key providers with a saved key come right after it, in the editor's
+ * order; those without one follow the custom endpoint.
  */
 export function buildModelPickerOptions(
   scope: InferenceScope,
@@ -689,6 +832,7 @@ export function buildModelPickerOptions(
   return compact([
     cloudGroup(scope, ctx),
     copilotGroup(scope, ctx),
+    connectionGroup(scope, ctx),
     ...connected.map((provider) => keyProviderGroup(scope, ctx, provider)),
     customGroup(scope, ctx),
     ...unconnected.map((provider) => keyProviderGroup(scope, ctx, provider)),
@@ -698,8 +842,14 @@ export function buildModelPickerOptions(
   ]);
 }
 
-/** The option the current selection shows as, so the list can mark it. */
-export function selectedOptionId(current: ModelPickerContext["current"]): string | null {
+/**
+ * The option the current selection shows as, so the list can mark it: a
+ * custom endpoint that is the connection shows as the connection's model.
+ */
+export function selectedOptionId(
+  current: ModelPickerContext["current"],
+  connection?: Pick<PickerConnection, "endpoint"> | null
+): string | null {
   const { mode, provider, model } = current;
   switch (mode) {
     case "openwhispr":
@@ -710,12 +860,20 @@ export function selectedOptionId(current: ModelPickerContext["current"]): string
       return "enterprise";
     case "local":
       return model ? `local:${model}` : null;
-    case "providers":
-      if (provider === "custom") return "custom";
+    case "providers": {
+      if (provider === "custom") {
+        const onConnection = connectionModelOf(connection, {
+          provider,
+          model,
+          url: current.cloudBaseUrl,
+        });
+        return onConnection ? connectionOptionId(onConnection) : "custom";
+      }
       if (!provider || !model) return null;
       if (provider === COPILOT_PROVIDER_ID) return `copilot:${model}`;
       if (provider === "openrouter") return `openrouter:${model}`;
       return `provider:${provider}:${model}`;
+    }
     default:
       return null;
   }
@@ -788,6 +946,13 @@ export function describePickerSelection(
       };
     default: {
       if (provider === "custom") {
+        const { connection } = ctx;
+        if (
+          connection &&
+          connectionModelOf(connection, { provider, model, url: ctx.current.cloudBaseUrl })
+        ) {
+          return { icon: "connection", title: lit(model), sub: connectionTrigger(connection) };
+        }
         const host = endpointHost(ctx.current.cloudBaseUrl);
         return {
           icon: "custom",

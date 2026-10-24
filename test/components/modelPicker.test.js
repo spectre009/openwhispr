@@ -8,7 +8,9 @@ const { createRendererServer } = require("../lib/rendererTestHarness");
 // marked, filters as you type, picks with ↑/↓ and Enter, closes on Esc without
 // leaving Settings, keeps unavailable entries listed (not pickable, their link
 // followed), and the custom-endpoint and self-hosted fields under it write the
-// same store keys the old editor's panels did.
+// same store keys the old editor's panels did. The custom connection lists its
+// deployments; "Enter a deployment name…" opens a field that Enter picks from
+// (main copying the connection's key first) and Esc closes, Settings staying open.
 
 const DOM_GLOBALS = [
   "document",
@@ -513,6 +515,111 @@ test(
     assert.equal(state().noteFormattingModel, groqIds[1]);
     assert.equal(field("provider"), null, "nothing inherited any more");
     assert.ok(formatting().querySelector("[data-model-picker-trigger]"));
+
+    // The custom connection on Voice Assistant: its group, "Enter a deployment name…"
+    // (a field under the picker: Esc closes it, Enter picks), main copying its key first.
+    const LB_ORIGIN = "https://littlebuddy-foundry-eus2.openai.azure.com";
+    const baseApi = happyWindow.electronAPI;
+    const mainCalls = [];
+    let mainKey = "";
+    happyWindow.electronAPI = new Proxy(
+      {},
+      {
+        get: (_target, name) => {
+          if (name === "customConnectionApplyKey") {
+            return async ({ slots }) => {
+              mainCalls.push(["apply", slots]);
+              mainKey = "lb-test-key";
+              return { success: true };
+            };
+          }
+          if (name === "getDictationAgentCustomKey") {
+            return async () => {
+              mainCalls.push(["get"]);
+              return mainKey;
+            };
+          }
+          return baseApi[name];
+        },
+      }
+    );
+    t.after(() => {
+      happyWindow.electronAPI = baseApi;
+    });
+    await act(() =>
+      useSettingsStore.setState({
+        customConnection: {
+          name: "Little Buddy",
+          endpoint: LB_ORIGIN,
+          models: { language: ["gpt-5-mini"], speech: ["gpt-4o-transcribe"] },
+        },
+        customConnectionApiKey: "lb-test-key",
+        dictationAgentMode: "providers",
+        dictationAgentCloudMode: "byok",
+        dictationAgentProvider: "groq",
+        dictationAgentModel: groqIds[0],
+        dictationAgentCloudBaseUrl: "",
+        dictationAgentCustomApiKey: "",
+      })
+    );
+    await render({ section: "assistant", id: 6 });
+    const assistantEditor = () =>
+      doc.querySelector('[data-settings-page-id="assistant"] [data-setting-id="assistant.model"]');
+    const assistantButton = () => assistantEditor().querySelector("[data-model-picker-trigger]");
+    await act(() => assistantButton().click());
+    const header = menu().querySelector('[data-picker-group="connection"]');
+    assert.ok(header.textContent.includes("Little Buddy"));
+    assert.ok(header.textContent.includes("Azure OpenAI"), "its kind");
+    assert.ok(option("connection:model:gpt-5-mini"), "a remembered deployment");
+    assert.ok(
+      option("connection:enter").textContent.includes("Enter a deployment name…"),
+      "Enter a deployment name…"
+    );
+    assert.ok(!menu().outerHTML.includes("lb-test-key"), "the key never shows");
+
+    await act(() => option("connection:enter").click());
+    assert.equal(menu(), null);
+    const nameField = () => assistantEditor().querySelector("[data-connection-model-field] input");
+    assert.ok(nameField(), "the deployment name field");
+    assert.equal(doc.activeElement, nameField(), "focused");
+    await key("Escape");
+    assert.equal(nameField(), null, "Esc closed the field");
+    assert.equal(closeRequests, 0, "and not Settings");
+    assert.equal(doc.activeElement, assistantButton(), "focus back on the picker");
+    assert.equal(state().dictationAgentProvider, "groq", "nothing written");
+
+    await act(() => assistantButton().click());
+    await act(() => option("connection:enter").click());
+    await type(nameField(), "gpt-4.1-mini");
+    await key("Enter");
+    await act(() => settle(50));
+    assert.equal(nameField(), null, "Enter picked it");
+    assert.deepEqual(mainCalls, [["apply", ["DICTATION_AGENT_CUSTOM_API_KEY"]], ["get"]]);
+    assert.deepEqual(
+      [
+        state().dictationAgentProvider,
+        state().dictationAgentModel,
+        state().dictationAgentCloudBaseUrl,
+        state().dictationAgentCustomApiKey === "lb-test-key",
+      ],
+      ["custom", "gpt-4.1-mini", `${LB_ORIGIN}/openai/v1`, true]
+    );
+    assert.deepEqual(state().customConnection.models.language, ["gpt-5-mini", "gpt-4.1-mini"]);
+    assert.ok(assistantButton().textContent.includes("gpt-4.1-mini"));
+    assert.ok(assistantButton().textContent.includes("Little Buddy · Azure OpenAI"));
+    assert.ok(!assistantEditor().outerHTML.includes("lb-test-key"), "the key never shows");
+
+    // Picking a listed deployment from the menu works the same way.
+    await act(() => assistantButton().click());
+    assert.equal(
+      option("connection:model:gpt-4.1-mini").getAttribute("aria-selected"),
+      "true",
+      "the connection's entry is the selection"
+    );
+    await act(() => option("connection:model:gpt-5-mini").click());
+    await act(() => settle(50));
+    assert.equal(state().dictationAgentModel, "gpt-5-mini");
+    assert.equal(menu(), null);
 
     assert.deepEqual(errors, [], "nothing logged an error");
   }

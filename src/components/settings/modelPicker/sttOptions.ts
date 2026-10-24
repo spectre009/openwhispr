@@ -31,7 +31,23 @@ import { applyCloudSwitchToModeOptions } from "../../../utils/openWhisprCloudMod
 import { API_ENDPOINTS, normalizeBaseUrl } from "../../../config/constants";
 import type { InferenceMode } from "../../../types/electron";
 import { connectionDestination, findConnectionProvider } from "../connectionProviders";
-import { endpointHost } from "../connectionUsage";
+import { endpointHost, type UsageFeature } from "../connectionUsage";
+import {
+  CONNECTION_ENTER_ID,
+  CONNECTION_GROUP_ID,
+  CONNECTION_NO_KEY,
+  SURFACE_USAGE_FEATURES,
+  connectionBadge,
+  connectionEnterLabel,
+  connectionModelList,
+  connectionModelOf,
+  connectionOptionId,
+  connectionSharedKeyConflict,
+  connectionTerms,
+  connectionTrigger,
+  connectionUsedBy,
+  type PickerConnection,
+} from "./connectionOptions";
 import type {
   PickerAvailability,
   PickerGroup,
@@ -45,7 +61,8 @@ import type {
 /**
  * The speech-to-text picker's options, per surface: Recognition (dictation),
  * Live Recording (note/meeting recording) and File Transcription (uploads).
- * One group per connection — OpenWhispr Cloud, each speech-to-text provider
+ * One group per connection — OpenWhispr Cloud, the custom connection (where
+ * the surface has a custom lane), each speech-to-text provider
  * with its models, a custom OpenAI-compatible endpoint, downloaded local
  * models (Whisper, Parakeet/Oruk, Cohere), a self-hosted server, enterprise —
  * each entry carrying the mode, provider and model it selects.
@@ -85,9 +102,12 @@ const msg = (key: string, params?: Record<string, string>): PickerText =>
  * commits once a model is entered there, or picks the mode when this surface
  * already points at the endpoint, as the Cloud providers card did), the
  * self-hosted server (picks the mode, as its card did, and opens its fields),
- * and plain links.
+ * a model on the custom connection (its key goes first, then the custom
+ * endpoint's pick), the connection's "Enter a deployment name…" (opens a field
+ * for it), and plain links.
  */
-export type SttPickerAction = "configureCustom" | "configureSelfHosted" | "link";
+export type SttPickerAction =
+  "configureCustom" | "configureSelfHosted" | "useConnection" | "enterConnectionModel" | "link";
 
 export interface SttPickerOption extends PickerOptionBase {
   mode: InferenceMode;
@@ -182,7 +202,18 @@ export interface SttPickerContext {
    * still set.
    */
   rememberedCustomModel?: string;
+  /** The custom connection, with its speech models; null when there is none. */
+  connection?: SttPickerConnection | null;
   current: SttCurrent;
+}
+
+export interface SttPickerConnection extends PickerConnection {
+  /**
+   * Speech-to-text's one custom key: whether it already is the connection's
+   * (main compares; null until asked), and the feature that would keep sending
+   * it elsewhere after a pick (`sttSharedKeyConflict`).
+   */
+  sharedKey: { matches: boolean | null; conflict: UsageFeature | null };
 }
 
 /** The providers (and their models) a surface can run, before policy and keys. */
@@ -362,6 +393,9 @@ export function sttPickAvailability(
   ctx: SttPickerContext
 ): PickerAvailability | null {
   if (pick.action === "link") return true;
+  if (pick.action === "useConnection" || pick.action === "enterConnectionModel") {
+    return sttConnectionAvailability(surface, pick, ctx);
+  }
   if (!sttOfferedModes(surface, ctx).has(pick.mode)) return null;
 
   switch (pick.mode) {
@@ -412,6 +446,33 @@ export function sttPickAvailability(
     default:
       return null;
   }
+}
+
+/**
+ * A model on the custom connection: offered where the surface has a custom
+ * lane (never Live Recording) and policy allows it, with a key to copy, and
+ * named (a deployment). Speech-to-text has one custom key: unless it already
+ * is the connection's, the pick replaces it, so it's unavailable while
+ * another feature still sends it elsewhere.
+ */
+function sttConnectionAvailability(
+  surface: SttSurface,
+  pick: SttPick,
+  ctx: SttPickerContext
+): PickerAvailability | null {
+  const { connection } = ctx;
+  if (!connection) return null;
+  const custom = sttPickAvailability(
+    surface,
+    { mode: "providers", provider: "custom", model: pick.model },
+    ctx
+  );
+  if (custom !== true) return custom;
+  if (pick.action === "useConnection" && !pick.model) return null;
+  if (!connection.hasKey) return CONNECTION_NO_KEY;
+  const { matches, conflict } = connection.sharedKey;
+  if (matches !== true && conflict) return connectionSharedKeyConflict(conflict);
+  return true;
 }
 
 function option(
@@ -574,6 +635,56 @@ function customGroup(surface: SttSurface, ctx: SttPickerContext): SttPickerGroup
   };
 }
 
+/**
+ * The custom connection, named after it with its kind: its speech models
+ * (remembered, then those its features run, the surface's own included), then
+ * "Enter a deployment name…". Recognition and File Transcription only.
+ */
+function connectionGroup(surface: SttSurface, ctx: SttPickerContext): SttPickerGroup | null {
+  const { connection, current } = ctx;
+  if (!connection) return null;
+  const custom = { mode: "providers" as const, provider: "custom", model: "" };
+  if (sttPickAvailability(surface, { ...custom, action: "configureCustom" }, ctx) === null) {
+    return null;
+  }
+  const terms = connectionTerms(connection);
+  const own = connectionModelOf(connection, {
+    provider: current.mode === "providers" ? current.cloudProvider : "",
+    model: current.cloudModel,
+    url: current.cloudBaseUrl,
+  });
+  const self = SURFACE_USAGE_FEATURES[surface];
+  const models = compact(
+    connectionModelList(connection, own).map((model) =>
+      option(surface, ctx, {
+        ...custom,
+        id: connectionOptionId(model.id),
+        icon: "connection",
+        label: lit(model.id),
+        sub: connectionUsedBy(model.usedBy, self),
+        model: model.id,
+        action: "useConnection",
+        terms: [...terms, model.id],
+      })
+    )
+  );
+  const enter = option(surface, ctx, {
+    ...custom,
+    id: CONNECTION_ENTER_ID,
+    icon: "connection",
+    label: connectionEnterLabel(connection.kind),
+    action: "enterConnectionModel",
+    terms: [...terms, "deployment", "model"],
+  });
+  return {
+    id: CONNECTION_GROUP_ID,
+    icon: "connection",
+    title: lit(connection.name),
+    badge: connectionBadge(connection),
+    options: compact([...models, enter]),
+  };
+}
+
 function localSub(model: SttLocalModel): PickerText {
   const organization = localOrganization(model);
   const size = model.size || "";
@@ -691,9 +802,9 @@ function enterpriseGroup(surface: SttSurface, ctx: SttPickerContext): SttPickerG
 }
 
 /**
- * The picker's groups for a surface. Providers with saved credentials come
- * right after OpenWhispr Cloud, in the old tabs' order; those without follow
- * the custom endpoint.
+ * The picker's groups for a surface. The custom connection comes right after
+ * OpenWhispr Cloud; providers with saved credentials follow, in the old tabs'
+ * order; those without follow the custom endpoint.
  */
 export function buildSttPickerOptions(
   surface: SttSurface,
@@ -707,6 +818,7 @@ export function buildSttPickerOptions(
   const unconnected = ordered.filter((entry) => !hasKey(ctx, entry.id));
   return compact([
     cloudGroup(surface, ctx),
+    connectionGroup(surface, ctx),
     ...connected.map((entry) => providerGroup(surface, ctx, entry)),
     customGroup(surface, ctx),
     ...unconnected.map((entry) => providerGroup(surface, ctx, entry)),
@@ -716,8 +828,15 @@ export function buildSttPickerOptions(
   ]);
 }
 
-/** The option the current selection shows as, so the list can mark it. */
-export function selectedSttOptionId(current: SttCurrent): string | null {
+/**
+ * The option the current selection shows as, so the list can mark it: a
+ * custom endpoint that is the connection (the surface's own URL, or the one
+ * it borrows) shows as the connection's model.
+ */
+export function selectedSttOptionId(
+  current: SttCurrent,
+  connection?: Pick<PickerConnection, "endpoint"> | null
+): string | null {
   switch (current.mode) {
     case "openwhispr":
       return "cloud";
@@ -727,10 +846,18 @@ export function selectedSttOptionId(current: SttCurrent): string | null {
       return "enterprise";
     case "local":
       return current.localModel ? `local:${current.localModel}` : null;
-    case "providers":
-      if (current.cloudProvider === "custom") return "custom";
+    case "providers": {
+      if (current.cloudProvider === "custom") {
+        const onConnection = connectionModelOf(connection, {
+          provider: current.cloudProvider,
+          model: current.cloudModel,
+          url: current.cloudBaseUrl,
+        });
+        return onConnection ? connectionOptionId(onConnection) : "custom";
+      }
       if (!current.cloudProvider || !current.cloudModel) return null;
       return `provider:${current.cloudProvider}:${current.cloudModel}`;
+    }
     default:
       return null;
   }
@@ -910,6 +1037,20 @@ export function describeSttSelection(
       };
     default: {
       if (current.cloudProvider === "custom") {
+        const { connection } = ctx;
+        const onConnection = connectionModelOf(connection, {
+          provider: current.cloudProvider,
+          model: current.cloudModel,
+          url: current.cloudBaseUrl,
+        });
+        if (connection && onConnection) {
+          return {
+            icon: "connection",
+            title: lit(onConnection),
+            sub: connectionTrigger(connection),
+            warning,
+          };
+        }
         const host = endpointHost(current.cloudBaseUrl);
         return {
           icon: "custom",

@@ -5920,6 +5920,24 @@
       "sub": "任何相容 OpenAI 的 API",
       "browseHint": "輸入端點，然後在下方選擇一個模型，將{{feature}}切換到該模型。"
     },
+    "connection": {
+      "enterDeployment": "輸入部署名稱…",
+      "enterModel": "輸入模型名稱…",
+      "deploymentLabel": "{{name}} 上的部署名稱",
+      "modelLabel": "{{name}} 上的模型名稱",
+      "enterHint": "按 Enter 鍵將{{feature}}切換到此模型，使用 {{name}} 的端點和金鑰。",
+      "use": "使用",
+      "usedBy": "{{feature}}正在使用",
+      "usedByMore": "{{feature}}等正在使用",
+      "trigger": {
+        "azure": "{{name}} · Azure OpenAI",
+        "compatible": "{{name}} · 相容 OpenAI"
+      },
+      "reasons": {
+        "sharedKey": "語音轉文字只有一個自訂金鑰，而{{feature}}使用的是另一個",
+        "keyFailed": "無法將 {{name}} 的金鑰提供給此功能，因此未做任何變更。請再試一次。"
+      }
+    },
     "local": {
       "title": "本機模型",
       "download": "下載模型",

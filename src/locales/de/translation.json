@@ -5920,6 +5920,24 @@
       "sub": "Jede OpenAI-kompatible API",
       "browseHint": "Gib den Endpunkt ein und wähle dann unten ein Modell, um {{feature}} darauf umzustellen."
     },
+    "connection": {
+      "enterDeployment": "Bereitstellungsnamen eingeben…",
+      "enterModel": "Modellnamen eingeben…",
+      "deploymentLabel": "Name der Bereitstellung bei {{name}}",
+      "modelLabel": "Name des Modells bei {{name}}",
+      "enterHint": "Mit der Eingabetaste wechselt {{feature}} darauf, mit Endpunkt und Schlüssel von {{name}}.",
+      "use": "Verwenden",
+      "usedBy": "Verwendet von {{feature}}",
+      "usedByMore": "Verwendet von {{feature}} und weiteren",
+      "trigger": {
+        "azure": "{{name}} · Azure OpenAI",
+        "compatible": "{{name}} · OpenAI-kompatibel"
+      },
+      "reasons": {
+        "sharedKey": "Die Spracherkennung nutzt einen einzigen eigenen Schlüssel, und {{feature}} nutzt einen anderen",
+        "keyFailed": "Der Schlüssel von {{name}} konnte dieser Funktion nicht übergeben werden, daher wurde nichts geändert. Versuche es erneut."
+      }
+    },
     "local": {
       "title": "Lokale Modelle",
       "download": "Ein Modell herunterladen",

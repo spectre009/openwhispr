@@ -5920,6 +5920,24 @@
       "sub": "Any OpenAI-compatible API",
       "browseHint": "Enter the endpoint, then pick a model below to switch {{feature}} to it."
     },
+    "connection": {
+      "enterDeployment": "Enter a deployment name…",
+      "enterModel": "Enter a model name…",
+      "deploymentLabel": "Deployment name on {{name}}",
+      "modelLabel": "Model name on {{name}}",
+      "enterHint": "Press Enter to switch {{feature}} to it, with {{name}}'s endpoint and key.",
+      "use": "Use",
+      "usedBy": "Used by {{feature}}",
+      "usedByMore": "Used by {{feature}} and others",
+      "trigger": {
+        "azure": "{{name}} · Azure OpenAI",
+        "compatible": "{{name}} · OpenAI-compatible"
+      },
+      "reasons": {
+        "sharedKey": "Speech-to-text uses one custom key, and {{feature}} uses a different one",
+        "keyFailed": "Couldn't give this feature {{name}}'s key, so nothing changed. Try again."
+      }
+    },
     "local": {
       "title": "Local models",
       "download": "Download a model",

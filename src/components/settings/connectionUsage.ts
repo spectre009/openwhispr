@@ -223,7 +223,8 @@ function cloudReason(effective: SettingsState, cloudDisabled: boolean): UsageOff
   return effective.isSignedIn ? undefined : "signedOut";
 }
 
-const LLM_KEY_SLOTS: Readonly<Record<InferenceScope, CustomConnectionSlot>> = {
+/** The key slot each LLM scope's own custom endpoint reads (its `customApiKey` field). */
+export const LLM_KEY_SLOTS: Readonly<Record<InferenceScope, CustomConnectionSlot>> = {
   dictationCleanup: "CUSTOM_CLEANUP_API_KEY",
   dictationAgent: "DICTATION_AGENT_CUSTOM_API_KEY",
   dictationAgentVision: "DICTATION_AGENT_VISION_CUSTOM_API_KEY",

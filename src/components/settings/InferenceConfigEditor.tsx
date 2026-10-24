@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { useTranslation } from "react-i18next";
 import { ShieldCheck, AlertTriangle } from "../icons";
@@ -38,6 +38,8 @@ import ManageKeysLink, { SettingsLink } from "./ManageKeysLink";
 import { connectionDestination } from "./connectionProviders";
 import { SETTINGS_PAGES } from "./settingsPages";
 import ModelPicker from "./modelPicker/ModelPicker";
+import ConnectionModelField from "./modelPicker/ConnectionModelField";
+import { CONNECTION_GROUP_ID } from "./modelPicker/connectionOptions";
 import {
   buildModelPickerOptions,
   describePickerSelection,
@@ -49,7 +51,7 @@ import {
   type PickerText,
 } from "./modelPicker/options";
 import { useLlmPickerContext } from "./modelPicker/useLlmPickerContext";
-import { useLlmSelection } from "./modelPicker/selectLlm";
+import { useLlmConnectionSelection, useLlmSelection } from "./modelPicker/selectLlm";
 
 const LLM_MODES: readonly InferenceMode[] = [
   "openwhispr",
@@ -216,12 +218,13 @@ function text(t: Translate, value: PickerText): string {
 }
 
 /** Fields under the picker that a pick opens without committing yet. */
-type BrowsePanel = "custom" | "openrouter";
+type BrowsePanel = "custom" | "openrouter" | "connection";
 
 /**
  * The model picker and what sits under it: the fields the selected
  * connection needs (custom endpoint, self-hosted server, enterprise, the
- * OpenRouter catalog), then "Disable thinking" and "Keep model loaded" with
+ * OpenRouter catalog, a name to pick on the custom connection), then "Disable
+ * thinking" and "Keep model loaded" with
  * their usual visibility. Every pick goes through the selection adapter.
  */
 function LlmModelSettings({
@@ -279,6 +282,7 @@ function LlmModelSettings({
 
   const [open, setOpen] = useState(false);
   const [browse, setBrowse] = useState<BrowsePanel | null>(null);
+  const pickerBoxRef = useRef<HTMLDivElement>(null);
   const current = useMemo(
     () => ({
       mode: effectiveMode,
@@ -303,7 +307,30 @@ function LlmModelSettings({
     managedAvailable: picker.managedAvailable,
     onModeChange,
   });
+  const commitConnection = useLlmConnectionSelection(scope, {
+    readContext: picker.readContext,
+    managedAvailable: picker.managedAvailable,
+    onModeChange,
+  });
+  const [connectionBusy, setConnectionBusy] = useState(false);
   const openSettings = useOpenSettingsLink();
+
+  const focusPicker = () =>
+    pickerBoxRef.current?.querySelector<HTMLElement>("[data-model-picker-trigger]")?.focus();
+
+  // A model on the custom connection: main copies its key first, so this is awaited.
+  const pickConnectionModel = async (model: string, fromField = false) => {
+    if (connectionBusy) return;
+    setConnectionBusy(true);
+    try {
+      const result = await commitConnection(model);
+      if (result.status !== "committed") return;
+      setBrowse(null);
+      if (fromField) focusPicker();
+    } finally {
+      setConnectionBusy(false);
+    }
+  };
 
   const handleSelect = (option: ModelPickerOption) => {
     if (option.action === "configureCustom") {
@@ -312,6 +339,14 @@ function LlmModelSettings({
     }
     if (option.action === "searchOpenRouter") {
       setBrowse("openrouter");
+      return;
+    }
+    if (option.action === "enterConnectionModel") {
+      setBrowse("connection");
+      return;
+    }
+    if (option.action === "useConnection") {
+      void pickConnectionModel(option.model);
       return;
     }
     const result = commit(option);
@@ -349,8 +384,10 @@ function LlmModelSettings({
     (effectiveMode === "local" && !!getLocalModel(config.model)?.supportsThinking);
 
   const customCommitted = effectiveMode === "providers" && config.provider === "custom";
+  // The connection's name field closes by itself if the connection goes away.
+  const browsing = browse === "connection" && !picker.context.connection ? null : browse;
   const fields: BrowsePanel | "selfHosted" | "enterprise" | null =
-    browse ??
+    browsing ??
     (customCommitted
       ? "custom"
       : effectiveMode === "self-hosted"
@@ -381,16 +418,28 @@ function LlmModelSettings({
     ) : picker.tinfoilModels.error ? (
       <p className="text-[11px] text-destructive">{t("reasoning.custom.unableToLoadModels")}</p>
     ) : null,
+    [CONNECTION_GROUP_ID]:
+      picker.context.connection?.catalog?.status === "loading" ? (
+        <p className="text-[11px] text-muted-foreground">{t("reasoning.custom.fetchingModels")}</p>
+      ) : picker.context.connection?.catalog?.status === "error" ? (
+        <p className="text-[11px] text-destructive">{t("reasoning.custom.unableToLoadModels")}</p>
+      ) : null,
+  };
+
+  const closeConnectionField = () => {
+    setBrowse(null);
+    focusPicker();
   };
 
   const pickerElement = (
     <ModelPicker
       groups={groups}
-      selectedId={selectedOptionId(current)}
+      selectedId={selectedOptionId(current, picker.context.connection)}
       summary={summary}
       onSelect={handleSelect}
       onLink={followLink}
       canFollow={(link) => link.kind === "signIn" || !!openSettings}
+      releasesFocus={(option) => option.action === "enterConnectionModel"}
       groupNotes={groupNotes}
       label={t("modelPicker.label")}
       open={open}
@@ -413,7 +462,7 @@ function LlmModelSettings({
     <SettingsPanel>
       <SettingsPanelRow>
         {inheritedFields ? (
-          <div className="space-y-2">
+          <div ref={pickerBoxRef} className="space-y-2">
             <PickerHeading />
             {pickerElement}
           </div>
@@ -425,7 +474,10 @@ function LlmModelSettings({
             )}
           >
             <PickerHeading />
-            <div className={isCompact ? "w-full" : "w-[22rem] max-w-[55%] shrink-0"}>
+            <div
+              ref={pickerBoxRef}
+              className={isCompact ? "w-full" : "w-[22rem] max-w-[55%] shrink-0"}
+            >
               {pickerElement}
             </div>
           </div>
@@ -433,6 +485,18 @@ function LlmModelSettings({
         <SelectionLinks provider={effectiveMode === "providers" ? config.provider : ""} />
         {effectiveMode === "local" && <GpuStatusBadge />}
       </SettingsPanelRow>
+
+      {fields === "connection" && picker.context.connection && (
+        <SettingsPanelRow>
+          <ConnectionModelField
+            connection={picker.context.connection}
+            feature={scopeTitle}
+            busy={connectionBusy}
+            onSubmit={(model) => void pickConnectionModel(model, true)}
+            onCancel={closeConnectionField}
+          />
+        </SettingsPanelRow>
+      )}
 
       {fields === "custom" && (
         <SettingsPanelRow>

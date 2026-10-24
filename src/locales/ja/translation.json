@@ -5920,6 +5920,24 @@
       "sub": "OpenAI 互換の任意の API",
       "browseHint": "エンドポイントを入力し、下でモデルを選ぶと、{{feature}}がそのモデルに切り替わります。"
     },
+    "connection": {
+      "enterDeployment": "デプロイ名を入力…",
+      "enterModel": "モデル名を入力…",
+      "deploymentLabel": "{{name}} のデプロイ名",
+      "modelLabel": "{{name}} のモデル名",
+      "enterHint": "Enter キーで {{feature}} をこのモデルに切り替えます。エンドポイントとキーは {{name}} のものを使います。",
+      "use": "使用",
+      "usedBy": "{{feature}} で使用中",
+      "usedByMore": "{{feature}} ほかで使用中",
+      "trigger": {
+        "azure": "{{name}} · Azure OpenAI",
+        "compatible": "{{name}} · OpenAI 互換"
+      },
+      "reasons": {
+        "sharedKey": "音声認識のカスタムキーは 1 つだけですが、{{feature}} は別のキーを使っています",
+        "keyFailed": "{{name}} のキーをこの機能に渡せなかったため、何も変更していません。もう一度お試しください。"
+      }
+    },
     "local": {
       "title": "ローカルモデル",
       "download": "モデルをダウンロード",

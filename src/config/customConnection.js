@@ -240,6 +240,28 @@ function endpointHostOf(raw) {
 }
 
 /**
+ * @param {unknown} url
+ * @param {ValidatedEndpoint} target  an accepted endpoint
+ */
+function matchesEndpoint(url, target) {
+  if (target.kind === "azure") return endpointHostOf(url) === new URL(target.origin).host;
+  return !!endpointBase(url) && endpointBase(url) === target.languageBase;
+}
+
+/**
+ * Whether a feature's custom URL points at the connection: on Azure the same
+ * host (one resource serves every capability from its origin), otherwise the
+ * same base.
+ *
+ * @param {unknown} url
+ * @param {{ endpoint: string } | null | undefined} connection
+ */
+export function usesConnectionEndpoint(url, connection) {
+  const target = connection ? validateEndpoint(connection.endpoint) : null;
+  return !!target?.ok && matchesEndpoint(url, target);
+}
+
+/**
  * The value a feature's URL field takes when the connection moves to `next`:
  * language models get its language base, speech-to-text its speech base. An
  * Azure transcription operation URL (a pinned deployment and api-version)
@@ -290,19 +312,13 @@ export function rewrittenEndpointUrl(current, capability, next) {
 export function featuresUsingConnection(usages, connection, settings) {
   const target = connection ? validateEndpoint(connection.endpoint) : null;
   if (!target?.ok) return [];
-  const targetHost = new URL(target.origin).host;
   const values = /** @type {Record<string, unknown>} */ (settings);
   /** @type {ConnectionUse[]} */
   const uses = [];
   for (const usage of usages) {
     const source = usage.customEndpoint;
     if (usage.connection.type !== "custom" || !source) continue;
-    const url = values[source.urlField];
-    const matches =
-      target.kind === "azure"
-        ? endpointHostOf(url) === targetHost
-        : !!endpointBase(url) && endpointBase(url) === target.languageBase;
-    if (!matches) continue;
+    if (!matchesEndpoint(values[source.urlField], target)) continue;
     uses.push({
       feature: usage.feature,
       model: usage.connection.model,

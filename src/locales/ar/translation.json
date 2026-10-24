@@ -6046,6 +6046,24 @@
       "sub": "أي واجهة API متوافقة مع OpenAI",
       "browseHint": "أدخل النقطة الطرفية، ثم اختر نموذجًا أدناه لتبديل {{feature}} إليه."
     },
+    "connection": {
+      "enterDeployment": "أدخل اسم عملية نشر…",
+      "enterModel": "أدخل اسم نموذج…",
+      "deploymentLabel": "اسم عملية النشر على {{name}}",
+      "modelLabel": "اسم النموذج على {{name}}",
+      "enterHint": "اضغط Enter لتبديل {{feature}} إليه، مع النقطة الطرفية والمفتاح الخاصين بـ {{name}}.",
+      "use": "استخدام",
+      "usedBy": "مستخدَم في {{feature}}",
+      "usedByMore": "مستخدَم في {{feature}} وغيرها",
+      "trigger": {
+        "azure": "{{name}} · Azure OpenAI",
+        "compatible": "{{name}} · متوافق مع OpenAI"
+      },
+      "reasons": {
+        "sharedKey": "يستخدم تحويل الكلام إلى نص مفتاحًا مخصّصًا واحدًا، بينما يُستخدم مفتاح مختلف في {{feature}}",
+        "keyFailed": "تعذّر إعطاء هذه الميزة مفتاح {{name}}، لذا لم يتغيّر شيء. حاول مرة أخرى."
+      }
+    },
     "local": {
       "title": "النماذج المحلية",
       "download": "تنزيل نموذج",

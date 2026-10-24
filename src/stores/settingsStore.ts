@@ -1731,6 +1731,34 @@ function invalidateApiKeyCaches(
   if (isBrowser) window.dispatchEvent(new Event("api-key-changed"));
 }
 
+// The IPC a key slot's store field is read from main with ("getChatAgentCustomKey").
+// The custom connection's key has a getter but no renderer saver.
+function secretGetterOf(storeKey: string): (() => Promise<string | null>) | undefined {
+  const provider = secretProviderOf(storeKey);
+  const getterName =
+    storeKey === CUSTOM_CONNECTION_STORE_KEY
+      ? "getCustomConnectionKey"
+      : provider && SECRET_IPC_SAVERS[provider].replace(/^save/, "get");
+  if (!getterName) return undefined;
+  return window.electronAPI?.[getterName as keyof typeof window.electronAPI] as
+    (() => Promise<string | null>) | undefined;
+}
+
+/**
+ * Reads a key slot from main into the store, without saving it back. After
+ * main wrote the slot (the custom connection's key copied into a feature's),
+ * this lets the window's requests read the new key before anything points them
+ * at a new URL; the `api-key-updated` broadcast does the same, later.
+ */
+export async function reloadSecretFromMain(storeKey: string): Promise<void> {
+  const getter = secretGetterOf(storeKey);
+  if (!getter) return;
+  const key = await getter();
+  if (key !== null && typeof key !== "string") return;
+  useSettingsStore.setState({ [storeKey]: key || "" });
+  invalidateApiKeyCaches();
+}
+
 // Uniform BYOK key setter: persist to the secure store (debounced) and clear
 // the provider's cached key, or all caches when no scoped provider is given.
 function createSecretSetter(
@@ -3690,21 +3718,8 @@ export async function initializeSettings(): Promise<void> {
       pendingSecretUpdates.add(storeKey);
       return;
     }
-    // The custom connection's key has a getter but no renderer saver.
-    const provider = secretProviderOf(storeKey);
-    const getterName =
-      storeKey === CUSTOM_CONNECTION_STORE_KEY
-        ? "getCustomConnectionKey"
-        : provider && SECRET_IPC_SAVERS[provider].replace(/^save/, "get");
-    if (!getterName) return;
-    const getter = window.electronAPI?.[getterName as keyof typeof window.electronAPI] as
-      (() => Promise<string | null>) | undefined;
-    if (!getter) return;
     try {
-      const key = await getter();
-      if (key !== null && typeof key !== "string") return;
-      useSettingsStore.setState({ [storeKey]: key || "" });
-      invalidateApiKeyCaches();
+      await reloadSecretFromMain(storeKey);
     } catch {
       logger.warn("Failed to refresh API key", { storeKey }, "settings");
     }

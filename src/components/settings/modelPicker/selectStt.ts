@@ -1,10 +1,13 @@
 import { useCallback, useContext } from "react";
 import { useTranslation } from "react-i18next";
 import { useSettingsStore, type SettingsState } from "../../../stores/settingsStore";
+import type { CustomConnection, CustomConnectionSlot } from "../../../config/customConnection";
 import type { InferenceMode, LocalTranscriptionProvider } from "../../../types/electron";
 import { requestSignIn } from "../../../utils/requestSignIn";
 import { ToastContext } from "../../ui/useToast";
-import type { PickerUnavailable } from "./options";
+import { unavailableReason, type PickerUnavailable } from "./options";
+import { connectionKeyFailed, connectionSpeechUrl } from "./connectionOptions";
+import { applyConnectionKey, compareSharedSttKey, rememberConnectionModel } from "./connectionPick";
 import {
   STT_SURFACE_CONTEXT,
   sttPickAvailability,
@@ -38,7 +41,10 @@ import {
  * - OpenWhispr Cloud while signed out asks to sign in and writes nothing;
  * - the custom endpoint's entry opens its fields (a model entered there
  *   commits); when the surface already points at the endpoint and another mode
- *   is shown, it picks the mode, as the Cloud providers card did.
+ *   is shown, it picks the mode, as the Cloud providers card did;
+ * - a model on the custom connection (`commitSttConnectionSelection`) has main
+ *   copy the connection's key into the one speech-to-text key slot first, then
+ *   writes the surface's URL and makes the custom endpoint's pick.
  * Nothing is written by opening the picker or by browsing, so inherited values
  * stay inherited until something is picked. The old handlers called no server
  * IPC themselves, and neither does this: local servers follow the stored
@@ -183,7 +189,11 @@ export function commitSttSelection(
   pick: SttPick,
   deps: SttCommitDeps
 ): SttCommitResult {
-  if (pick.action === "link") return { status: "browse" };
+  if (pick.action === "link" || pick.action === "enterConnectionModel") {
+    return { status: "browse" };
+  }
+  // A model on the custom connection is picked by commitSttConnectionSelection.
+  if (pick.action === "useConnection") return { status: "refused", reason: null };
 
   // The custom endpoint's entry: its fields open; a model entered there commits.
   // A surface already on the endpoint (another mode shown) gets the mode back.
@@ -215,6 +225,71 @@ export function commitSttSelection(
   return { status: "committed", modeChanged };
 }
 
+/** The surface's custom-endpoint URL setter (the custom endpoint's URL field). */
+export function sttCustomUrlSetter(surface: SttSurface, s: SettingsState) {
+  return surface === "fileTranscription"
+    ? s.setUploadCloudTranscriptionBaseUrl
+    : s.setCloudTranscriptionBaseUrl;
+}
+
+/** What a pick on the custom connection needs besides the adapter's own deps. */
+export interface SttConnectionCommitDeps {
+  /** The connection as stored; its endpoint gives the URL the pick writes. */
+  connection: CustomConnection | null;
+  /** Copies the connection's key into a key slot (main), awaited; throws when it can't. */
+  applyKey: (slot: CustomConnectionSlot) => Promise<void>;
+  /** Remembers the model on the connection, once the pick is committed. */
+  rememberModel: (model: string) => void;
+}
+
+/**
+ * A model on the custom connection, written through as a hand-entered custom
+ * endpoint with the same URL, model and key: revalidated first (as any pick,
+ * the shared-key rule included); then the connection's key copied into
+ * speech-to-text's one custom key slot, awaited (refused, with nothing
+ * written, if that fails); then the surface's URL (the connection's speech
+ * base, or its pasted Azure operation URL, `connectionSpeechUrl`), then mode,
+ * provider `custom` and the model through `commitSttSelection`, which also
+ * remembers the outgoing provider's model; and only then the model is
+ * remembered on the connection.
+ */
+export async function commitSttConnectionSelection(
+  surface: SttSurface,
+  model: string,
+  deps: SttCommitDeps & SttConnectionCommitDeps
+): Promise<SttCommitResult> {
+  const name = model.trim();
+  const availability = sttPickAvailability(
+    surface,
+    { mode: "providers", provider: "custom", model: name, action: "useConnection" },
+    deps.context
+  );
+  const { connection } = deps;
+  const url = connection
+    ? connectionSpeechUrl(
+        deps.context.current.cloudProvider === "custom" ? deps.context.current.cloudBaseUrl : "",
+        name,
+        connection
+      )
+    : "";
+  if (availability !== true || !connection || !url) {
+    return { status: "refused", reason: availability === true ? null : availability };
+  }
+  try {
+    await deps.applyKey("CUSTOM_TRANSCRIPTION_API_KEY");
+  } catch {
+    return { status: "refused", reason: connectionKeyFailed(connection.name) };
+  }
+  sttCustomUrlSetter(surface, deps.store())(url);
+  const result = commitSttSelection(
+    surface,
+    { mode: "providers", provider: "custom", model: name },
+    deps
+  );
+  if (result.status === "committed") deps.rememberModel(name);
+  return result;
+}
+
 export interface UseSttSelectionOptions {
   /** Reads the picker context (and the mode shown) as they are now. */
   readContext: () => { context: SttPickerContext; effectiveMode: InferenceMode | null };
@@ -230,8 +305,7 @@ export function useSttSelection(
   surface: SttSurface,
   { readContext, onModeChange }: UseSttSelectionOptions
 ): (pick: SttPick) => SttCommitResult {
-  const { t } = useTranslation();
-  const toasts = useContext(ToastContext);
+  const explain = useRefusalToast();
   return useCallback(
     (pick: SttPick) => {
       const { context, effectiveMode } = readContext();
@@ -242,19 +316,69 @@ export function useSttSelection(
         requestSignIn,
         onModeChange,
       });
-      if (result.status === "refused") {
-        toasts?.toast({
-          title: t("modelPicker.refused.title"),
-          description: t(
-            result.reason?.reasonKey ?? "modelPicker.refused.unavailable",
-            result.reason?.reasonParams
-          ),
-          variant: "destructive",
-          duration: 4000,
-        });
-      }
+      explain(result);
       return result;
     },
-    [surface, readContext, onModeChange, t, toasts]
+    [surface, readContext, onModeChange, explain]
+  );
+}
+
+/**
+ * A model on the custom connection, with the live stores: main is asked again
+ * whether the shared key already is the connection's (the menu's answer may be
+ * stale), the key goes through main (`applyConnectionKey`), the model is
+ * remembered for speech-to-text, and a refused pick explains why in a toast.
+ */
+export function useSttConnectionSelection(
+  surface: SttSurface,
+  { readContext, onModeChange }: UseSttSelectionOptions
+): (model: string) => Promise<SttCommitResult> {
+  const explain = useRefusalToast();
+  return useCallback(
+    async (model: string) => {
+      const matches = await compareSharedSttKey().catch(() => null);
+      const { context, effectiveMode } = readContext();
+      const live: SttPickerContext = context.connection
+        ? {
+            ...context,
+            connection: {
+              ...context.connection,
+              sharedKey: { ...context.connection.sharedKey, matches },
+            },
+          }
+        : context;
+      const result = await commitSttConnectionSelection(surface, model, {
+        context: live,
+        effectiveMode,
+        store: useSettingsStore.getState,
+        requestSignIn,
+        onModeChange,
+        connection: useSettingsStore.getState().customConnection,
+        applyKey: applyConnectionKey,
+        rememberModel: (name) => rememberConnectionModel(name, "speech"),
+      });
+      explain(result);
+      return result;
+    },
+    [surface, readContext, onModeChange, explain]
+  );
+}
+
+function useRefusalToast(): (result: SttCommitResult) => void {
+  const { t } = useTranslation();
+  const toasts = useContext(ToastContext);
+  return useCallback(
+    (result: SttCommitResult) => {
+      if (result.status !== "refused") return;
+      toasts?.toast({
+        title: t("modelPicker.refused.title"),
+        description: result.reason
+          ? unavailableReason(t, result.reason)
+          : t("modelPicker.refused.unavailable"),
+        variant: "destructive",
+        duration: 4000,
+      });
+    },
+    [t, toasts]
   );
 }

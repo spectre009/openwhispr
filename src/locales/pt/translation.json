@@ -5920,6 +5920,24 @@
       "sub": "Qualquer API compatível com OpenAI",
       "browseHint": "Informe o endpoint e escolha um modelo abaixo para mudar {{feature}} para ele."
     },
+    "connection": {
+      "enterDeployment": "Inserir um nome de implantação…",
+      "enterModel": "Inserir um nome de modelo…",
+      "deploymentLabel": "Nome da implantação em {{name}}",
+      "modelLabel": "Nome do modelo em {{name}}",
+      "enterHint": "Pressione Enter para mudar {{feature}} para ele, com o endpoint e a chave de {{name}}.",
+      "use": "Usar",
+      "usedBy": "Usado por {{feature}}",
+      "usedByMore": "Usado por {{feature}} e outros",
+      "trigger": {
+        "azure": "{{name}} · Azure OpenAI",
+        "compatible": "{{name}} · Compatível com OpenAI"
+      },
+      "reasons": {
+        "sharedKey": "A conversão de voz para texto usa uma única chave personalizada, e {{feature}} usa outra",
+        "keyFailed": "Não foi possível dar a esta função a chave de {{name}}, então nada foi alterado. Tente novamente."
+      }
+    },
     "local": {
       "title": "Modelos locais",
       "download": "Baixar um modelo",

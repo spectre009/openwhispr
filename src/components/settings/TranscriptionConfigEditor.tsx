@@ -1,4 +1,4 @@
-import { useId, useMemo, useState } from "react";
+import { useId, useMemo, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { useTranslation } from "react-i18next";
 import {
@@ -26,6 +26,7 @@ import { useOpenSettingsLink } from "./settingsLink";
 import { SETTINGS_PAGES } from "./settingsPages";
 import WhisperGpuCard from "./WhisperGpuCard";
 import ModelPicker from "./modelPicker/ModelPicker";
+import ConnectionModelField from "./modelPicker/ConnectionModelField";
 import type { PickerLink, PickerText, PickerUnavailable } from "./modelPicker/options";
 import {
   STT_SURFACE_CONTEXT,
@@ -40,7 +41,11 @@ import {
   type SttSurface,
 } from "./modelPicker/sttOptions";
 import { useSttPickerContext } from "./modelPicker/useSttPickerContext";
-import { rawSttCloudProvider, useSttSelection } from "./modelPicker/selectStt";
+import {
+  rawSttCloudProvider,
+  useSttConnectionSelection,
+  useSttSelection,
+} from "./modelPicker/selectStt";
 
 const TINFOIL_AUDIO_DOCS_URL = "https://docs.tinfoil.sh/models/audio";
 
@@ -108,8 +113,9 @@ interface TranscriptionConfigEditorProps {
 /**
  * A speech-to-text surface's model setting (Recognition, Live Recording, File
  * Transcription): one picker grouped by connection, then what the selection
- * needs under it — the custom endpoint's URL, shared key (replace-only) and
- * model, the self-hosted server's URL and model, Corti's data region and
+ * needs under it — a deployment name to pick on the custom connection, the
+ * custom endpoint's URL, shared key (replace-only) and model, the self-hosted
+ * server's URL and model, Corti's data region and
  * tenant, Tinfoil's transport note, Cohere's one-language rule, and Whisper's
  * GPU acceleration pack. Keys live on AI Connections. Live recording and
  * uploads show the values they borrow from Recognition one by one, with
@@ -124,6 +130,9 @@ export default function TranscriptionConfigEditor({
   const policy = usePolicySnapshot();
   const [open, setOpen] = useState(false);
   const [browseCustom, setBrowseCustom] = useState(false);
+  const [enteringConnection, setEnteringConnection] = useState(false);
+  const [connectionBusy, setConnectionBusy] = useState(false);
+  const pickerBoxRef = useRef<HTMLDivElement>(null);
   const picker = useSttPickerContext(surface, { open });
   const { context, effectiveMode } = picker;
   const { current } = context;
@@ -131,6 +140,10 @@ export default function TranscriptionConfigEditor({
   const summary = useMemo(() => describeSttSelection(surface, context), [surface, context]);
   const issue = useMemo(() => sttSelectionIssue(surface, context), [surface, context]);
   const commit = useSttSelection(surface, { readContext: picker.readContext, onModeChange });
+  const commitConnection = useSttConnectionSelection(surface, {
+    readContext: picker.readContext,
+    onModeChange,
+  });
   const openSettings = useOpenSettingsLink();
 
   // Live recording's and uploads' own values, to tell which fields borrow Recognition's.
@@ -149,7 +162,40 @@ export default function TranscriptionConfigEditor({
     [surface, inheritance, effectiveMode]
   );
 
+  const focusPicker = () =>
+    pickerBoxRef.current?.querySelector<HTMLElement>("[data-model-picker-trigger]")?.focus();
+
+  // A model on the custom connection: main copies its key first, so this is awaited.
+  const pickConnectionModel = async (model: string, fromField = false) => {
+    if (connectionBusy) return;
+    setConnectionBusy(true);
+    try {
+      const result = await commitConnection(model);
+      if (result.status !== "committed") return;
+      setEnteringConnection(false);
+      setBrowseCustom(false);
+      if (fromField) focusPicker();
+    } finally {
+      setConnectionBusy(false);
+    }
+  };
+
+  const closeConnectionField = () => {
+    setEnteringConnection(false);
+    focusPicker();
+  };
+
   const handleSelect = (option: SttPickerOption) => {
+    if (option.action === "enterConnectionModel") {
+      setEnteringConnection(true);
+      setBrowseCustom(false);
+      return;
+    }
+    if (option.action === "useConnection") {
+      void pickConnectionModel(option.model);
+      return;
+    }
+    setEnteringConnection(false);
     const result = commit(option);
     if (option.action === "configureCustom") {
       setBrowseCustom(result.status === "browse");
@@ -170,20 +216,25 @@ export default function TranscriptionConfigEditor({
 
   const providers = effectiveMode === "providers";
   const customCommitted = providers && current.cloudProvider === "custom";
-  const showCustom = browseCustom || customCommitted;
+  const enterConnection = enteringConnection && !!context.connection;
+  const showCustom = !enterConnection && (browseCustom || customCommitted);
   const showSelfHosted =
-    !showCustom && effectiveMode === "self-hosted" && surface !== "liveRecording";
+    !showCustom &&
+    !enterConnection &&
+    effectiveMode === "self-hosted" &&
+    surface !== "liveRecording";
   const local = effectiveMode === "local";
   const from = t(SURFACE_TITLE_KEYS.dictation);
 
   const pickerElement = (
     <ModelPicker
       groups={groups}
-      selectedId={selectedSttOptionId(current)}
+      selectedId={selectedSttOptionId(current, context.connection)}
       summary={summary}
       onSelect={handleSelect}
       onLink={followLink}
       canFollow={(link) => link.kind === "signIn" || !!openSettings}
+      releasesFocus={(option) => option.action === "enterConnectionModel"}
       label={t("modelPicker.label")}
       open={open}
       onOpenChange={setOpen}
@@ -208,7 +259,7 @@ export default function TranscriptionConfigEditor({
     <SettingsPanel>
       <SettingsPanelRow>
         {inheritedFields ? (
-          <div className="space-y-2">
+          <div ref={pickerBoxRef} className="space-y-2">
             <PickerHeading />
             {pickerElement}
           </div>
@@ -220,7 +271,10 @@ export default function TranscriptionConfigEditor({
             )}
           >
             <PickerHeading />
-            <div className={isCompact ? "w-full" : "w-[22rem] max-w-[55%] shrink-0"}>
+            <div
+              ref={pickerBoxRef}
+              className={isCompact ? "w-full" : "w-[22rem] max-w-[55%] shrink-0"}
+            >
               {pickerElement}
             </div>
           </div>
@@ -229,6 +283,18 @@ export default function TranscriptionConfigEditor({
           <ManageKeysLink provider={current.cloudProvider} className="mt-2" />
         )}
       </SettingsPanelRow>
+
+      {enterConnection && context.connection && (
+        <SettingsPanelRow>
+          <ConnectionModelField
+            connection={context.connection}
+            feature={t(SURFACE_TITLE_KEYS[surface])}
+            busy={connectionBusy}
+            onSubmit={(model) => void pickConnectionModel(model, true)}
+            onCancel={closeConnectionField}
+          />
+        </SettingsPanelRow>
+      )}
 
       {showCustom && (
         <SettingsPanelRow>

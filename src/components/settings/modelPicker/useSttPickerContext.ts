@@ -16,12 +16,17 @@ import { WHISPER_MODEL_INFO, PARAKEET_MODEL_INFO } from "../../../models/ModelRe
 import type { InferenceMode } from "../../../types/electron";
 import { formatBytes } from "../../../utils/formatBytes";
 import { useSettingsVisible } from "../useSettingsVisible";
+import { pickerConnection, sttSharedKeyConflict } from "./connectionOptions";
+import { compareSharedSttKey } from "./connectionPick";
+import { usePickerConnection } from "./usePickerConnection";
 import {
   STT_SURFACE_CONTEXT,
   sttCurrentFrom,
   sttEffectiveMode,
   sttKeyPresence,
+  sttSurfaceOffersCustom,
   type SttLocalModel,
+  type SttPickerConnection,
   type SttPickerContext,
   type SttSurface,
 } from "./sttOptions";
@@ -94,8 +99,11 @@ export interface SttPickerContextResult {
  * credential presence (never a key), downloaded Whisper and sherpa-onnx models
  * (the same list IPCs as AI Connections, re-read when Settings is shown, when
  * the menu opens and after a download or delete), whether sherpa-onnx runs
- * here, and what the surface runs now (policy-effective, inherited values
- * filled in). Reads only; nothing here writes a setting.
+ * here, what the surface runs now (policy-effective, inherited values
+ * filled in) and the custom connection (key presence only; while the menu is
+ * open, who runs which of its models, and whether speech-to-text's one custom
+ * key already is its key, which main answers with a boolean). Reads only;
+ * nothing here writes a setting.
  */
 export function useSttPickerContext(
   surface: SttSurface,
@@ -167,6 +175,50 @@ export function useSttPickerContext(
     [lists]
   );
 
+  // The custom connection, and whether speech-to-text's one key already is its
+  // key: main compares (a boolean) while the menu is open, again when either key changes.
+  const offersConnection = sttSurfaceOffersCustom(surface);
+  const custom = usePickerConnection(open && offersConnection, policy, cloudDisabled);
+  const sharedKey = useSettingsStore((s) => s.customTranscriptionApiKey);
+  const connectionKey = useSettingsStore((s) => s.customConnectionApiKey);
+  const [keyMatches, setKeyMatches] = useState<boolean | null>(null);
+  useEffect(() => {
+    if (!open || !offersConnection || !custom.connection) return;
+    let cancelled = false;
+    compareSharedSttKey()
+      .then((matches) => {
+        if (!cancelled) setKeyMatches(matches);
+      })
+      .catch(() => {
+        if (!cancelled) setKeyMatches(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, offersConnection, custom.connection, sharedKey, connectionKey]);
+  const connection = useMemo<SttPickerConnection | null>(() => {
+    if (!offersConnection) return null;
+    const base = pickerConnection(custom.connection, {
+      capability: "speech",
+      hasKey: custom.hasKey,
+      uses: custom.uses,
+    });
+    if (!base) return null;
+    const conflict = custom.openState
+      ? sttSharedKeyConflict(surface, custom.openState, policy, custom.connection)
+      : null;
+    return { ...base, sharedKey: { matches: keyMatches, conflict } };
+  }, [
+    offersConnection,
+    surface,
+    policy,
+    custom.connection,
+    custom.hasKey,
+    custom.uses,
+    custom.openState,
+    keyMatches,
+  ]);
+
   const context = useMemo<SttPickerContext>(
     () => ({
       policy,
@@ -176,6 +228,7 @@ export function useSttPickerContext(
       localModels,
       sherpa,
       rememberedCustomModel,
+      connection,
       current: { mode: effectiveMode, ...resolved },
     }),
     [
@@ -186,6 +239,7 @@ export function useSttPickerContext(
       localModels,
       sherpa,
       rememberedCustomModel,
+      connection,
       effectiveMode,
       resolved,
     ]
@@ -206,6 +260,27 @@ export function useSttPickerContext(
       isSignedIn: settings.isSignedIn,
     };
     const mode = sttEffectiveMode(surface, settings[STT_MODE_KEY[surface]], live);
+    // The stored connection and its key as they are now, with who else sends the shared key.
+    const base = sttSurfaceOffersCustom(surface)
+      ? pickerConnection(settings.customConnection, {
+          capability: "speech",
+          hasKey: !!settings.customConnectionApiKey?.trim(),
+        })
+      : null;
+    const connection: SttPickerConnection | null = base
+      ? {
+          ...base,
+          sharedKey: {
+            matches: latest.current.connection?.sharedKey.matches ?? null,
+            conflict: sttSharedKeyConflict(
+              surface,
+              settings,
+              livePolicy,
+              settings.customConnection
+            ),
+          },
+        }
+      : null;
     return {
       context: {
         ...latest.current,
@@ -213,6 +288,7 @@ export function useSttPickerContext(
         keys: sttKeyPresence(settings),
         rememberedCustomModel:
           settings.transcriptionModelByProvider?.[`${STT_SURFACE_CONTEXT[surface]}:custom`] ?? "",
+        connection,
         current: {
           mode,
           ...sttCurrentFrom(surface, selectPolicyEffectiveSettings(settings, livePolicy)),

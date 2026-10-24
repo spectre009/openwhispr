@@ -17,6 +17,7 @@ import {
   ChevronRight,
   Cloud,
   HardDrive,
+  Link,
   Network,
   Search,
 } from "../../icons";
@@ -24,20 +25,16 @@ import { Input } from "../../ui/input";
 import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from "../../ui/popover";
 import { ProviderIcon } from "../../ui/ProviderIcon";
 import { cn } from "../../lib/utils";
-import type {
-  PickerGroup,
-  PickerLink,
-  PickerOptionBase,
-  PickerSelectionSummary,
-  PickerText,
+import {
+  resolvePickerText,
+  unavailableReason,
+  type PickerGroup,
+  type PickerLink,
+  type PickerOptionBase,
+  type PickerSelectionSummary,
 } from "./options";
 
-type Translate = (key: string, options?: Record<string, unknown>) => string;
-
-function resolveText(t: Translate, text: PickerText | undefined): string {
-  if (!text) return "";
-  return "text" in text ? text.text : t(text.key, text.params);
-}
+const resolveText = resolvePickerText;
 
 /** A connection's or model's icon: brand logos for providers, glyphs for the rest. */
 export function PickerIcon({ icon, className = "h-4 w-4" }: { icon: string; className?: string }) {
@@ -46,6 +43,9 @@ export function PickerIcon({ icon, className = "h-4 w-4" }: { icon: string; clas
   if (icon === "local") return <HardDrive aria-hidden="true" className={glyph} />;
   if (icon === "selfHosted") return <Network aria-hidden="true" className={glyph} />;
   if (icon === "enterprise") return <Building2 aria-hidden="true" className={glyph} />;
+  if (icon === "connection") {
+    return <Link aria-hidden="true" className={cn(className, "shrink-0 text-primary")} />;
+  }
   return <ProviderIcon provider={icon} className={cn(className, "shrink-0")} />;
 }
 
@@ -66,6 +66,11 @@ interface ModelPickerProps<O extends PickerOptionBase> {
   onLink: (link: PickerLink) => void;
   /** Whether a link can be followed here (Settings links hide outside Settings). */
   canFollow?: (link: PickerLink) => boolean;
+  /**
+   * Entries that move focus elsewhere when picked (a field they open under the
+   * picker): closing the menu then doesn't return focus to the button.
+   */
+  releasesFocus?: (option: O) => boolean;
   /** Extra lines under a group's header (a list that's loading or failed). */
   groupNotes?: Readonly<Record<string, ReactNode>>;
   /** Accessible name of the button and the list. */
@@ -96,6 +101,7 @@ export default function ModelPicker<O extends PickerOptionBase>({
   onSelect,
   onLink,
   canFollow = () => true,
+  releasesFocus,
   groupNotes,
   label,
   open: controlledOpen,
@@ -110,6 +116,7 @@ export default function ModelPicker<O extends PickerOptionBase>({
   const [activeIndex, setActiveIndex] = useState(-1);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const keepFocusOnClose = useRef(false);
   const listId = useId();
 
   const flat = useMemo<FlatOption<O>[]>(
@@ -120,10 +127,7 @@ export default function ModelPicker<O extends PickerOptionBase>({
           group,
           label: resolveText(t, option.label),
           sub: resolveText(t, option.sub),
-          reason:
-            option.available === true
-              ? ""
-              : t(option.available.reasonKey, option.available.reasonParams),
+          reason: option.available === true ? "" : unavailableReason(t, option.available),
         }))
       ),
     [groups, t]
@@ -150,6 +154,7 @@ export default function ModelPicker<O extends PickerOptionBase>({
   const setOpen = useCallback(
     (next: boolean) => {
       if (next) {
+        keepFocusOnClose.current = false;
         setQuery("");
         setActiveIndex(
           Math.max(
@@ -206,6 +211,7 @@ export default function ModelPicker<O extends PickerOptionBase>({
       if (option.link && canFollow(option.link)) follow(option.link);
       return;
     }
+    keepFocusOnClose.current = !!releasesFocus?.(option);
     setOpen(false);
     onSelect(option);
   };
@@ -242,6 +248,7 @@ export default function ModelPicker<O extends PickerOptionBase>({
     if (group.id !== lastGroup) {
       lastGroup = group.id;
       const meta = resolveText(t, group.meta);
+      const badge = group.badge;
       rows.push(
         <div
           key={`g:${group.id}`}
@@ -249,7 +256,22 @@ export default function ModelPicker<O extends PickerOptionBase>({
           data-picker-group={group.id}
           className="flex items-center gap-2 px-2.5 pb-1 pt-2.5 text-[11px] text-muted-foreground"
         >
-          <span className="font-medium uppercase tracking-wide">{resolveText(t, group.title)}</span>
+          <span className="min-w-0 truncate font-medium uppercase tracking-wide">
+            {resolveText(t, group.title)}
+          </span>
+          {badge && (
+            <span
+              data-picker-group-badge=""
+              className={cn(
+                "shrink-0 rounded-full border px-1.5 text-[10px] leading-4",
+                badge.tone === "accent"
+                  ? "border-primary/25 bg-primary/8 text-primary dark:bg-primary/12"
+                  : "border-border/70 bg-muted/40 text-muted-foreground dark:border-white/10"
+              )}
+            >
+              {resolveText(t, badge.text)}
+            </span>
+          )}
           {meta && <span className="ms-auto truncate">{meta}</span>}
         </div>
       );
@@ -377,6 +399,11 @@ export default function ModelPicker<O extends PickerOptionBase>({
         onOpenAutoFocus={(event) => {
           event.preventDefault();
           inputRef.current?.focus();
+        }}
+        onCloseAutoFocus={(event) => {
+          if (!keepFocusOnClose.current) return;
+          keepFocusOnClose.current = false;
+          event.preventDefault();
         }}
       >
         <div className="flex items-center gap-2 border-b border-border/70 px-2.5 dark:border-border-subtle/60">

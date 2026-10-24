@@ -18,7 +18,11 @@ const { createRendererServer, installBrowserGlobals } = require("../lib/renderer
 // resolveFileTranscriptionRoute), and each context's policy gate. Side effects:
 // Cloud while signed out asks to sign in and writes nothing; a pick that became
 // invalid is refused; Recognition's toast fires only on a mode change; nothing
-// is written by building the menu, showing inherited values or browsing.
+// is written by building the menu, showing inherited values or browsing. A pick
+// on the custom connection (Recognition, File Transcription) leaves exactly what
+// a hand-entered custom endpoint with the same URL, model and key leaves: main
+// copies the key into the one speech-to-text slot first (awaited, read back),
+// and a refused copy, or the shared-key rule, writes nothing.
 
 const SURFACES = ["dictation", "liveRecording", "fileTranscription"];
 const CONTEXT = { dictation: "dictation", liveRecording: "meeting", fileTranscription: "upload" };
@@ -134,8 +138,15 @@ async function load(t) {
   if (env) return env;
   const { storage } = installBrowserGlobals(t, {
     initialStorage: { _llmScopeKeysMigrated: "1", _dictationAgentSeeded: "1" },
+    window: { dispatchEvent: () => true },
   });
-  const vite = await createRendererServer(t, { cachePrefix: "openwhispr-stt-picker-adapter-" });
+  const vite = await createRendererServer(t, {
+    cachePrefix: "openwhispr-stt-picker-adapter-",
+    // A key read back from main clears the request service's key cache.
+    mockModules: {
+      "/services/ReasoningService": "export default { clearApiKeyCache() {} };",
+    },
+  });
   const load = (path) => vite.ssrLoadModule(path);
   env = {
     storage,
@@ -150,6 +161,8 @@ async function load(t) {
     file: await load("/services/fileTranscription.ts"),
     stt: await load("/components/settings/modelPicker/sttOptions.ts"),
     adapter: await load("/components/settings/modelPicker/selectStt.ts"),
+    connection: await load("/components/settings/modelPicker/connectionOptions.ts"),
+    pick: await load("/components/settings/modelPicker/connectionPick.ts"),
   };
   return env;
 }
@@ -1014,6 +1027,286 @@ test("dictation's local servers follow the pick as they followed the old writes"
     "main stops local servers"
   );
   assert.equal(snapshot().routes.dictation.streamingProvider, "openai-realtime");
+});
+
+// ── The custom connection ─────────────────────────────────────────────────────
+
+const LB_ORIGIN = "https://littlebuddy-foundry-eus2.openai.azure.com";
+const LB = {
+  name: "Little Buddy",
+  endpoint: LB_ORIGIN,
+  models: { language: ["gpt-5-mini"], speech: ["gpt-4o-transcribe"] },
+};
+// Stands in for the connection's key; it only ever moves main → store here.
+const LB_KEY = "lb-test-key";
+const LB_OPERATION = `${LB_ORIGIN}/openai/deployments/gpt-4o-transcribe/audio/transcriptions?api-version=2025-03-01-preview`;
+const NOTHING_ELSE = { matches: null, conflict: null };
+
+/** Main, as the custom-connection IPCs and the shared key's getter see them. */
+function installMain({ fail = false, hold = false, compare } = {}) {
+  const main = { value: "", calls: [], events: [], release: () => {} };
+  globalThis.window.electronAPI = {
+    customConnectionApplyKey: async (args) => {
+      main.calls.push(["apply", args.slots]);
+      main.events.push("apply:start");
+      if (hold) await new Promise((resolve) => (main.release = resolve));
+      if (fail) {
+        main.events.push("apply:failed");
+        throw new Error("The custom connection has no key");
+      }
+      main.value = LB_KEY;
+      main.events.push("apply:end");
+      return { success: true };
+    },
+    customConnectionCompare: async (args) => {
+      main.calls.push(["compare", args.slots]);
+      return compare;
+    },
+    getCustomTranscriptionKey: async () => {
+      main.calls.push(["get"]);
+      return main.value;
+    },
+  };
+  return main;
+}
+
+const lbConnection = (sharedKey = NOTHING_ELSE, overrides = {}) => ({
+  ...env.connection.pickerConnection(LB, { capability: "speech", hasKey: true }),
+  sharedKey,
+  ...overrides,
+});
+
+/** A pick on Little Buddy, through the adapter with the real key step. */
+async function commitOnConnection(
+  surface,
+  model,
+  { policy = UNMANAGED, connection = lbConnection() } = {}
+) {
+  const modes = [];
+  const ctx = pickerContext(surface, policy, { connection });
+  const result = await env.adapter.commitSttConnectionSelection(surface, model, {
+    context: ctx,
+    effectiveMode: ctx.current.mode,
+    store: env.store.useSettingsStore.getState,
+    requestSignIn: () => {},
+    onModeChange: (mode) => modes.push(mode),
+    connection: LB,
+    applyKey: env.pick.applyConnectionKey,
+    rememberModel: (name) => env.pick.rememberConnectionModel(name, "speech"),
+  });
+  return { result, modes };
+}
+
+/** The same choice made by hand: the custom endpoint's URL, the shared key, then the model. */
+function manualCustomPick(surface, model, url, policy) {
+  const s = state();
+  (surface === "fileTranscription"
+    ? s.setUploadCloudTranscriptionBaseUrl
+    : s.setCloudTranscriptionBaseUrl)(url);
+  // The key field's write to the store (its debounced save to main is the field's own).
+  env.store.useSettingsStore.setState({ customTranscriptionApiKey: LB_KEY });
+  const { result, calls } = commit(
+    surface,
+    { mode: "providers", provider: "custom", model },
+    { policy }
+  );
+  assert.equal(result.status, "committed");
+  return calls.modes;
+}
+
+const fresh = (start) => reset({ customConnection: null, ...start });
+
+test("a pick on the connection leaves exactly what a hand-entered custom endpoint leaves", async (t) => {
+  await load(t);
+  const starts = fixtures();
+  // Already on Little Buddy, through a pasted operation URL for its deployment.
+  starts.pasted = {
+    ...starts.daily,
+    cloudTranscriptionBaseUrl: LB_OPERATION,
+    uploadCloudTranscriptionBaseUrl: "",
+  };
+  let compared = 0;
+  for (const [policyName, policy] of [
+    ["unmanaged", UNMANAGED],
+    ["managed", MANAGED],
+  ]) {
+    for (const [startName, start] of Object.entries(starts)) {
+      for (const surface of SURFACES) {
+        for (const model of ["gpt-4o-transcribe", "gpt-4o-mini-transcribe"]) {
+          const label = `${policyName}, ${startName}, ${surface}: ${model}`;
+          fresh(start);
+          const offered = env.stt.sttPickAvailability(
+            surface,
+            { mode: "providers", provider: "custom", model, action: "useConnection" },
+            pickerContext(surface, policy, { connection: lbConnection() })
+          );
+          if (surface === "liveRecording") {
+            assert.equal(offered, null, `${label}: no custom lane`);
+            continue;
+          }
+          assert.equal(offered, true, `${label} is offered`);
+          // The pasted URL names gpt-4o-transcribe: kept for it, the resource's otherwise.
+          const pasted =
+            startName === "pasted" && surface === "dictation" && model === "gpt-4o-transcribe";
+          const inheritsPasted =
+            startName === "pasted" &&
+            surface === "fileTranscription" &&
+            model === "gpt-4o-transcribe";
+          const url = pasted || inheritsPasted ? LB_OPERATION : LB_ORIGIN;
+
+          fresh(start);
+          const manualModes = manualCustomPick(surface, model, url, policy);
+          const expected = snapshot(policy);
+
+          fresh(start);
+          const main = installMain();
+          const { result, modes } = await commitOnConnection(surface, model, { policy });
+          assert.equal(result.status, "committed", label);
+          assert.deepEqual(snapshot(policy), expected, label);
+          assert.deepEqual(modes, manualModes, `${label}: the mode-change toast`);
+          assert.deepEqual(main.calls[0], ["apply", ["CUSTOM_TRANSCRIPTION_API_KEY"]], label);
+          compared += 1;
+        }
+      }
+    }
+  }
+  assert.equal(compared, 2 * 4 * 2 * 2);
+});
+
+test("the shared key is copied, and read back, before anything else is written", async (t) => {
+  await load(t);
+  const { daily } = fixtures();
+  const { store } = env;
+  fresh(daily);
+  const before = snapshot();
+  const main = installMain({ hold: true });
+  const writes = [];
+  const unsubscribe = store.useSettingsStore.subscribe((s) =>
+    writes.push({
+      main: main.events.at(-1),
+      url: s.uploadCloudTranscriptionBaseUrl,
+      key: s.customTranscriptionApiKey,
+    })
+  );
+  const setItem = env.storage.setItem;
+  env.storage.setItem = (key, value) => {
+    writes.push({ main: main.events.at(-1), persisted: key });
+    setItem(key, value);
+  };
+  t.after(() => {
+    unsubscribe();
+    env.storage.setItem = setItem;
+  });
+
+  const pending = commitOnConnection("fileTranscription", "gpt-4o-transcribe", {
+    connection: lbConnection({ matches: true, conflict: "recognition" }),
+  });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(main.events, ["apply:start"], "main is copying the key");
+  assert.deepEqual(writes, [], "nothing written while it does");
+  assert.deepEqual(snapshot(), before);
+
+  main.release();
+  const { result } = await pending;
+  assert.equal(result.status, "committed");
+  assert.ok(writes.length > 0);
+  assert.ok(writes.every((write) => write.main === "apply:end"), "every write after main's copy");
+  assert.equal(writes[0].key, LB_KEY, "the key comes first");
+  const firstUrl = writes.findIndex((write) => write.url === LB_ORIGIN);
+  assert.ok(firstUrl > 0);
+  assert.ok(writes.slice(firstUrl).every((write) => !("key" in write) || write.key === LB_KEY));
+  assert.deepEqual(
+    main.calls.map(([call]) => call),
+    ["apply", "get"]
+  );
+});
+
+test("a refused key copy, the shared-key rule or a surface without a custom lane writes nothing", async (t) => {
+  await load(t);
+  const { daily } = fixtures();
+  fresh(daily);
+  const before = snapshot();
+
+  const failing = installMain({ fail: true });
+  const refused = await commitOnConnection("dictation", "gpt-4o-transcribe");
+  assert.equal(refused.result.status, "refused");
+  assert.deepEqual(refused.result.reason, {
+    reasonKey: "modelPicker.connection.reasons.keyFailed",
+    reasonParams: { name: "Little Buddy" },
+  });
+  assert.deepEqual(snapshot(), before, "nothing written");
+  assert.deepEqual(
+    failing.calls.map(([call]) => call),
+    ["apply"]
+  );
+
+  for (const [label, surface, connection, reason] of [
+    [
+      "File Transcription still sends another key elsewhere",
+      "dictation",
+      lbConnection({ matches: false, conflict: "fileTranscription" }),
+      "modelPicker.connection.reasons.sharedKey",
+    ],
+    ["no connection any more", "dictation", null, null],
+    [
+      "the connection has no key",
+      "fileTranscription",
+      lbConnection(NOTHING_ELSE, { hasKey: false }),
+      "modelPicker.reasons.noKey",
+    ],
+    ["Live Recording", "liveRecording", lbConnection(), null],
+  ]) {
+    const main = installMain();
+    const { result } = await commitOnConnection(surface, "gpt-4o-transcribe", { connection });
+    assert.equal(result.status, "refused", label);
+    assert.equal(result.reason?.reasonKey ?? null, reason, label);
+    assert.deepEqual(main.calls, [], `${label}: main isn't asked`);
+    assert.deepEqual(snapshot(), before, `${label}: nothing written`);
+  }
+  // Browsing ("Enter a deployment name…") writes nothing either.
+  assert.equal(
+    commit("dictation", {
+      mode: "providers",
+      provider: "custom",
+      model: "",
+      action: "enterConnectionModel",
+    }).result.status,
+    "browse"
+  );
+  assert.deepEqual(snapshot(), before);
+});
+
+test("main answers whether the shared key already is the connection's, as a boolean", async (t) => {
+  await load(t);
+  for (const [answer, expected] of [
+    [{ CUSTOM_TRANSCRIPTION_API_KEY: true }, true],
+    [{ CUSTOM_TRANSCRIPTION_API_KEY: false }, false],
+    [undefined, null],
+  ]) {
+    const main = installMain({ compare: answer });
+    assert.equal(await env.pick.compareSharedSttKey(), expected);
+    assert.deepEqual(main.calls, [["compare", ["CUSTOM_TRANSCRIPTION_API_KEY"]]]);
+  }
+  globalThis.window.electronAPI = {};
+  assert.equal(await env.pick.compareSharedSttKey(), null, "no IPC, no answer");
+});
+
+test("a committed pick is remembered on the connection as a speech model", async (t) => {
+  await load(t);
+  const { daily } = fixtures();
+  fresh({ ...daily, customConnection: LB });
+  installMain();
+  await commitOnConnection("dictation", "gpt-4o-mini-transcribe");
+  assert.deepEqual(state().customConnection.models, {
+    language: ["gpt-5-mini"],
+    speech: ["gpt-4o-transcribe", "gpt-4o-mini-transcribe"],
+  });
+  installMain({ fail: true });
+  await commitOnConnection("dictation", "whisper-1");
+  assert.deepEqual(state().customConnection.models.speech, [
+    "gpt-4o-transcribe",
+    "gpt-4o-mini-transcribe",
+  ]);
 });
 
 nodeTest("the speech-to-text selection adapter", async (t) => {

@@ -5920,6 +5920,24 @@
       "sub": "Qualsiasi API compatibile con OpenAI",
       "browseHint": "Inserisci l'endpoint, poi scegli un modello qui sotto per passare {{feature}} a quello."
     },
+    "connection": {
+      "enterDeployment": "Inserisci il nome di una distribuzione…",
+      "enterModel": "Inserisci il nome di un modello…",
+      "deploymentLabel": "Nome della distribuzione su {{name}}",
+      "modelLabel": "Nome del modello su {{name}}",
+      "enterHint": "Premi Invio per passare {{feature}} a questo modello, con l'endpoint e la chiave di {{name}}.",
+      "use": "Usa",
+      "usedBy": "Usato da {{feature}}",
+      "usedByMore": "Usato da {{feature}} e altri",
+      "trigger": {
+        "azure": "{{name}} · Azure OpenAI",
+        "compatible": "{{name}} · Compatibile con OpenAI"
+      },
+      "reasons": {
+        "sharedKey": "La trascrizione usa un'unica chiave personalizzata, e {{feature}} ne usa un'altra",
+        "keyFailed": "Impossibile dare a questa funzione la chiave di {{name}}, quindi non è cambiato nulla. Riprova."
+      }
+    },
     "local": {
       "title": "Modelli locali",
       "download": "Scarica un modello",

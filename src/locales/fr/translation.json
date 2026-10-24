@@ -5920,6 +5920,24 @@
       "sub": "Toute API compatible OpenAI",
       "browseHint": "Saisissez le point de terminaison, puis choisissez un modèle ci-dessous pour y basculer {{feature}}."
     },
+    "connection": {
+      "enterDeployment": "Saisir un nom de déploiement…",
+      "enterModel": "Saisir un nom de modèle…",
+      "deploymentLabel": "Nom du déploiement sur {{name}}",
+      "modelLabel": "Nom du modèle sur {{name}}",
+      "enterHint": "Appuyez sur Entrée pour passer {{feature}} sur ce modèle, avec le point de terminaison et la clé de {{name}}.",
+      "use": "Utiliser",
+      "usedBy": "Utilisé par {{feature}}",
+      "usedByMore": "Utilisé par {{feature}} et d'autres",
+      "trigger": {
+        "azure": "{{name}} · Azure OpenAI",
+        "compatible": "{{name}} · Compatible OpenAI"
+      },
+      "reasons": {
+        "sharedKey": "La transcription utilise une seule clé personnalisée, et {{feature}} en utilise une autre",
+        "keyFailed": "Impossible de donner à cette fonction la clé de {{name}} : rien n'a été modifié. Réessayez."
+      }
+    },
     "local": {
       "title": "Modèles locaux",
       "download": "Télécharger un modèle",
