@@ -840,7 +840,8 @@
       "otherGroup": "Other",
       "noSearchResults": "No models match \"{{query}}\"",
       "selectModelHint": "No model selected yet — choose one from the list below.",
-      "keyRequiredHint": "An API key is required for inference — add one to use this provider."
+      "keyRequiredHint": "An API key is required for inference — add one to use this provider.",
+      "showMore": "Show more ({{remaining}})"
     },
     "getApiKey": "Get your API key ->",
     "selectModel": "Select Model",
@@ -5703,6 +5704,97 @@
       "personal": "Your setup",
       "notSetUp": "Not set up. Pick Enterprise in a feature's model settings to use your organization's Azure, Bedrock or Vertex credentials.",
       "setUp": "Set up in Cleanup"
+    }
+  },
+  "modelPicker": {
+    "label": "Model",
+    "description": "Pick a connection and a model. API keys and sign-ins live in AI Connections.",
+    "filterPlaceholder": "Filter models and connections",
+    "noMatches": "Nothing matches “{{query}}”",
+    "refused": {
+      "title": "Couldn't switch the model",
+      "unavailable": "That choice isn't available anymore. Pick another one."
+    },
+    "reasons": {
+      "cloudOff": "Turned off in Privacy & Data",
+      "signedOut": "Sign in to your OpenWhispr account to use it",
+      "copilotScope": "Copilot serves Cleanup, Styles, Translation and Note Formatting only",
+      "copilotSignedOut": "Not signed in to GitHub Copilot",
+      "noKey": "No API key saved"
+    },
+    "links": {
+      "openPrivacy": "Privacy & Data",
+      "signIn": "Sign in",
+      "signInCopilot": "Sign in on AI Connections",
+      "addKey": "Add an API key",
+      "openLocalModels": "AI Connections",
+      "manageCopilot": "Manage the GitHub sign-in in AI Connections"
+    },
+    "cloud": {
+      "automatic": "Automatic",
+      "automaticSub": "OpenWhispr picks the model"
+    },
+    "copilot": {
+      "unsupported": "Not available here",
+      "notSignedIn": "Sign in to use your Copilot models"
+    },
+    "provider": {
+      "notConnected": "Not connected"
+    },
+    "openrouter": {
+      "search": "Search OpenRouter models…",
+      "browseHint": "Pick a model below to switch {{feature}} to it.",
+      "close": "Close"
+    },
+    "custom": {
+      "title": "Custom endpoint",
+      "label": "Custom endpoint…",
+      "sub": "Any OpenAI-compatible API",
+      "browseHint": "Enter the endpoint, then pick a model below to switch {{feature}} to it."
+    },
+    "local": {
+      "title": "Local models",
+      "download": "Download a model",
+      "downloadMore": "Download more models",
+      "downloadSub": "In AI Connections"
+    },
+    "selfHosted": {
+      "title": "Self-hosted",
+      "label": "Self-hosted server…",
+      "sub": "A server on your network: URL and model"
+    },
+    "enterprise": {
+      "title": "Enterprise",
+      "label": "Your organization's cloud…",
+      "sub": "AWS Bedrock or Azure OpenAI",
+      "managedSub": "{{provider}} · managed by your organization"
+    },
+    "meta": {
+      "apiKey": "API key",
+      "thisFeature": "This feature only",
+      "onThisComputer": "On this computer"
+    },
+    "trigger": {
+      "choose": "Choose a model",
+      "optionalUnset": {
+        "dictationAgentVision": "Not set: screenshots go to the Voice Assistant's model if it can see images"
+      },
+      "local": "Local model · on this computer",
+      "selfHosted": "Self-hosted · {{host}}",
+      "enterprise": "{{provider}} · Enterprise",
+      "custom": "Custom endpoint · {{host}}",
+      "apiKey": "{{provider}} · API key"
+    },
+    "inherit": {
+      "none": "None",
+      "from": "inherited from {{feature}}",
+      "override": "Override",
+      "fields": {
+        "provider": "Provider",
+        "endpoint": "Endpoint",
+        "server": "Server",
+        "model": "Model"
+      }
     }
   }
 }

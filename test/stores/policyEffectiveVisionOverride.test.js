@@ -126,7 +126,7 @@ test("a forbidden vision mode cannot redirect a local assistant to Cloud", async
   assert.equal(restoredResult.attachScreenContext, true);
 });
 
-test("the vision picker shows no Active model after policy clears its selection", async (t) => {
+test("the vision picker shows the override unset after policy clears its selection", async (t) => {
   const React = require("react");
   const { renderToStaticMarkup } = require("react-dom/server");
   const { vite } = await loadStore(
@@ -154,9 +154,11 @@ test("the vision picker shows no Active model after policy clears its selection"
     );
 
   const visionMarkup = renderEditor("dictationAgentVision");
-  assert.ok(visionMarkup.includes("GPT-5 Mini"), "the model list is actually rendered");
-  assert.ok(!visionMarkup.includes(`>${i18n.t("common.active")}<`));
-  assert.ok(renderEditor("dictationAgent").includes(`>${i18n.t("common.active")}<`));
+  // The picker shows the override as unset, with what answers meanwhile.
+  assert.ok(visionMarkup.includes(i18n.t("modelPicker.trigger.choose")), "the picker renders");
+  assert.ok(visionMarkup.includes("Not set: screenshots go to the Voice Assistant"), "the unset override says what answers");
+  assert.ok(!visionMarkup.includes("Gemini 2.5 Flash"), "the cleared pick isn't shown");
+  assert.ok(renderEditor("dictationAgent").includes("GPT-5 Mini"));
 });
 
 test("a policy that moves a configured override's provider clears its model", async (t) => {

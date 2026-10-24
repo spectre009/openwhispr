@@ -840,7 +840,8 @@
       "otherGroup": "其他",
       "noSearchResults": "沒有與「{{query}}」相符的模型",
       "selectModelHint": "尚未選擇模型 — 請從下方清單中選擇一個。",
-      "keyRequiredHint": "推論需要 API 金鑰 — 請新增金鑰以使用此供應商。"
+      "keyRequiredHint": "推論需要 API 金鑰 — 請新增金鑰以使用此供應商。",
+      "showMore": "顯示更多（{{remaining}}）"
     },
     "getApiKey": "取得 API Key ->",
     "selectModel": "選擇模型",
@@ -5703,6 +5704,97 @@
       "personal": "您的設定",
       "notSetUp": "尚未設定。在某功能的模型設定中選擇「企業級」，即可使用您組織的 Azure、Bedrock 或 Vertex 憑證。",
       "setUp": "在清理中設定"
+    }
+  },
+  "modelPicker": {
+    "label": "模型",
+    "description": "選擇一個連線和一個模型。API 金鑰和登入在「AI 連線」中管理。",
+    "filterPlaceholder": "篩選模型和連線",
+    "noMatches": "沒有與「{{query}}」相符的項目",
+    "refused": {
+      "title": "無法切換模型",
+      "unavailable": "這個選項已無法使用，請另選一個。"
+    },
+    "reasons": {
+      "cloudOff": "已在「隱私與資料」中關閉",
+      "signedOut": "登入 OpenWhispr 帳戶後才能使用",
+      "copilotScope": "Copilot 只用於清理、風格、翻譯和筆記格式化",
+      "copilotSignedOut": "未登入 GitHub Copilot",
+      "noKey": "未儲存 API 金鑰"
+    },
+    "links": {
+      "openPrivacy": "隱私與資料",
+      "signIn": "登入",
+      "signInCopilot": "在 AI 連線中登入",
+      "addKey": "新增 API 金鑰",
+      "openLocalModels": "AI 連線",
+      "manageCopilot": "在 AI 連線中管理 GitHub 登入"
+    },
+    "cloud": {
+      "automatic": "自動",
+      "automaticSub": "由 OpenWhispr 選擇模型"
+    },
+    "copilot": {
+      "unsupported": "這裡無法使用",
+      "notSignedIn": "登入後即可使用你的 Copilot 模型"
+    },
+    "provider": {
+      "notConnected": "未連線"
+    },
+    "openrouter": {
+      "search": "搜尋 OpenRouter 模型…",
+      "browseHint": "在下方選擇一個模型，將{{feature}}切換到該模型。",
+      "close": "關閉"
+    },
+    "custom": {
+      "title": "自訂端點",
+      "label": "自訂端點…",
+      "sub": "任何相容 OpenAI 的 API",
+      "browseHint": "輸入端點，然後在下方選擇一個模型，將{{feature}}切換到該模型。"
+    },
+    "local": {
+      "title": "本機模型",
+      "download": "下載模型",
+      "downloadMore": "下載更多模型",
+      "downloadSub": "在 AI 連線中"
+    },
+    "selfHosted": {
+      "title": "自行託管",
+      "label": "自行託管伺服器…",
+      "sub": "你網路中的伺服器：URL 和模型"
+    },
+    "enterprise": {
+      "title": "企業",
+      "label": "你所屬組織的雲端…",
+      "sub": "AWS Bedrock 或 Azure OpenAI",
+      "managedSub": "{{provider}} · 由你的組織管理"
+    },
+    "meta": {
+      "apiKey": "API 金鑰",
+      "thisFeature": "僅此功能",
+      "onThisComputer": "在這台電腦上"
+    },
+    "trigger": {
+      "choose": "選擇模型",
+      "optionalUnset": {
+        "dictationAgentVision": "未設定：如果語音助理的模型支援圖片，螢幕截圖會傳送給它"
+      },
+      "local": "本機模型 · 在這台電腦上",
+      "selfHosted": "自行託管 · {{host}}",
+      "enterprise": "{{provider}} · 企業",
+      "custom": "自訂端點 · {{host}}",
+      "apiKey": "{{provider}} · API 金鑰"
+    },
+    "inherit": {
+      "none": "無",
+      "from": "繼承自{{feature}}",
+      "override": "覆寫",
+      "fields": {
+        "provider": "供應商",
+        "endpoint": "端點",
+        "server": "伺服器",
+        "model": "模型"
+      }
     }
   }
 }

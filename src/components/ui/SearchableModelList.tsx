@@ -1,15 +1,19 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useVirtualizer } from "@tanstack/react-virtual";
 import { Search } from "../icons";
 import { Input } from "./input";
+import { Button } from "./button";
 import { ModelCard, type ModelCardOption } from "./ModelCardList";
 import { getRemoteProviderIcon } from "../../utils/providerIcons";
 import { LIST_SEARCH_THRESHOLD } from "../../config/constants";
 
 // Above this count, OpenAICompatiblePanel switches from the plain list to this
-// searchable/grouped/virtualized variant.
+// searchable/grouped variant.
 export const MODEL_SEARCH_THRESHOLD = LIST_SEARCH_THRESHOLD;
+
+// The list grows with its content (no inner scroller: the wheel always moves
+// the page) and shows this many models at a time, with "Show more" for the rest.
+export const MODEL_LIST_PAGE_SIZE = 25;
 
 const OTHER_GROUP = "__other";
 const SELECTED_GROUP = "__selected";
@@ -64,7 +68,8 @@ export default function SearchableModelList({
   const listboxId = useId();
   const [query, setQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState(-1);
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const [limit, setLimit] = useState(MODEL_LIST_PAGE_SIZE);
+  const listRef = useRef<HTMLDivElement>(null);
   const normalizedQuery = query.trim().toLowerCase();
 
   const selectedOption = useMemo(
@@ -124,25 +129,49 @@ export default function SearchableModelList({
     return { rows: result, matchCount: matched };
   }, [models, selectedModel, selectedOption, normalizedQuery, t]);
 
-  const virtualizer = useVirtualizer({
-    count: rows.length,
-    getScrollElement: () => scrollRef.current,
-    estimateSize: (index) => (rows[index].type === "header" ? 30 : 40),
-    getItemKey: (index) => rows[index].key,
-    overscan: 8,
-  });
+  // The rows shown: up to `limit` models (the pinned selection included), with
+  // their group headers; a header whose models are all cut off isn't shown.
+  const { shownRows, hiddenCount } = useMemo(() => {
+    const shown: Row[] = [];
+    let modelsShown = 0;
+    let pendingHeader: Row | null = null;
+    for (const row of rows) {
+      if (row.type === "header") {
+        pendingHeader = row;
+        continue;
+      }
+      if (modelsShown >= limit) break;
+      if (pendingHeader) {
+        shown.push(pendingHeader);
+        pendingHeader = null;
+      }
+      shown.push(row);
+      modelsShown += 1;
+    }
+    const total = rows.filter((row) => row.type === "model").length;
+    return { shownRows: shown, hiddenCount: total - modelsShown };
+  }, [rows, limit]);
 
-  // Reset scroll + keyboard cursor whenever the filtered result set changes.
+  // A new query starts from the top, with the first page.
   useEffect(() => {
     setActiveIndex(-1);
-    virtualizer.scrollToOffset(0);
-  }, [normalizedQuery, virtualizer]);
+    setLimit(MODEL_LIST_PAGE_SIZE);
+  }, [normalizedQuery]);
 
   // Rows also rebuild without a query change (list refetch, selection moving
   // into the pinned group) — indexes shift, so drop the cursor entirely.
   useEffect(() => {
     setActiveIndex(-1);
   }, [models, selectedModel]);
+
+  const activeRow = activeIndex >= 0 ? rows[activeIndex] : undefined;
+  const activeId = activeRow?.type === "model" ? `${listboxId}-${activeRow.data.value}` : undefined;
+
+  // Keep the keyboard cursor in view: the page scrolls, not the list.
+  useEffect(() => {
+    if (!activeId) return;
+    listRef.current?.ownerDocument.getElementById(activeId)?.scrollIntoView?.({ block: "nearest" });
+  }, [activeId]);
 
   const moveActive = (direction: 1 | -1) => {
     const step = (from: number) => {
@@ -152,10 +181,11 @@ export default function SearchableModelList({
       return -1;
     };
     const next = step(activeIndex < 0 && direction < 0 ? rows.length : activeIndex);
-    if (next >= 0) {
-      setActiveIndex(next);
-      virtualizer.scrollToIndex(next, { align: "auto" });
-    }
+    if (next < 0) return;
+    // Moving past the shown models shows the next page.
+    const position = rows.slice(0, next + 1).filter((row) => row.type === "model").length;
+    if (position > limit) setLimit((value) => value + MODEL_LIST_PAGE_SIZE);
+    setActiveIndex(next);
   };
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
@@ -174,8 +204,6 @@ export default function SearchableModelList({
     }
   };
 
-  const activeRow = activeIndex >= 0 ? rows[activeIndex] : undefined;
-  const activeId = activeRow?.type === "model" ? `${listboxId}-${activeRow.data.value}` : undefined;
   const selectedMatches = !!selectedOption && matchesQuery(selectedOption, normalizedQuery);
   const showEmpty = normalizedQuery.length > 0 && matchCount === 0 && !selectedMatches;
 
@@ -201,59 +229,58 @@ export default function SearchableModelList({
         />
       </div>
 
-      {rows.length > 0 && (
-        <div ref={scrollRef} className="overflow-y-auto pe-0.5 max-h-80">
-          <div
-            id={listboxId}
-            role="listbox"
-            aria-label={t("reasoning.custom.searchPlaceholder")}
-            style={{ height: virtualizer.getTotalSize(), width: "100%", position: "relative" }}
-          >
-            {virtualizer.getVirtualItems().map((virtualItem) => {
-              const row = rows[virtualItem.index];
-              const isActive = virtualItem.index === activeIndex;
-              return (
-                <div
-                  key={row.key}
-                  data-index={virtualItem.index}
-                  ref={virtualizer.measureElement}
-                  style={{
-                    position: "absolute",
-                    top: 0,
-                    left: 0,
-                    width: "100%",
-                    transform: `translateY(${virtualItem.start}px)`,
-                  }}
-                >
-                  {row.type === "header" ? (
-                    <div className="flex items-center gap-1.5 px-0.5 pt-2 pb-1">
-                      <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground/70">
-                        {row.label}
-                      </span>
-                      <span className="text-[11px] text-muted-foreground/70 tabular-nums">
-                        {row.count}
-                      </span>
-                    </div>
-                  ) : (
-                    <div
-                      id={`${listboxId}-${row.data.value}`}
-                      role="option"
-                      aria-selected={row.data.value === selectedModel}
-                      className={`pb-0.5 rounded-md ${isActive ? "ring-1 ring-primary/50" : ""}`}
-                    >
-                      <ModelCard
-                        model={row.data}
-                        isSelected={row.data.value === selectedModel}
-                        onSelect={onModelSelect}
-                        truncateDescription
-                      />
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+      {shownRows.length > 0 && (
+        <div
+          ref={listRef}
+          id={listboxId}
+          role="listbox"
+          aria-label={t("reasoning.custom.searchPlaceholder")}
+          className="pe-0.5"
+        >
+          {shownRows.map((row) =>
+            row.type === "header" ? (
+              <div
+                key={row.key}
+                role="presentation"
+                className="flex items-center gap-1.5 px-0.5 pt-2 pb-1"
+              >
+                <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground/70">
+                  {row.label}
+                </span>
+                <span className="text-[11px] text-muted-foreground/70 tabular-nums">
+                  {row.count}
+                </span>
+              </div>
+            ) : (
+              <div
+                key={row.key}
+                id={`${listboxId}-${row.data.value}`}
+                role="option"
+                aria-selected={row.data.value === selectedModel}
+                className={`pb-0.5 rounded-md ${activeRow === row ? "ring-1 ring-primary/50" : ""}`}
+              >
+                <ModelCard
+                  model={row.data}
+                  isSelected={row.data.value === selectedModel}
+                  onSelect={onModelSelect}
+                  truncateDescription
+                />
+              </div>
+            )
+          )}
         </div>
+      )}
+
+      {hiddenCount > 0 && (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => setLimit((value) => value + MODEL_LIST_PAGE_SIZE)}
+          className="h-7 w-full text-xs text-muted-foreground"
+        >
+          {t("reasoning.custom.showMore", { remaining: hiddenCount })}
+        </Button>
       )}
 
       {showEmpty && (

@@ -31,6 +31,10 @@ interface OpenAICompatiblePanelProps {
   // Providers whose /models is public but whose inference needs a key.
   apiKeyRequired?: boolean;
   getKeyUrl?: string;
+  // The key lives elsewhere (OpenRouter's on AI Connections): no key field here.
+  hideApiKey?: boolean;
+  // Replace, never reveal, the saved key (ApiKeyInput's `replace` mode).
+  replaceApiKey?: boolean;
 }
 
 export default function OpenAICompatiblePanel({
@@ -46,6 +50,8 @@ export default function OpenAICompatiblePanel({
   lockedBaseUrl = false,
   apiKeyRequired = false,
   getKeyUrl,
+  hideApiKey = false,
+  replaceApiKey = false,
 }: OpenAICompatiblePanelProps) {
   const { t } = useTranslation();
   const [draftBase, setDraftBase] = useState(baseUrl);
@@ -310,23 +316,50 @@ export default function OpenAICompatiblePanel({
         </div>
       )}
 
-      <div className="space-y-2 pt-3">
-        <div className="flex items-baseline justify-between">
-          <h4 className="font-medium text-foreground">
-            {t(apiKeyRequired ? "common.apiKey" : "reasoning.custom.apiKeyOptional")}
-          </h4>
-          {getKeyUrl && <GetApiKeyLink url={getKeyUrl} />}
+      {!hideApiKey && (
+        <div className="space-y-2 pt-3">
+          <div className="flex items-baseline justify-between">
+            <h4 className="font-medium text-foreground">
+              {t(apiKeyRequired ? "common.apiKey" : "reasoning.custom.apiKeyOptional")}
+            </h4>
+            {getKeyUrl && <GetApiKeyLink url={getKeyUrl} />}
+          </div>
+          {replaceApiKey ? (
+            // Replace mode never shows the saved key, so clearing it is its own action.
+            <div className="flex items-start gap-1.5">
+              <ApiKeyInput
+                className="min-w-0 flex-1"
+                apiKey={apiKey}
+                setApiKey={setApiKey}
+                label=""
+                helpText={apiKeyRequired ? "" : t("reasoning.custom.apiKeyHelp")}
+                replace
+              />
+              {apiKey && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 shrink-0 px-2 text-xs text-muted-foreground hover:text-destructive"
+                  onClick={() => setApiKey("")}
+                >
+                  {t("connections.actions.remove")}
+                </Button>
+              )}
+            </div>
+          ) : (
+            <ApiKeyInput
+              apiKey={apiKey}
+              setApiKey={setApiKey}
+              label=""
+              helpText={apiKeyRequired ? "" : t("reasoning.custom.apiKeyHelp")}
+            />
+          )}
+          {apiKeyRequired && !apiKey?.trim() && (
+            <p className="text-xs text-warning">{t("reasoning.custom.keyRequiredHint")}</p>
+          )}
         </div>
-        <ApiKeyInput
-          apiKey={apiKey}
-          setApiKey={setApiKey}
-          label=""
-          helpText={apiKeyRequired ? "" : t("reasoning.custom.apiKeyHelp")}
-        />
-        {apiKeyRequired && !apiKey?.trim() && (
-          <p className="text-xs text-warning">{t("reasoning.custom.keyRequiredHint")}</p>
-        )}
-      </div>
+      )}
 
       <div className="space-y-2 pt-3">
         <div className="flex items-center justify-between">

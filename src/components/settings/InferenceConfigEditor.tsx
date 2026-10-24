@@ -1,7 +1,7 @@
-import { useCallback } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { useTranslation } from "react-i18next";
-import { Cloud, Key, Cpu, Network, Building2, ShieldCheck, AlertTriangle } from "../icons";
+import { ShieldCheck, AlertTriangle } from "../icons";
 import {
   LLM_ENTERPRISE_POLICY_PROVIDER_IDS,
   llmPolicyProviderIds,
@@ -12,41 +12,61 @@ import {
   type ResolvedLLMConfig,
 } from "../../stores/settingsStore";
 import { usePolicyModeOptions, usePolicySnapshot } from "../../hooks/usePolicy";
-import { InferenceModeSelector } from "../ui/SettingsSection";
-import type { InferenceModeOption } from "../ui/SettingsSection";
-import ReasoningModelSelector from "../ReasoningModelSelector";
+import { GpuStatusBadge } from "../ReasoningModelSelector";
 import EnterpriseSection from "../EnterpriseSection";
 import OpenAICompatiblePanel from "../OpenAICompatiblePanel";
 import { Toggle } from "../ui/toggle";
+import { SettingsPanel, SettingsPanelRow, SettingsRow } from "../ui/SettingsSection";
+import { useSettingsLayout } from "../ui/useSettingsLayout";
+import { cn } from "../lib/utils";
 import type { InferenceMode } from "../../types/electron";
 import {
   INFERENCE_SCOPES,
   type InferenceScope,
   type InferenceScopeDefinition,
 } from "../../config/inferenceScopes";
-import {
-  isProviderValidForMode,
-  getCloudModel,
-  getLocalModel,
-  enterpriseProviderName,
-} from "../../models/ModelRegistry";
+import { getCloudModel, getLocalModel, enterpriseProviderName } from "../../models/ModelRegistry";
 import { useManagedScopeResolution } from "../../stores/enterpriseIdentityStore";
 import { requestSignIn } from "../../utils/requestSignIn";
 import TestConnectionButton from "../TestConnectionButton";
 import { getEnterpriseCallSettings } from "../../services/ai/enterpriseSettings";
 import { Button } from "../ui/button";
-import { COPILOT_PROVIDER_ID, isCopilotScopeSupported } from "../../config/copilot";
+import { API_ENDPOINTS } from "../../config/constants";
+import { COPILOT_PROVIDER_ID } from "../../config/copilot";
+import { useOpenSettingsLink } from "./settingsLink";
+import ManageKeysLink, { SettingsLink } from "./ManageKeysLink";
+import { connectionDestination } from "./connectionProviders";
+import { SETTINGS_PAGES } from "./settingsPages";
+import ModelPicker from "./modelPicker/ModelPicker";
+import {
+  buildModelPickerOptions,
+  describePickerSelection,
+  noteFormattingFields,
+  selectedOptionId,
+  type ModelPickerOption,
+  type NoteFormattingFieldState,
+  type PickerLink,
+  type PickerText,
+} from "./modelPicker/options";
+import { useLlmPickerContext } from "./modelPicker/useLlmPickerContext";
+import { useLlmSelection } from "./modelPicker/selectLlm";
 
-// GitHub Copilot can't run chat or the assistant's tools, so their scopes don't offer it.
-const COPILOT_HIDDEN: readonly string[] = [COPILOT_PROVIDER_ID];
+const LLM_MODES: readonly InferenceMode[] = [
+  "openwhispr",
+  "providers",
+  "local",
+  "self-hosted",
+  "enterprise",
+];
 
-const MODE_LABEL_PREFIX: Record<InferenceScope, string> = {
-  dictationCleanup: "settingsPage.aiModels.modes",
-  noteFormatting: "settingsPage.aiModels.modes",
-  dictationAgent: "dictationAgent.modes",
-  dictationAgentVision: "dictationAgent.modes",
-  chatIntelligence: "agentMode.settings.modes",
-  dictationTranslation: "settingsPage.aiModels.modes",
+/** Each scope's feature name, for "inherited from …" and the browse hints. */
+const SCOPE_TITLE_KEYS: Record<InferenceScope, string> = {
+  dictationCleanup: SETTINGS_PAGES.cleanup.titleKey,
+  dictationAgent: SETTINGS_PAGES.assistant.titleKey,
+  dictationAgentVision: "connections.features.assistantVision",
+  dictationTranslation: SETTINGS_PAGES.translation.titleKey,
+  noteFormatting: SETTINGS_PAGES.noteFormatting.titleKey,
+  chatIntelligence: SETTINGS_PAGES.chat.titleKey,
 };
 
 interface InferenceConfigEditorProps {
@@ -80,118 +100,10 @@ export default function InferenceConfigEditor({
         : resolved;
     })
   );
-  const isSignedIn = useSettingsStore((s) => s.isSignedIn);
-  const keepLocalModelLoaded = useSettingsStore((s) => s.keepLocalModelLoaded);
-  const setKeepLocalModelLoaded = useSettingsStore((s) => s.setKeepLocalModelLoaded);
   const enterpriseSetupMode = useSettingsStore((s) => s.enterpriseSetupMode);
   const setEnterpriseSetupMode = useSettingsStore((s) => s.setEnterpriseSetupMode);
   const managed = useManagedScopeResolution(scope, enterpriseSetupMode);
   const managedAvailable = useManagedScopeResolution(scope, "managed");
-
-  const prefix = MODE_LABEL_PREFIX[scope];
-  const { modes, effectiveMode, isModeAllowed } = usePolicyModeOptions<InferenceModeOption>(
-    (
-      [
-        {
-          id: "openwhispr",
-          label: t(`${prefix}.openwhispr`),
-          description: t(`${prefix}.openwhisprDesc`),
-          icon: <Cloud className="w-4 h-4" />,
-          disabled: !isSignedIn,
-          signInRequired: !isSignedIn,
-        },
-        {
-          id: "providers",
-          label: t(`${prefix}.providers`),
-          description: t(`${prefix}.providersDesc`),
-          icon: <Key className="w-4 h-4" />,
-        },
-        {
-          id: "local",
-          label: t(`${prefix}.local`),
-          description: t(`${prefix}.localDesc`),
-          icon: <Cpu className="w-4 h-4" />,
-        },
-        {
-          id: "self-hosted",
-          label: t(`${prefix}.selfHosted`),
-          description: t(`${prefix}.selfHostedDesc`),
-          icon: <Network className="w-4 h-4" />,
-        },
-        {
-          id: "enterprise",
-          label: t(`${prefix}.enterprise`),
-          description: t(`${prefix}.enterpriseDesc`),
-          icon: <Building2 className="w-4 h-4" />,
-        },
-      ] as InferenceModeOption[]
-    ).filter((mode) => !allowedModes || allowedModes.includes(mode.id)),
-    "llm",
-    config.mode,
-    {
-      byokProviders: llmPolicyProviderIds(scope),
-      enterpriseProviders: LLM_ENTERPRISE_POLICY_PROVIDER_IDS,
-    }
-  );
-
-  const setField = useCallback(
-    <K extends keyof Omit<typeof config, "scope">>(field: K) =>
-      (value: NonNullable<(typeof config)[K]>) => {
-        setResolvedLLMConfig(scope, { [field]: value });
-      },
-    [scope]
-  );
-
-  const handleModeSelect = useCallback(
-    (mode: InferenceMode) => {
-      if (!isModeAllowed(mode)) return;
-      if (mode === "openwhispr" && !isSignedIn) {
-        requestSignIn();
-        return;
-      }
-      if (mode === effectiveMode) return;
-
-      const patch: Parameters<typeof setResolvedLLMConfig>[1] = {
-        mode,
-        cloudMode: mode === "openwhispr" ? "openwhispr" : "byok",
-      };
-      if (!isProviderValidForMode(config.provider, mode)) {
-        patch.provider = "";
-        patch.model = "";
-      }
-      setResolvedLLMConfig(scope, patch);
-      onModeChange?.(mode);
-    },
-    [scope, config.provider, effectiveMode, isSignedIn, onModeChange, isModeAllowed]
-  );
-
-  const setMode = setField("mode");
-  const setProvider = setField("provider");
-  const setModel = setField("model");
-
-  const renderModelSelector = (mode?: "cloud" | "local") => (
-    <ReasoningModelSelector
-      reasoningModel={config.model}
-      setReasoningModel={setModel}
-      localReasoningProvider={config.provider}
-      setLocalReasoningProvider={setProvider}
-      cloudReasoningBaseUrl={config.cloudBaseUrl ?? ""}
-      setCloudReasoningBaseUrl={setField("cloudBaseUrl")}
-      customReasoningApiKey={config.customApiKey ?? ""}
-      setCustomReasoningApiKey={setField("customApiKey")}
-      setReasoningMode={setMode}
-      mode={mode}
-      hiddenProviderIds={isCopilotScopeSupported(scope) ? undefined : COPILOT_HIDDEN}
-    />
-  );
-
-  const showThinkingToggle =
-    effectiveMode === "self-hosted" ||
-    (effectiveMode === "providers" &&
-      (config.provider === "custom" ||
-        config.provider === "openrouter" ||
-        !!getCloudModel(config.model, config.provider)?.supportsThinking)) ||
-    (effectiveMode === "local" && !!getLocalModel(config.model)?.supportsThinking);
 
   if (managed.kind === "error") {
     return (
@@ -286,72 +198,448 @@ export default function InferenceConfigEditor({
           </Button>
         </div>
       )}
-      {modes.length > 1 && (
-        <InferenceModeSelector
-          modes={modes}
-          activeMode={effectiveMode}
-          onSelect={handleModeSelect}
-        />
+      <LlmModelSettings
+        scope={scope}
+        config={config}
+        allowedModes={allowedModes}
+        onModeChange={onModeChange}
+        settingId={settingId}
+      />
+    </div>
+  );
+}
+
+type Translate = (key: string, options?: Record<string, unknown>) => string;
+
+function text(t: Translate, value: PickerText): string {
+  return "text" in value ? value.text : t(value.key, value.params);
+}
+
+/** Fields under the picker that a pick opens without committing yet. */
+type BrowsePanel = "custom" | "openrouter";
+
+/**
+ * The model picker and what sits under it: the fields the selected
+ * connection needs (custom endpoint, self-hosted server, enterprise, the
+ * OpenRouter catalog), then "Disable thinking" and "Keep model loaded" with
+ * their usual visibility. Every pick goes through the selection adapter.
+ */
+function LlmModelSettings({
+  scope,
+  config,
+  allowedModes,
+  onModeChange,
+  settingId,
+}: {
+  scope: InferenceScope;
+  config: ResolvedLLMConfig;
+  allowedModes?: InferenceMode[];
+  onModeChange?: (mode: InferenceMode) => void;
+  settingId?: string;
+}) {
+  const { t } = useTranslation();
+  const { isCompact } = useSettingsLayout();
+  const keepLocalModelLoaded = useSettingsStore((s) => s.keepLocalModelLoaded);
+  const setKeepLocalModelLoaded = useSettingsStore((s) => s.setKeepLocalModelLoaded);
+  const openrouterApiKey = useSettingsStore((s) => s.openrouterApiKey);
+  const policyState = usePolicySnapshot();
+  // Note formatting's own values, to tell which fields it borrows from Cleanup.
+  const noteFormattingOwn = useSettingsStore(
+    useShallow((settings) => {
+      if (scope !== "noteFormatting") return null;
+      const effective = selectPolicyEffectiveSettings(settings, policyState);
+      return {
+        noteFormattingMode: effective.noteFormattingMode,
+        noteFormattingProvider: effective.noteFormattingProvider,
+        noteFormattingModel: effective.noteFormattingModel,
+        noteFormattingCloudBaseUrl: effective.noteFormattingCloudBaseUrl,
+        noteFormattingRemoteUrl: effective.noteFormattingRemoteUrl,
+      };
+    })
+  );
+  const inheritedFields = useMemo<NoteFormattingFieldState[] | null>(
+    () => (noteFormattingOwn ? noteFormattingFields(noteFormattingOwn, config) : null),
+    [noteFormattingOwn, config]
+  );
+
+  // The mode the editor shows, reconciled as the mode cards were (Cloud needs a sign-in).
+  const isSignedIn = useSettingsStore((s) => s.isSignedIn);
+  const modeOptions = useMemo(
+    () =>
+      LLM_MODES.filter((mode) => !allowedModes || allowedModes.includes(mode)).map((id) => ({
+        id,
+        disabled: id === "openwhispr" && !isSignedIn,
+      })),
+    [allowedModes, isSignedIn]
+  );
+  const { effectiveMode } = usePolicyModeOptions(modeOptions, "llm", config.mode, {
+    byokProviders: llmPolicyProviderIds(scope),
+    enterpriseProviders: LLM_ENTERPRISE_POLICY_PROVIDER_IDS,
+  });
+
+  const [open, setOpen] = useState(false);
+  const [browse, setBrowse] = useState<BrowsePanel | null>(null);
+  const current = useMemo(
+    () => ({
+      mode: effectiveMode,
+      provider: config.provider,
+      model: config.model,
+      cloudBaseUrl: config.cloudBaseUrl,
+      remoteUrl: config.remoteUrl,
+    }),
+    [effectiveMode, config.provider, config.model, config.cloudBaseUrl, config.remoteUrl]
+  );
+  const picker = useLlmPickerContext(scope, { allowedModes, current, open });
+  const groups = useMemo(
+    () => buildModelPickerOptions(scope, picker.context),
+    [scope, picker.context]
+  );
+  const summary = useMemo(
+    () => describePickerSelection(scope, picker.context),
+    [scope, picker.context]
+  );
+  const commit = useLlmSelection(scope, {
+    readContext: picker.readContext,
+    managedAvailable: picker.managedAvailable,
+    onModeChange,
+  });
+  const openSettings = useOpenSettingsLink();
+
+  const handleSelect = (option: ModelPickerOption) => {
+    if (option.action === "configureCustom") {
+      setBrowse("custom");
+      return;
+    }
+    if (option.action === "searchOpenRouter") {
+      setBrowse("openrouter");
+      return;
+    }
+    const result = commit(option);
+    if (result.status !== "refused") setBrowse(null);
+  };
+
+  const commitModel = useCallback(
+    (provider: "custom" | "openrouter") => (model: string) => {
+      if (!model) return;
+      const result = commit({ mode: "providers", provider, model });
+      if (result.status === "committed") setBrowse(null);
+    },
+    [commit]
+  );
+
+  const followLink = (link: PickerLink) => {
+    if (link.kind === "signIn") requestSignIn();
+    else openSettings?.(link.destination);
+  };
+
+  const setField = useCallback(
+    <K extends keyof Omit<ResolvedLLMConfig, "scope">>(field: K) =>
+      (value: NonNullable<ResolvedLLMConfig[K]>) => {
+        setResolvedLLMConfig(scope, { [field]: value });
+      },
+    [scope]
+  );
+
+  const showThinkingToggle =
+    effectiveMode === "self-hosted" ||
+    (effectiveMode === "providers" &&
+      (config.provider === "custom" ||
+        config.provider === "openrouter" ||
+        !!getCloudModel(config.model, config.provider)?.supportsThinking)) ||
+    (effectiveMode === "local" && !!getLocalModel(config.model)?.supportsThinking);
+
+  const customCommitted = effectiveMode === "providers" && config.provider === "custom";
+  const fields: BrowsePanel | "selfHosted" | "enterprise" | null =
+    browse ??
+    (customCommitted
+      ? "custom"
+      : effectiveMode === "self-hosted"
+        ? "selfHosted"
+        : effectiveMode === "enterprise"
+          ? "enterprise"
+          : null);
+  const scopeTitle = t(SCOPE_TITLE_KEYS[scope]);
+
+  const groupNotes = {
+    copilot: picker.copilotModels.loading ? (
+      <p className="text-[11px] text-muted-foreground">{t("reasoning.copilot.refreshingModels")}</p>
+    ) : picker.copilotModels.error ? (
+      <p className="flex items-center gap-1 text-[11px] text-destructive">
+        {t("reasoning.copilot.modelsFailed")}
+        <button
+          type="button"
+          tabIndex={-1}
+          onClick={() => void picker.copilotModels.retry()}
+          className="text-link underline decoration-link/30"
+        >
+          {t("reasoning.copilot.retry")}
+        </button>
+      </p>
+    ) : null,
+    "provider:tinfoil": picker.tinfoilModels.loading ? (
+      <p className="text-[11px] text-muted-foreground">{t("reasoning.tinfoil.refreshingModels")}</p>
+    ) : picker.tinfoilModels.error ? (
+      <p className="text-[11px] text-destructive">{t("reasoning.custom.unableToLoadModels")}</p>
+    ) : null,
+  };
+
+  const pickerElement = (
+    <ModelPicker
+      groups={groups}
+      selectedId={selectedOptionId(current)}
+      summary={summary}
+      onSelect={handleSelect}
+      onLink={followLink}
+      canFollow={(link) => link.kind === "signIn" || !!openSettings}
+      groupNotes={groupNotes}
+      label={t("modelPicker.label")}
+      open={open}
+      onOpenChange={setOpen}
+      renderAnchor={
+        inheritedFields
+          ? (openMenu) => (
+              <InheritedFields
+                fields={inheritedFields}
+                from={t(SCOPE_TITLE_KEYS.dictationCleanup)}
+                onOverride={openMenu}
+              />
+            )
+          : undefined
+      }
+    />
+  );
+
+  return (
+    <SettingsPanel>
+      <SettingsPanelRow>
+        {inheritedFields ? (
+          <div className="space-y-2">
+            <PickerHeading />
+            {pickerElement}
+          </div>
+        ) : (
+          <div
+            className={cn(
+              "flex",
+              isCompact ? "flex-col items-stretch gap-2" : "items-center justify-between gap-4"
+            )}
+          >
+            <PickerHeading />
+            <div className={isCompact ? "w-full" : "w-[22rem] max-w-[55%] shrink-0"}>
+              {pickerElement}
+            </div>
+          </div>
+        )}
+        <SelectionLinks provider={effectiveMode === "providers" ? config.provider : ""} />
+        {effectiveMode === "local" && <GpuStatusBadge />}
+      </SettingsPanelRow>
+
+      {fields === "custom" && (
+        <SettingsPanelRow>
+          {!customCommitted && (
+            <BrowseHint
+              text={t("modelPicker.custom.browseHint", { feature: scopeTitle })}
+              onCancel={() => setBrowse(null)}
+            />
+          )}
+          <OpenAICompatiblePanel
+            key="custom"
+            baseUrl={config.cloudBaseUrl ?? ""}
+            setBaseUrl={setField("cloudBaseUrl")}
+            apiKey={config.customApiKey ?? ""}
+            setApiKey={setField("customApiKey")}
+            model={customCommitted ? config.model : ""}
+            setModel={commitModel("custom")}
+            defaultBaseUrl={API_ENDPOINTS.OPENAI_BASE}
+            replaceApiKey
+          />
+        </SettingsPanelRow>
       )}
 
-      {effectiveMode === "providers" && renderModelSelector("cloud")}
-      {effectiveMode === "local" && renderModelSelector("local")}
+      {fields === "openrouter" && (
+        <SettingsPanelRow>
+          <BrowseHint
+            text={t("modelPicker.openrouter.browseHint", { feature: scopeTitle })}
+            onCancel={() => setBrowse(null)}
+            cancelLabel={t("modelPicker.openrouter.close")}
+          />
+          <OpenAICompatiblePanel
+            key="openrouter"
+            baseUrl={API_ENDPOINTS.OPENROUTER_BASE}
+            setBaseUrl={() => {}}
+            apiKey={openrouterApiKey}
+            setApiKey={() => {}}
+            model={
+              effectiveMode === "providers" && config.provider === "openrouter" ? config.model : ""
+            }
+            setModel={commitModel("openrouter")}
+            lockedBaseUrl
+            hideApiKey
+          />
+        </SettingsPanelRow>
+      )}
 
-      {effectiveMode === "self-hosted" && (
-        <OpenAICompatiblePanel
-          baseUrl={config.remoteUrl ?? ""}
-          setBaseUrl={setField("remoteUrl")}
-          apiKey={config.customApiKey ?? ""}
-          setApiKey={setField("customApiKey")}
-          model={config.model}
-          setModel={setModel}
-          baseUrlPlaceholder="http://192.168.1.126:11434/v1"
-          helpExamples={
-            <p className="text-xs text-muted-foreground">
-              {t("reasoning.selfHosted.endpointHelp")}
-            </p>
-          }
-        />
+      {fields === "selfHosted" && (
+        <SettingsPanelRow>
+          <OpenAICompatiblePanel
+            baseUrl={config.remoteUrl ?? ""}
+            setBaseUrl={setField("remoteUrl")}
+            apiKey={config.customApiKey ?? ""}
+            setApiKey={setField("customApiKey")}
+            model={config.model}
+            setModel={setField("model")}
+            baseUrlPlaceholder="http://192.168.1.126:11434/v1"
+            helpExamples={
+              <p className="text-xs text-muted-foreground">
+                {t("reasoning.selfHosted.endpointHelp")}
+              </p>
+            }
+            replaceApiKey
+          />
+        </SettingsPanelRow>
+      )}
+
+      {fields === "enterprise" && (
+        <SettingsPanelRow>
+          <EnterpriseSection
+            currentProvider={config.provider}
+            reasoningModel={config.model}
+            setReasoningModel={setField("model")}
+            setLocalReasoningProvider={setField("provider")}
+          />
+        </SettingsPanelRow>
       )}
 
       {showThinkingToggle && (
-        <div
-          data-setting-id={settingId && `${settingId}.thinking`}
-          className="flex items-start justify-between gap-3 pt-1"
-        >
-          <div className="flex-1 min-w-0">
-            <h4 className="text-sm font-medium text-foreground">
-              {t("reasoning.disableThinking.label")}
-            </h4>
-            <p className="text-xs text-muted-foreground">{t("reasoning.disableThinking.help")}</p>
-          </div>
-          <Toggle checked={config.disableThinking} onChange={setField("disableThinking")} />
-        </div>
+        <SettingsPanelRow data-setting-id={settingId && `${settingId}.thinking`}>
+          <SettingsRow
+            label={t("reasoning.disableThinking.label")}
+            description={t("reasoning.disableThinking.help")}
+          >
+            <Toggle checked={config.disableThinking} onChange={setField("disableThinking")} />
+          </SettingsRow>
+        </SettingsPanelRow>
       )}
 
       {effectiveMode === "local" && (
-        <div
-          data-setting-id={settingId && `${settingId}.keepLoaded`}
-          className="flex items-start justify-between gap-3 pt-1"
-        >
-          <div className="flex-1 min-w-0">
-            <h4 className="text-sm font-medium text-foreground">
-              {t("reasoning.keepModelLoaded.label")}
-            </h4>
-            <p className="text-xs text-muted-foreground">{t("reasoning.keepModelLoaded.help")}</p>
-          </div>
-          <Toggle checked={keepLocalModelLoaded} onChange={setKeepLocalModelLoaded} />
-        </div>
+        <SettingsPanelRow data-setting-id={settingId && `${settingId}.keepLoaded`}>
+          <SettingsRow
+            label={t("reasoning.keepModelLoaded.label")}
+            description={t("reasoning.keepModelLoaded.help")}
+          >
+            <Toggle checked={keepLocalModelLoaded} onChange={setKeepLocalModelLoaded} />
+          </SettingsRow>
+        </SettingsPanelRow>
       )}
+    </SettingsPanel>
+  );
+}
 
-      {effectiveMode === "enterprise" && (
-        <EnterpriseSection
-          currentProvider={config.provider}
-          reasoningModel={config.model}
-          setReasoningModel={setModel}
-          setLocalReasoningProvider={setProvider}
-        />
-      )}
+function PickerHeading() {
+  const { t } = useTranslation();
+  return (
+    <div className="min-w-0 flex-1">
+      <p className="text-xs font-medium text-foreground">{t("modelPicker.label")}</p>
+      <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground/80">
+        {t("modelPicker.description")}
+      </p>
+    </div>
+  );
+}
+
+/** Where the selected connection's key or sign-in is managed. */
+function SelectionLinks({ provider }: { provider: string }) {
+  const { t } = useTranslation();
+  if (provider === COPILOT_PROVIDER_ID) {
+    return (
+      <SettingsLink destination={connectionDestination("copilot")} className="mt-2">
+        {t("modelPicker.links.manageCopilot")}
+      </SettingsLink>
+    );
+  }
+  return <ManageKeysLink provider={provider} className="mt-2" />;
+}
+
+function BrowseHint({
+  text: hint,
+  onCancel,
+  cancelLabel,
+}: {
+  text: string;
+  onCancel: () => void;
+  cancelLabel?: string;
+}) {
+  const { t } = useTranslation();
+  return (
+    <div className="mb-3 flex items-start justify-between gap-3 rounded-md bg-muted/40 px-3 py-2">
+      <p className="text-xs text-muted-foreground">{hint}</p>
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        className="h-6 shrink-0 px-2 text-xs"
+        onClick={onCancel}
+      >
+        {cancelLabel ?? t("common.cancel")}
+      </Button>
+    </div>
+  );
+}
+
+const FIELD_LABEL_KEYS: Record<NoteFormattingFieldState["field"], string> = {
+  provider: "modelPicker.inherit.fields.provider",
+  endpoint: "modelPicker.inherit.fields.endpoint",
+  server: "modelPicker.inherit.fields.server",
+  model: "modelPicker.inherit.fields.model",
+};
+
+/**
+ * Note formatting's fields while any inherits from Cleanup, one row each:
+ * the value, "inherited from Cleanup" when borrowed, and Override, which
+ * opens the picker. Endpoints are edited in the fields below.
+ */
+function InheritedFields({
+  fields,
+  from,
+  onOverride,
+}: {
+  fields: readonly NoteFormattingFieldState[];
+  from: string;
+  onOverride: () => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <div className="divide-y divide-border/60 rounded-md border border-border/70 dark:divide-border-subtle/50 dark:border-border-subtle/60">
+      {fields.map((field) => (
+        <div
+          key={field.field}
+          data-inherited-field={field.field}
+          className="flex items-center gap-3 px-3 py-2"
+        >
+          <span className="w-24 shrink-0 text-xs text-muted-foreground">
+            {t(FIELD_LABEL_KEYS[field.field])}
+          </span>
+          <span className="min-w-0 flex-1 truncate text-xs text-foreground">
+            {text(t, field.value)}
+            {field.inherited && (
+              <span className="ms-2 text-[11px] text-muted-foreground">
+                {t("modelPicker.inherit.from", { feature: from })}
+              </span>
+            )}
+          </span>
+          {field.inherited && (field.field === "provider" || field.field === "model") && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-6 shrink-0 px-2 text-xs"
+              onClick={onOverride}
+            >
+              {t("modelPicker.inherit.override")}
+            </Button>
+          )}
+        </div>
+      ))}
     </div>
   );
 }

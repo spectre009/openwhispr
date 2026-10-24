@@ -89,6 +89,8 @@ const EXPECTED_SHARED_FIELD_DIRECTIONS = {
   "src/components/settings/ChatAgentSettings.tsx": ["auto"],
   "src/components/settings/DictationAgentSettings.tsx": ["auto"],
   "src/components/settings/EnterpriseCheckoutDialog.tsx": ["inherit"],
+  // The model picker's filter: model and provider names, typed in any script.
+  "src/components/settings/modelPicker/ModelPicker.tsx": ["auto"],
   "src/components/settings/ProfileSection.tsx": ["auto", "ltr", "ltr", "ltr"],
   "src/components/settings/WorkspaceDeveloperTab.tsx": ["auto"],
   "src/components/settings/WorkspaceSection.tsx": ["auto"],

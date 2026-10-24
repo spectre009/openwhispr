@@ -840,7 +840,8 @@
       "otherGroup": "Sonstige",
       "noSearchResults": "Keine Modelle für „{{query}}“",
       "selectModelHint": "Noch kein Modell ausgewählt — wählen Sie eines aus der Liste unten.",
-      "keyRequiredHint": "Für die Inferenz ist ein API-Schlüssel erforderlich — fügen Sie einen hinzu, um diesen Anbieter zu nutzen."
+      "keyRequiredHint": "Für die Inferenz ist ein API-Schlüssel erforderlich — fügen Sie einen hinzu, um diesen Anbieter zu nutzen.",
+      "showMore": "Mehr anzeigen ({{remaining}})"
     },
     "getApiKey": "API-Schlüssel holen ->",
     "selectModel": "Modell auswählen",
@@ -5703,6 +5704,97 @@
       "personal": "Ihre Einrichtung",
       "notSetUp": "Nicht eingerichtet. Wählen Sie in den Modelleinstellungen einer Funktion „Enterprise“, um die Azure-, Bedrock- oder Vertex-Zugangsdaten Ihrer Organisation zu nutzen.",
       "setUp": "In der Bereinigung einrichten"
+    }
+  },
+  "modelPicker": {
+    "label": "Modell",
+    "description": "Wähle eine Verbindung und ein Modell. API-Schlüssel und Anmeldungen findest du unter KI-Verbindungen.",
+    "filterPlaceholder": "Modelle und Verbindungen filtern",
+    "noMatches": "Keine Treffer für „{{query}}“",
+    "refused": {
+      "title": "Modell konnte nicht gewechselt werden",
+      "unavailable": "Diese Auswahl ist nicht mehr verfügbar. Wähle eine andere."
+    },
+    "reasons": {
+      "cloudOff": "Unter Datenschutz & Daten ausgeschaltet",
+      "signedOut": "Melde dich bei deinem OpenWhispr-Konto an, um es zu nutzen",
+      "copilotScope": "Copilot dient nur Bereinigung, Stilen, Übersetzung und Notizformatierung",
+      "copilotSignedOut": "Nicht bei GitHub Copilot angemeldet",
+      "noKey": "Kein API-Schlüssel gespeichert"
+    },
+    "links": {
+      "openPrivacy": "Datenschutz & Daten",
+      "signIn": "Anmelden",
+      "signInCopilot": "Unter KI-Verbindungen anmelden",
+      "addKey": "API-Schlüssel hinzufügen",
+      "openLocalModels": "KI-Verbindungen",
+      "manageCopilot": "GitHub-Anmeldung unter KI-Verbindungen verwalten"
+    },
+    "cloud": {
+      "automatic": "Automatisch",
+      "automaticSub": "OpenWhispr wählt das Modell"
+    },
+    "copilot": {
+      "unsupported": "Hier nicht verfügbar",
+      "notSignedIn": "Melde dich an, um deine Copilot-Modelle zu nutzen"
+    },
+    "provider": {
+      "notConnected": "Nicht verbunden"
+    },
+    "openrouter": {
+      "search": "OpenRouter-Modelle durchsuchen…",
+      "browseHint": "Wähle unten ein Modell, um {{feature}} darauf umzustellen.",
+      "close": "Schließen"
+    },
+    "custom": {
+      "title": "Eigener Endpunkt",
+      "label": "Eigener Endpunkt…",
+      "sub": "Jede OpenAI-kompatible API",
+      "browseHint": "Gib den Endpunkt ein und wähle dann unten ein Modell, um {{feature}} darauf umzustellen."
+    },
+    "local": {
+      "title": "Lokale Modelle",
+      "download": "Ein Modell herunterladen",
+      "downloadMore": "Weitere Modelle herunterladen",
+      "downloadSub": "Unter KI-Verbindungen"
+    },
+    "selfHosted": {
+      "title": "Selbst gehostet",
+      "label": "Selbst gehosteter Server…",
+      "sub": "Ein Server in deinem Netzwerk: URL und Modell"
+    },
+    "enterprise": {
+      "title": "Unternehmen",
+      "label": "Die Cloud deiner Organisation…",
+      "sub": "AWS Bedrock oder Azure OpenAI",
+      "managedSub": "{{provider}} · von deiner Organisation verwaltet"
+    },
+    "meta": {
+      "apiKey": "API-Schlüssel",
+      "thisFeature": "Nur diese Funktion",
+      "onThisComputer": "Auf diesem Computer"
+    },
+    "trigger": {
+      "choose": "Modell wählen",
+      "optionalUnset": {
+        "dictationAgentVision": "Nicht festgelegt: Screenshots gehen an das Modell des Sprachassistenten, wenn es Bilder versteht"
+      },
+      "local": "Lokales Modell · auf diesem Computer",
+      "selfHosted": "Selbst gehostet · {{host}}",
+      "enterprise": "{{provider}} · Unternehmen",
+      "custom": "Eigener Endpunkt · {{host}}",
+      "apiKey": "{{provider}} · API-Schlüssel"
+    },
+    "inherit": {
+      "none": "Keiner",
+      "from": "von {{feature}} übernommen",
+      "override": "Überschreiben",
+      "fields": {
+        "provider": "Anbieter",
+        "endpoint": "Endpunkt",
+        "server": "Server",
+        "model": "Modell"
+      }
     }
   }
 }

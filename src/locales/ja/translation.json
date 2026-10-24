@@ -840,7 +840,8 @@
       "otherGroup": "その他",
       "noSearchResults": "「{{query}}」に一致するモデルはありません",
       "selectModelHint": "モデルが未選択です — 下のリストから選択してください。",
-      "keyRequiredHint": "推論には API キーが必要です — このプロバイダーを使用するには追加してください。"
+      "keyRequiredHint": "推論には API キーが必要です — このプロバイダーを使用するには追加してください。",
+      "showMore": "さらに表示（{{remaining}}）"
     },
     "getApiKey": "API キーを取得 ->",
     "selectModel": "モデルを選択",
@@ -5703,6 +5704,97 @@
       "personal": "あなたの設定",
       "notSetUp": "未設定です。組織の Azure、Bedrock、Vertex の認証情報を使うには、機能のモデル設定でエンタープライズを選んでください。",
       "setUp": "クリーンアップで設定"
+    }
+  },
+  "modelPicker": {
+    "label": "モデル",
+    "description": "接続とモデルを選びます。API キーとサインインは AI 接続で管理します。",
+    "filterPlaceholder": "モデルと接続を絞り込み",
+    "noMatches": "「{{query}}」に一致するものはありません",
+    "refused": {
+      "title": "モデルを切り替えられませんでした",
+      "unavailable": "その選択肢は利用できなくなりました。別のものを選んでください。"
+    },
+    "reasons": {
+      "cloudOff": "プライバシーとデータでオフになっています",
+      "signedOut": "使うには OpenWhispr アカウントにサインインしてください",
+      "copilotScope": "Copilot はクリーンアップ、スタイル、翻訳、ノートのフォーマットにのみ使えます",
+      "copilotSignedOut": "GitHub Copilot にサインインしていません",
+      "noKey": "API キーが保存されていません"
+    },
+    "links": {
+      "openPrivacy": "プライバシーとデータ",
+      "signIn": "サインイン",
+      "signInCopilot": "AI 接続でサインイン",
+      "addKey": "API キーを追加",
+      "openLocalModels": "AI 接続",
+      "manageCopilot": "AI 接続で GitHub のサインインを管理"
+    },
+    "cloud": {
+      "automatic": "自動",
+      "automaticSub": "OpenWhispr がモデルを選びます"
+    },
+    "copilot": {
+      "unsupported": "ここでは使用できません",
+      "notSignedIn": "サインインすると Copilot のモデルを使えます"
+    },
+    "provider": {
+      "notConnected": "未接続"
+    },
+    "openrouter": {
+      "search": "OpenRouter のモデルを検索…",
+      "browseHint": "下でモデルを選ぶと、{{feature}}がそのモデルに切り替わります。",
+      "close": "閉じる"
+    },
+    "custom": {
+      "title": "カスタムエンドポイント",
+      "label": "カスタムエンドポイント…",
+      "sub": "OpenAI 互換の任意の API",
+      "browseHint": "エンドポイントを入力し、下でモデルを選ぶと、{{feature}}がそのモデルに切り替わります。"
+    },
+    "local": {
+      "title": "ローカルモデル",
+      "download": "モデルをダウンロード",
+      "downloadMore": "ほかのモデルをダウンロード",
+      "downloadSub": "AI 接続で"
+    },
+    "selfHosted": {
+      "title": "セルフホスト",
+      "label": "セルフホストサーバー…",
+      "sub": "ネットワーク上のサーバー：URL とモデル"
+    },
+    "enterprise": {
+      "title": "エンタープライズ",
+      "label": "組織のクラウド…",
+      "sub": "AWS Bedrock または Azure OpenAI",
+      "managedSub": "{{provider}} · 組織が管理"
+    },
+    "meta": {
+      "apiKey": "API キー",
+      "thisFeature": "この機能のみ",
+      "onThisComputer": "このコンピューター上"
+    },
+    "trigger": {
+      "choose": "モデルを選択",
+      "optionalUnset": {
+        "dictationAgentVision": "未設定：画像に対応していれば、スクリーンショットは音声アシスタントのモデルに送られます"
+      },
+      "local": "ローカルモデル · このコンピューター上",
+      "selfHosted": "セルフホスト · {{host}}",
+      "enterprise": "{{provider}} · エンタープライズ",
+      "custom": "カスタムエンドポイント · {{host}}",
+      "apiKey": "{{provider}} · API キー"
+    },
+    "inherit": {
+      "none": "なし",
+      "from": "{{feature}}から継承",
+      "override": "上書き",
+      "fields": {
+        "provider": "プロバイダー",
+        "endpoint": "エンドポイント",
+        "server": "サーバー",
+        "model": "モデル"
+      }
     }
   }
 }

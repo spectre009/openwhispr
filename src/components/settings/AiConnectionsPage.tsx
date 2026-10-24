@@ -89,8 +89,9 @@ import {
  * Settings › AI Connections & Local Models: every shared credential and
  * sign-in, the per-feature custom and self-hosted endpoints, downloaded
  * models, and the enterprise setup, each with where it's used right now
- * (connectionUsage.ts). Additive: each feature's own key fields stay where
- * they are; this page edits the same store fields through the same setters.
+ * (connectionUsage.ts). The language-model pickers on feature pages take no
+ * keys and link here instead; speech-to-text pickers keep their key fields,
+ * which edit the same store fields through the same setters as this page.
  * Keys only ever show masked, and replacing one never reveals the old one.
  */
 

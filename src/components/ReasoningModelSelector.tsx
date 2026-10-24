@@ -80,7 +80,8 @@ interface ReasoningModelSelectorProps {
   hiddenProviderIds?: readonly string[];
 }
 
-function GpuStatusBadge() {
+/** llama-server's GPU state and the Vulkan download offer, under a local model pick. */
+export function GpuStatusBadge() {
   const { t } = useTranslation();
   const [serverStatus, setServerStatus] = useState<LlamaServerStatus | null>(null);
   const [vulkanStatus, setVulkanStatus] = useState<LlamaVulkanStatus | null>(null);

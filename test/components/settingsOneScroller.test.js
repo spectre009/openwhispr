@@ -10,6 +10,7 @@ const path = require("node:path");
 
 const SRC = path.join(__dirname, "..", "..", "src", "components");
 const SETTINGS_DIR = path.join(SRC, "settings");
+const MODEL_PICKER_DIR = path.join(SETTINGS_DIR, "modelPicker");
 
 const FILES = [
   "SettingsPage.tsx",
@@ -17,10 +18,17 @@ const FILES = [
   "ui/StyleStudio.tsx",
   "ui/PromptTestSet.tsx",
   "ui/PromptLibraryBar.tsx",
+  // The OpenRouter and custom-endpoint model lists under a feature's model picker.
+  "ui/SearchableModelList.tsx",
+  "OpenAICompatiblePanel.tsx",
   ...fs
     .readdirSync(SETTINGS_DIR)
     .filter((name) => name.endsWith(".tsx"))
     .map((name) => `settings/${name}`),
+  ...fs
+    .readdirSync(MODEL_PICKER_DIR)
+    .filter((name) => name.endsWith(".tsx"))
+    .map((name) => `settings/modelPicker/${name}`),
 ];
 
 // Each entry must still match, so a removed scroller takes its entry with it.
@@ -44,6 +52,12 @@ const ALLOWED_SCROLLERS = [
     file: "settings/WorkspaceDeveloperTab.tsx",
     snippet: '<div className="space-y-2 max-h-72 overflow-y-auto">',
     why: "the scope list inside the Create API key dialog",
+  },
+  {
+    file: "settings/modelPicker/ModelPicker.tsx",
+    snippet:
+      'className="max-h-[min(420px,var(--radix-popover-content-available-height))] overflow-y-auto pb-1"',
+    why: "the model picker's menu, a popup portaled outside the page",
   },
 ];
 
@@ -94,4 +108,9 @@ test("the former capped scrollers and editors use the shared components", () => 
   }
   assert.ok(uses("settings/ChatAgentSettings.tsx", "ClampedText"));
   assert.ok(uses("settings/ChatAgentSettings.tsx", "AutoGrowTextarea"));
+  // The long model list (OpenRouter's catalog) grows with the page, a page of models at a time.
+  assert.ok(
+    read("ui/SearchableModelList.tsx").some((line) => line.includes("MODEL_LIST_PAGE_SIZE")),
+    "SearchableModelList caps by count with Show more"
+  );
 });

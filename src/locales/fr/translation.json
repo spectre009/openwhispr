@@ -840,7 +840,8 @@
       "otherGroup": "Autre",
       "noSearchResults": "Aucun modèle ne correspond à « {{query}} »",
       "selectModelHint": "Aucun modèle sélectionné — choisissez-en un dans la liste ci-dessous.",
-      "keyRequiredHint": "Une clé API est requise pour l'inférence — ajoutez-en une pour utiliser ce fournisseur."
+      "keyRequiredHint": "Une clé API est requise pour l'inférence — ajoutez-en une pour utiliser ce fournisseur.",
+      "showMore": "Afficher plus ({{remaining}})"
     },
     "getApiKey": "Obtenir la clé API ->",
     "selectModel": "Sélectionner un modèle",
@@ -5703,6 +5704,97 @@
       "personal": "Votre configuration",
       "notSetUp": "Non configuré. Choisissez Enterprise dans les réglages de modèle d'une fonctionnalité pour utiliser les identifiants Azure, Bedrock ou Vertex de votre organisation.",
       "setUp": "Configurer dans Nettoyage"
+    }
+  },
+  "modelPicker": {
+    "label": "Modèle",
+    "description": "Choisissez une connexion et un modèle. Les clés API et les connexions se trouvent dans Connexions IA.",
+    "filterPlaceholder": "Filtrer les modèles et connexions",
+    "noMatches": "Aucun résultat pour « {{query}} »",
+    "refused": {
+      "title": "Impossible de changer de modèle",
+      "unavailable": "Ce choix n'est plus disponible. Choisissez-en un autre."
+    },
+    "reasons": {
+      "cloudOff": "Désactivé dans Confidentialité & données",
+      "signedOut": "Connectez-vous à votre compte OpenWhispr pour l'utiliser",
+      "copilotScope": "Copilot ne sert que le Nettoyage, les Styles, la Traduction et la Mise en forme des notes",
+      "copilotSignedOut": "Non connecté à GitHub Copilot",
+      "noKey": "Aucune clé API enregistrée"
+    },
+    "links": {
+      "openPrivacy": "Confidentialité & données",
+      "signIn": "Se connecter",
+      "signInCopilot": "Se connecter dans Connexions IA",
+      "addKey": "Ajouter une clé API",
+      "openLocalModels": "Connexions IA",
+      "manageCopilot": "Gérer la connexion GitHub dans Connexions IA"
+    },
+    "cloud": {
+      "automatic": "Automatique",
+      "automaticSub": "OpenWhispr choisit le modèle"
+    },
+    "copilot": {
+      "unsupported": "Indisponible ici",
+      "notSignedIn": "Connectez-vous pour utiliser vos modèles Copilot"
+    },
+    "provider": {
+      "notConnected": "Non connecté"
+    },
+    "openrouter": {
+      "search": "Rechercher des modèles OpenRouter…",
+      "browseHint": "Choisissez un modèle ci-dessous pour y basculer {{feature}}.",
+      "close": "Fermer"
+    },
+    "custom": {
+      "title": "Point de terminaison personnalisé",
+      "label": "Point de terminaison personnalisé…",
+      "sub": "Toute API compatible OpenAI",
+      "browseHint": "Saisissez le point de terminaison, puis choisissez un modèle ci-dessous pour y basculer {{feature}}."
+    },
+    "local": {
+      "title": "Modèles locaux",
+      "download": "Télécharger un modèle",
+      "downloadMore": "Télécharger d'autres modèles",
+      "downloadSub": "Dans Connexions IA"
+    },
+    "selfHosted": {
+      "title": "Auto-hébergé",
+      "label": "Serveur auto-hébergé…",
+      "sub": "Un serveur de votre réseau : URL et modèle"
+    },
+    "enterprise": {
+      "title": "Entreprise",
+      "label": "Le cloud de votre organisation…",
+      "sub": "AWS Bedrock ou Azure OpenAI",
+      "managedSub": "{{provider}} · géré par votre organisation"
+    },
+    "meta": {
+      "apiKey": "Clé API",
+      "thisFeature": "Cette fonctionnalité uniquement",
+      "onThisComputer": "Sur cet ordinateur"
+    },
+    "trigger": {
+      "choose": "Choisir un modèle",
+      "optionalUnset": {
+        "dictationAgentVision": "Non défini : les captures d'écran vont au modèle de l'Assistant vocal s'il gère les images"
+      },
+      "local": "Modèle local · sur cet ordinateur",
+      "selfHosted": "Auto-hébergé · {{host}}",
+      "enterprise": "{{provider}} · Entreprise",
+      "custom": "Point de terminaison personnalisé · {{host}}",
+      "apiKey": "{{provider}} · Clé API"
+    },
+    "inherit": {
+      "none": "Aucun",
+      "from": "hérité de {{feature}}",
+      "override": "Remplacer",
+      "fields": {
+        "provider": "Fournisseur",
+        "endpoint": "Point de terminaison",
+        "server": "Serveur",
+        "model": "Modèle"
+      }
     }
   }
 }

@@ -840,7 +840,8 @@
       "otherGroup": "Altro",
       "noSearchResults": "Nessun modello corrisponde a \"{{query}}\"",
       "selectModelHint": "Nessun modello selezionato — scegline uno dall'elenco qui sotto.",
-      "keyRequiredHint": "Per l'inferenza è richiesta una chiave API — aggiungine una per usare questo provider."
+      "keyRequiredHint": "Per l'inferenza è richiesta una chiave API — aggiungine una per usare questo provider.",
+      "showMore": "Mostra altro ({{remaining}})"
     },
     "getApiKey": "Ottieni la chiave API ->",
     "selectModel": "Seleziona modello",
@@ -5703,6 +5704,97 @@
       "personal": "La tua configurazione",
       "notSetUp": "Non configurato. Scegli Enterprise nelle impostazioni del modello di una funzione per usare le credenziali Azure, Bedrock o Vertex della tua organizzazione.",
       "setUp": "Configura in Pulizia"
+    }
+  },
+  "modelPicker": {
+    "label": "Modello",
+    "description": "Scegli una connessione e un modello. Le chiavi API e gli accessi si trovano in Connessioni IA.",
+    "filterPlaceholder": "Filtra modelli e connessioni",
+    "noMatches": "Nessun risultato per “{{query}}”",
+    "refused": {
+      "title": "Impossibile cambiare modello",
+      "unavailable": "Questa scelta non è più disponibile. Scegline un'altra."
+    },
+    "reasons": {
+      "cloudOff": "Disattivato in Privacy e dati",
+      "signedOut": "Accedi al tuo account OpenWhispr per usarlo",
+      "copilotScope": "Copilot serve solo Pulizia, Stili, Traduzione e Formattazione note",
+      "copilotSignedOut": "Accesso a GitHub Copilot non effettuato",
+      "noKey": "Nessuna chiave API salvata"
+    },
+    "links": {
+      "openPrivacy": "Privacy e dati",
+      "signIn": "Accedi",
+      "signInCopilot": "Accedi in Connessioni IA",
+      "addKey": "Aggiungi una chiave API",
+      "openLocalModels": "Connessioni IA",
+      "manageCopilot": "Gestisci l'accesso a GitHub in Connessioni IA"
+    },
+    "cloud": {
+      "automatic": "Automatico",
+      "automaticSub": "OpenWhispr sceglie il modello"
+    },
+    "copilot": {
+      "unsupported": "Non disponibile qui",
+      "notSignedIn": "Accedi per usare i tuoi modelli Copilot"
+    },
+    "provider": {
+      "notConnected": "Non connesso"
+    },
+    "openrouter": {
+      "search": "Cerca modelli OpenRouter…",
+      "browseHint": "Scegli un modello qui sotto per passare {{feature}} a quello.",
+      "close": "Chiudi"
+    },
+    "custom": {
+      "title": "Endpoint personalizzato",
+      "label": "Endpoint personalizzato…",
+      "sub": "Qualsiasi API compatibile con OpenAI",
+      "browseHint": "Inserisci l'endpoint, poi scegli un modello qui sotto per passare {{feature}} a quello."
+    },
+    "local": {
+      "title": "Modelli locali",
+      "download": "Scarica un modello",
+      "downloadMore": "Scarica altri modelli",
+      "downloadSub": "In Connessioni IA"
+    },
+    "selfHosted": {
+      "title": "Self-hosted",
+      "label": "Server self-hosted…",
+      "sub": "Un server sulla tua rete: URL e modello"
+    },
+    "enterprise": {
+      "title": "Enterprise",
+      "label": "Il cloud della tua organizzazione…",
+      "sub": "AWS Bedrock o Azure OpenAI",
+      "managedSub": "{{provider}} · gestito dalla tua organizzazione"
+    },
+    "meta": {
+      "apiKey": "Chiave API",
+      "thisFeature": "Solo questa funzione",
+      "onThisComputer": "Su questo computer"
+    },
+    "trigger": {
+      "choose": "Scegli un modello",
+      "optionalUnset": {
+        "dictationAgentVision": "Non impostato: gli screenshot vanno al modello dell'Assistente vocale se supporta le immagini"
+      },
+      "local": "Modello locale · su questo computer",
+      "selfHosted": "Self-hosted · {{host}}",
+      "enterprise": "{{provider}} · Enterprise",
+      "custom": "Endpoint personalizzato · {{host}}",
+      "apiKey": "{{provider}} · Chiave API"
+    },
+    "inherit": {
+      "none": "Nessuno",
+      "from": "ereditato da {{feature}}",
+      "override": "Sostituisci",
+      "fields": {
+        "provider": "Provider",
+        "endpoint": "Endpoint",
+        "server": "Server",
+        "model": "Modello"
+      }
     }
   }
 }

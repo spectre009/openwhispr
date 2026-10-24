@@ -409,7 +409,8 @@
       "otherGroup": "أخرى",
       "noSearchResults": "لا توجد نماذج تتطابق مع \"{{query}}\"",
       "selectModelHint": "لم يتم تحديد أي نموذج بعد — اختر واحدًا من القائمة أدناه.",
-      "keyRequiredHint": "مفتاح API مطلوب للاستدلال — أضف واحدًا لاستخدام هذا المزود."
+      "keyRequiredHint": "مفتاح API مطلوب للاستدلال — أضف واحدًا لاستخدام هذا المزود.",
+      "showMore": "عرض المزيد ({{remaining}})"
     },
     "getApiKey": "احصل على مفتاح API الخاص بك ←",
     "selectModel": "تحديد النموذج",
@@ -5829,6 +5830,97 @@
       "personal": "إعدادك",
       "notSetUp": "غير مُعدّ. اختر «مؤسسي» في إعدادات النموذج لميزة ما لاستخدام بيانات اعتماد Azure أو Bedrock أو Vertex الخاصة بمؤسستك.",
       "setUp": "الإعداد في التنظيف"
+    }
+  },
+  "modelPicker": {
+    "label": "النموذج",
+    "description": "اختر اتصالًا ونموذجًا. توجد مفاتيح API وعمليات تسجيل الدخول في اتصالات الذكاء الاصطناعي.",
+    "filterPlaceholder": "تصفية النماذج والاتصالات",
+    "noMatches": "لا شيء يطابق «{{query}}»",
+    "refused": {
+      "title": "تعذّر تبديل النموذج",
+      "unavailable": "هذا الخيار لم يعد متاحًا. اختر خيارًا آخر."
+    },
+    "reasons": {
+      "cloudOff": "مُوقف في الخصوصية والبيانات",
+      "signedOut": "سجّل الدخول إلى حساب OpenWhispr لاستخدامه",
+      "copilotScope": "يخدم Copilot التنظيف والأنماط والترجمة وتنسيق الملاحظات فقط",
+      "copilotSignedOut": "لم يتم تسجيل الدخول إلى GitHub Copilot",
+      "noKey": "لا يوجد مفتاح API محفوظ"
+    },
+    "links": {
+      "openPrivacy": "الخصوصية والبيانات",
+      "signIn": "تسجيل الدخول",
+      "signInCopilot": "سجّل الدخول في اتصالات الذكاء الاصطناعي",
+      "addKey": "أضف مفتاح API",
+      "openLocalModels": "اتصالات الذكاء الاصطناعي",
+      "manageCopilot": "إدارة تسجيل الدخول إلى GitHub في اتصالات الذكاء الاصطناعي"
+    },
+    "cloud": {
+      "automatic": "تلقائي",
+      "automaticSub": "يختار OpenWhispr النموذج"
+    },
+    "copilot": {
+      "unsupported": "غير متاح هنا",
+      "notSignedIn": "سجّل الدخول لاستخدام نماذج Copilot الخاصة بك"
+    },
+    "provider": {
+      "notConnected": "غير متصل"
+    },
+    "openrouter": {
+      "search": "البحث في نماذج OpenRouter…",
+      "browseHint": "اختر نموذجًا أدناه لتبديل {{feature}} إليه.",
+      "close": "إغلاق"
+    },
+    "custom": {
+      "title": "نقطة طرفية مخصّصة",
+      "label": "نقطة طرفية مخصّصة…",
+      "sub": "أي واجهة API متوافقة مع OpenAI",
+      "browseHint": "أدخل النقطة الطرفية، ثم اختر نموذجًا أدناه لتبديل {{feature}} إليه."
+    },
+    "local": {
+      "title": "النماذج المحلية",
+      "download": "تنزيل نموذج",
+      "downloadMore": "تنزيل المزيد من النماذج",
+      "downloadSub": "في اتصالات الذكاء الاصطناعي"
+    },
+    "selfHosted": {
+      "title": "مستضاف ذاتيًا",
+      "label": "خادم مستضاف ذاتيًا…",
+      "sub": "خادم على شبكتك: العنوان والنموذج"
+    },
+    "enterprise": {
+      "title": "المؤسسات",
+      "label": "السحابة الخاصة بمؤسستك…",
+      "sub": "AWS Bedrock أو Azure OpenAI",
+      "managedSub": "{{provider}} · تديره مؤسستك"
+    },
+    "meta": {
+      "apiKey": "مفتاح API",
+      "thisFeature": "لهذه الميزة فقط",
+      "onThisComputer": "على هذا الكمبيوتر"
+    },
+    "trigger": {
+      "choose": "اختر نموذجًا",
+      "optionalUnset": {
+        "dictationAgentVision": "غير محدد: تُرسل لقطات الشاشة إلى نموذج المساعد الصوتي إذا كان يدعم الصور"
+      },
+      "local": "نموذج محلي · على هذا الكمبيوتر",
+      "selfHosted": "مستضاف ذاتيًا · {{host}}",
+      "enterprise": "{{provider}} · المؤسسات",
+      "custom": "نقطة طرفية مخصّصة · {{host}}",
+      "apiKey": "{{provider}} · مفتاح API"
+    },
+    "inherit": {
+      "none": "لا شيء",
+      "from": "موروث من {{feature}}",
+      "override": "تجاوز",
+      "fields": {
+        "provider": "المزوّد",
+        "endpoint": "النقطة الطرفية",
+        "server": "الخادم",
+        "model": "النموذج"
+      }
     }
   }
 }
