@@ -1964,3 +1964,36 @@ a:hover {
   border-radius: 8px;
   background-color: var(--color-border);
 }
+
+/* Settings search lands on a setting by its data-setting-id and flashes it:
+   revealSetting (src/components/settings/search) sets data-search-flash for
+   1.6 s. Reduced motion gets the same highlight, held still. */
+[data-setting-id] {
+  scroll-margin-block: 1rem;
+}
+
+@keyframes settings-search-flash {
+  0%,
+  35% {
+    outline-color: color-mix(in oklch, var(--color-primary) 70%, transparent);
+    box-shadow: inset 0 0 0 100vmax color-mix(in oklch, var(--color-primary) 9%, transparent);
+  }
+  100% {
+    outline-color: transparent;
+    box-shadow: inset 0 0 0 100vmax transparent;
+  }
+}
+
+[data-search-flash] {
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+  animation: settings-search-flash 1.6s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-search-flash] {
+    animation: none !important;
+    outline-color: color-mix(in oklch, var(--color-primary) 70%, transparent);
+    box-shadow: inset 0 0 0 100vmax color-mix(in oklch, var(--color-primary) 9%, transparent);
+  }
+}

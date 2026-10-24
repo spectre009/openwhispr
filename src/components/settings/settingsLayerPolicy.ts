@@ -168,6 +168,43 @@ export function decideSettingsEscape(context: SettingsEscapeContext): SettingsEs
   return "close";
 }
 
+/**
+ * Ctrl+F (⌘F on macOS) focuses the settings search; `/` does too unless focus
+ * is in a text field, where it types. Neither while a hotkey field listens or a
+ * popup or dialog is open over Settings.
+ */
+export function isSettingsSearchShortcut(
+  event: Pick<KeyboardEvent, "key" | "ctrlKey" | "metaKey" | "altKey" | "shiftKey" | "isComposing">,
+  {
+    mac,
+    editableFocused,
+    overlayOpen,
+    capturing,
+  }: { mac: boolean; editableFocused: boolean; overlayOpen: boolean; capturing: boolean }
+): boolean {
+  if (event.isComposing || overlayOpen || capturing) return false;
+  const mod = mac ? event.metaKey : event.ctrlKey;
+  if (mod && !event.altKey && !event.shiftKey && event.key.toLowerCase() === "f") return true;
+  return event.key === "/" && !event.ctrlKey && !event.metaKey && !event.altKey && !editableFocused;
+}
+
+/** Whether a key goes to the settings search, read from the live document. */
+export function readSettingsSearchShortcut(
+  doc: Document,
+  layer: Element | null,
+  event: KeyboardEvent,
+  mac: boolean
+): boolean {
+  const overlays = readOpenOverlays(doc, layer);
+  const active = doc.activeElement;
+  return isSettingsSearchShortcut(event, {
+    mac,
+    editableFocused: !!active && isEditableElement(active),
+    overlayOpen: overlays.dialog || overlays.popup,
+    capturing: doc.querySelector(CAPTURING_HOTKEY) !== null,
+  });
+}
+
 /** The Esc context, read in the capture phase before any handler runs. */
 export function readEscapeContext(
   doc: Document,

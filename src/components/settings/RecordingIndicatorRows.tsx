@@ -240,7 +240,7 @@ export function RecordingIndicatorRows({
 
   return (
     <>
-      <SettingsPanelRow>
+      <SettingsPanelRow data-setting-id="preferences.recording.style">
         <SettingsRow
           label={t("settingsPage.general.floatingIcon.recordingStyle")}
           description={t(STYLE_KEYS[recordingIndicatorStyle].description)}
@@ -275,7 +275,7 @@ export function RecordingIndicatorRows({
           </div>
         </SettingsRow>
       </SettingsPanelRow>
-      <SettingsPanelRow>
+      <SettingsPanelRow data-setting-id="preferences.recording.elapsed">
         <SettingsRow
           label={t("settingsPage.general.floatingIcon.recordingShowElapsed")}
           description={t(
@@ -291,7 +291,7 @@ export function RecordingIndicatorRows({
           />
         </SettingsRow>
       </SettingsPanelRow>
-      <SettingsPanelRow>
+      <SettingsPanelRow data-setting-id="preferences.recording.color">
         <SettingsRow
           label={t("settingsPage.general.floatingIcon.recordingColor")}
           description={t("settingsPage.general.floatingIcon.recordingColorDescription")}
@@ -304,7 +304,7 @@ export function RecordingIndicatorRows({
           />
         </SettingsRow>
       </SettingsPanelRow>
-      <SettingsPanelRow>
+      <SettingsPanelRow data-setting-id="preferences.recording.colorByMode">
         <SettingsRow
           label={t("settingsPage.general.floatingIcon.recordingColorByMode")}
           description={t("settingsPage.general.floatingIcon.recordingColorByModeDescription")}
@@ -314,7 +314,7 @@ export function RecordingIndicatorRows({
       </SettingsPanelRow>
       {recordingColorByMode && (
         <>
-          <SettingsPanelRow>
+          <SettingsPanelRow data-setting-id="preferences.recording.assistantColor">
             <SettingsRow label={t("settingsPage.general.floatingIcon.recordingAssistantColor")}>
               <ColorSwatches
                 label={t("settingsPage.general.floatingIcon.recordingAssistantColor")}
@@ -324,7 +324,7 @@ export function RecordingIndicatorRows({
               />
             </SettingsRow>
           </SettingsPanelRow>
-          <SettingsPanelRow>
+          <SettingsPanelRow data-setting-id="preferences.recording.translationColor">
             <SettingsRow label={t("settingsPage.general.floatingIcon.recordingTranslationColor")}>
               <ColorSwatches
                 label={t("settingsPage.general.floatingIcon.recordingTranslationColor")}
@@ -336,7 +336,7 @@ export function RecordingIndicatorRows({
           </SettingsPanelRow>
         </>
       )}
-      <SettingsPanelRow>
+      <SettingsPanelRow data-setting-id="preferences.recording.edgeStrip">
         <SettingsRow
           label={t("settingsPage.general.floatingIcon.edgeStrip")}
           description={t("settingsPage.general.floatingIcon.edgeStripDescription")}
@@ -383,7 +383,7 @@ export function RecordingIndicatorRows({
           </div>
         </SettingsRow>
       </SettingsPanelRow>
-      <SettingsPanelRow>
+      <SettingsPanelRow data-setting-id="preferences.recording.tray">
         <SettingsRow
           label={t("settingsPage.general.floatingIcon.recordingTray")}
           description={t("settingsPage.general.floatingIcon.recordingTrayDescription")}
@@ -391,7 +391,7 @@ export function RecordingIndicatorRows({
           <Toggle checked={recordingTrayIndicator} onChange={setRecordingTrayIndicator} />
         </SettingsRow>
       </SettingsPanelRow>
-      <SettingsPanelRow>
+      <SettingsPanelRow data-setting-id="preferences.recording.reminder">
         <SettingsRow
           label={t("settingsPage.general.floatingIcon.recordingReminder")}
           description={t("settingsPage.general.floatingIcon.recordingReminderDescription")}

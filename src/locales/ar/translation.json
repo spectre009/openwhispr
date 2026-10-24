@@ -3317,6 +3317,57 @@
     "sections": "أقسام الإعدادات",
     "appViews": "أقسام التطبيق"
   },
+  "settingsSearch": {
+    "placeholder": "البحث في الإعدادات",
+    "clear": "مسح البحث",
+    "breadcrumb": "البحث",
+    "resultsTitle": "نتائج «{{query}}»",
+    "resultsLabel": "نتائج البحث في الإعدادات",
+    "hint": "Enter يفتح النتيجة المحددة · ↑ ↓ للتنقل · Esc للمسح",
+    "noResultsTitle": "لا توجد إعدادات تطابق «{{query}}»",
+    "noResultsHint": "يشمل البحث أيضًا أسماء النماذج والمزودين واختصارات لوحة المفاتيح: جرّب «push to talk» أو «groq» أو «F8».",
+    "goTo": "الانتقال إلى «{{setting}}»",
+    "groups": {
+      "elsewhere": "في أماكن أخرى من OpenWhispr"
+    },
+    "titles": {
+      "dictationEngine": "محرك تحويل الكلام إلى نص للإملاء",
+      "noteRecordingEngine": "محرك تحويل الكلام إلى نص لتسجيل الملاحظات",
+      "uploadEngine": "محرك تحويل الكلام إلى نص للملفات الصوتية المرفوعة",
+      "cleanupModel": "نموذج التنظيف",
+      "assistantModel": "نموذج المساعد الصوتي",
+      "translationModel": "نموذج الترجمة",
+      "noteFormattingModel": "نموذج تنسيق الملاحظات",
+      "chatModel": "نموذج الدردشة"
+    },
+    "descriptions": {
+      "engine": "أين يتم التفريغ (سحابة OpenWhispr، أو مفتاح API الخاص بك، أو هذا الجهاز، أو خادم مستضاف ذاتيًا) وأي نموذج يُستخدم.",
+      "model": "أين يعمل النموذج (سحابة OpenWhispr، أو مفتاح API الخاص بك، أو هذا الجهاز، أو خادم مستضاف ذاتيًا، أو المؤسسة)، ومع أي مزود ونموذج."
+    },
+    "elsewhere": {
+      "dictionary": "الكلمات والمقتطفات ومصطلحات المسرد التي يجب أن يكتبها OpenWhispr بشكل صحيح دائمًا. يُفتح خارج الإعدادات.",
+      "integrations": "يفتح صفحة التكاملات خارج الإعدادات."
+    },
+    "reasons": {
+      "hiddenWhileOff": "مخفي ما دام «{{setting}}» متوقفًا. شغّله من {{page}}.",
+      "requiresSetting": "يظهر عند تشغيل «{{setting}}».",
+      "signIn": "سجّل الدخول إلى حساب OpenWhispr لاستخدام هذا.",
+      "macOnly": "متاح على macOS فقط.",
+      "waylandOnly": "متاح على Linux مع Wayland فقط.",
+      "multiGpu": "يظهر على الأجهزة التي تحتوي على أكثر من وحدة معالجة رسومات NVIDIA.",
+      "autoLanguageOnly": "يظهر عند ضبط «{{setting}}» على الاكتشاف التلقائي.",
+      "localWhisperOnly": "يظهر عندما يستخدم الإملاء نموذج Whisper محليًا.",
+      "localModelOnly": "يظهر عندما تعمل هذه الميزة على نموذج محلي.",
+      "streamingOnly": "يظهر للمحركات التي تبث النص أثناء حديثك.",
+      "managerOnly": "يظهر لمالكي مساحة العمل ومسؤوليها."
+    },
+    "aliases": {
+      "pushToTalk": "اضغط للتحدث",
+      "darkMode": "الوضع الداكن",
+      "autostart": "التشغيل التلقائي",
+      "shortcut": "اختصار لوحة المفاتيح"
+    }
+  },
   "settingsPage": {
     "workspace": {
       "title": "مساحة العمل",
@@ -5303,8 +5354,8 @@
   "commandSearch": {
     "allSpaces": "جميع المساحات",
     "title": "البحث",
-    "description": "البحث في جميع الملاحظات والنصوص المفرَّغة",
-    "placeholder": "البحث في الملاحظات والنصوص المفرَّغة...",
+    "description": "البحث في جميع الملاحظات والنصوص المفرَّغة والإعدادات",
+    "placeholder": "البحث في الملاحظات والنصوص المفرَّغة والإعدادات...",
     "sections": {
       "notes": "الملاحظات",
       "transcripts": "النصوص المفرَّغة",

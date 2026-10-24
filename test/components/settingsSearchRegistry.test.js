@@ -1,0 +1,394 @@
+const test = require("node:test");
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
+const { LOCALES, readLocale, makeContext, translators } = require("../lib/settingsSearchFixtures");
+
+// The settings search registry against the source: every descriptor lands on a
+// `data-setting-id` that the markup renders, every anchor in the markup has a
+// descriptor, every location is a real section and sub-tab, every string
+// exists in all 11 locales, and availability explains prerequisites instead of
+// hiding results or pointing at something that isn't rendered.
+
+const SRC = path.join(__dirname, "..", "..", "src");
+const COMPONENTS = path.join(SRC, "components");
+
+async function load() {
+  const registry = await import("../../src/components/settings/search/registry.ts");
+  const types = await import("../../src/components/settings/search/types.ts");
+  const index = await import("../../src/components/settings/search/searchIndex.ts");
+  const match = await import("../../src/components/settings/search/match.ts");
+  const action = await import("../../src/components/settings/search/openSettingsResult.ts");
+  return {
+    ...(registry.default ?? registry),
+    ...(types.default ?? types),
+    ...(index.default ?? index),
+    ...(match.default ?? match),
+    ...(action.default ?? action),
+  };
+}
+
+function componentFiles(directory = COMPONENTS) {
+  return fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    const absolute = path.join(directory, entry.name);
+    if (entry.isDirectory()) return componentFiles(absolute);
+    return /\.tsx?$/.test(entry.name) ? [absolute] : [];
+  });
+}
+
+// Editors take a base anchor and render these rows under it (InferenceConfigEditor).
+const DERIVED_ANCHOR_SUFFIXES = { InferenceConfigEditor: [".thinking", ".keepLoaded"] };
+
+/**
+ * Anchors the markup renders: `data-setting-id="x"`, the string results of a
+ * `data-setting-id={cond ? "a" : "b"}` expression (comparison operands aren't
+ * anchors), and the documented derived anchors.
+ */
+function sourceAnchors() {
+  const anchors = new Map();
+  const add = (anchor, file) => {
+    if (!anchors.has(anchor)) anchors.set(anchor, new Set());
+    anchors.get(anchor).add(path.relative(SRC, file));
+  };
+  for (const file of componentFiles()) {
+    const text = fs.readFileSync(file, "utf8");
+    for (const match of text.matchAll(/data-setting-id=(?:"([^"]+)"|\{([^}]*)\})/g)) {
+      if (match[1]) add(match[1], file);
+      else {
+        const expression = match[2].replace(/[!=]==?\s*"[^"]*"/g, "");
+        for (const literal of expression.matchAll(/"([^"]+)"/g)) add(literal[1], file);
+      }
+    }
+    for (const [component, suffixes] of Object.entries(DERIVED_ANCHOR_SUFFIXES)) {
+      const usage = new RegExp(`<${component}\\b[^>]*?data-setting-id="([^"]+)"`, "gs");
+      for (const match of text.matchAll(usage)) {
+        for (const suffix of suffixes) add(`${match[1]}${suffix}`, file);
+      }
+    }
+  }
+  return anchors;
+}
+
+const get = (data, key) => key.split(".").reduce((node, part) => node?.[part], data);
+
+test("descriptor ids are unique and scope-qualified", async () => {
+  const { SETTINGS_SEARCH_DESCRIPTORS } = await load();
+  const ids = SETTINGS_SEARCH_DESCRIPTORS.map((descriptor) => descriptor.id);
+  assert.deepEqual(
+    ids.filter((id, index) => ids.indexOf(id) !== index),
+    [],
+    "duplicate ids"
+  );
+  for (const id of ids) assert.match(id, /^[a-z][A-Za-z0-9]*(\.[a-z][A-Za-z0-9]*)+$/, id);
+  assert.ok(ids.length >= 120, `${ids.length} descriptors`);
+});
+
+test("every descriptor anchor is rendered by the markup", async () => {
+  const { SETTINGS_SEARCH_DESCRIPTORS } = await load();
+  const anchors = sourceAnchors();
+  const missing = [];
+  for (const descriptor of SETTINGS_SEARCH_DESCRIPTORS) {
+    for (const anchor of [descriptor.anchor, descriptor.fallbackAnchor]) {
+      if (anchor && !anchors.has(anchor)) missing.push(`${descriptor.id} → ${anchor}`);
+    }
+    for (const anchor of descriptor.reveal?.expand ?? []) {
+      if (!anchors.has(anchor)) missing.push(`${descriptor.id} expands ${anchor}`);
+    }
+  }
+  assert.deepEqual(missing, [], "add data-setting-id to the row, or fix the descriptor");
+});
+
+test("every data-setting-id in the markup has a descriptor", async () => {
+  const { SETTINGS_SEARCH_DESCRIPTORS } = await load();
+  const used = new Set(
+    SETTINGS_SEARCH_DESCRIPTORS.flatMap((descriptor) => [
+      descriptor.anchor,
+      descriptor.fallbackAnchor,
+      ...(descriptor.reveal?.expand ?? []),
+    ])
+  );
+  const orphans = [...sourceAnchors()]
+    .filter(([anchor]) => !used.has(anchor))
+    .map(([anchor, files]) => `${anchor} (${[...files].join(", ")})`);
+  assert.deepEqual(orphans, [], "add a descriptor to settings/search/registry.ts");
+});
+
+test("settings land on an anchor, pages and app pages navigate", async () => {
+  const { SETTINGS_SEARCH_DESCRIPTORS } = await load();
+  for (const descriptor of SETTINGS_SEARCH_DESCRIPTORS) {
+    if (descriptor.kind === "setting") {
+      assert.ok(descriptor.anchor, `${descriptor.id} has an anchor`);
+      assert.ok(descriptor.location, `${descriptor.id} has a location`);
+    } else if (descriptor.kind === "page") {
+      assert.equal(descriptor.anchor, undefined, descriptor.id);
+      assert.ok(descriptor.location, `${descriptor.id} has a location`);
+    } else {
+      assert.ok(["dictionary", "integrations"].includes(descriptor.elsewhere?.view), descriptor.id);
+      assert.equal(descriptor.location, undefined, descriptor.id);
+    }
+  }
+});
+
+test("every location is a real section and sub-tab", async () => {
+  const { SETTINGS_SEARCH_DESCRIPTORS, SETTINGS_SECTION_ORDER, SETTINGS_SUB_TABS } = await load();
+  // The sub-tab lists mirror the ones the components render.
+  const read = (file) => fs.readFileSync(path.join(COMPONENTS, file), "utf8");
+  const list = (text, pattern) =>
+    [...(text.match(pattern)?.[1] ?? "").matchAll(/"([^"]+)"/g)].map((m) => m[1]);
+  const page = read("SettingsPage.tsx");
+  assert.deepEqual(list(page, /const SPEECH_TABS: SpeechTab\[\] = \[([^\]]*)\]/), [
+    ...SETTINGS_SUB_TABS.speechToText,
+  ]);
+  assert.deepEqual(list(page, /const LLM_TABS: LlmTab\[\] = \[([^\]]*)\]/), [
+    ...SETTINGS_SUB_TABS.llms,
+  ]);
+  assert.deepEqual(list(read("settings/WorkspaceSection.tsx"), /const SUB_TABS = \[([^\]]*)\]/), [
+    ...SETTINGS_SUB_TABS.workspace,
+  ]);
+  const sectionType = page.match(/export type SettingsSectionType =([^;]*);/)[1];
+  assert.deepEqual(
+    [...sectionType.matchAll(/"([^"]+)"/g)].map((m) => m[1]).sort(),
+    [...SETTINGS_SECTION_ORDER].sort()
+  );
+
+  for (const { id, location } of SETTINGS_SEARCH_DESCRIPTORS) {
+    if (!location) continue;
+    assert.ok(SETTINGS_SECTION_ORDER.includes(location.section), `${id}: ${location.section}`);
+    if (location.subTab) {
+      assert.ok(
+        SETTINGS_SUB_TABS[location.section]?.includes(location.subTab),
+        `${id}: ${location.section}/${location.subTab}`
+      );
+    }
+  }
+});
+
+test("every search string exists in all 11 locales", async () => {
+  const lib = await load();
+  const keys = new Set(lib.SETTINGS_SEARCH_REASON_KEYS);
+  for (const descriptor of lib.SETTINGS_SEARCH_DESCRIPTORS) {
+    for (const key of [descriptor.titleKey, descriptor.descriptionKey, descriptor.groupKey]) {
+      if (key) keys.add(key);
+    }
+    for (const key of descriptor.aliasKeys ?? []) keys.add(key);
+    const { location } = descriptor;
+    if (location) {
+      keys.add(`settingsModal.sections.${location.section}.label`);
+      if (location.subTab) keys.add(lib.subTabLabelKey(location.section, location.subTab));
+    }
+  }
+  // Strings the search UI and the index ask for directly.
+  for (const file of componentFiles(path.join(COMPONENTS, "settings", "search"))) {
+    const text = fs.readFileSync(file, "utf8");
+    for (const match of text.matchAll(/["'`](settingsSearch\.[A-Za-z.]+)["'`]/g))
+      keys.add(match[1]);
+  }
+  keys.add("sidebar.integrations");
+  for (const lang of LOCALES) {
+    const data = readLocale(lang);
+    const missing = [...keys].filter((key) => typeof get(data, key) !== "string");
+    assert.deepEqual(missing, [], `${lang} is missing keys`);
+  }
+});
+
+// Contexts covering every rule's branches.
+const CONTEXTS = [
+  makeContext(),
+  makeContext({ cloudDisabled: true, isSignedIn: false }),
+  makeContext({ isSignedIn: false }),
+  makeContext({ agentAllowed: false, screenContextAllowed: false, visionOverrideAllowed: false }),
+  makeContext({
+    platform: "darwin",
+    gpuCount: 2,
+    on: Object.fromEntries(
+      [
+        "cleanup",
+        "assistant",
+        "screenContext",
+        "visionModel",
+        "translation",
+        "noteFiles",
+        "colorByMode",
+        "autoLanguage",
+        "localWhisper",
+        "transcriptionPreview",
+      ].map((flag) => [flag, false])
+    ),
+    localLlm: { dictationCleanup: false },
+  }),
+  makeContext({ platform: "linux", isWayland: true, canManageWorkspace: false }),
+];
+
+test("every unavailable result names a reason and an existing prerequisite", async () => {
+  const { SETTINGS_SEARCH_DESCRIPTORS, findSettingDescriptor, settingAvailability } = await load();
+  for (const ctx of CONTEXTS) {
+    for (const descriptor of SETTINGS_SEARCH_DESCRIPTORS) {
+      const availability = settingAvailability(descriptor, ctx);
+      if (availability === true || availability === null) continue;
+      assert.ok(availability.reason, `${descriptor.id} has a reason`);
+      if (availability.prerequisite) {
+        const prerequisite = findSettingDescriptor(availability.prerequisite);
+        assert.ok(prerequisite, `${descriptor.id} → ${availability.prerequisite}`);
+        assert.notEqual(prerequisite.id, descriptor.id);
+        assert.equal(prerequisite.kind, "setting", `${prerequisite.id} lands on a setting`);
+      }
+    }
+  }
+});
+
+async function searchIndex(ctx, lang = "en") {
+  const lib = await load();
+  const { t, tEn } = await translators(lang);
+  return {
+    ...lib,
+    index: lib.buildSettingsSearchIndex({
+      descriptors: lib.SETTINGS_SEARCH_DESCRIPTORS,
+      ctx,
+      t,
+      tEn,
+    }),
+  };
+}
+
+test("with Cloud off, account results explain the prerequisite and link to it", async () => {
+  const { index, rankSettings, settingsSearchAction } = await searchIndex(
+    makeContext({ cloudDisabled: true, isSignedIn: false })
+  );
+  const results = rankSettings(index, "account");
+  assert.ok(results.length > 0, "searching “account” is never empty");
+  const profile = results.find((result) => result.entry.id === "page.account").entry;
+  assert.equal(
+    profile.unavailable.reason,
+    "Hidden while “OpenWhispr account & Cloud” is off. Turn it on in Privacy & Data."
+  );
+  assert.equal(profile.unavailable.prerequisite, "privacy.cloud");
+  assert.equal(profile.unavailable.prerequisiteTitle, "OpenWhispr account & Cloud");
+  // Opening it goes to the switch, never to the hidden page.
+  assert.deepEqual(settingsSearchAction(profile), {
+    kind: "navigate",
+    location: { section: "privacyData" },
+    settingId: "privacy.cloud",
+    destination: "#privacy.cloud",
+  });
+  for (const id of ["plans.pricing", "workspace.members", "privacy.insightsSync"]) {
+    const entry = index.find((candidate) => candidate.id === id);
+    assert.equal(entry.unavailable?.prerequisite, "privacy.cloud", id);
+  }
+  // The switch itself stays reachable, as does an integrations page that doesn't need Cloud.
+  assert.equal(index.find((e) => e.id === "privacy.cloud").unavailable, undefined);
+  assert.equal(
+    index.find((e) => e.id === "elsewhere.integrations.calendars").unavailable,
+    undefined
+  );
+  assert.ok(index.find((e) => e.id === "elsewhere.integrations.mcp").unavailable);
+});
+
+test("with the agent turned off by policy, assistant and chat results say so", async () => {
+  const { index } = await searchIndex(makeContext({ agentAllowed: false }));
+  const managed = "Managed by your organization";
+  for (const id of [
+    "page.llms.dictationAgent",
+    "assistant.enabled",
+    "assistant.model",
+    "assistant.screenContext",
+    "assistant.name",
+    "chat.model",
+    "chat.prompt",
+    "hotkeys.assistant",
+  ]) {
+    const entry = index.find((candidate) => candidate.id === id);
+    assert.equal(entry.unavailable?.reason, managed, id);
+    assert.equal(entry.unavailable.prerequisite, undefined, `${id} has nothing to turn on`);
+  }
+  assert.equal(index.find((e) => e.id === "translation.enabled").unavailable, undefined);
+});
+
+test("with cleanup off, the cleanup model result leads to the cleanup toggle", async () => {
+  const { index, settingsSearchAction } = await searchIndex(
+    makeContext({ on: { cleanup: false } })
+  );
+  const model = index.find((entry) => entry.id === "dictation.cleanup.model");
+  assert.equal(model.unavailable.reason, "Shown when “Enable text cleanup” is on.");
+  assert.equal(model.unavailable.prerequisite, "dictation.cleanup.enabled");
+  assert.deepEqual(settingsSearchAction(model), {
+    kind: "navigate",
+    location: { section: "llms", subTab: "dictationCleanup" },
+    settingId: "dictation.cleanup.enabled",
+    destination: "#dictation.cleanup.enabled",
+  });
+  // The value still shows what cleanup would use.
+  assert.equal(model.value, "Anthropic · Claude Haiku 4.5");
+  for (const id of ["dictation.cleanup.model.thinking", "dictation.cleanup.model.keepLoaded"]) {
+    assert.equal(
+      index.find((e) => e.id === id).unavailable?.prerequisite,
+      "dictation.cleanup.enabled"
+    );
+  }
+});
+
+test("platform, mode and parent rows explain themselves", async () => {
+  const { index } = await searchIndex(
+    makeContext({
+      platform: "win32",
+      on: { autoLanguage: false, localWhisper: false, noteFiles: false },
+      localLlm: { dictationCleanup: false },
+    })
+  );
+  const reason = (id) => index.find((e) => e.id === id).unavailable;
+  assert.equal(reason("privacy.permissions.accessibility").reason, "Available on macOS only.");
+  assert.equal(
+    reason("dictation.output.waylandPaste").reason,
+    "Available on Linux with Wayland only."
+  );
+  assert.equal(reason("dictation.language.chineseScript").prerequisite, "dictation.language");
+  assert.equal(reason("dictation.stt.vad").prerequisite, "dictation.stt.engine");
+  assert.equal(reason("notes.files.path").prerequisite, "notes.files.enabled");
+  assert.equal(
+    reason("dictation.cleanup.model.keepLoaded").prerequisite,
+    "dictation.cleanup.model"
+  );
+  assert.equal(
+    reason("dictation.stt.gpu").reason,
+    "Shown on computers with more than one NVIDIA GPU."
+  );
+});
+
+test("a signed-in user isn't offered the sign-in card", async () => {
+  const signedIn = await searchIndex(makeContext({ isSignedIn: true }));
+  assert.equal(
+    signedIn.index.find((e) => e.id === "account.signIn"),
+    undefined
+  );
+  const signedOut = await searchIndex(makeContext({ isSignedIn: false }));
+  assert.ok(signedOut.index.find((e) => e.id === "account.signIn"));
+  assert.equal(
+    signedOut.index.find((e) => e.id === "account.delete").unavailable.prerequisite,
+    "account.signIn"
+  );
+});
+
+test("opening results: settings land on their id, pages navigate, app pages leave Settings", async () => {
+  const { settingsSearchAction } = await load();
+  assert.deepEqual(settingsSearchAction({ id: "preferences.theme" }), {
+    kind: "navigate",
+    location: { section: "general" },
+    settingId: "preferences.theme",
+    destination: "#preferences.theme",
+  });
+  assert.deepEqual(settingsSearchAction({ id: "page.llms.dictationAgent" }), {
+    kind: "navigate",
+    location: { section: "llms", subTab: "dictationAgent" },
+    settingId: undefined,
+    destination: "#page.llms.dictationAgent",
+  });
+  assert.deepEqual(settingsSearchAction({ id: "elsewhere.integrations.calendars" }), {
+    kind: "elsewhere",
+    location: { view: "integrations", integrationsSection: "calendars" },
+  });
+  assert.deepEqual(settingsSearchAction({ id: "nope" }), { kind: "none" });
+  assert.deepEqual(
+    settingsSearchAction({ id: "privacy.permissions.accessibility", unavailable: { reason: "x" } }),
+    { kind: "none" },
+    "nothing to open when there is no prerequisite"
+  );
+});

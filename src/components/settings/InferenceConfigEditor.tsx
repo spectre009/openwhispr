@@ -54,12 +54,18 @@ interface InferenceConfigEditorProps {
   onModeChange?: (mode: InferenceMode) => void;
   /** Restrict the selectable modes (e.g. vision override offers cloud/BYOK only). */
   allowedModes?: InferenceMode[];
+  /**
+   * Settings search anchor of the editor; its thinking and keep-loaded rows
+   * take `<id>.thinking` and `<id>.keepLoaded`.
+   */
+  "data-setting-id"?: string;
 }
 
 export default function InferenceConfigEditor({
   scope,
   onModeChange,
   allowedModes,
+  "data-setting-id": settingId,
 }: InferenceConfigEditorProps) {
   const { t } = useTranslation();
   const policyState = usePolicySnapshot();
@@ -189,7 +195,11 @@ export default function InferenceConfigEditor({
 
   if (managed.kind === "error") {
     return (
-      <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3" role="alert">
+      <div
+        data-setting-id={settingId}
+        className="rounded-lg border border-destructive/30 bg-destructive/5 p-3"
+        role="alert"
+      >
         <div className="flex items-start gap-2">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
           <div>
@@ -207,7 +217,10 @@ export default function InferenceConfigEditor({
 
   if (managed.kind === "managed") {
     return (
-      <div className="space-y-3 rounded-lg border border-primary/20 bg-primary/[0.03] p-3">
+      <div
+        data-setting-id={settingId}
+        className="space-y-3 rounded-lg border border-primary/20 bg-primary/[0.03] p-3"
+      >
         <div className="flex items-start gap-2.5">
           <div className="rounded-md bg-primary/10 p-1.5 text-primary">
             <ShieldCheck className="h-4 w-4" />
@@ -249,7 +262,7 @@ export default function InferenceConfigEditor({
   }
 
   return (
-    <div className="space-y-3">
+    <div data-setting-id={settingId} className="space-y-3">
       {enterpriseSetupMode === "manual" && managedAvailable.kind === "managed" && (
         <div className="flex items-center justify-between gap-3 rounded-lg border bg-muted/30 p-3">
           <div className="min-w-0">
@@ -302,7 +315,10 @@ export default function InferenceConfigEditor({
       )}
 
       {showThinkingToggle && (
-        <div className="flex items-start justify-between gap-3 pt-1">
+        <div
+          data-setting-id={settingId && `${settingId}.thinking`}
+          className="flex items-start justify-between gap-3 pt-1"
+        >
           <div className="flex-1 min-w-0">
             <h4 className="text-sm font-medium text-foreground">
               {t("reasoning.disableThinking.label")}
@@ -314,7 +330,10 @@ export default function InferenceConfigEditor({
       )}
 
       {effectiveMode === "local" && (
-        <div className="flex items-start justify-between gap-3 pt-1">
+        <div
+          data-setting-id={settingId && `${settingId}.keepLoaded`}
+          className="flex items-start justify-between gap-3 pt-1"
+        >
           <div className="flex-1 min-w-0">
             <h4 className="text-sm font-medium text-foreground">
               {t("reasoning.keepModelLoaded.label")}

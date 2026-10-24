@@ -154,7 +154,7 @@ export function UploadTranscriptionPanel() {
   );
 
   return (
-    <div className="space-y-3">
+    <div data-setting-id="notes.upload.engine" className="space-y-3">
       <InferenceModeSelector
         modes={transcriptionModes}
         activeMode={effectiveTranscriptionMode}

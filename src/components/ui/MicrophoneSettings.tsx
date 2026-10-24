@@ -118,7 +118,7 @@ export const MicrophoneSettings: React.FC<MicrophoneSettingsProps> = ({
 
   return (
     <div className="space-y-4">
-      <div className="space-y-3">
+      <div data-setting-id="preferences.microphone.device" className="space-y-3">
         <div className="flex items-center gap-2">
           <label className="text-xs font-medium text-foreground">
             {t("microphoneSettings.inputDevice")}
@@ -213,6 +213,7 @@ export const MicrophoneSettings: React.FC<MicrophoneSettingsProps> = ({
       )}
 
       <SettingsRow
+        data-setting-id="preferences.microphone.warmHold"
         label={t("microphoneSettings.warmHold.label")}
         description={t("microphoneSettings.warmHold.description")}
       >

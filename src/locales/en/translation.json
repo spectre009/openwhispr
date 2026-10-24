@@ -1949,6 +1949,57 @@
     "sections": "Settings sections",
     "appViews": "App views"
   },
+  "settingsSearch": {
+    "placeholder": "Search settings",
+    "clear": "Clear search",
+    "breadcrumb": "Search",
+    "resultsTitle": "Results for “{{query}}”",
+    "resultsLabel": "Settings search results",
+    "hint": "Enter opens the highlighted result · ↑ ↓ to move · Esc to clear",
+    "noResultsTitle": "No settings match “{{query}}”",
+    "noResultsHint": "Search also covers model and provider names and hotkeys: try “push to talk”, “groq” or “F8”.",
+    "goTo": "Go to “{{setting}}”",
+    "groups": {
+      "elsewhere": "Elsewhere in OpenWhispr"
+    },
+    "titles": {
+      "dictationEngine": "Speech-to-text engine for dictation",
+      "noteRecordingEngine": "Speech-to-text engine for note recording",
+      "uploadEngine": "Speech-to-text engine for audio uploads",
+      "cleanupModel": "Cleanup model",
+      "assistantModel": "Voice assistant model",
+      "translationModel": "Translation model",
+      "noteFormattingModel": "Note formatting model",
+      "chatModel": "Chat model"
+    },
+    "descriptions": {
+      "engine": "Where transcription runs (OpenWhispr Cloud, your API key, this computer or a self-hosted server) and which model it uses.",
+      "model": "Where the model runs (OpenWhispr Cloud, your API key, this computer, a self-hosted server or enterprise), and which provider and model."
+    },
+    "elsewhere": {
+      "dictionary": "Words, snippets and glossary terms OpenWhispr should always get right. Opens outside Settings.",
+      "integrations": "Opens the Integrations page, outside Settings."
+    },
+    "reasons": {
+      "hiddenWhileOff": "Hidden while “{{setting}}” is off. Turn it on in {{page}}.",
+      "requiresSetting": "Shown when “{{setting}}” is on.",
+      "signIn": "Sign in to your OpenWhispr account to use this.",
+      "macOnly": "Available on macOS only.",
+      "waylandOnly": "Available on Linux with Wayland only.",
+      "multiGpu": "Shown on computers with more than one NVIDIA GPU.",
+      "autoLanguageOnly": "Shown when “{{setting}}” is set to auto-detect.",
+      "localWhisperOnly": "Shown when dictation uses a local Whisper model.",
+      "localModelOnly": "Shown when this feature runs on a local model.",
+      "streamingOnly": "Shown for engines that stream text while you speak.",
+      "managerOnly": "Shown to workspace owners and admins."
+    },
+    "aliases": {
+      "pushToTalk": "push to talk",
+      "darkMode": "dark mode",
+      "autostart": "start automatically",
+      "shortcut": "keyboard shortcut"
+    }
+  },
   "settingsPage": {
     "workspace": {
       "title": "Workspace",
@@ -5177,8 +5228,8 @@
   "commandSearch": {
     "allSpaces": "All spaces",
     "title": "Search",
-    "description": "Search across notes and transcripts",
-    "placeholder": "Search notes and transcripts…",
+    "description": "Search across notes, transcripts and settings",
+    "placeholder": "Search notes, transcripts and settings…",
     "sections": {
       "notes": "Notes",
       "transcripts": "Transcripts",

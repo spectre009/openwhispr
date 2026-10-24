@@ -47,7 +47,7 @@ export function OpenWhisprCloudSwitch({ isSignedIn }: { isSignedIn: boolean }) {
 
   return (
     <SettingsPanel className="mb-4">
-      <SettingsPanelRow>
+      <SettingsPanelRow data-setting-id="privacy.cloud">
         <SettingsRow
           label={t("settingsPage.openWhisprCloud.label")}
           description={

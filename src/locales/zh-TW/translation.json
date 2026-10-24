@@ -1855,6 +1855,57 @@
     "sections": "設定導覽",
     "appViews": "應用程式頁面"
   },
+  "settingsSearch": {
+    "placeholder": "搜尋設定",
+    "clear": "清除搜尋",
+    "breadcrumb": "搜尋",
+    "resultsTitle": "「{{query}}」的搜尋結果",
+    "resultsLabel": "設定搜尋結果",
+    "hint": "按 Enter 開啟醒目提示的結果 · ↑ ↓ 移動 · Esc 清除",
+    "noResultsTitle": "沒有符合「{{query}}」的設定",
+    "noResultsHint": "搜尋也涵蓋模型與供應商名稱以及快速鍵：試試「push to talk」、「groq」或「F8」。",
+    "goTo": "前往「{{setting}}」",
+    "groups": {
+      "elsewhere": "OpenWhispr 的其他位置"
+    },
+    "titles": {
+      "dictationEngine": "聽寫的語音轉文字引擎",
+      "noteRecordingEngine": "筆記錄音的語音轉文字引擎",
+      "uploadEngine": "上傳音訊的語音轉文字引擎",
+      "cleanupModel": "清理模型",
+      "assistantModel": "語音助理模型",
+      "translationModel": "翻譯模型",
+      "noteFormattingModel": "筆記格式化模型",
+      "chatModel": "聊天模型"
+    },
+    "descriptions": {
+      "engine": "轉錄在何處執行（OpenWhispr Cloud、您的 API 金鑰、本機或自架伺服器）以及使用哪個模型。",
+      "model": "模型在何處執行（OpenWhispr Cloud、您的 API 金鑰、本機、自架伺服器或企業版），以及使用哪個供應商與模型。"
+    },
+    "elsewhere": {
+      "dictionary": "OpenWhispr 應一律寫對的字詞、片段與詞彙表詞條。在設定之外開啟。",
+      "integrations": "在設定之外開啟整合頁面。"
+    },
+    "reasons": {
+      "hiddenWhileOff": "「{{setting}}」關閉時隱藏。請在{{page}}中開啟。",
+      "requiresSetting": "開啟「{{setting}}」後顯示。",
+      "signIn": "請登入 OpenWhispr 帳號以使用此功能。",
+      "macOnly": "僅適用於 macOS。",
+      "waylandOnly": "僅適用於使用 Wayland 的 Linux。",
+      "multiGpu": "在配有多張 NVIDIA GPU 的電腦上顯示。",
+      "autoLanguageOnly": "「{{setting}}」設為自動偵測時顯示。",
+      "localWhisperOnly": "聽寫使用本機 Whisper 模型時顯示。",
+      "localModelOnly": "此功能以本機模型執行時顯示。",
+      "streamingOnly": "對說話時即時輸出文字的引擎顯示。",
+      "managerOnly": "向工作區擁有者與管理員顯示。"
+    },
+    "aliases": {
+      "pushToTalk": "按住說話",
+      "darkMode": "深色模式",
+      "autostart": "開機自動啟動",
+      "shortcut": "鍵盤快速鍵"
+    }
+  },
   "settingsPage": {
     "unifiedBilling": {
       "workspaceTitle": "工作區帳單",
@@ -5049,8 +5100,8 @@
   "commandSearch": {
     "allSpaces": "所有空間",
     "title": "搜尋",
-    "description": "搜尋筆記與轉錄",
-    "placeholder": "搜尋筆記與轉錄…",
+    "description": "搜尋筆記、轉錄與設定",
+    "placeholder": "搜尋筆記、轉錄與設定…",
     "sections": {
       "notes": "筆記",
       "transcripts": "轉錄",

@@ -130,7 +130,7 @@ export function FloatingIconPlacementRows({
 
   return (
     <>
-      <SettingsPanelRow>
+      <SettingsPanelRow data-setting-id="preferences.floatingIcon.display">
         <SettingsRow
           label={t("settingsPage.general.floatingIcon.display")}
           description={t("settingsPage.general.floatingIcon.displayDescription")}
@@ -159,7 +159,7 @@ export function FloatingIconPlacementRows({
           </select>
         </SettingsRow>
       </SettingsPanelRow>
-      <SettingsPanelRow>
+      <SettingsPanelRow data-setting-id="preferences.floatingIcon.startPosition">
         <SettingsRow
           label={t("settingsPage.general.floatingIcon.startPosition")}
           description={t(POSITION_LABEL_KEYS[panelStartPosition])}

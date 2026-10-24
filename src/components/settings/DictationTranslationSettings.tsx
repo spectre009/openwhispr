@@ -51,7 +51,7 @@ export default function DictationTranslationSettings() {
         description={t("dictationTranslation.description")}
       />
       <SettingsPanel>
-        <SettingsPanelRow>
+        <SettingsPanelRow data-setting-id="translation.enabled">
           <SettingsRow
             label={t("dictationTranslation.enabled")}
             description={t("dictationTranslation.enabledDescription")}
@@ -64,7 +64,7 @@ export default function DictationTranslationSettings() {
       {useDictationTranslation && (
         <>
           <SettingsPanel>
-            <SettingsPanelRow>
+            <SettingsPanelRow data-setting-id="translation.source">
               <SettingsRow
                 label={t("dictationTranslation.sourceLanguage")}
                 description={t("dictationTranslation.sourceLanguageDescription")}
@@ -75,7 +75,7 @@ export default function DictationTranslationSettings() {
                 />
               </SettingsRow>
             </SettingsPanelRow>
-            <SettingsPanelRow>
+            <SettingsPanelRow data-setting-id="translation.targets">
               <SettingsRow
                 label={t("dictationTranslation.targetsLabel")}
                 description={t("dictationTranslation.maxTargets", {
@@ -145,9 +145,9 @@ export default function DictationTranslationSettings() {
             </p>
           )}
 
-          <InferenceConfigEditor scope="dictationTranslation" />
+          <InferenceConfigEditor scope="dictationTranslation" data-setting-id="translation.model" />
 
-          <div className="border-t border-border/70 pt-6">
+          <div data-setting-id="translation.prompt" className="border-t border-border/70 pt-6">
             <SectionHeader
               title={t("dictationTranslation.prompt.title")}
               description={t("dictationTranslation.prompt.description")}

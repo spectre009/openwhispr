@@ -20,9 +20,9 @@ export default function ChatAgentSettings() {
 
   return (
     <div className="space-y-6">
-      <InferenceConfigEditor scope="chatIntelligence" />
+      <InferenceConfigEditor scope="chatIntelligence" data-setting-id="chat.model" />
 
-      <div>
+      <div data-setting-id="chat.prompt">
         <SectionHeader
           title={t("agentMode.settings.systemPrompt")}
           description={t("agentMode.settings.systemPromptDescription")}

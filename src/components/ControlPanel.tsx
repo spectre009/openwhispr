@@ -57,6 +57,7 @@ import { useControlPanelNavItems, type ControlPanelView } from "./controlPanelNa
 import { useSettingsLayerController } from "./settings/useSettingsLayerController";
 import { drainPendingSettingsSection } from "./settings/settingsNavigation";
 import { COMMAND_PALETTE_ATTRIBUTE } from "./settings/settingsLayerPolicy";
+import type { ElsewhereLocation } from "./settings/search/types";
 import {
   DEFAULT_INTEGRATIONS_SECTION,
   type IntegrationsSection,
@@ -180,6 +181,15 @@ export default function ControlPanel({ initialSettingsSection }: ControlPanelPro
   const closeSettingsForPalette = useCallback(
     () => closeSettings({ ignore: document.querySelector(`[${COMMAND_PALETTE_ATTRIBUTE}]`) }),
     [closeSettings]
+  );
+  // A settings search result that lives outside Settings (Dictionary, Integrations).
+  const openElsewhere = useCallback(
+    (location: ElsewhereLocation, fromPalette = false) => {
+      if (!(fromPalette ? closeSettingsForPalette() : closeSettings())) return;
+      if (location.integrationsSection) setIntegrationsSection(location.integrationsSection);
+      setActiveView(location.view);
+    },
+    [closeSettings, closeSettingsForPalette]
   );
   // Focus returns here when Settings closes and what had focus before is gone.
   const sidebarContainerRef = useRef<HTMLDivElement>(null);
@@ -1205,6 +1215,12 @@ export default function ControlPanel({ initialSettingsSection }: ControlPanelPro
             closeSettingsForPalette();
             setActiveView("home");
           }}
+          // A Settings result opens Settings at it (`#settingId`), or the app page it names.
+          onSettingSelect={(action) => {
+            if (action.kind === "elsewhere") openElsewhere(action.location, true);
+            else openSettings(action.destination);
+          }}
+          settingsFirst={showSettings}
         />
       </Suspense>
 
@@ -1476,6 +1492,7 @@ export default function ControlPanel({ initialSettingsSection }: ControlPanelPro
                 if (closeSettings()) setActiveView(view);
               }}
               onOpenSearch={() => setShowSearch(true)}
+              onOpenElsewhere={openElsewhere}
               returnFocusRef={settingsReturnFocusRef}
               getFallbackFocus={getSettingsFocusFallback}
             />

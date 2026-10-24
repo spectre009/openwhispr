@@ -11,6 +11,8 @@ interface PermissionCardProps {
   buttonText?: string;
   badge?: string;
   hint?: string;
+  /** Settings search anchor (see settings/search/registry.ts). */
+  "data-setting-id"?: string;
 }
 
 export default function PermissionCard({
@@ -22,9 +24,11 @@ export default function PermissionCard({
   buttonText = "Grant Access",
   badge,
   hint,
+  "data-setting-id": settingId,
 }: PermissionCardProps) {
   return (
     <div
+      data-setting-id={settingId}
       className={cn(
         "group relative rounded-md p-3 transition-colors duration-150",
         "border",

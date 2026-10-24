@@ -335,7 +335,10 @@ export default function StyleStudio({ className = "" }: { className?: string }) 
   return (
     <div ref={rootRef} className={cn("space-y-4 scroll-mt-4", className)}>
       {/* ── The dictation hotkey's style ── */}
-      <div className="rounded-xl border border-border/70 dark:border-border-subtle bg-card dark:bg-surface-2 px-5 py-4 space-y-2">
+      <div
+        data-setting-id="dictation.styles.dictationStyle"
+        className="rounded-xl border border-border/70 dark:border-border-subtle bg-card dark:bg-surface-2 px-5 py-4 space-y-2"
+      >
         <div className="flex flex-wrap items-center gap-3">
           <p className="flex-1 min-w-40 text-xs font-medium text-foreground">
             {t("styles.picker.label", { hotkey: hotkeyLabel })}
@@ -383,7 +386,7 @@ export default function StyleStudio({ className = "" }: { className?: string }) 
       </div>
 
       {/* ── The styles ── */}
-      <div className="space-y-1.5">
+      <div data-setting-id="dictation.styles.list" className="space-y-1.5">
         <div className="flex items-center justify-between gap-2">
           <p className="text-xs font-medium text-foreground">{t("styles.list.title")}</p>
           <Button onClick={() => select(NEW_STYLE_ID)} variant="outline" size="sm" className="h-8">

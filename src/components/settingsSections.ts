@@ -68,12 +68,43 @@ export function resolveSettingsSection(
 /** Where a deep link lands: its section (aliases resolved, never a hidden one) and legacy sub-tab. */
 export function resolveSettingsDestination(
   section: string | undefined,
-  cloudDisabled: boolean
-): { section: SettingsSectionType; subTab?: string } {
-  return {
-    section: resolveSettingsSection(section, SECTION_ALIASES, cloudDisabled),
-    subTab: section ? LEGACY_SUB_TAB[section] : undefined,
-  };
+  cloudDisabled: boolean,
+  locateSetting?: (
+    settingId: string
+  ) => { section: SettingsSectionType; subTab?: string } | undefined
+): { section: SettingsSectionType; subTab?: string; settingId?: string } {
+  const { name, settingId } = parseSettingsDestination(section);
+  // A known setting id names its own place (search moves settings by moving that).
+  const located = settingId ? locateSetting?.(settingId) : undefined;
+  const destination = located
+    ? { section: shownSettingsSection(located.section, cloudDisabled), subTab: located.subTab }
+    : {
+        section: resolveSettingsSection(name, SECTION_ALIASES, cloudDisabled),
+        subTab: name ? LEGACY_SUB_TAB[name] : undefined,
+      };
+  return settingId ? { ...destination, settingId } : destination;
+}
+
+/**
+ * A destination string: a section or legacy name (`llms`, `meetings`), a
+ * setting (`#dictation.cleanup.model`), or both (`general#preferences.theme`,
+ * the section being the fallback when the id is unknown).
+ */
+export function parseSettingsDestination(destination: string | undefined): {
+  name?: string;
+  settingId?: string;
+} {
+  if (!destination) return {};
+  const hash = destination.indexOf("#");
+  if (hash < 0) return { name: destination };
+  const name = destination.slice(0, hash) || undefined;
+  const settingId = destination.slice(hash + 1) || undefined;
+  return settingId ? { name, settingId } : { name };
+}
+
+/** The destination string that opens Settings at a setting (see parseSettingsDestination). */
+export function settingDestination(settingId: string, section?: string): string {
+  return `${section ?? ""}#${settingId}`;
 }
 
 /** The section actually shown: an account section falls back once the switch is off. */

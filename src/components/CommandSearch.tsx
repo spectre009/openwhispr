@@ -12,6 +12,8 @@ import {
   Upload,
   MessageSquare,
   ChevronDown,
+  Settings as SettingsIcon,
+  ExternalLink,
 } from "./icons";
 import { cn } from "./lib/utils";
 import { useDismissGuard } from "./ui/useDismissGuard";
@@ -26,6 +28,15 @@ import {
 import type { NoteItem, FolderItem, SpaceItem, TranscriptionItem } from "../types/electron.js";
 import { formatRelativeTime } from "../utils/dateFormatting";
 import { defaultFolderDisplayName, folderMatchesQuery } from "./notes/shared";
+import { useSettingsSearchIndex } from "./settings/search/useSettingsSearchIndex";
+import { rankSettings, type SettingsSearchResult } from "./settings/search/match";
+import {
+  settingsSearchAction,
+  type SettingsSearchAction,
+} from "./settings/search/openSettingsResult";
+
+/** The palette's Settings group shows this many of the best matches. */
+const PALETTE_SETTINGS_LIMIT = 5;
 
 interface ConversationResult {
   id: number;
@@ -51,13 +62,18 @@ export interface CommandSearchProps {
   onContainerSelect?: (spaceId: number, folderId: number | null) => void;
   onTranscriptSelect?: (transcriptId: number) => void;
   onConversationSelect?: (conversationId: number) => void;
+  /** A Settings result: open Settings at it, or the app page it names. */
+  onSettingSelect?: (action: Exclude<SettingsSearchAction, { kind: "none" }>) => void;
+  /** Over Settings, its results come first. */
+  settingsFirst?: boolean;
 }
 
 type FlatItem =
   | { kind: "container"; target: JumpTarget }
   | { kind: "note"; note: NoteItem }
   | { kind: "transcript"; transcript: TranscriptionItem }
-  | { kind: "conversation"; conversation: ConversationResult };
+  | { kind: "conversation"; conversation: ConversationResult }
+  | { kind: "setting"; result: SettingsSearchResult };
 
 function stripMarkdownPreview(text: string): string {
   return (
@@ -82,6 +98,8 @@ export default function CommandSearch({
   onContainerSelect,
   onTranscriptSelect,
   onConversationSelect,
+  onSettingSelect,
+  settingsFirst = false,
 }: CommandSearchProps) {
   const { t } = useTranslation();
   const locale = useUiLocale();
@@ -278,16 +296,38 @@ export default function CommandSearch({
     return slice.slice(0, 5);
   }, [transcriptions, query]);
 
+  // Settings search: the same index and matcher as the Settings nav's field.
+  const settingsQuery = open && !isConversationsMode && !!onSettingSelect ? query.trim() : "";
+  const settingsIndex = useSettingsSearchIndex(settingsQuery.length > 0);
+  const settingResults = useMemo(
+    () =>
+      settingsIndex && settingsQuery
+        ? rankSettings(settingsIndex, settingsQuery, PALETTE_SETTINGS_LIMIT)
+        : [],
+    [settingsIndex, settingsQuery]
+  );
+
   const flatItems = useMemo<FlatItem[]>(() => {
     if (isConversationsMode) {
       return conversations.map((c) => ({ kind: "conversation" as const, conversation: c }));
     }
     const items: FlatItem[] = [];
+    const settings = settingResults.map((result) => ({ kind: "setting" as const, result }));
+    if (settingsFirst) items.push(...settings);
     for (const target of jumpTargets) items.push({ kind: "container", target });
     for (const note of scopedNotes) items.push({ kind: "note", note });
     for (const transcript of filteredTranscripts) items.push({ kind: "transcript", transcript });
+    if (!settingsFirst) items.push(...settings);
     return items;
-  }, [jumpTargets, scopedNotes, filteredTranscripts, conversations, isConversationsMode]);
+  }, [
+    jumpTargets,
+    scopedNotes,
+    filteredTranscripts,
+    conversations,
+    isConversationsMode,
+    settingResults,
+    settingsFirst,
+  ]);
 
   const selectItem = useCallback(
     (item: FlatItem) => {
@@ -296,9 +336,20 @@ export default function CommandSearch({
         onNoteSelect?.(item.note.id, item.note.folder_id ?? null, item.note.space_id);
       else if (item.kind === "transcript") onTranscriptSelect?.(item.transcript.id);
       else if (item.kind === "conversation") onConversationSelect?.(item.conversation.id);
+      else if (item.kind === "setting") {
+        const action = settingsSearchAction(item.result.entry);
+        if (action.kind !== "none") onSettingSelect?.(action);
+      }
       onOpenChange(false);
     },
-    [onNoteSelect, onContainerSelect, onTranscriptSelect, onConversationSelect, onOpenChange]
+    [
+      onNoteSelect,
+      onContainerSelect,
+      onTranscriptSelect,
+      onConversationSelect,
+      onSettingSelect,
+      onOpenChange,
+    ]
   );
 
   const handleKeyDown = useCallback(
@@ -483,6 +534,16 @@ export default function CommandSearch({
               ))
             ) : (
               <>
+                {settingsFirst && settingResults.length > 0 && (
+                  <SettingResultsGroup
+                    results={settingResults}
+                    flatItems={flatItems}
+                    selectedIndex={selectedIndex}
+                    onSelect={(result) => selectItem({ kind: "setting", result })}
+                    onHover={setSelectedIndex}
+                    label={t("settingsModal.title")}
+                  />
+                )}
                 {jumpTargets.length > 0 && (
                   <div>
                     <SectionHeader
@@ -561,6 +622,16 @@ export default function CommandSearch({
                     })}
                   </div>
                 )}
+                {!settingsFirst && settingResults.length > 0 && (
+                  <SettingResultsGroup
+                    results={settingResults}
+                    flatItems={flatItems}
+                    selectedIndex={selectedIndex}
+                    onSelect={(result) => selectItem({ kind: "setting", result })}
+                    onHover={setSelectedIndex}
+                    label={t("settingsModal.title")}
+                  />
+                )}
               </>
             )}
           </div>
@@ -584,6 +655,92 @@ function SectionHeader({ icon, label }: { icon: React.ReactNode; label: string }
       <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/70">
         {label}
       </span>
+    </div>
+  );
+}
+
+/** The palette's Settings group: the best settings search matches. */
+function SettingResultsGroup({
+  results,
+  flatItems,
+  selectedIndex,
+  onSelect,
+  onHover,
+  label,
+}: {
+  results: SettingsSearchResult[];
+  flatItems: FlatItem[];
+  selectedIndex: number;
+  onSelect: (result: SettingsSearchResult) => void;
+  onHover: (index: number) => void;
+  label: string;
+}) {
+  return (
+    <div>
+      <SectionHeader icon={<SettingsIcon size={11} />} label={label} />
+      {results.map((result) => {
+        const { entry } = result;
+        const idx = flatItems.findIndex(
+          (item) => item.kind === "setting" && item.result.entry.id === entry.id
+        );
+        const isSelected = selectedIndex === idx;
+        const Icon = entry.kind === "elsewhere" ? ExternalLink : SettingsIcon;
+        const detail = entry.unavailable?.reason ?? entry.path.join(" › ");
+        return (
+          <button
+            key={entry.id}
+            type="button"
+            data-idx={idx}
+            data-setting-result={entry.id}
+            onClick={() => onSelect(result)}
+            onMouseEnter={() => onHover(idx)}
+            className={cn(
+              "group flex items-center gap-2.5 w-full px-2.5 py-2 rounded-lg text-start transition-colors duration-100 outline-none",
+              isSelected
+                ? "bg-primary/8 dark:bg-primary/10"
+                : "hover:bg-foreground/4 dark:hover:bg-white/4"
+            )}
+          >
+            <Icon
+              size={13}
+              className={cn(
+                "shrink-0 mt-px transition-colors",
+                isSelected ? "text-primary" : "text-muted-foreground/70"
+              )}
+            />
+            <div className="flex-1 min-w-0">
+              <p
+                dir="auto"
+                className={cn(
+                  "text-xs font-medium truncate",
+                  entry.unavailable ? "text-foreground/70" : "text-foreground"
+                )}
+              >
+                {entry.title}
+              </p>
+              {detail && (
+                <p
+                  dir="auto"
+                  className={cn(
+                    "text-[10px] truncate mt-px",
+                    entry.unavailable ? "text-warning" : "text-muted-foreground/70"
+                  )}
+                >
+                  {detail}
+                </p>
+              )}
+            </div>
+            {entry.value && (
+              <span
+                dir="auto"
+                className="max-w-[40%] shrink-0 truncate text-[10px] text-muted-foreground/70"
+              >
+                {entry.value}
+              </span>
+            )}
+          </button>
+        );
+      })}
     </div>
   );
 }

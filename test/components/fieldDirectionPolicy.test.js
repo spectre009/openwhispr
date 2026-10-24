@@ -135,6 +135,8 @@ const EXPECTED_NATIVE_FIELD_DIRECTIONS = {
   "src/components/settings/ProfileSection.tsx": ["inherit"],
   // The custom recording color: a color value, no text.
   "src/components/settings/RecordingIndicatorRows.tsx": ["inherit"],
+  // The settings search query: words in any script.
+  "src/components/settings/search/SettingsSearchField.tsx": ["auto"],
   "src/components/ui/EmojiPicker.tsx": ["auto"],
   "src/components/ui/LanguageSelector.tsx": ["auto"],
 };

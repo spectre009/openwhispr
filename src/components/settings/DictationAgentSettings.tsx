@@ -90,7 +90,7 @@ export default function DictationAgentSettings() {
         description={t("settingsPage.agentConfig.description")}
       />
 
-      <div>
+      <div data-setting-id="assistant.name">
         <p className="text-xs font-medium text-foreground mb-3">
           {t("settingsPage.agentConfig.agentName")}
         </p>
@@ -151,7 +151,7 @@ export default function DictationAgentSettings() {
   return (
     <div className="space-y-4">
       <SettingsPanel>
-        <SettingsPanelRow>
+        <SettingsPanelRow data-setting-id="assistant.enabled">
           <SettingsRow
             label={t("dictationAgent.enabled")}
             description={
@@ -169,7 +169,9 @@ export default function DictationAgentSettings() {
         </SettingsPanelRow>
       </SettingsPanel>
 
-      {useDictationAgent && <InferenceConfigEditor scope="dictationAgent" />}
+      {useDictationAgent && (
+        <InferenceConfigEditor scope="dictationAgent" data-setting-id="assistant.model" />
+      )}
 
       {/* Screen context is a voice-agent sub-feature: hidden when an org
           blocks the agent, since enabling it would grant screen-capture
@@ -181,7 +183,7 @@ export default function DictationAgentSettings() {
             description={t("dictationAgent.screenContext.description")}
           />
           <SettingsPanel>
-            <SettingsPanelRow>
+            <SettingsPanelRow data-setting-id="assistant.screenContext">
               <SettingsRow
                 label={t("dictationAgent.screenContext.enable")}
                 description={
@@ -200,7 +202,7 @@ export default function DictationAgentSettings() {
               </SettingsRow>
             </SettingsPanelRow>
             {screenContextActive && visionOverrideAllowed && (
-              <SettingsPanelRow>
+              <SettingsPanelRow data-setting-id="assistant.visionOverride">
                 <SettingsRow
                   label={t("dictationAgent.screenContext.visionModel")}
                   description={t("dictationAgent.screenContext.visionModelDescription")}
@@ -237,7 +239,7 @@ export default function DictationAgentSettings() {
       {voiceAgentSection}
 
       {useDictationAgent && (
-        <div className="border-t border-border/70 pt-6">
+        <div data-setting-id="assistant.prompt" className="border-t border-border/70 pt-6">
           <SectionHeader
             title={t("dictationAgent.prompt.title")}
             description={t("dictationAgent.prompt.description")}

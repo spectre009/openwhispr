@@ -1855,6 +1855,57 @@
     "sections": "Sezioni delle impostazioni",
     "appViews": "Viste dell'app"
   },
+  "settingsSearch": {
+    "placeholder": "Cerca nelle impostazioni",
+    "clear": "Cancella ricerca",
+    "breadcrumb": "Ricerca",
+    "resultsTitle": "Risultati per «{{query}}»",
+    "resultsLabel": "Risultati della ricerca nelle impostazioni",
+    "hint": "Invio apre il risultato evidenziato · ↑ ↓ per spostarti · Esc per cancellare",
+    "noResultsTitle": "Nessuna impostazione corrisponde a «{{query}}»",
+    "noResultsHint": "La ricerca copre anche i nomi di modelli e provider e le scorciatoie: prova «push to talk», «groq» o «F8».",
+    "goTo": "Vai a «{{setting}}»",
+    "groups": {
+      "elsewhere": "Altrove in OpenWhispr"
+    },
+    "titles": {
+      "dictationEngine": "Motore di riconoscimento vocale per la dettatura",
+      "noteRecordingEngine": "Motore di riconoscimento vocale per la registrazione delle note",
+      "uploadEngine": "Motore di riconoscimento vocale per gli audio caricati",
+      "cleanupModel": "Modello di pulizia",
+      "assistantModel": "Modello dell'assistente vocale",
+      "translationModel": "Modello di traduzione",
+      "noteFormattingModel": "Modello di formattazione delle note",
+      "chatModel": "Modello della chat"
+    },
+    "descriptions": {
+      "engine": "Dove avviene la trascrizione (OpenWhispr Cloud, la tua chiave API, questo computer o un server self-hosted) e con quale modello.",
+      "model": "Dove gira il modello (OpenWhispr Cloud, la tua chiave API, questo computer, un server self-hosted o enterprise), con quale provider e modello."
+    },
+    "elsewhere": {
+      "dictionary": "Parole, snippet e termini del glossario che OpenWhispr deve scrivere sempre correttamente. Si apre fuori dalle impostazioni.",
+      "integrations": "Apre la pagina Integrazioni, fuori dalle impostazioni."
+    },
+    "reasons": {
+      "hiddenWhileOff": "Nascosto finché «{{setting}}» è disattivato. Attivalo in {{page}}.",
+      "requiresSetting": "Mostrato quando «{{setting}}» è attivo.",
+      "signIn": "Accedi al tuo account OpenWhispr per usarlo.",
+      "macOnly": "Disponibile solo su macOS.",
+      "waylandOnly": "Disponibile solo su Linux con Wayland.",
+      "multiGpu": "Mostrato sui computer con più di una GPU NVIDIA.",
+      "autoLanguageOnly": "Mostrato quando «{{setting}}» è impostato sul rilevamento automatico.",
+      "localWhisperOnly": "Mostrato quando la dettatura usa un modello Whisper locale.",
+      "localModelOnly": "Mostrato quando questa funzione usa un modello locale.",
+      "streamingOnly": "Mostrato per i motori che trasmettono il testo mentre parli.",
+      "managerOnly": "Mostrato ai proprietari e agli amministratori del workspace."
+    },
+    "aliases": {
+      "pushToTalk": "premi per parlare",
+      "darkMode": "modalità scura",
+      "autostart": "avvio automatico",
+      "shortcut": "scorciatoia da tastiera"
+    }
+  },
   "settingsPage": {
     "unifiedBilling": {
       "workspaceTitle": "Fatturazione dell'area di lavoro",
@@ -5049,8 +5100,8 @@
   "commandSearch": {
     "allSpaces": "Tutti gli spazi",
     "title": "Cerca",
-    "description": "Cerca tra note e trascrizioni",
-    "placeholder": "Cerca note e trascrizioni…",
+    "description": "Cerca tra note, trascrizioni e impostazioni",
+    "placeholder": "Cerca note, trascrizioni e impostazioni…",
     "sections": {
       "notes": "Note",
       "transcripts": "Trascrizioni",

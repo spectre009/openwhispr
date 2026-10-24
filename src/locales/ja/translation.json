@@ -1855,6 +1855,57 @@
     "sections": "設定メニュー",
     "appViews": "アプリの画面"
   },
+  "settingsSearch": {
+    "placeholder": "設定を検索",
+    "clear": "検索をクリア",
+    "breadcrumb": "検索",
+    "resultsTitle": "「{{query}}」の検索結果",
+    "resultsLabel": "設定の検索結果",
+    "hint": "Enter で選択中の結果を開く · ↑ ↓ で移動 · Esc でクリア",
+    "noResultsTitle": "「{{query}}」に一致する設定はありません",
+    "noResultsHint": "モデル名、プロバイダー名、ホットキーでも検索できます。「push to talk」「groq」「F8」などを試してください。",
+    "goTo": "「{{setting}}」へ移動",
+    "groups": {
+      "elsewhere": "OpenWhispr のその他の場所"
+    },
+    "titles": {
+      "dictationEngine": "ディクテーションの音声認識エンジン",
+      "noteRecordingEngine": "ノート録音の音声認識エンジン",
+      "uploadEngine": "アップロードした音声の音声認識エンジン",
+      "cleanupModel": "クリーンアップのモデル",
+      "assistantModel": "音声アシスタントのモデル",
+      "translationModel": "翻訳のモデル",
+      "noteFormattingModel": "ノートのフォーマットのモデル",
+      "chatModel": "チャットのモデル"
+    },
+    "descriptions": {
+      "engine": "文字起こしを行う場所（OpenWhispr Cloud、ご自身の API キー、このコンピューター、またはセルフホストのサーバー）と使用するモデル。",
+      "model": "モデルを実行する場所（OpenWhispr Cloud、ご自身の API キー、このコンピューター、セルフホストのサーバー、またはエンタープライズ）と、プロバイダーおよびモデル。"
+    },
+    "elsewhere": {
+      "dictionary": "OpenWhispr に常に正しく書いてほしい単語、スニペット、用語集の用語。設定の外で開きます。",
+      "integrations": "設定の外で連携ページを開きます。"
+    },
+    "reasons": {
+      "hiddenWhileOff": "「{{setting}}」がオフの間は非表示です。{{page}}でオンにしてください。",
+      "requiresSetting": "「{{setting}}」がオンのときに表示されます。",
+      "signIn": "これを使うには OpenWhispr アカウントにサインインしてください。",
+      "macOnly": "macOS でのみ利用できます。",
+      "waylandOnly": "Wayland を使用する Linux でのみ利用できます。",
+      "multiGpu": "NVIDIA GPU を 2 つ以上搭載したコンピューターで表示されます。",
+      "autoLanguageOnly": "「{{setting}}」が自動検出のときに表示されます。",
+      "localWhisperOnly": "ディクテーションでローカルの Whisper モデルを使うときに表示されます。",
+      "localModelOnly": "この機能がローカルモデルで動作するときに表示されます。",
+      "streamingOnly": "話している間にテキストを逐次出力するエンジンで表示されます。",
+      "managerOnly": "ワークスペースのオーナーと管理者に表示されます。"
+    },
+    "aliases": {
+      "pushToTalk": "押して話す",
+      "darkMode": "ダークモード",
+      "autostart": "自動起動",
+      "shortcut": "キーボードショートカット"
+    }
+  },
   "settingsPage": {
     "unifiedBilling": {
       "workspaceTitle": "ワークスペースの請求",
@@ -5049,8 +5100,8 @@
   "commandSearch": {
     "allSpaces": "すべてのスペース",
     "title": "検索",
-    "description": "ノートと文字起こしを検索",
-    "placeholder": "ノートと文字起こしを検索…",
+    "description": "ノート、文字起こし、設定を検索",
+    "placeholder": "ノート、文字起こし、設定を検索…",
     "sections": {
       "notes": "ノート",
       "transcripts": "文字起こし",

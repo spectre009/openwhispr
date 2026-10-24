@@ -95,7 +95,7 @@ export default function ProfileSection({ name, onSessionRefresh }: ProfileSectio
   return (
     <>
       <SettingsPanel>
-        <SettingsPanelRow>
+        <SettingsPanelRow data-setting-id="account.name">
           <SettingsRow label={t("settingsPage.account.profile.name.label")}>
             <div className="flex gap-2">
               <Input
@@ -118,7 +118,7 @@ export default function ProfileSection({ name, onSessionRefresh }: ProfileSectio
         </SettingsPanelRow>
 
         {hasPassword && (
-          <SettingsPanelRow>
+          <SettingsPanelRow data-setting-id="account.password">
             <SettingsRow
               label={t("settingsPage.account.profile.password.label")}
               description={t("settingsPage.account.profile.password.description")}

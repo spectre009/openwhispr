@@ -275,3 +275,48 @@ test("closing gives focus back, falls back when it's gone, and never stays insid
   restoreFocusAfterSettings(document, layer, nav, () => nav);
   assert.equal(document.activeElement, palette);
 });
+
+test("Ctrl+F, or / outside a text field, focuses the settings search", () => {
+  const { isSettingsSearchShortcut, readSettingsSearchShortcut } = policy;
+  const key = (overrides) => ({
+    key: "f",
+    ctrlKey: false,
+    metaKey: false,
+    altKey: false,
+    shiftKey: false,
+    isComposing: false,
+    ...overrides,
+  });
+  const idle = { mac: false, editableFocused: false, overlayOpen: false, capturing: false };
+
+  assert.equal(isSettingsSearchShortcut(key({ ctrlKey: true }), idle), true);
+  assert.equal(isSettingsSearchShortcut(key({ key: "F", ctrlKey: true }), idle), true);
+  assert.equal(isSettingsSearchShortcut(key({ metaKey: true }), { ...idle, mac: true }), true);
+  assert.equal(isSettingsSearchShortcut(key({ ctrlKey: true }), { ...idle, mac: true }), false);
+  assert.equal(isSettingsSearchShortcut(key({ ctrlKey: true, shiftKey: true }), idle), false);
+  // Ctrl+F works from a text field too; `/` types there.
+  assert.equal(
+    isSettingsSearchShortcut(key({ ctrlKey: true }), { ...idle, editableFocused: true }),
+    true
+  );
+  assert.equal(isSettingsSearchShortcut(key({ key: "/" }), idle), true);
+  assert.equal(
+    isSettingsSearchShortcut(key({ key: "/" }), { ...idle, editableFocused: true }),
+    false
+  );
+  assert.equal(isSettingsSearchShortcut(key({ key: "/", ctrlKey: true }), idle), false);
+  // Never over a popup or dialog, during a hotkey capture or an IME composition.
+  for (const blocked of [{ overlayOpen: true }, { capturing: true }]) {
+    assert.equal(isSettingsSearchShortcut(key({ ctrlKey: true }), { ...idle, ...blocked }), false);
+  }
+  assert.equal(isSettingsSearchShortcut(key({ key: "/", isComposing: true }), idle), false);
+
+  const document = freshDocument();
+  document.body.innerHTML = `<section data-settings-layer><input id="field"><button id="b">x</button></section>`;
+  const layer = document.querySelector("[data-settings-layer]");
+  const slash = new happyWindow.KeyboardEvent("keydown", { key: "/" });
+  document.getElementById("b").focus();
+  assert.equal(readSettingsSearchShortcut(document, layer, slash, false), true);
+  document.getElementById("field").focus();
+  assert.equal(readSettingsSearchShortcut(document, layer, slash, false), false);
+});

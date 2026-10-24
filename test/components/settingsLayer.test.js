@@ -113,7 +113,10 @@ async function mountSettings(t) {
 
   function Harness() {
     const settings = useSettingsLayerController();
+    const [search, setSearch] = React.useState(null);
     api.settings = settings;
+    api.setSearch = setSearch;
+    api.search = search;
     return h(
       "div",
       { id: "region" },
@@ -147,6 +150,11 @@ async function mountSettings(t) {
             navigationKey: 0,
             returnFocusRef: settings.returnFocusRef,
             getFallbackFocus: () => happyWindow.document.getElementById("opener"),
+            navTop: h("input", { id: "search-field" }),
+            searchActive: !!search,
+            onClearSearch: () => setSearch(null),
+            onFocusSearch: () => happyWindow.document.getElementById("search-field")?.focus(),
+            searchResults: search ? h("div", { id: "results" }, search) : undefined,
           },
           h(Body)
         )
@@ -356,6 +364,69 @@ test("Ctrl+, toggles: a bare open keeps the page, a second press closes", async 
   assert.equal(s.api.settings.open, false);
 });
 
+test("search results replace the page, which stays mounted with its drafts", async (t) => {
+  const s = await mountSettings(t);
+  await s.open();
+  await s.act(() => s.api.setDraft("half-written prompt"));
+  const page = s.layer().querySelector("[data-settings-page]");
+  assert.ok(page.contains(s.byId("field")), "the page sits in its own wrapper");
+
+  await s.act(() => s.api.setSearch("theme"));
+  assert.ok(s.byId("results"), "the results show in the content column");
+  assert.ok(page.className.split(/\s+/).includes("hidden"), "the page is hidden, not unmounted");
+  assert.equal(s.api.mounts, 1);
+  assert.equal(s.api.unmounts, 0);
+
+  await s.act(() => s.api.setSearch(null));
+  assert.equal(s.byId("results"), null);
+  assert.ok(!page.className.split(/\s+/).includes("hidden"));
+  assert.equal(s.api.draft, "half-written prompt");
+  assert.ok(s.layer().querySelector("[data-settings-scroller]"), "reveal finds the scroller");
+});
+
+test("Ctrl+F and / focus the search field; / still types in a text field", async (t) => {
+  const s = await mountSettings(t);
+  await s.open();
+  const press = (target, init) =>
+    target.dispatchEvent(
+      new happyWindow.KeyboardEvent("keydown", { bubbles: true, cancelable: true, ...init })
+    );
+
+  s.layer().focus();
+  await s.act(() => press(s.layer(), { key: "/" }));
+  assert.equal(s.doc.activeElement, s.byId("search-field"));
+
+  s.byId("field").focus();
+  let event;
+  await s.act(() => {
+    event = new happyWindow.KeyboardEvent("keydown", { key: "/", bubbles: true, cancelable: true });
+    s.byId("field").dispatchEvent(event);
+  });
+  assert.equal(s.doc.activeElement, s.byId("field"), "/ types in the field");
+  assert.equal(event.defaultPrevented, false);
+
+  await s.act(() => press(s.byId("field"), { key: "f", ctrlKey: true }));
+  assert.equal(s.doc.activeElement, s.byId("search-field"), "Ctrl+F works from a field too");
+
+  // Not while a popup is open over Settings.
+  s.byId("field").focus();
+  await s.act(() => s.api.setPopoverOpen(true));
+  await s.act(() => press(s.doc.activeElement ?? s.doc.body, { key: "f", ctrlKey: true }));
+  assert.notEqual(s.doc.activeElement, s.byId("search-field"));
+});
+
+test("Esc clears an active search before it leaves Settings", async (t) => {
+  const s = await mountSettings(t);
+  await s.open();
+  await s.act(() => s.api.setSearch("theme"));
+  s.layer().focus();
+  await s.act(() => s.pressEscape());
+  assert.equal(s.api.search, null, "the first Esc clears the search");
+  assert.equal(s.api.settings.open, true);
+  await s.act(() => s.pressEscape());
+  assert.equal(s.api.settings.open, false);
+});
+
 // ControlPanel is too large to render here, so its wiring is read from source:
 // the layer is a sibling of the inert sidebar and <main>, mounted once and
 // never keyed (a key would remount it, losing drafts), and every request for
@@ -395,4 +466,10 @@ test("ControlPanel keeps the app inert under Settings and the layer mounted", ()
     assert.ok(body, `${callback} is wired`);
     assert.match(body.trim(), /^closeSettingsForPalette\(\);/, `${callback} leaves Settings first`);
   }
+  // A Settings result opens Settings at it, or leaves it (past the palette) for an app page.
+  const settingSelect = panel.match(/onSettingSelect=\{[^{]*\{([\s\S]*?)\n {10}\}\}/)?.[1] ?? "";
+  assert.match(settingSelect, /openElsewhere\(action\.location, true\)/);
+  assert.match(settingSelect, /openSettings\(action\.destination\)/);
+  assert.match(panel, /fromPalette \? closeSettingsForPalette\(\) : closeSettings\(\)/);
+  assert.match(panel, /onOpenElsewhere=\{openElsewhere\}/);
 });

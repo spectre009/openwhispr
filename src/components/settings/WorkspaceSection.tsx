@@ -35,9 +35,11 @@ type WorkspaceTab = (typeof SUB_TABS)[number];
 
 interface Props {
   initialSubTab?: string;
+  /** Changes with each navigation, so `initialSubTab` re-applies even when it's unchanged. */
+  requestId?: number;
 }
 
-export default function WorkspaceSection({ initialSubTab }: Props) {
+export default function WorkspaceSection({ initialSubTab, requestId }: Props) {
   const { t } = useTranslation();
   const { isSignedIn } = useAuth();
   const { workspaces, activeWorkspaceId, setActiveWorkspaceId, loaded, loading, error, refresh } =
@@ -67,7 +69,7 @@ export default function WorkspaceSection({ initialSubTab }: Props) {
     if (initialSubTab && SUB_TABS.includes(initialSubTab as WorkspaceTab)) {
       setStoredTab(initialSubTab);
     }
-  }, [initialSubTab, setStoredTab]);
+  }, [initialSubTab, requestId, setStoredTab]);
 
   if (!isSignedIn) return null;
 
@@ -222,7 +224,7 @@ export default function WorkspaceSection({ initialSubTab }: Props) {
         </div>
       </div>
 
-      <div className="pt-1">
+      <div data-setting-id="workspace.tabs" className="pt-1">
         {tab === "general" && <GeneralTab workspace={workspace} />}
         {tab === "members" && <WorkspaceMembersTab workspace={workspace} />}
         {tab === "teams" && <WorkspaceTeamsTab workspace={workspace} />}

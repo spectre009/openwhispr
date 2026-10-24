@@ -25,6 +25,7 @@ export function MeetingSpeakerDetectionRow() {
 
   return (
     <SettingsRow
+      data-setting-id="notes.recording.speakerDetection"
       label={t("settings.meeting.speakerDetection.title")}
       description={t("settings.meeting.speakerDetection.description")}
     >
@@ -40,6 +41,7 @@ function MeetingEchoCancellationRow() {
 
   return (
     <SettingsRow
+      data-setting-id="notes.recording.echoCancellation"
       label={t("settingsPage.transcription.aec.toggle.title")}
       description={t("settingsPage.transcription.aec.toggle.description")}
     >
@@ -182,7 +184,7 @@ export function MeetingTranscriptionPanel() {
     isModeAllowedByPolicy(policySnapshot, "transcription", "enterprise");
 
   return (
-    <div className="space-y-3">
+    <div data-setting-id="notes.recording.engine" className="space-y-3">
       {emptyListIsEnterpriseOnly && (
         <p className="text-sm text-muted-foreground">
           {t("settingsPage.transcription.meetingEnterpriseOnly")}

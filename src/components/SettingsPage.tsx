@@ -357,7 +357,7 @@ function GranolaImportSection({
   const preview = state.phase === "preview" || state.phase === "importing" ? state.preview : null;
 
   return (
-    <div>
+    <div data-setting-id="notes.import.granola">
       <SectionHeader
         title={t("settings.granolaImport.title")}
         description={t("settings.granolaImport.howTo")}
@@ -654,7 +654,7 @@ function TranscriptionSection({
 
   const renderPreviewToggle = () => (
     <SettingsPanel>
-      <SettingsPanelRow>
+      <SettingsPanelRow data-setting-id="dictation.stt.preview">
         <SettingsRow
           label={t("settingsPage.transcription.transcriptionPreview")}
           description={t("settingsPage.transcription.transcriptionPreviewDescription")}
@@ -754,7 +754,7 @@ function TranscriptionSection({
     ) : null;
 
   return (
-    <div className="space-y-4">
+    <div data-setting-id="dictation.stt.engine" className="space-y-4">
       {errorCard}
       {managedCard}
       {!errorCard && !managedCard && (
@@ -837,7 +837,7 @@ function NoteFormattingSettings() {
   return (
     <div className="space-y-4">
       <SettingsPanel>
-        <SettingsPanelRow>
+        <SettingsPanelRow data-setting-id="notes.formatting.autoTitle">
           <SettingsRow
             label={t("settingsPage.noteFormatting.autoGenerateTitle")}
             description={t("settingsPage.noteFormatting.autoGenerateTitleDescription")}
@@ -846,7 +846,7 @@ function NoteFormattingSettings() {
           </SettingsRow>
         </SettingsPanelRow>
       </SettingsPanel>
-      <InferenceConfigEditor scope="noteFormatting" />
+      <InferenceConfigEditor scope="noteFormatting" data-setting-id="notes.formatting.model" />
     </div>
   );
 }
@@ -867,7 +867,7 @@ function AiModelsSection({ useCleanupModel, setUseCleanupModel, toast }: AiModel
   return (
     <div className="space-y-4">
       <SettingsPanel>
-        <SettingsPanelRow>
+        <SettingsPanelRow data-setting-id="dictation.cleanup.enabled">
           <SettingsRow
             label={t("settingsPage.aiModels.enableTextCleanup")}
             description={t("settingsPage.aiModels.enableTextCleanupDescription")}
@@ -879,7 +879,11 @@ function AiModelsSection({ useCleanupModel, setUseCleanupModel, toast }: AiModel
 
       {useCleanupModel && (
         <>
-          <InferenceConfigEditor scope="dictationCleanup" onModeChange={handleCleanupModeChange} />
+          <InferenceConfigEditor
+            scope="dictationCleanup"
+            onModeChange={handleCleanupModeChange}
+            data-setting-id="dictation.cleanup.model"
+          />
           <GpuDeviceSelector purpose="intelligence" />
         </>
       )}
@@ -942,8 +946,21 @@ function VADLabelWithInfo({ label, description }: { label: string; description: 
   );
 }
 
-function TabPanel({ active, children }: { active: boolean; children: React.ReactNode }) {
-  return <div className={active ? undefined : "hidden"}>{children}</div>;
+function TabPanel({
+  active,
+  tabId,
+  children,
+}: {
+  active: boolean;
+  /** The sub-tab's id: settings search lands only on anchors in the tab it asked for. */
+  tabId?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div data-settings-tab={tabId} className={active ? undefined : "hidden"}>
+      {children}
+    </div>
+  );
 }
 
 // "Gabriel Stein" → "GS"; single names fall back to their first letter.
@@ -1031,9 +1048,15 @@ function SpeechToTextTabs({
           )
         }
       />
-      <TabPanel active={tab === "dictation"}>{renderDictation()}</TabPanel>
-      <TabPanel active={tab === "noteRecording"}>{renderNoteRecording()}</TabPanel>
-      <TabPanel active={tab === "upload"}>{renderUpload()}</TabPanel>
+      <TabPanel tabId="dictation" active={tab === "dictation"}>
+        {renderDictation()}
+      </TabPanel>
+      <TabPanel tabId="noteRecording" active={tab === "noteRecording"}>
+        {renderNoteRecording()}
+      </TabPanel>
+      <TabPanel tabId="upload" active={tab === "upload"}>
+        {renderUpload()}
+      </TabPanel>
     </div>
   );
 }
@@ -1088,14 +1111,24 @@ function LlmsTabs({
           return <MessageSquare className="w-3.5 h-3.5" />;
         }}
       />
-      <TabPanel active={tab === "dictationCleanup"}>{renderDictationCleanup()}</TabPanel>
+      <TabPanel tabId="dictationCleanup" active={tab === "dictationCleanup"}>
+        {renderDictationCleanup()}
+      </TabPanel>
       {agentAllowed && (
-        <TabPanel active={tab === "dictationAgent"}>{renderDictationAgent()}</TabPanel>
+        <TabPanel tabId="dictationAgent" active={tab === "dictationAgent"}>
+          {renderDictationAgent()}
+        </TabPanel>
       )}
-      <TabPanel active={tab === "dictationTranslation"}>{renderDictationTranslation()}</TabPanel>
-      <TabPanel active={tab === "noteFormatting"}>{renderNoteFormatting()}</TabPanel>
+      <TabPanel tabId="dictationTranslation" active={tab === "dictationTranslation"}>
+        {renderDictationTranslation()}
+      </TabPanel>
+      <TabPanel tabId="noteFormatting" active={tab === "noteFormatting"}>
+        {renderNoteFormatting()}
+      </TabPanel>
       {agentAllowed && (
-        <TabPanel active={tab === "chatIntelligence"}>{renderChatIntelligence()}</TabPanel>
+        <TabPanel tabId="chatIntelligence" active={tab === "chatIntelligence"}>
+          {renderChatIntelligence()}
+        </TabPanel>
       )}
     </div>
   );
@@ -1123,7 +1156,10 @@ function GpuDeviceSelector({ purpose }: { purpose: "transcription" | "intelligen
   if (!loaded || gpus.length < 2) return null;
 
   return (
-    <div className="border-t border-border/70 pt-4 mt-4">
+    <div
+      data-setting-id={purpose === "transcription" ? "dictation.stt.gpu" : "dictation.cleanup.gpu"}
+      className="border-t border-border/70 pt-4 mt-4"
+    >
       <SectionHeader
         title={t(`settingsPage.${purpose}.gpuDevice.title`)}
         description={t(`settingsPage.${purpose}.gpuDevice.description`)}
@@ -2116,13 +2152,13 @@ export default function SettingsPage({
   }, [eraseDeviceData, showAlertDialog, t, user?.id]);
 
   const renderWhisperVadSettings = () => (
-    <div>
+    <div data-setting-id="dictation.stt.vad">
       <SectionHeader
         title={t("settingsPage.transcription.vad.title")}
         description={t("settingsPage.transcription.vad.description")}
       />
       <SettingsPanel>
-        <SettingsPanelRow>
+        <SettingsPanelRow data-setting-id="dictation.stt.vad.dictation">
           <SettingsRow
             label={t("settingsPage.transcription.vad.toggles.dictation.title")}
             description={t("settingsPage.transcription.vad.toggles.dictation.description")}
@@ -2130,7 +2166,7 @@ export default function SettingsPage({
             <Toggle checked={dictationSileroEnabled} onChange={setDictationSileroEnabled} />
           </SettingsRow>
         </SettingsPanelRow>
-        <SettingsPanelRow>
+        <SettingsPanelRow data-setting-id="dictation.stt.vad.noteRecording">
           <SettingsRow
             label={t("settingsPage.transcription.vad.toggles.noteRecording.title")}
             description={t("settingsPage.transcription.vad.toggles.noteRecording.description")}
@@ -2138,7 +2174,7 @@ export default function SettingsPage({
             <Toggle checked={noteRecordingSileroEnabled} onChange={setNoteRecordingSileroEnabled} />
           </SettingsRow>
         </SettingsPanelRow>
-        <SettingsPanelRow>
+        <SettingsPanelRow data-setting-id="dictation.stt.vad.meeting">
           <SettingsRow
             label={t("settingsPage.transcription.vad.toggles.meeting.title")}
             description={t("settingsPage.transcription.vad.toggles.meeting.description")}
@@ -2146,7 +2182,7 @@ export default function SettingsPage({
             <Toggle checked={meetingSileroEnabled} onChange={setMeetingSileroEnabled} />
           </SettingsRow>
         </SettingsPanelRow>
-        <SettingsPanelRow>
+        <SettingsPanelRow data-setting-id="dictation.stt.vad.fields">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full">
             <div className="space-y-1.5">
               <VADLabelWithInfo
@@ -2248,7 +2284,7 @@ export default function SettingsPage({
     switch (activeSection) {
       case "account":
         return (
-          <div className="space-y-5">
+          <div data-setting-id="account" className="space-y-5">
             {!AUTH_URL ? (
               <>
                 <SectionHeader
@@ -2276,7 +2312,7 @@ export default function SettingsPage({
                   }}
                 />
 
-                <div className="flex justify-end">
+                <div data-setting-id="account.signOut" className="flex justify-end">
                   <Button
                     onClick={handleSignOut}
                     variant="outline"
@@ -2292,7 +2328,7 @@ export default function SettingsPage({
                 </div>
 
                 <SettingsPanel>
-                  <SettingsPanelRow>
+                  <SettingsPanelRow data-setting-id="account.delete">
                     <SettingsRow
                       label={t("settingsPage.account.deleteAccount.label")}
                       description={t("settingsPage.account.deleteAccount.labelDescription")}
@@ -2327,7 +2363,10 @@ export default function SettingsPage({
                   </SettingsPanelRow>
                 </SettingsPanel>
 
-                <div className="rounded-lg border border-primary/20 dark:border-primary/15 bg-primary/3 dark:bg-primary/6 p-4">
+                <div
+                  data-setting-id="account.signIn"
+                  className="rounded-lg border border-primary/20 dark:border-primary/15 bg-primary/3 dark:bg-primary/6 p-4"
+                >
                   <div className="flex items-start gap-3">
                     <div className="w-8 h-8 rounded-md bg-primary/10 dark:bg-primary/15 flex items-center justify-center shrink-0 mt-0.5">
                       <Sparkles className="w-4 h-4 text-primary" />
@@ -2367,7 +2406,7 @@ export default function SettingsPage({
 
       case "plansBilling":
         return (
-          <div className="space-y-5">
+          <div data-setting-id="plansBilling" className="space-y-5">
             {!AUTH_URL ? (
               <>
                 <SectionHeader
@@ -2389,7 +2428,7 @@ export default function SettingsPage({
               <>
                 {isSignedIn && <WorkspaceBillingOverview onRefreshEntitlement={usage?.refetch} />}
                 {isSignedIn ? (
-                  <div className="space-y-5">
+                  <div data-setting-id="plans.personal" className="space-y-5">
                     <SectionHeader title={t("settingsPage.unifiedBilling.personalPlanTitle")} />
                     {usage?.status === "error" ? (
                       <SettingsPanel>
@@ -2633,7 +2672,7 @@ export default function SettingsPage({
                   </div>
                 ) : null}
 
-                <div className="space-y-5">
+                <div data-setting-id="plans.pricing" className="space-y-5">
                   <SectionHeader title={t("settingsPage.account.pricing.title")} />
                   <div className={`grid gap-1.5 ${isCompact ? "grid-cols-2" : "grid-cols-4"}`}>
                     <div
@@ -3115,7 +3154,11 @@ export default function SettingsPage({
         );
 
       case "workspace":
-        return <WorkspaceSection initialSubTab={initialSubTab} />;
+        return (
+          <div data-setting-id="workspace">
+            <WorkspaceSection initialSubTab={initialSubTab} requestId={subTabRequestId} />
+          </div>
+        );
 
       case "general":
         return (
@@ -3127,7 +3170,7 @@ export default function SettingsPage({
                 description={t("settingsPage.general.appearance.description")}
               />
               <SettingsPanel>
-                <SettingsPanelRow>
+                <SettingsPanelRow data-setting-id="preferences.theme">
                   <SettingsRow
                     label={t("settingsPage.general.appearance.theme")}
                     description={t("settingsPage.general.appearance.themeDescription")}
@@ -3183,7 +3226,7 @@ export default function SettingsPage({
             <div>
               <SectionHeader title={t("settingsPage.general.soundEffects.title")} />
               <SettingsPanel>
-                <SettingsPanelRow>
+                <SettingsPanelRow data-setting-id="preferences.sounds.dictation">
                   <SettingsRow
                     label={t("settingsPage.general.soundEffects.dictationSounds")}
                     description={t("settingsPage.general.soundEffects.dictationSoundsDescription")}
@@ -3191,7 +3234,7 @@ export default function SettingsPage({
                     <Toggle checked={audioCuesEnabled} onChange={setAudioCuesEnabled} />
                   </SettingsRow>
                 </SettingsPanelRow>
-                <SettingsPanelRow>
+                <SettingsPanelRow data-setting-id="preferences.sounds.pauseMedia">
                   <SettingsRow
                     label={t("settingsPage.general.soundEffects.pauseMedia")}
                     description={t("settingsPage.general.soundEffects.pauseMediaDescription")}
@@ -3203,13 +3246,13 @@ export default function SettingsPage({
             </div>
 
             {/* Notifications */}
-            <div>
+            <div data-setting-id="preferences.notifications">
               <SectionHeader
                 title={t("settingsPage.general.notifications.title")}
                 description={t("settingsPage.general.notifications.description")}
               />
               <SettingsPanel>
-                <SettingsPanelRow>
+                <SettingsPanelRow data-setting-id="preferences.notifications.disableAll">
                   <SettingsRow
                     label={t("settingsPage.general.notifications.disableAll")}
                     description={t("settingsPage.general.notifications.disableAllDescription")}
@@ -3220,7 +3263,7 @@ export default function SettingsPage({
                     />
                   </SettingsRow>
                 </SettingsPanelRow>
-                <SettingsPanelRow>
+                <SettingsPanelRow data-setting-id="preferences.notifications.meetingDetection">
                   <SettingsRow
                     label={t("settingsPage.general.notifications.meetingDetection")}
                     description={t(
@@ -3234,7 +3277,7 @@ export default function SettingsPage({
                     />
                   </SettingsRow>
                 </SettingsPanelRow>
-                <SettingsPanelRow>
+                <SettingsPanelRow data-setting-id="preferences.notifications.calendarReminders">
                   <SettingsRow
                     label={t("settingsPage.general.notifications.calendarReminders")}
                     description={t(
@@ -3255,7 +3298,7 @@ export default function SettingsPage({
             <div>
               <SectionHeader title={t("settingsPage.general.clipboard.title")} />
               <SettingsPanel>
-                <SettingsPanelRow>
+                <SettingsPanelRow data-setting-id="dictation.output.autoPaste">
                   <SettingsRow
                     label={t("settingsPage.general.clipboard.autoPaste")}
                     description={t("settingsPage.general.clipboard.autoPasteDescription")}
@@ -3263,7 +3306,7 @@ export default function SettingsPage({
                     <Toggle checked={autoPasteEnabled} onChange={setAutoPasteEnabled} />
                   </SettingsRow>
                 </SettingsPanelRow>
-                <SettingsPanelRow>
+                <SettingsPanelRow data-setting-id="dictation.output.keepInClipboard">
                   <SettingsRow
                     label={t("settingsPage.general.clipboard.keepInClipboard")}
                     description={t("settingsPage.general.clipboard.keepInClipboardDescription")}
@@ -3281,7 +3324,7 @@ export default function SettingsPage({
             <div>
               <SectionHeader title={t("settings.noteFiles.title")} />
               <SettingsPanel>
-                <SettingsPanelRow>
+                <SettingsPanelRow data-setting-id="notes.files.enabled">
                   <SettingsRow
                     label={t("settings.noteFiles.title")}
                     description={t("settings.noteFiles.description")}
@@ -3291,7 +3334,7 @@ export default function SettingsPage({
                 </SettingsPanelRow>
                 {noteFilesEnabled && (
                   <>
-                    <SettingsPanelRow>
+                    <SettingsPanelRow data-setting-id="notes.files.path">
                       <SettingsRow
                         label={t("settings.noteFiles.path")}
                         description={
@@ -3310,7 +3353,7 @@ export default function SettingsPage({
                         </Button>
                       </SettingsRow>
                     </SettingsPanelRow>
-                    <SettingsPanelRow>
+                    <SettingsPanelRow data-setting-id="notes.files.rebuild">
                       <SettingsRow
                         label={t("settings.noteFiles.rebuild")}
                         description={t("settings.noteFiles.rebuildDescription")}
@@ -3339,13 +3382,13 @@ export default function SettingsPage({
             <GranolaImportSection showAlertDialog={showAlertDialog} />
 
             {/* Floating Icon */}
-            <div>
+            <div data-setting-id="preferences.floatingIcon">
               <SectionHeader
                 title={t("settingsPage.general.floatingIcon.title")}
                 description={t("settingsPage.general.floatingIcon.description")}
               />
               <SettingsPanel>
-                <SettingsPanelRow>
+                <SettingsPanelRow data-setting-id="preferences.floatingIcon.autoHide">
                   <SettingsRow
                     label={t("settingsPage.general.floatingIcon.autoHide")}
                     description={t("settingsPage.general.floatingIcon.autoHideDescription")}
@@ -3382,7 +3425,7 @@ export default function SettingsPage({
                 description={t("settings.language.sectionDescription")}
               />
               <SettingsPanel>
-                <SettingsPanelRow>
+                <SettingsPanelRow data-setting-id="preferences.uiLanguage">
                   <SettingsRow
                     label={t("settings.language.uiLabel")}
                     description={t("settings.language.uiDescription")}
@@ -3395,7 +3438,7 @@ export default function SettingsPage({
                     />
                   </SettingsRow>
                 </SettingsPanelRow>
-                <SettingsPanelRow>
+                <SettingsPanelRow data-setting-id="dictation.language">
                   <SettingsRow
                     label={t("settings.language.transcriptionLabel")}
                     description={t("settings.language.transcriptionDescription")}
@@ -3409,7 +3452,7 @@ export default function SettingsPage({
                   </SettingsRow>
                 </SettingsPanelRow>
                 {preferredLanguage === "auto" && (
-                  <SettingsPanelRow>
+                  <SettingsPanelRow data-setting-id="dictation.language.chineseScript">
                     <SettingsRow
                       label={t("settings.language.chineseScriptLabel")}
                       description={t("settings.language.chineseScriptDescription")}
@@ -3457,7 +3500,7 @@ export default function SettingsPage({
                 description={t("settingsPage.general.startup.description")}
               />
               <SettingsPanel>
-                <SettingsPanelRow>
+                <SettingsPanelRow data-setting-id="preferences.startup.launchAtLogin">
                   <SettingsRow
                     label={t("settingsPage.general.startup.launchAtLogin")}
                     description={t("settingsPage.general.startup.launchAtLoginDescription")}
@@ -3492,7 +3535,7 @@ export default function SettingsPage({
                     </Alert>
                   </SettingsPanelRow>
                 )}
-                <SettingsPanelRow>
+                <SettingsPanelRow data-setting-id="preferences.startup.startMinimized">
                   <SettingsRow
                     label={t("settingsPage.general.startup.startMinimized")}
                     description={t("settingsPage.general.startup.startMinimizedDescription")}
@@ -3504,7 +3547,7 @@ export default function SettingsPage({
             </div>
 
             {/* Microphone */}
-            <div>
+            <div data-setting-id="preferences.microphone">
               <SectionHeader
                 title={t("settingsPage.general.microphone.title")}
                 description={t("settingsPage.general.microphone.description")}
@@ -3532,7 +3575,7 @@ export default function SettingsPage({
                 })}
               />
               <SettingsPanel>
-                <SettingsPanelRow>
+                <SettingsPanelRow data-setting-id="dictation.output.autoLearn">
                   <SettingsRow
                     label={t("settingsPage.dictionary.autoLearnTitle", {
                       defaultValue: "Auto-learn from corrections",
@@ -3550,7 +3593,7 @@ export default function SettingsPage({
 
             {/* Wayland Paste Diagnostics — only on Linux + Wayland */}
             {ydotoolStatus?.isLinux && ydotoolStatus?.isWayland && (
-              <div>
+              <div data-setting-id="dictation.output.waylandPaste">
                 <SectionHeader
                   title={t("settingsPage.general.waylandPaste.title", {
                     defaultValue: "Wayland Paste Setup",
@@ -4068,7 +4111,7 @@ EOF`,
               </Alert>
             )}
             {/* Dictation Hotkey */}
-            <div>
+            <div data-setting-id="hotkeys.dictation">
               <SectionHeader
                 title={t("settingsPage.general.hotkey.title")}
                 description={t("settingsPage.general.hotkey.description")}
@@ -4105,7 +4148,7 @@ EOF`,
                 </SettingsPanelRow>
 
                 {(!isUsingNativeShortcut || getCachedPlatform() === "linux") && (
-                  <SettingsPanelRow>
+                  <SettingsPanelRow data-setting-id="hotkeys.activationMode">
                     <div className="flex items-center justify-between gap-3">
                       <span className="text-xs text-muted-foreground/80">
                         {t("settingsPage.general.hotkey.activationMode")}
@@ -4135,7 +4178,7 @@ EOF`,
 
             {/* Voice Agent Hotkey */}
             {agentAllowedByPolicy && (
-              <div>
+              <div data-setting-id="hotkeys.assistant">
                 <SectionHeader
                   title={t("settingsPage.general.voiceAgentHotkey.title")}
                   description={t("settingsPage.general.voiceAgentHotkey.description")}
@@ -4156,7 +4199,7 @@ EOF`,
             )}
 
             {/* Translation Hotkey */}
-            <div>
+            <div data-setting-id="hotkeys.translation">
               <SectionHeader
                 title={t("settingsPage.general.translationHotkey.title")}
                 description={t("settingsPage.general.translationHotkey.description")}
@@ -4176,7 +4219,7 @@ EOF`,
             </div>
 
             {/* Meeting Mode Hotkey */}
-            <div>
+            <div data-setting-id="hotkeys.meeting">
               <SectionHeader
                 title={t("settingsPage.general.meetingHotkey.title")}
                 description={t("settingsPage.general.meetingHotkey.description")}
@@ -4205,7 +4248,10 @@ EOF`,
                     maxHotkeys={isUsingNativeShortcut ? 1 : undefined}
                   />
                 </SettingsPanelRow>
-                <SettingsPanelRow className="flex items-center justify-between gap-3 border-t border-border/70 dark:border-white/10">
+                <SettingsPanelRow
+                  data-setting-id="hotkeys.meetingLayout"
+                  className="flex items-center justify-between gap-3 border-t border-border/70 dark:border-white/10"
+                >
                   <span className="text-xs text-muted-foreground/80">
                     {t("settingsPage.general.meetingHotkey.layoutLabel")}
                   </span>
@@ -4238,7 +4284,7 @@ EOF`,
             </div>
 
             {/* Style Hotkeys (read-only; set in Style Studio) */}
-            <div>
+            <div data-setting-id="hotkeys.styles">
               <SectionHeader
                 title={t("settingsPage.general.styleHotkeys.title")}
                 description={t("settingsPage.general.styleHotkeys.description")}
@@ -4271,7 +4317,7 @@ EOF`,
               {isSignedIn && (
                 <div className="mb-4">
                   <SettingsPanel className="mb-2">
-                    <SettingsPanelRow>
+                    <SettingsPanelRow data-setting-id="privacy.cloudBackup">
                       <SettingsRow
                         label={t("settingsPage.privacy.cloudBackup")}
                         description={
@@ -4363,7 +4409,7 @@ EOF`,
                   OpenWhispr: gone with the account & Cloud switch off. */}
               {!cloudDisabled && (
                 <SettingsPanel>
-                  <SettingsPanelRow>
+                  <SettingsPanelRow data-setting-id="privacy.insightsSync">
                     <SettingsRow
                       label={t("settingsPage.privacy.insightsSync")}
                       description={
@@ -4396,7 +4442,7 @@ EOF`,
                       />
                     </SettingsRow>
                   </SettingsPanelRow>
-                  <SettingsPanelRow>
+                  <SettingsPanelRow data-setting-id="privacy.leaderboard">
                     <SettingsRow
                       label={t("insights.leaderboard.title")}
                       description={
@@ -4430,7 +4476,7 @@ EOF`,
                       />
                     </SettingsRow>
                   </SettingsPanelRow>
-                  <SettingsPanelRow>
+                  <SettingsPanelRow data-setting-id="privacy.usageAnalytics">
                     <SettingsRow
                       label={t("settingsPage.privacy.usageAnalytics")}
                       description={t("settingsPage.privacy.usageAnalyticsDescription")}
@@ -4450,7 +4496,7 @@ EOF`,
               />
 
               <SettingsPanel>
-                <SettingsPanelRow>
+                <SettingsPanelRow data-setting-id="privacy.audioRetention">
                   <SettingsRow
                     label={t("settingsPage.privacy.audioRetention")}
                     description={t("settingsPage.privacy.audioRetentionDescription")}
@@ -4485,7 +4531,7 @@ EOF`,
                     </select>
                   </SettingsRow>
                 </SettingsPanelRow>
-                <SettingsPanelRow>
+                <SettingsPanelRow data-setting-id="privacy.audioStorage">
                   <SettingsRow
                     label={t("settingsPage.privacy.audioStorageUsage")}
                     description={
@@ -4514,7 +4560,7 @@ EOF`,
             {/* Data Retention */}
             <div className="border-t border-border/70 pt-6">
               <SettingsPanel>
-                <SettingsPanelRow>
+                <SettingsPanelRow data-setting-id="privacy.history">
                   <SettingsRow
                     label={t("settingsPage.privacy.dataRetention")}
                     description={
@@ -4530,7 +4576,7 @@ EOF`,
                     />
                   </SettingsRow>
                 </SettingsPanelRow>
-                <SettingsPanelRow>
+                <SettingsPanelRow data-setting-id="privacy.transcriptRetention">
                   <SettingsRow
                     label={t("settingsPage.privacy.transcriptRetention")}
                     description={t("settingsPage.privacy.transcriptRetentionDescription")}
@@ -4552,7 +4598,7 @@ EOF`,
                     </select>
                   </SettingsRow>
                 </SettingsPanelRow>
-                <SettingsPanelRow>
+                <SettingsPanelRow data-setting-id="privacy.saveDiscarded">
                   <SettingsRow
                     label={t("settingsPage.privacy.saveDiscarded")}
                     description={t("settingsPage.privacy.saveDiscardedDescription")}
@@ -4568,7 +4614,7 @@ EOF`,
             </div>
 
             {/* Permissions */}
-            <div className="border-t border-border/70 pt-6">
+            <div data-setting-id="privacy.permissions" className="border-t border-border/70 pt-6">
               <SectionHeader
                 title={t("settingsPage.permissions.title")}
                 description={t("settingsPage.permissions.description")}
@@ -4576,6 +4622,7 @@ EOF`,
 
               <div className="space-y-3">
                 <PermissionCard
+                  data-setting-id="privacy.permissions.microphone"
                   icon={Mic}
                   title={t("settingsPage.permissions.microphoneTitle")}
                   description={t("settingsPage.permissions.microphoneDescription")}
@@ -4588,6 +4635,7 @@ EOF`,
                   <>
                     {platform === "darwin" && (
                       <PermissionCard
+                        data-setting-id="privacy.permissions.accessibility"
                         icon={Shield}
                         title={t("settingsPage.permissions.accessibilityTitle")}
                         description={t("settingsPage.permissions.accessibilityDescription")}
@@ -4598,6 +4646,7 @@ EOF`,
                     )}
                     {canManageSystemAudioInApp(systemAudio) && (
                       <PermissionCard
+                        data-setting-id="privacy.permissions.systemAudio"
                         icon={Monitor}
                         title={t("settingsPage.permissions.systemAudioTitle")}
                         description={t("settingsPage.permissions.systemAudioDescription")}
@@ -4635,7 +4684,7 @@ EOF`,
                     {t("settingsPage.permissions.troubleshootingTitle")}
                   </p>
                   <SettingsPanel>
-                    <SettingsPanelRow>
+                    <SettingsPanelRow data-setting-id="privacy.permissions.resetAccessibility">
                       <SettingsRow
                         label={t("settingsPage.permissions.resetAccessibility.label")}
                         description={t(
@@ -4666,7 +4715,7 @@ EOF`,
             <div>
               <SectionHeader title={t("settingsPage.general.updates.title")} />
               <SettingsPanel>
-                <SettingsPanelRow>
+                <SettingsPanelRow data-setting-id="system.updates.version">
                   <SettingsRow
                     label={t("settingsPage.general.updates.currentVersion")}
                     description={
@@ -4713,7 +4762,7 @@ EOF`,
                 </SettingsPanelRow>
 
                 {updateStatus.isSupported && (
-                  <SettingsPanelRow>
+                  <SettingsPanelRow data-setting-id="system.updates.auto">
                     <SettingsRow
                       label={t("settingsPage.general.updates.automaticUpdates")}
                       description={t("settingsPage.general.updates.automaticUpdatesDescription")}
@@ -4838,7 +4887,7 @@ EOF`,
                   </SettingsPanelRow>
                 )}
               </SettingsPanel>
-              <div className="mt-5 flex justify-end">
+              <div data-setting-id="system.updates.check" className="mt-5 flex justify-end">
                 <Button
                   onClick={async () => {
                     try {
@@ -4891,7 +4940,7 @@ EOF`,
 
               <div className="space-y-4">
                 <SettingsPanel>
-                  <SettingsPanelRow>
+                  <SettingsPanelRow data-setting-id="system.data.modelCache">
                     <SettingsRow
                       label={t("settingsPage.developer.modelCache")}
                       description={
@@ -4925,7 +4974,7 @@ EOF`,
                 </SettingsPanel>
 
                 <SettingsPanel>
-                  <SettingsPanelRow>
+                  <SettingsPanelRow data-setting-id="system.data.reset">
                     <SettingsRow
                       label={t("settingsPage.developer.resetAppData")}
                       description={t("settingsPage.developer.resetAppDataDescription")}
@@ -5120,14 +5169,17 @@ EOF`,
                   }}
                   toast={toast}
                 />
-                <div className="border-t border-border/70 pt-6">
+                <div
+                  data-setting-id="dictation.cleanup.prompt"
+                  className="border-t border-border/70 pt-6"
+                >
                   <SectionHeader
                     title={t("settingsPage.prompts.title")}
                     description={t("settingsPage.prompts.description")}
                   />
                   <PromptStudio />
                 </div>
-                <div className="border-t border-border/70 pt-6">
+                <div data-setting-id="dictation.styles" className="border-t border-border/70 pt-6">
                   <SectionHeader
                     title={t("styles.section.title")}
                     description={t("styles.section.description")}

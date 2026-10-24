@@ -172,7 +172,8 @@ test("SettingsPage re-applies a requested sub-tab on every navigation", () => {
   const read = (file) => fs.readFileSync(path.join(__dirname, "../../src", file), "utf8");
   const page = read("components/SettingsPage.tsx");
   assert.match(page, /function useSubTab<[\s\S]*?\}, \[initial, requestId\]\);/);
-  assert.equal(page.match(/requestId=\{subTabRequestId\}/g)?.length, 2);
+  // Speech-to-Text, Language Models and Workspace each re-apply their sub-tab.
+  assert.equal(page.match(/requestId=\{subTabRequestId\}/g)?.length, 3);
   assert.match(
     page,
     /requestStyleFocus\(styleId \?\? STYLE_LIST_FOCUS\);\s*onNavigateToSection\?\.\("llms", "dictationCleanup"\);/
@@ -180,4 +181,118 @@ test("SettingsPage re-applies a requested sub-tab on every navigation", () => {
   const modal = read("components/SettingsModal.tsx");
   assert.match(modal, /subTabRequestId=\{current\.navigationId\}/);
   assert.match(modal, /onNavigateToSection=\{handleSectionChange\}/);
+});
+
+// Settings search destinations: `#settingId` (or `section#settingId`) lands on
+// the setting's own section and sub-tab from the registry, keeps the id for the
+// reveal, and leaves every plain string caller as it was.
+
+async function locate() {
+  const registry = await import("../../src/components/settings/search/registry.ts");
+  return (registry.default ?? registry).locateSetting;
+}
+
+test("a setting destination parses into its section name and setting id", async () => {
+  const { parseSettingsDestination, settingDestination } = await load();
+  assert.deepEqual(parseSettingsDestination("llms"), { name: "llms" });
+  assert.deepEqual(parseSettingsDestination("#preferences.theme"), {
+    name: undefined,
+    settingId: "preferences.theme",
+  });
+  assert.deepEqual(parseSettingsDestination("general#preferences.theme"), {
+    name: "general",
+    settingId: "preferences.theme",
+  });
+  assert.deepEqual(parseSettingsDestination("general#"), { name: "general" });
+  assert.deepEqual(parseSettingsDestination(undefined), {});
+  assert.equal(settingDestination("hotkeys.dictation"), "#hotkeys.dictation");
+  assert.equal(settingDestination("hotkeys.dictation", "hotkeys"), "hotkeys#hotkeys.dictation");
+});
+
+test("a setting id lands on its registry location, sub-tab included", async () => {
+  const { resolveSettingsDestination } = await load();
+  const locateSetting = await locate();
+  assert.deepEqual(resolveSettingsDestination("#dictation.cleanup.model", false, locateSetting), {
+    section: "llms",
+    subTab: "dictationCleanup",
+    settingId: "dictation.cleanup.model",
+  });
+  assert.deepEqual(resolveSettingsDestination("#translation.targets", false, locateSetting), {
+    section: "llms",
+    subTab: "dictationTranslation",
+    settingId: "translation.targets",
+  });
+  // The registry wins over a stale section name.
+  assert.deepEqual(resolveSettingsDestination("system#preferences.theme", false, locateSetting), {
+    section: "general",
+    subTab: undefined,
+    settingId: "preferences.theme",
+  });
+  // An unknown id falls back to the section part (legacy names included).
+  assert.deepEqual(resolveSettingsDestination("meetings#gone.setting", false, locateSetting), {
+    section: "llms",
+    subTab: "noteFormatting",
+    settingId: "gone.setting",
+  });
+  // A hidden section never shows: Cloud off falls back to Preferences.
+  assert.equal(resolveSettingsDestination("#account.name", true, locateSetting).section, "general");
+  // Plain strings are unchanged, with or without a locator.
+  assert.deepEqual(resolveSettingsDestination("transcription", false, locateSetting), {
+    section: "speechToText",
+    subTab: "dictation",
+  });
+});
+
+test("Ctrl+K opening the same setting twice navigates (and reveals) twice", async () => {
+  const {
+    applySettingsRequest,
+    initialSettingsNavigation,
+    navigateWithinSettings,
+    nextSettingsRequest,
+  } = await load();
+  const locateSetting = await locate();
+  const first = nextSettingsRequest(null, "#hotkeys.activationMode");
+  let state = initialSettingsNavigation(first, false, locateSetting);
+  assert.equal(state.section, "hotkeys");
+  assert.equal(state.settingId, "hotkeys.activationMode");
+
+  // Moving elsewhere through the nav forgets the setting to land on.
+  state = navigateWithinSettings(state, "general");
+  assert.equal(state.settingId, undefined);
+  assert.ok(!("settingId" in state));
+
+  const again = nextSettingsRequest(first, "#hotkeys.activationMode");
+  const before = state.navigationId;
+  state = applySettingsRequest(state, again, false, locateSetting);
+  assert.equal(state.section, "hotkeys");
+  assert.equal(state.settingId, "hotkeys.activationMode");
+  assert.ok(state.navigationId > before);
+  assert.equal(applySettingsRequest(state, again, false, locateSetting), state);
+});
+
+test("a search result inside Settings navigates with the setting to land on", async () => {
+  const { initialSettingsNavigation, navigateWithinSettings } = await load();
+  let state = initialSettingsNavigation(null, false);
+  state = navigateWithinSettings(state, "llms", "dictationAgent", "assistant.screenContext");
+  assert.deepEqual(
+    { section: state.section, subTab: state.subTab, settingId: state.settingId },
+    { section: "llms", subTab: "dictationAgent", settingId: "assistant.screenContext" }
+  );
+  const id = state.navigationId;
+  // The same result again is a new navigation, so it lands again.
+  state = navigateWithinSettings(state, "llms", "dictationAgent", "assistant.screenContext");
+  assert.equal(state.navigationId, id + 1);
+});
+
+test("SettingsModal resolves setting ids, reveals them and clears the search on a request", () => {
+  const fs = require("node:fs");
+  const path = require("node:path");
+  const modal = fs.readFileSync(
+    path.join(__dirname, "../../src/components/SettingsModal.tsx"),
+    "utf8"
+  );
+  assert.match(modal, /initialSettingsNavigation\(request, cloudDisabled, locateSetting\)/);
+  assert.match(modal, /applySettingsRequest\(navigation, request, cloudDisabled, locateSetting\)/);
+  assert.match(modal, /if \(query\) setQuery\(""\);/);
+  assert.match(modal, /revealSetting\(\{/);
 });

@@ -12,6 +12,7 @@ import {
   dismissTopPopup,
   isPopupDismissal,
   readEscapeContext,
+  readSettingsSearchShortcut,
   restoreFocusAfterSettings,
   type SettingsEscapeContext,
 } from "./settingsLayerPolicy";
@@ -65,6 +66,10 @@ export interface SettingsLayerProps<T extends string> {
   /** A settings search with a query: Esc clears it before leaving Settings. */
   searchActive?: boolean;
   onClearSearch?: () => void;
+  /** Search results, shown in place of the page (which stays mounted, hidden). */
+  searchResults?: React.ReactNode;
+  /** Ctrl+F, or `/` outside a text field: focus the search field. */
+  onFocusSearch?: () => void;
   /** What had focus before Settings opened. */
   returnFocusRef?: React.RefObject<HTMLElement | null>;
   /** Where focus goes on close when that element is gone. */
@@ -113,6 +118,8 @@ export default function SettingsLayer<T extends string>({
   navTop,
   searchActive = false,
   onClearSearch,
+  searchResults,
+  onFocusSearch,
   returnFocusRef,
   getFallbackFocus,
   children,
@@ -142,8 +149,24 @@ export default function SettingsLayer<T extends string>({
   );
 
   // Latest callbacks for the window listeners, which only re-subscribe on open.
-  const latest = useRef({ onRequestClose, onClearSearch, searchActive });
-  latest.current = { onRequestClose, onClearSearch, searchActive };
+  const latest = useRef({ onRequestClose, onClearSearch, searchActive, onFocusSearch });
+  latest.current = { onRequestClose, onClearSearch, searchActive, onFocusSearch };
+
+  // Ctrl+F / `/` focus the settings search while Settings is open.
+  useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      const focusSearch = latest.current.onFocusSearch;
+      if (!focusSearch || event.defaultPrevented) return;
+      if (!readSettingsSearchShortcut(document, rootRef.current, event, platform === "darwin")) {
+        return;
+      }
+      event.preventDefault();
+      focusSearch();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [open]);
 
   // Esc: the context is read in the capture phase, before Radix closes the top
   // popup from its own document listener, and acted on after every handler had
@@ -201,6 +224,19 @@ export default function SettingsLayer<T extends string>({
   useLayoutEffect(() => {
     if (open && contentRef.current) contentRef.current.scrollTop = scrollTopRef.current;
   }, [open]);
+  // Search results replace the page; the page's offset comes back when they go,
+  // unless opening a result navigated (the effect below runs after this one).
+  const searching = searchResults != null && searchResults !== false;
+  const wasSearchingRef = useRef(false);
+  const pageScrollTopRef = useRef(0);
+  useLayoutEffect(() => {
+    if (wasSearchingRef.current === searching) return;
+    wasSearchingRef.current = searching;
+    const content = contentRef.current;
+    if (searching) pageScrollTopRef.current = scrollTopRef.current;
+    scrollTopRef.current = searching ? 0 : pageScrollTopRef.current;
+    if (content) content.scrollTop = scrollTopRef.current;
+  }, [searching]);
   const lastNavigationKey = useRef(navigationKey);
   useLayoutEffect(() => {
     if (lastNavigationKey.current === navigationKey) return;
@@ -339,7 +375,7 @@ export default function SettingsLayer<T extends string>({
                   navIconsOnly ? "w-12" : "w-[236px]"
                 )}
               >
-                {navTop}
+                {!navIconsOnly && navTop}
                 <nav
                   aria-label={t("settingsLayer.sections")}
                   className={cn(
@@ -429,6 +465,8 @@ export default function SettingsLayer<T extends string>({
 
               <div
                 ref={setContent}
+                // revealSetting aligns tall anchors to the top of this scroller.
+                data-settings-scroller=""
                 onScroll={(event) => {
                   if (open) scrollTopRef.current = event.currentTarget.scrollTop;
                 }}
@@ -438,7 +476,12 @@ export default function SettingsLayer<T extends string>({
                   <div
                     className={cn("w-full max-w-[920px]", isCompact ? "p-4" : "px-8 pt-6 pb-16")}
                   >
-                    {children}
+                    {/* With the nav folded to icons, the search field heads the content. */}
+                    {navIconsOnly && navTop && <div className="-mx-2 mb-4">{navTop}</div>}
+                    {searching && searchResults}
+                    <div data-settings-page="" className={searching ? "hidden" : undefined}>
+                      {children}
+                    </div>
                   </div>
                 </SettingsLayoutProvider>
               </div>
