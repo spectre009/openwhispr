@@ -25,6 +25,7 @@ import { useTinfoilModels } from "../hooks/useTinfoilModels";
 import { useCopilotModels } from "../hooks/useCopilotModels";
 import { useCopilotStore } from "../stores/copilotStore";
 import CopilotSignIn from "./settings/CopilotSignIn";
+import ManageKeysLink from "./settings/ManageKeysLink";
 import { COPILOT_PROVIDER_ID } from "../config/copilot";
 import { getRemoteProviderIcon } from "../utils/providerIcons";
 import { GetApiKeyLink } from "./ui/GetApiKeyLink";
@@ -581,21 +582,24 @@ export default function ReasoningModelSelector({
               {/* A model renders as selected only under its committed provider —
                 free-form custom/OpenRouter ids can collide with registry ids. */}
               {displayedCloudProvider === OPENROUTER_TAB ? (
-                <OpenAICompatiblePanel
-                  key={OPENROUTER_TAB}
-                  baseUrl={API_ENDPOINTS.OPENROUTER_BASE}
-                  setBaseUrl={() => {}}
-                  apiKey={openrouterApiKey}
-                  setApiKey={setOpenrouterApiKey}
-                  model={localReasoningProvider === OPENROUTER_TAB ? reasoningModel : ""}
-                  setModel={(m) => {
-                    setLocalReasoningProvider(OPENROUTER_TAB);
-                    setReasoningModel(m);
-                  }}
-                  lockedBaseUrl
-                  apiKeyRequired
-                  getKeyUrl={OPENROUTER_KEYS_URL}
-                />
+                <>
+                  <OpenAICompatiblePanel
+                    key={OPENROUTER_TAB}
+                    baseUrl={API_ENDPOINTS.OPENROUTER_BASE}
+                    setBaseUrl={() => {}}
+                    apiKey={openrouterApiKey}
+                    setApiKey={setOpenrouterApiKey}
+                    model={localReasoningProvider === OPENROUTER_TAB ? reasoningModel : ""}
+                    setModel={(m) => {
+                      setLocalReasoningProvider(OPENROUTER_TAB);
+                      setReasoningModel(m);
+                    }}
+                    lockedBaseUrl
+                    apiKeyRequired
+                    getKeyUrl={OPENROUTER_KEYS_URL}
+                  />
+                  <ManageKeysLink provider={OPENROUTER_TAB} className="mt-2" />
+                </>
               ) : displayedCloudProvider === "custom" ? (
                 <OpenAICompatiblePanel
                   key="custom"
@@ -702,6 +706,9 @@ export default function ReasoningModelSelector({
                       />
                     </div>
                   )}
+
+                  {/* The same shared key, with where else it's used, on AI Connections. */}
+                  <ManageKeysLink provider={displayedCloudProvider} className="mt-1.5" />
 
                   {/* Copilot signs in with GitHub instead of taking a key. */}
                   {showingCopilot && <CopilotSignIn />}

@@ -27,6 +27,7 @@ export type SettingsPageId =
   | "liveRecording"
   | "fileTranscription"
   | "noteFormatting"
+  | "connections"
   | "appearance"
   | "audio"
   | "notifications"
@@ -70,7 +71,8 @@ export type SettingsIconName =
   | "Shield"
   | "Wrench"
   | "BookOpen"
-  | "Blocks";
+  | "Blocks"
+  | "KeyRound";
 
 /**
  * Blocks of the old Preferences section. SettingsPage wraps each in a
@@ -191,6 +193,7 @@ export const SETTINGS_PAGES: Readonly<Record<SettingsPageId, SettingsPageDef>> =
     icon: "FileText",
     feature: { scope: "noteFormatting" },
   },
+  connections: { ...pageKeys("connections"), icon: "KeyRound" },
   appearance: { ...pageKeys("appearance"), icon: "Sun", blocks: ["appearance", "language.ui"] },
   audio: { ...pageKeys("audio"), icon: "Mic2", blocks: ["microphone", "sounds"] },
   notifications: {
@@ -287,6 +290,7 @@ export const SETTINGS_NAV: readonly SettingsNavGroupDef[] = [
     id: "setup",
     labelKey: "settingsNav.groups.setup",
     items: [
+      { kind: "page", page: "connections" },
       {
         kind: "parent",
         id: "app",

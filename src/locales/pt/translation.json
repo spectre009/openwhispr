@@ -1880,6 +1880,10 @@
       "noteFiles": {
         "title": "Arquivos de notas e importação",
         "description": "Salve notas como arquivos Markdown e importe notas do Granola."
+      },
+      "connections": {
+        "title": "Conexões de IA e modelos locais",
+        "description": "Logins, chaves API e modelos baixados em um só lugar, com o que usa cada um. Os recursos escolhem entre eles nas configurações de modelo."
       }
     },
     "elsewhere": {
@@ -4271,7 +4275,9 @@
     "edit": "Editar",
     "add": "Adicionar",
     "editButton": "Editar",
-    "addButton": "Adicionar"
+    "addButton": "Adicionar",
+    "replaceButton": "Substituir",
+    "replace": "Substituir chave API"
   },
   "gpu": {
     "transcriptionBanner": "Acelere a transcrição com GPU",
@@ -5568,6 +5574,135 @@
       "conflictLabelUnknown": "um estilo excluído",
       "unknownStyle": "Estilo excluído",
       "deleteReleases": "O atalho {{hotkey}} dele fica livre."
+    }
+  },
+  "connections": {
+    "manageKeys": "Gerenciar chaves em Conexões de IA",
+    "names": {
+      "openai": "OpenAI",
+      "anthropic": "Anthropic",
+      "gemini": "Google Gemini",
+      "groq": "Groq",
+      "openrouter": "OpenRouter",
+      "mistral": "Mistral",
+      "tinfoil": "Tinfoil",
+      "corti": "Corti",
+      "xai": "xAI",
+      "deepgram": "Deepgram",
+      "assemblyai": "AssemblyAI",
+      "copilot": "GitHub Copilot",
+      "cloud": "OpenWhispr Cloud"
+    },
+    "search": {
+      "providerDescription": "A chave API deste provedor, se está salva, e os recursos que a usam.",
+      "copilotDescription": "Entrar com o GitHub, e os recursos que usam o GitHub Copilot.",
+      "cloudDescription": "Se o OpenWhispr Cloud está ativado e conectado, e os recursos que o usam."
+    },
+    "sections": {
+      "providers": {
+        "title": "Conexões",
+        "description": "Uma chave por provedor, compartilhada por todos os recursos que o escolhem. “Usado por” mostra o que roda em cada uma agora; recursos esmaecidos estão desativados ou não podem rodar."
+      },
+      "endpoints": {
+        "title": "Endpoints auto-hospedados e personalizados",
+        "description": "Definidos por recurso, então um servidor para a Limpeza não muda o Chat. Personalizado é uma API compatível com OpenAI escolhida como provedor de um recurso, com a própria chave; auto-hospedado é um servidor da sua rede."
+      },
+      "local": {
+        "title": "Modelos locais",
+        "description": "Modelos guardados neste computador, que funcionam sem enviar nada para fora."
+      },
+      "enterprise": {
+        "title": "Corporativo",
+        "description": "Azure OpenAI, AWS Bedrock ou Google Vertex, com credenciais da sua organização."
+      }
+    },
+    "status": {
+      "keySaved": "Chave salva",
+      "notConnected": "Não conectado",
+      "signedIn": "Conectado",
+      "signedInAs": "Conectado como @{{login}}",
+      "signingIn": "Entrando…",
+      "notSignedIn": "Não conectado",
+      "off": "Desativado",
+      "noKey": "Nenhuma chave salva"
+    },
+    "credentials": {
+      "languageModelKey": "Chave API para modelos de linguagem"
+    },
+    "actions": {
+      "remove": "Remover"
+    },
+    "remove": {
+      "title": "Remover {{name}}?",
+      "description": "A chave é apagada deste computador. Você pode adicioná-la de novo quando quiser.",
+      "inUse": "Esta chave é usada por {{features}}. Sem ela, eles param de funcionar até você adicionar outra."
+    },
+    "more": {
+      "title": "Mais provedores ({{count}})"
+    },
+    "usedBy": {
+      "label": "Usado por",
+      "none": "Nenhum recurso usa",
+      "inherits": "herda de {{feature}}",
+      "fallback": "recorre a {{feature}}",
+      "off": {
+        "disabled": "desativado",
+        "policy": "bloqueado pela sua organização",
+        "cloudOff": "Cloud desativado",
+        "signedOut": "requer login",
+        "unsupported": "não compatível aqui",
+        "managedUnavailable": "configuração gerenciada indisponível"
+      }
+    },
+    "features": {
+      "assistantVision": "Modelo de contexto de tela"
+    },
+    "copilot": {
+      "managed": "Sua organização não permite o GitHub Copilot."
+    },
+    "cloud": {
+      "off": "Desativado em Privacidade e dados, então nenhum recurso pode usá-lo.",
+      "openPrivacy": "Abrir Privacidade e dados",
+      "managed": "Sua organização não permite o OpenWhispr Cloud.",
+      "automatic": "Automático: o OpenWhispr escolhe o modelo de cada recurso.",
+      "signedOut": "Entre na sua conta OpenWhispr para usá-lo.",
+      "signIn": "Entrar na página Perfil"
+    },
+    "endpoints": {
+      "none": "Nenhum configurado. Escolha Personalizado ou Auto-hospedado nas configurações de modelo de um recurso para adicionar um.",
+      "custom": "Provedor personalizado",
+      "selfHosted": "Servidor auto-hospedado",
+      "noUrl": "Sem URL",
+      "noModel": "Sem modelo",
+      "editIn": "Editar em {{feature}}",
+      "sttKeySaved": "Uma chave API para todos os endpoints personalizados de voz para texto: salva",
+      "sttNoKey": "Uma chave API para todos os endpoints personalizados de voz para texto: nenhuma salva",
+      "featureKey": "A chave API fica salva com este recurso."
+    },
+    "local": {
+      "kinds": {
+        "speech": "Voz",
+        "language": "Linguagem",
+        "search": "Busca"
+      },
+      "columns": {
+        "model": "Modelo",
+        "kind": "Tipo",
+        "size": "Tamanho",
+        "usedBy": "Usado por"
+      },
+      "none": "Nenhum modelo de voz ou de linguagem baixado ainda.",
+      "bundled": "Incluído",
+      "noteSearch": "Busca de notas",
+      "browse": "Baixar um modelo ({{count}} disponíveis)",
+      "installing": "Instalando…",
+      "inUse": "Usado por {{features}}. Escolha outro modelo lá primeiro."
+    },
+    "enterprise": {
+      "managedDescription": "Sua organização gerencia essas implantações; não há nada para configurar aqui.",
+      "personal": "Sua configuração",
+      "notSetUp": "Não configurado. Escolha Corporativo nas configurações de modelo de um recurso para usar as credenciais Azure, Bedrock ou Vertex da sua organização.",
+      "setUp": "Configurar na Limpeza"
     }
   }
 }

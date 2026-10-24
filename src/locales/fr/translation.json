@@ -1995,6 +1995,10 @@
       "noteFiles": {
         "title": "Fichiers de notes et import",
         "description": "Enregistrez les notes en fichiers Markdown et importez des notes depuis Granola."
+      },
+      "connections": {
+        "title": "Connexions IA et modèles locaux",
+        "description": "Comptes connectés, clés API et modèles téléchargés au même endroit, avec ce qui utilise chacun. Les fonctionnalités les choisissent dans leurs réglages de modèle."
       }
     },
     "elsewhere": {
@@ -4441,7 +4445,9 @@
     "edit": "Modifier la clé API",
     "add": "Ajouter une clé API",
     "editButton": "modifier",
-    "addButton": "ajouter"
+    "addButton": "ajouter",
+    "replaceButton": "remplacer",
+    "replace": "Remplacer la clé API"
   },
   "gpu": {
     "transcriptionBanner": "Accélérez la transcription avec le GPU",
@@ -5568,6 +5574,135 @@
       "conflictLabelUnknown": "un style supprimé",
       "unknownStyle": "Style supprimé",
       "deleteReleases": "Son raccourci {{hotkey}} est libéré."
+    }
+  },
+  "connections": {
+    "manageKeys": "Gérer les clés dans Connexions IA",
+    "names": {
+      "openai": "OpenAI",
+      "anthropic": "Anthropic",
+      "gemini": "Google Gemini",
+      "groq": "Groq",
+      "openrouter": "OpenRouter",
+      "mistral": "Mistral",
+      "tinfoil": "Tinfoil",
+      "corti": "Corti",
+      "xai": "xAI",
+      "deepgram": "Deepgram",
+      "assemblyai": "AssemblyAI",
+      "copilot": "GitHub Copilot",
+      "cloud": "OpenWhispr Cloud"
+    },
+    "search": {
+      "providerDescription": "La clé API de ce fournisseur, si elle est enregistrée, et les fonctionnalités qui l'utilisent.",
+      "copilotDescription": "Connexion avec GitHub, et les fonctionnalités qui utilisent GitHub Copilot.",
+      "cloudDescription": "Si OpenWhispr Cloud est activé et connecté, et les fonctionnalités qui l'utilisent."
+    },
+    "sections": {
+      "providers": {
+        "title": "Connexions",
+        "description": "Une clé par fournisseur, partagée par toutes les fonctionnalités qui le choisissent. « Utilisé par » indique ce qui tourne sur chacune en ce moment ; les fonctionnalités grisées sont désactivées ou ne peuvent pas s'exécuter."
+      },
+      "endpoints": {
+        "title": "Points de terminaison auto-hébergés et personnalisés",
+        "description": "Réglés par fonctionnalité : un serveur pour le Nettoyage ne change pas le Chat. Personnalisé est une API compatible OpenAI choisie comme fournisseur d'une fonctionnalité, avec sa propre clé ; auto-hébergé est un serveur de votre réseau."
+      },
+      "local": {
+        "title": "Modèles locaux",
+        "description": "Modèles stockés sur cet ordinateur, qui fonctionnent sans rien envoyer à l'extérieur."
+      },
+      "enterprise": {
+        "title": "Entreprise",
+        "description": "Azure OpenAI, AWS Bedrock ou Google Vertex, avec les identifiants de votre organisation."
+      }
+    },
+    "status": {
+      "keySaved": "Clé enregistrée",
+      "notConnected": "Non connecté",
+      "signedIn": "Connecté",
+      "signedInAs": "Connecté en tant que @{{login}}",
+      "signingIn": "Connexion…",
+      "notSignedIn": "Non connecté",
+      "off": "Désactivé",
+      "noKey": "Aucune clé enregistrée"
+    },
+    "credentials": {
+      "languageModelKey": "Clé API pour les modèles de langage"
+    },
+    "actions": {
+      "remove": "Supprimer"
+    },
+    "remove": {
+      "title": "Supprimer {{name}} ?",
+      "description": "La clé est effacée de cet ordinateur. Vous pouvez la rajouter à tout moment.",
+      "inUse": "Cette clé est utilisée par {{features}}. Sans elle, ces fonctionnalités s'arrêtent jusqu'à ce que vous en ajoutiez une."
+    },
+    "more": {
+      "title": "Plus de fournisseurs ({{count}})"
+    },
+    "usedBy": {
+      "label": "Utilisé par",
+      "none": "Utilisé par aucune fonctionnalité",
+      "inherits": "hérite de {{feature}}",
+      "fallback": "se replie sur {{feature}}",
+      "off": {
+        "disabled": "désactivé",
+        "policy": "bloqué par votre organisation",
+        "cloudOff": "Cloud désactivé",
+        "signedOut": "connexion requise",
+        "unsupported": "non pris en charge ici",
+        "managedUnavailable": "configuration gérée indisponible"
+      }
+    },
+    "features": {
+      "assistantVision": "Modèle de contexte d'écran"
+    },
+    "copilot": {
+      "managed": "Votre organisation n'autorise pas GitHub Copilot."
+    },
+    "cloud": {
+      "off": "Désactivé dans Confidentialité & données : aucune fonctionnalité ne peut l'utiliser.",
+      "openPrivacy": "Ouvrir Confidentialité & données",
+      "managed": "Votre organisation n'autorise pas OpenWhispr Cloud.",
+      "automatic": "Automatique : OpenWhispr choisit le modèle pour chaque fonctionnalité.",
+      "signedOut": "Connectez-vous à votre compte OpenWhispr pour l'utiliser.",
+      "signIn": "Se connecter sur la page Profil"
+    },
+    "endpoints": {
+      "none": "Aucun configuré. Choisissez Personnalisé ou Auto-hébergé dans les réglages de modèle d'une fonctionnalité pour en ajouter un.",
+      "custom": "Fournisseur personnalisé",
+      "selfHosted": "Serveur auto-hébergé",
+      "noUrl": "Aucune URL",
+      "noModel": "Aucun modèle",
+      "editIn": "Modifier dans {{feature}}",
+      "sttKeySaved": "Une clé API pour tous les points de terminaison personnalisés de transcription : enregistrée",
+      "sttNoKey": "Une clé API pour tous les points de terminaison personnalisés de transcription : aucune",
+      "featureKey": "Sa clé API est enregistrée avec cette fonctionnalité."
+    },
+    "local": {
+      "kinds": {
+        "speech": "Parole",
+        "language": "Langage",
+        "search": "Recherche"
+      },
+      "columns": {
+        "model": "Modèle",
+        "kind": "Type",
+        "size": "Taille",
+        "usedBy": "Utilisé par"
+      },
+      "none": "Aucun modèle de parole ou de langage téléchargé pour l'instant.",
+      "bundled": "Intégré",
+      "noteSearch": "Recherche dans les notes",
+      "browse": "Télécharger un modèle ({{count}} disponibles)",
+      "installing": "Installation…",
+      "inUse": "Utilisé par {{features}}. Choisissez d'abord un autre modèle là-bas."
+    },
+    "enterprise": {
+      "managedDescription": "Votre organisation gère ces déploiements ; rien à configurer ici.",
+      "personal": "Votre configuration",
+      "notSetUp": "Non configuré. Choisissez Enterprise dans les réglages de modèle d'une fonctionnalité pour utiliser les identifiants Azure, Bedrock ou Vertex de votre organisation.",
+      "setUp": "Configurer dans Nettoyage"
     }
   }
 }

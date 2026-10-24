@@ -9,6 +9,7 @@ import { useAuth } from "../hooks/useAuth";
 import { useOpenWhisprCloudDisabled } from "../stores/openWhisprCloudStore";
 import {
   SETTINGS_PAGES,
+  resolveSettingsDestination,
   settingsBreadcrumbKeys,
   shownSettingsPage,
   takeSavedLegacyTabs,
@@ -38,6 +39,7 @@ import { findSettingDescriptor, locateSetting } from "./settings/search/registry
 import { settingsSearchAction } from "./settings/search/openSettingsResult";
 import { focusLandedSetting, revealSetting } from "./settings/search/revealSetting";
 import type { ElsewhereLocation } from "./settings/search/types";
+import { SettingsLinkContext } from "./settings/settingsLink";
 
 const NO_RESULTS = { groups: [], results: [], bestIndex: -1 };
 
@@ -150,6 +152,19 @@ export default function SettingsModal({
   const handleNavigate = useCallback((page: SettingsPageId, subTab?: string) => {
     setNavigation((previous) => navigateWithinSettings(previous, page, subTab));
   }, []);
+  // A link inside a page ("Edit in Cleanup", "Manage keys in AI Connections"):
+  // the same resolution as openSettings, landing on the named setting.
+  const openSettingsLink = useCallback(
+    (destination: string) => {
+      const { page, subTab, settingId } = resolveSettingsDestination(destination, {
+        ctx: pageCtx,
+        locateSetting,
+      });
+      setQuery("");
+      setNavigation((previous) => navigateWithinSettings(previous, page, subTab, settingId));
+    },
+    [pageCtx]
+  );
   // A page that's hidden now (the account & Cloud switch turned off while an
   // account page is open, a sign-out, the agent policy) shows its fallback,
   // without forgetting what was asked for.
@@ -326,12 +341,14 @@ export default function SettingsModal({
           : undefined
       }
     >
-      <SettingsPage
-        page={shownPage}
-        onNavigate={handleNavigate}
-        initialSubTab={current.subTab}
-        subTabRequestId={current.navigationId}
-      />
+      <SettingsLinkContext.Provider value={openSettingsLink}>
+        <SettingsPage
+          page={shownPage}
+          onNavigate={handleNavigate}
+          initialSubTab={current.subTab}
+          subTabRequestId={current.navigationId}
+        />
+      </SettingsLinkContext.Provider>
     </SettingsLayer>
   );
 }

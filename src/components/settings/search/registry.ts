@@ -8,6 +8,7 @@ import type {
   SettingsSearchValueKey,
 } from "./types";
 import { SETTINGS_PAGES, type SettingsPageId } from "../settingsPages";
+import { CONNECTION_PROVIDERS, type ConnectionProviderId } from "../connectionProviders";
 import type { Platform } from "../../../utils/platform";
 
 /**
@@ -178,6 +179,22 @@ const NOTE_FILES = at("noteFiles");
 const HOTKEYS = at("hotkeys");
 const PRIVACY = at("privacyData");
 const SYSTEM = at("system");
+const CONNECTIONS = at("connections");
+
+// Brand and product names people search a provider's key by.
+const PROVIDER_ALIASES: Record<ConnectionProviderId, readonly string[]> = {
+  openai: ["openai api key", "gpt", "chatgpt", "whisper api"],
+  anthropic: ["anthropic key", "claude", "claude key"],
+  gemini: ["gemini key", "google", "google ai studio"],
+  groq: ["groq key", "groq"],
+  openrouter: ["openrouter key", "openrouter"],
+  mistral: ["mistral key", "voxtral"],
+  tinfoil: ["tinfoil key", "tinfoil"],
+  corti: ["corti key", "client id", "client secret"],
+  xai: ["xai key", "grok"],
+  deepgram: ["deepgram key", "deepgram"],
+  assemblyai: ["assemblyai key", "assembly ai"],
+};
 
 const FLOATING_ICON = "settingsPage.general.floatingIcon.title";
 const VAD_GROUP = "settingsPage.transcription.vad.title";
@@ -875,6 +892,107 @@ export const SETTINGS_SEARCH_DESCRIPTORS: readonly SettingDescriptor[] = [
     descriptionKey: "agentMode.settings.systemPromptDescription",
     aliases: ["chat prompt", "instructions", "custom instructions", "persona"],
     available: agentAllowed,
+  }),
+
+  // ── AI Connections & Local Models ────────────────────────────────────────
+  page("page.connections", "connections", {
+    aliases: [
+      "api key",
+      "api keys",
+      "keys",
+      "credentials",
+      "providers",
+      "connections",
+      "accounts",
+      "sign in",
+      "byok",
+      "local models",
+      "downloads",
+    ],
+  }),
+  row("connections.providers", CONNECTIONS, "connections.sections.providers.title", {
+    descriptionKey: "connections.sections.providers.description",
+    aliases: ["api key", "api keys", "keys", "byok", "credentials", "replace key", "remove key"],
+  }),
+  ...CONNECTION_PROVIDERS.map((provider) =>
+    row(`connections.${provider.id}`, CONNECTIONS, `connections.names.${provider.id}`, {
+      descriptionKey: "connections.search.providerDescription",
+      groupKey: "connections.sections.providers.title",
+      aliases: [
+        ...new Set(["api key", "key", `${provider.id} key`, ...PROVIDER_ALIASES[provider.id]]),
+      ],
+      // Less common providers sit behind "More providers" until they're connected.
+      reveal: provider.common ? undefined : { expand: ["connections.more"] },
+    })
+  ),
+  row("connections.copilot", CONNECTIONS, "connections.names.copilot", {
+    descriptionKey: "connections.search.copilotDescription",
+    groupKey: "connections.sections.providers.title",
+    aliases: ["copilot sign in", "github copilot", "github", "sign in", "sign out", "copilot"],
+  }),
+  row("connections.cloud", CONNECTIONS, "connections.names.cloud", {
+    descriptionKey: "connections.search.cloudDescription",
+    groupKey: "connections.sections.providers.title",
+    aliases: ["openwhispr cloud", "cloud", "automatic", "openwhispr account"],
+  }),
+  row("connections.endpoints", CONNECTIONS, "connections.sections.endpoints.title", {
+    descriptionKey: "connections.sections.endpoints.description",
+    aliases: [
+      "self hosted",
+      "self-hosted",
+      "custom endpoint",
+      "custom provider",
+      "base url",
+      "openai compatible",
+      "ollama",
+      "lm studio",
+      "llama.cpp",
+      "vllm",
+      "lan server",
+    ],
+  }),
+  row("connections.localModels", CONNECTIONS, "connections.sections.local.title", {
+    descriptionKey: "connections.sections.local.description",
+    aliases: [
+      "local model",
+      "local models",
+      "download",
+      "download model",
+      "delete model",
+      "disk space",
+      "offline",
+      "whisper",
+      "parakeet",
+      "cohere",
+      "gguf",
+      "qwen",
+      "llama",
+      "gemma",
+      "embedding",
+    ],
+  }),
+  row("connections.keepLoaded", CONNECTIONS, "reasoning.keepModelLoaded.label", {
+    descriptionKey: "reasoning.keepModelLoaded.help",
+    groupKey: "connections.sections.local.title",
+    aliases: ["keep loaded", "cold start", "memory", "unload", "warm"],
+  }),
+  row("connections.gpu.transcription", CONNECTIONS, "settingsPage.transcription.gpuDevice.title", {
+    descriptionKey: "settingsPage.transcription.gpuDevice.description",
+    groupKey: "connections.sections.local.title",
+    fallbackAnchor: "connections.localModels",
+    aliases: ["gpu", "cuda", "nvidia", "graphics card", "video card"],
+    available: multiGpu,
+  }),
+  row("connections.gpu.intelligence", CONNECTIONS, "settingsPage.intelligence.gpuDevice.title", {
+    descriptionKey: "settingsPage.intelligence.gpuDevice.description",
+    groupKey: "connections.sections.local.title",
+    fallbackAnchor: "connections.localModels",
+    aliases: ["gpu", "cuda", "nvidia", "graphics card", "video card"],
+    available: multiGpu,
+  }),
+  row("connections.enterprise", CONNECTIONS, "connections.sections.enterprise.title", {
+    descriptionKey: "connections.sections.enterprise.description",
+    aliases: ["enterprise", "azure", "azure openai", "bedrock", "aws", "vertex", "managed"],
   }),
 
   // ── Privacy & Data ───────────────────────────────────────────────────────

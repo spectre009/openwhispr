@@ -1901,6 +1901,10 @@
       "noteFiles": {
         "title": "笔记文件与导入",
         "description": "将笔记保存为 Markdown 文件，并从 Granola 导入笔记。"
+      },
+      "connections": {
+        "title": "AI 连接与本地模型",
+        "description": "登录、API 密钥和已下载的模型集中在一处，并显示各自被哪些功能使用。各功能在模型设置中从这里选择。"
       }
     },
     "elsewhere": {
@@ -4271,7 +4275,9 @@
     "edit": "编辑",
     "add": "添加",
     "editButton": "编辑密钥",
-    "addButton": "添加密钥"
+    "addButton": "添加密钥",
+    "replaceButton": "替换密钥",
+    "replace": "替换 API 密钥"
   },
   "gpu": {
     "transcriptionBanner": "使用 GPU 加速转录",
@@ -5568,6 +5574,135 @@
       "conflictLabelUnknown": "已删除的风格",
       "unknownStyle": "已删除的风格",
       "deleteReleases": "其快捷键 {{hotkey}} 将被释放。"
+    }
+  },
+  "connections": {
+    "manageKeys": "在 AI 连接中管理密钥",
+    "names": {
+      "openai": "OpenAI",
+      "anthropic": "Anthropic",
+      "gemini": "Google Gemini",
+      "groq": "Groq",
+      "openrouter": "OpenRouter",
+      "mistral": "Mistral",
+      "tinfoil": "Tinfoil",
+      "corti": "Corti",
+      "xai": "xAI",
+      "deepgram": "Deepgram",
+      "assemblyai": "AssemblyAI",
+      "copilot": "GitHub Copilot",
+      "cloud": "OpenWhispr Cloud"
+    },
+    "search": {
+      "providerDescription": "此提供商的 API 密钥、是否已保存，以及使用它的功能。",
+      "copilotDescription": "使用 GitHub 登录，以及使用 GitHub Copilot 的功能。",
+      "cloudDescription": "OpenWhispr Cloud 是否开启并已登录，以及使用它的功能。"
+    },
+    "sections": {
+      "providers": {
+        "title": "连接",
+        "description": "每个提供商一个密钥，由选择它的所有功能共享。“用于”显示当前在每个连接上运行的功能；变暗的功能已关闭或无法运行。"
+      },
+      "endpoints": {
+        "title": "自托管与自定义端点",
+        "description": "按功能设置，因此清理使用的服务器不会改变聊天。自定义是被选为某功能提供商的 OpenAI 兼容 API，使用该功能自己的密钥；自托管是您网络中的服务器。"
+      },
+      "local": {
+        "title": "本地模型",
+        "description": "存储在这台电脑上的模型，运行时不会向外发送任何内容。"
+      },
+      "enterprise": {
+        "title": "企业级",
+        "description": "使用您所在组织凭据的 Azure OpenAI、AWS Bedrock 或 Google Vertex。"
+      }
+    },
+    "status": {
+      "keySaved": "已保存密钥",
+      "notConnected": "未连接",
+      "signedIn": "已登录",
+      "signedInAs": "已登录为 @{{login}}",
+      "signingIn": "正在登录…",
+      "notSignedIn": "未登录",
+      "off": "已关闭",
+      "noKey": "未保存密钥"
+    },
+    "credentials": {
+      "languageModelKey": "语言模型的 API 密钥"
+    },
+    "actions": {
+      "remove": "移除"
+    },
+    "remove": {
+      "title": "移除 {{name}}？",
+      "description": "密钥会从这台电脑上删除。您可以随时重新添加。",
+      "inUse": "{{features}} 正在使用此密钥。移除后，在重新添加密钥之前它们将无法工作。"
+    },
+    "more": {
+      "title": "更多提供商（{{count}}）"
+    },
+    "usedBy": {
+      "label": "用于",
+      "none": "没有功能在使用",
+      "inherits": "继承自{{feature}}",
+      "fallback": "回退到{{feature}}",
+      "off": {
+        "disabled": "已关闭",
+        "policy": "被您的组织阻止",
+        "cloudOff": "Cloud 已关闭",
+        "signedOut": "需要登录",
+        "unsupported": "此处不支持",
+        "managedUnavailable": "托管配置不可用"
+      }
+    },
+    "features": {
+      "assistantVision": "屏幕上下文模型"
+    },
+    "copilot": {
+      "managed": "您的组织不允许使用 GitHub Copilot。"
+    },
+    "cloud": {
+      "off": "已在“隐私与数据”中关闭，因此没有功能可以使用它。",
+      "openPrivacy": "打开“隐私与数据”",
+      "managed": "您的组织不允许使用 OpenWhispr Cloud。",
+      "automatic": "自动：由 OpenWhispr 为每个功能选择模型。",
+      "signedOut": "登录您的 OpenWhispr 账户即可使用。",
+      "signIn": "在个人资料页面登录"
+    },
+    "endpoints": {
+      "none": "尚未设置。在某功能的模型设置中选择“自定义”或“自托管”即可添加。",
+      "custom": "自定义提供商",
+      "selfHosted": "自托管服务器",
+      "noUrl": "无 URL",
+      "noModel": "无模型",
+      "editIn": "在{{feature}}中编辑",
+      "sttKeySaved": "所有语音转文字自定义端点共用一个 API 密钥：已保存",
+      "sttNoKey": "所有语音转文字自定义端点共用一个 API 密钥：未保存",
+      "featureKey": "其 API 密钥随此功能保存。"
+    },
+    "local": {
+      "kinds": {
+        "speech": "语音",
+        "language": "语言",
+        "search": "搜索"
+      },
+      "columns": {
+        "model": "模型",
+        "kind": "类型",
+        "size": "大小",
+        "usedBy": "用于"
+      },
+      "none": "尚未下载语音或语言模型。",
+      "bundled": "内置",
+      "noteSearch": "笔记搜索",
+      "browse": "下载模型（{{count}} 个可用）",
+      "installing": "正在安装…",
+      "inUse": "{{features}} 正在使用。请先在那里选择其他模型。"
+    },
+    "enterprise": {
+      "managedDescription": "这些部署由您的组织管理，这里无需设置。",
+      "personal": "您的配置",
+      "notSetUp": "尚未设置。在某功能的模型设置中选择“企业级”，即可使用您所在组织的 Azure、Bedrock 或 Vertex 凭据。",
+      "setUp": "在清理中设置"
     }
   }
 }

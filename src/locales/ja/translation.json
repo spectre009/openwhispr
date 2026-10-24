@@ -1901,6 +1901,10 @@
       "noteFiles": {
         "title": "ノートファイルとインポート",
         "description": "ノートを Markdown ファイルとして保存し、Granola からノートをインポートします。"
+      },
+      "connections": {
+        "title": "AI 接続とローカルモデル",
+        "description": "サインイン、API キー、ダウンロードしたモデルをまとめて管理し、それぞれを使っている機能を確認できます。各機能はモデル設定でここから選びます。"
       }
     },
     "elsewhere": {
@@ -4271,7 +4275,9 @@
     "edit": "編集",
     "add": "追加",
     "editButton": "編集",
-    "addButton": "追加"
+    "addButton": "追加",
+    "replaceButton": "置き換え",
+    "replace": "API キーを置き換え"
   },
   "gpu": {
     "transcriptionBanner": "GPU で文字起こしを高速化",
@@ -5568,6 +5574,135 @@
       "conflictLabelUnknown": "削除されたスタイル",
       "unknownStyle": "削除されたスタイル",
       "deleteReleases": "ホットキー {{hotkey}} は解放されます。"
+    }
+  },
+  "connections": {
+    "manageKeys": "AI 接続でキーを管理",
+    "names": {
+      "openai": "OpenAI",
+      "anthropic": "Anthropic",
+      "gemini": "Google Gemini",
+      "groq": "Groq",
+      "openrouter": "OpenRouter",
+      "mistral": "Mistral",
+      "tinfoil": "Tinfoil",
+      "corti": "Corti",
+      "xai": "xAI",
+      "deepgram": "Deepgram",
+      "assemblyai": "AssemblyAI",
+      "copilot": "GitHub Copilot",
+      "cloud": "OpenWhispr Cloud"
+    },
+    "search": {
+      "providerDescription": "このプロバイダーの API キー、保存状況、使用している機能。",
+      "copilotDescription": "GitHub でのサインインと、GitHub Copilot を使用している機能。",
+      "cloudDescription": "OpenWhispr Cloud がオンでサインイン済みかどうかと、使用している機能。"
+    },
+    "sections": {
+      "providers": {
+        "title": "接続",
+        "description": "プロバイダーごとにキーは 1 つで、選んだすべての機能で共有されます。「使用中」は今それぞれで動いている機能を示し、淡色の機能はオフか実行できない状態です。"
+      },
+      "endpoints": {
+        "title": "セルフホストとカスタムエンドポイント",
+        "description": "機能ごとに設定するため、クリーンアップ用のサーバーはチャットに影響しません。カスタムは機能のプロバイダーとして選んだ OpenAI 互換 API（キーも機能ごと）、セルフホストはネットワーク上のサーバーです。"
+      },
+      "local": {
+        "title": "ローカルモデル",
+        "description": "このコンピューターに保存され、外部に何も送らずに動作するモデル。"
+      },
+      "enterprise": {
+        "title": "エンタープライズ",
+        "description": "組織の認証情報を使う Azure OpenAI、AWS Bedrock、Google Vertex。"
+      }
+    },
+    "status": {
+      "keySaved": "キー保存済み",
+      "notConnected": "未接続",
+      "signedIn": "サインイン済み",
+      "signedInAs": "@{{login}} としてサインイン済み",
+      "signingIn": "サインイン中…",
+      "notSignedIn": "未サインイン",
+      "off": "オフ",
+      "noKey": "キーが保存されていません"
+    },
+    "credentials": {
+      "languageModelKey": "言語モデル用 API キー"
+    },
+    "actions": {
+      "remove": "削除"
+    },
+    "remove": {
+      "title": "{{name}} を削除しますか？",
+      "description": "キーはこのコンピューターから削除されます。いつでも追加し直せます。",
+      "inUse": "このキーは {{features}} で使われています。削除すると、キーを追加し直すまで動作しません。"
+    },
+    "more": {
+      "title": "その他のプロバイダー（{{count}}）"
+    },
+    "usedBy": {
+      "label": "使用中",
+      "none": "どの機能でも使われていません",
+      "inherits": "{{feature}} から継承",
+      "fallback": "{{feature}} にフォールバック",
+      "off": {
+        "disabled": "オフ",
+        "policy": "組織によってブロック",
+        "cloudOff": "Cloud はオフ",
+        "signedOut": "サインインが必要",
+        "unsupported": "非対応",
+        "managedUnavailable": "管理設定を利用できません"
+      }
+    },
+    "features": {
+      "assistantVision": "画面コンテキスト用モデル"
+    },
+    "copilot": {
+      "managed": "組織で GitHub Copilot が許可されていません。"
+    },
+    "cloud": {
+      "off": "プライバシーとデータでオフになっているため、どの機能も使えません。",
+      "openPrivacy": "プライバシーとデータを開く",
+      "managed": "組織で OpenWhispr Cloud が許可されていません。",
+      "automatic": "自動：OpenWhispr が機能ごとにモデルを選びます。",
+      "signedOut": "使うには OpenWhispr アカウントにサインインしてください。",
+      "signIn": "プロフィールページでサインイン"
+    },
+    "endpoints": {
+      "none": "設定されていません。追加するには、機能のモデル設定でカスタムまたはセルフホストを選んでください。",
+      "custom": "カスタムプロバイダー",
+      "selfHosted": "セルフホストサーバー",
+      "noUrl": "URL なし",
+      "noModel": "モデルなし",
+      "editIn": "{{feature}} で編集",
+      "sttKeySaved": "音声認識のカスタムエンドポイント共通の API キー：保存済み",
+      "sttNoKey": "音声認識のカスタムエンドポイント共通の API キー：未保存",
+      "featureKey": "API キーはこの機能に保存されています。"
+    },
+    "local": {
+      "kinds": {
+        "speech": "音声",
+        "language": "言語",
+        "search": "検索"
+      },
+      "columns": {
+        "model": "モデル",
+        "kind": "種類",
+        "size": "サイズ",
+        "usedBy": "使用中"
+      },
+      "none": "音声モデルや言語モデルはまだダウンロードされていません。",
+      "bundled": "内蔵",
+      "noteSearch": "ノート検索",
+      "browse": "モデルをダウンロード（{{count}} 件）",
+      "installing": "インストール中…",
+      "inUse": "{{features}} で使用中です。先にそちらで別のモデルを選んでください。"
+    },
+    "enterprise": {
+      "managedDescription": "これらのデプロイは組織が管理しています。ここで設定することはありません。",
+      "personal": "あなたの設定",
+      "notSetUp": "未設定です。組織の Azure、Bedrock、Vertex の認証情報を使うには、機能のモデル設定でエンタープライズを選んでください。",
+      "setUp": "クリーンアップで設定"
     }
   }
 }

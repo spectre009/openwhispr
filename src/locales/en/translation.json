@@ -1995,6 +1995,10 @@
       "noteFiles": {
         "title": "Note Files & Import",
         "description": "Save notes as Markdown files, and import notes from Granola."
+      },
+      "connections": {
+        "title": "AI Connections & Local Models",
+        "description": "Sign-ins, API keys and downloaded models in one place, with what uses each one. Features pick from these in their model settings."
       }
     },
     "elsewhere": {
@@ -4441,7 +4445,9 @@
     "edit": "Edit API key",
     "add": "Add API key",
     "editButton": "edit",
-    "addButton": "add"
+    "addButton": "add",
+    "replaceButton": "replace",
+    "replace": "Replace API key"
   },
   "gpu": {
     "transcriptionBanner": "Speed up transcription with GPU acceleration",
@@ -5568,6 +5574,135 @@
       "conflictLabelUnknown": "a deleted style",
       "unknownStyle": "Deleted style",
       "deleteReleases": "Its hotkey {{hotkey}} is freed."
+    }
+  },
+  "connections": {
+    "manageKeys": "Manage keys in AI Connections",
+    "names": {
+      "openai": "OpenAI",
+      "anthropic": "Anthropic",
+      "gemini": "Google Gemini",
+      "groq": "Groq",
+      "openrouter": "OpenRouter",
+      "mistral": "Mistral",
+      "tinfoil": "Tinfoil",
+      "corti": "Corti",
+      "xai": "xAI",
+      "deepgram": "Deepgram",
+      "assemblyai": "AssemblyAI",
+      "copilot": "GitHub Copilot",
+      "cloud": "OpenWhispr Cloud"
+    },
+    "search": {
+      "providerDescription": "This provider's API key, whether it's saved, and the features that use it.",
+      "copilotDescription": "Sign in with GitHub, and the features that use GitHub Copilot.",
+      "cloudDescription": "Whether OpenWhispr Cloud is on and signed in, and the features that use it."
+    },
+    "sections": {
+      "providers": {
+        "title": "Connections",
+        "description": "One key per provider, shared by every feature that picks it. “Used by” shows what runs on each one right now; dimmed features are off or can't run."
+      },
+      "endpoints": {
+        "title": "Self-hosted & custom endpoints",
+        "description": "Set per feature, so a server for Cleanup doesn't change Chat. Custom is an OpenAI-compatible API picked as a feature's provider, with that feature's own key; self-hosted is a server on your network."
+      },
+      "local": {
+        "title": "Local models",
+        "description": "Models stored on this computer, which run without sending anything out."
+      },
+      "enterprise": {
+        "title": "Enterprise",
+        "description": "Azure OpenAI, AWS Bedrock or Google Vertex, with credentials from your organization."
+      }
+    },
+    "status": {
+      "keySaved": "Key saved",
+      "notConnected": "Not connected",
+      "signedIn": "Signed in",
+      "signedInAs": "Signed in as @{{login}}",
+      "signingIn": "Signing in…",
+      "notSignedIn": "Not signed in",
+      "off": "Off",
+      "noKey": "No key saved"
+    },
+    "credentials": {
+      "languageModelKey": "API key for language models"
+    },
+    "actions": {
+      "remove": "Remove"
+    },
+    "remove": {
+      "title": "Remove {{name}}?",
+      "description": "The key is deleted from this computer. You can add it again at any time.",
+      "inUse": "This key is used by {{features}}. Without it, they stop working until you add a key again."
+    },
+    "more": {
+      "title": "More providers ({{count}})"
+    },
+    "usedBy": {
+      "label": "Used by",
+      "none": "Not used by any feature",
+      "inherits": "inherits from {{feature}}",
+      "fallback": "falls back to {{feature}}",
+      "off": {
+        "disabled": "off",
+        "policy": "blocked by your organization",
+        "cloudOff": "Cloud is off",
+        "signedOut": "needs sign-in",
+        "unsupported": "not supported there",
+        "managedUnavailable": "managed setup unavailable"
+      }
+    },
+    "features": {
+      "assistantVision": "Screen Context Model"
+    },
+    "copilot": {
+      "managed": "Your organization doesn't allow GitHub Copilot."
+    },
+    "cloud": {
+      "off": "Turned off in Privacy & Data, so no feature can use it.",
+      "openPrivacy": "Open Privacy & Data",
+      "managed": "Your organization doesn't allow OpenWhispr Cloud.",
+      "automatic": "Automatic: OpenWhispr picks the model for each feature.",
+      "signedOut": "Sign in to your OpenWhispr account to use it.",
+      "signIn": "Sign in on the Profile page"
+    },
+    "endpoints": {
+      "none": "None set up. Pick Custom or Self-Hosted in a feature's model settings to add one.",
+      "custom": "Custom provider",
+      "selfHosted": "Self-hosted server",
+      "noUrl": "No URL",
+      "noModel": "No model",
+      "editIn": "Edit in {{feature}}",
+      "sttKeySaved": "One API key for every speech-to-text custom endpoint: saved",
+      "sttNoKey": "One API key for every speech-to-text custom endpoint: none saved",
+      "featureKey": "Its API key is kept with this feature."
+    },
+    "local": {
+      "kinds": {
+        "speech": "Speech",
+        "language": "Language",
+        "search": "Search"
+      },
+      "columns": {
+        "model": "Model",
+        "kind": "Kind",
+        "size": "Size",
+        "usedBy": "Used by"
+      },
+      "none": "No speech or language models downloaded yet.",
+      "bundled": "Built in",
+      "noteSearch": "Note search",
+      "browse": "Download a model ({{count}} available)",
+      "installing": "Installing…",
+      "inUse": "Used by {{features}}. Pick another model there first."
+    },
+    "enterprise": {
+      "managedDescription": "Your organization manages these deployments; there's nothing to set up here.",
+      "personal": "Your setup",
+      "notSetUp": "Not set up. Pick Enterprise in a feature's model settings to use your organization's Azure, Bedrock or Vertex credentials.",
+      "setUp": "Set up in Cleanup"
     }
   }
 }

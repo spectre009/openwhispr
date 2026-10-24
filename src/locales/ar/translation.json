@@ -3363,6 +3363,10 @@
       "noteFiles": {
         "title": "ملفات الملاحظات والاستيراد",
         "description": "احفظ الملاحظات كملفات Markdown، واستورد الملاحظات من Granola."
+      },
+      "connections": {
+        "title": "اتصالات الذكاء الاصطناعي والنماذج المحلية",
+        "description": "عمليات تسجيل الدخول ومفاتيح API والنماذج المنزّلة في مكان واحد، مع ما يستخدم كلًّا منها. تختار الميزات منها في إعدادات النموذج."
       }
     },
     "elsewhere": {
@@ -5358,7 +5362,9 @@
     "edit": "تعديل مفتاح API",
     "add": "إضافة مفتاح API",
     "editButton": "تعديل",
-    "addButton": "إضافة"
+    "addButton": "إضافة",
+    "replaceButton": "استبدال",
+    "replace": "استبدال مفتاح API"
   },
   "gpu": {
     "transcriptionBanner": "اجعل التفريغ الصوتي أسرع باستخدام تسريع GPU",
@@ -5694,6 +5700,135 @@
       "conflictLabelUnknown": "نمط محذوف",
       "unknownStyle": "نمط محذوف",
       "deleteReleases": "يُحرَّر اختصاره {{hotkey}}."
+    }
+  },
+  "connections": {
+    "manageKeys": "إدارة المفاتيح في اتصالات الذكاء الاصطناعي",
+    "names": {
+      "openai": "OpenAI",
+      "anthropic": "Anthropic",
+      "gemini": "Google Gemini",
+      "groq": "Groq",
+      "openrouter": "OpenRouter",
+      "mistral": "Mistral",
+      "tinfoil": "Tinfoil",
+      "corti": "Corti",
+      "xai": "xAI",
+      "deepgram": "Deepgram",
+      "assemblyai": "AssemblyAI",
+      "copilot": "GitHub Copilot",
+      "cloud": "OpenWhispr Cloud"
+    },
+    "search": {
+      "providerDescription": "مفتاح API لهذا المزوّد، وهل هو محفوظ، والميزات التي تستخدمه.",
+      "copilotDescription": "تسجيل الدخول باستخدام GitHub، والميزات التي تستخدم GitHub Copilot.",
+      "cloudDescription": "هل OpenWhispr Cloud مفعّل ومسجّل الدخول، والميزات التي تستخدمه."
+    },
+    "sections": {
+      "providers": {
+        "title": "الاتصالات",
+        "description": "مفتاح واحد لكل مزوّد، تتشاركه كل الميزات التي تختاره. يوضح «مستخدم في» ما يعمل على كلٍّ منها الآن؛ الميزات الباهتة متوقفة أو لا يمكنها العمل."
+      },
+      "endpoints": {
+        "title": "النقاط الطرفية المستضافة ذاتيًا والمخصّصة",
+        "description": "تُضبط لكل ميزة على حدة، فلا يغيّر خادم التنظيف الدردشة. المخصّص هو واجهة API متوافقة مع OpenAI مختارة كمزوّد لميزة ما بمفتاحها الخاص؛ والمستضاف ذاتيًا خادم على شبكتك."
+      },
+      "local": {
+        "title": "النماذج المحلية",
+        "description": "نماذج محفوظة على هذا الكمبيوتر، تعمل دون إرسال أي شيء إلى الخارج."
+      },
+      "enterprise": {
+        "title": "مؤسسي",
+        "description": "Azure OpenAI أو AWS Bedrock أو Google Vertex، ببيانات اعتماد من مؤسستك."
+      }
+    },
+    "status": {
+      "keySaved": "المفتاح محفوظ",
+      "notConnected": "غير متصل",
+      "signedIn": "تم تسجيل الدخول",
+      "signedInAs": "مسجّل الدخول باسم {{login}}",
+      "signingIn": "جارٍ تسجيل الدخول…",
+      "notSignedIn": "لم يتم تسجيل الدخول",
+      "off": "متوقف",
+      "noKey": "لا يوجد مفتاح محفوظ"
+    },
+    "credentials": {
+      "languageModelKey": "مفتاح API لنماذج اللغة"
+    },
+    "actions": {
+      "remove": "إزالة"
+    },
+    "remove": {
+      "title": "إزالة {{name}}؟",
+      "description": "يُحذف المفتاح من هذا الكمبيوتر. يمكنك إضافته مجددًا في أي وقت.",
+      "inUse": "يستخدم هذا المفتاح: {{features}}. بدونه تتوقف عن العمل حتى تضيف مفتاحًا مجددًا."
+    },
+    "more": {
+      "title": "مزوّدون آخرون ({{count}})"
+    },
+    "usedBy": {
+      "label": "مستخدم في",
+      "none": "لا تستخدمه أي ميزة",
+      "inherits": "يرث من {{feature}}",
+      "fallback": "يعود إلى {{feature}}",
+      "off": {
+        "disabled": "متوقف",
+        "policy": "محظور من مؤسستك",
+        "cloudOff": "Cloud متوقف",
+        "signedOut": "يتطلب تسجيل الدخول",
+        "unsupported": "غير مدعوم هناك",
+        "managedUnavailable": "الإعداد المُدار غير متاح"
+      }
+    },
+    "features": {
+      "assistantVision": "نموذج سياق الشاشة"
+    },
+    "copilot": {
+      "managed": "لا تسمح مؤسستك باستخدام GitHub Copilot."
+    },
+    "cloud": {
+      "off": "متوقف في الخصوصية والبيانات، لذا لا يمكن لأي ميزة استخدامه.",
+      "openPrivacy": "فتح الخصوصية والبيانات",
+      "managed": "لا تسمح مؤسستك باستخدام OpenWhispr Cloud.",
+      "automatic": "تلقائي: يختار OpenWhispr النموذج لكل ميزة.",
+      "signedOut": "سجّل الدخول إلى حساب OpenWhispr لاستخدامه.",
+      "signIn": "سجّل الدخول من صفحة الملف الشخصي"
+    },
+    "endpoints": {
+      "none": "لا شيء مُعدّ. اختر «مخصص» أو «مستضاف ذاتيًا» في إعدادات النموذج لميزة ما لإضافة واحدة.",
+      "custom": "مزوّد مخصّص",
+      "selfHosted": "خادم مستضاف ذاتيًا",
+      "noUrl": "لا يوجد عنوان URL",
+      "noModel": "لا يوجد نموذج",
+      "editIn": "تعديل في {{feature}}",
+      "sttKeySaved": "مفتاح API واحد لكل النقاط الطرفية المخصّصة لتحويل الكلام إلى نص: محفوظ",
+      "sttNoKey": "مفتاح API واحد لكل النقاط الطرفية المخصّصة لتحويل الكلام إلى نص: غير محفوظ",
+      "featureKey": "مفتاح API الخاص به محفوظ مع هذه الميزة."
+    },
+    "local": {
+      "kinds": {
+        "speech": "كلام",
+        "language": "لغة",
+        "search": "بحث"
+      },
+      "columns": {
+        "model": "النموذج",
+        "kind": "النوع",
+        "size": "الحجم",
+        "usedBy": "مستخدم في"
+      },
+      "none": "لم تُنزَّل نماذج كلام أو لغة بعد.",
+      "bundled": "مدمج",
+      "noteSearch": "البحث في الملاحظات",
+      "browse": "تنزيل نموذج ({{count}} متاح)",
+      "installing": "جارٍ التثبيت…",
+      "inUse": "مستخدم في {{features}}. اختر نموذجًا آخر هناك أولًا."
+    },
+    "enterprise": {
+      "managedDescription": "تدير مؤسستك عمليات النشر هذه؛ لا شيء لإعداده هنا.",
+      "personal": "إعدادك",
+      "notSetUp": "غير مُعدّ. اختر «مؤسسي» في إعدادات النموذج لميزة ما لاستخدام بيانات اعتماد Azure أو Bedrock أو Vertex الخاصة بمؤسستك.",
+      "setUp": "الإعداد في التنظيف"
     }
   }
 }

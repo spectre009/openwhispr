@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Check, X, KeyRound } from "../icons";
 import { Input } from "./input";
 import logger from "../../utils/logger";
+import { maskApiKey as maskKey } from "../../utils/maskApiKey";
 
 interface ApiKeyInputProps {
   apiKey: string;
@@ -13,11 +14,11 @@ interface ApiKeyInputProps {
   ariaLabel?: string;
   helpText?: React.ReactNode;
   variant?: "default" | "purple";
-}
-
-function maskKey(key: string): string {
-  if (key.length <= 8) return "••••••••";
-  return key.slice(0, 3) + "..." + key.slice(-4);
+  /**
+   * Replace, never reveal: editing starts from an empty field (the saved key
+   * never enters it), and an empty draft cancels instead of clearing the key.
+   */
+  replace?: boolean;
 }
 
 export default function ApiKeyInput({
@@ -29,6 +30,7 @@ export default function ApiKeyInput({
   ariaLabel,
   helpText,
   variant = "default",
+  replace = false,
 }: ApiKeyInputProps) {
   const { t } = useTranslation();
   const resolvedPlaceholder = placeholder ?? t("apiKeyInput.placeholder");
@@ -50,18 +52,25 @@ export default function ApiKeyInput({
   }, [isEditing]);
 
   const enterEdit = () => {
-    setDraft(apiKey);
+    setDraft(replace ? "" : apiKey);
     setIsEditing(true);
   };
 
   const save = useCallback(() => {
+    const next = draft.trim();
+    if (replace && !next) {
+      setDraft("");
+      setIsEditing(false);
+      return;
+    }
     try {
-      setApiKey(draft.trim());
+      setApiKey(next);
     } catch (err) {
       logger.warn("Failed to save API key", { error: (err as Error).message }, "settings");
     }
+    setDraft("");
     setIsEditing(false);
-  }, [draft, setApiKey]);
+  }, [draft, replace, setApiKey]);
 
   const cancel = () => {
     setDraft("");
@@ -141,7 +150,11 @@ export default function ApiKeyInput({
                 ? "border-border/70 bg-input hover:border-border-hover dark:bg-surface-1 dark:border-border-subtle/60 dark:hover:border-border-hover"
                 : "border-dashed border-border/70 bg-transparent hover:border-border/70 hover:bg-muted/30"
             }`}
-            aria-label={hasKey ? t("apiKeyInput.edit") : t("apiKeyInput.add")}
+            aria-label={
+              hasKey
+                ? t(replace ? "apiKeyInput.replace" : "apiKeyInput.edit")
+                : t("apiKeyInput.add")
+            }
           >
             {hasKey ? (
               <span
@@ -155,7 +168,9 @@ export default function ApiKeyInput({
               <span className="text-muted-foreground/70 text-xs">{resolvedPlaceholder}</span>
             )}
             <span className="ms-auto text-muted-foreground/70 text-xs group-hover:text-muted-foreground/70 transition-colors">
-              {hasKey ? t("apiKeyInput.editButton") : t("apiKeyInput.addButton")}
+              {hasKey
+                ? t(replace ? "apiKeyInput.replaceButton" : "apiKeyInput.editButton")
+                : t("apiKeyInput.addButton")}
             </span>
           </button>
         )}

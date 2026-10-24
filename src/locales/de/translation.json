@@ -1995,6 +1995,10 @@
       "noteFiles": {
         "title": "Notizdateien & Import",
         "description": "Notizen als Markdown-Dateien speichern und Notizen aus Granola importieren."
+      },
+      "connections": {
+        "title": "KI-Verbindungen & lokale Modelle",
+        "description": "Anmeldungen, API-Schlüssel und heruntergeladene Modelle an einem Ort, mit dem, was sie jeweils nutzt. Funktionen wählen daraus in ihren Modelleinstellungen."
       }
     },
     "elsewhere": {
@@ -4441,7 +4445,9 @@
     "edit": "Bearbeiten",
     "add": "Hinzufügen",
     "editButton": "Bearbeiten",
-    "addButton": "Hinzufügen"
+    "addButton": "Hinzufügen",
+    "replaceButton": "Ersetzen",
+    "replace": "API-Schlüssel ersetzen"
   },
   "gpu": {
     "transcriptionBanner": "Transkription mit GPU beschleunigen",
@@ -5568,6 +5574,135 @@
       "conflictLabelUnknown": "einen gelöschten Stil",
       "unknownStyle": "Gelöschter Stil",
       "deleteReleases": "Sein Hotkey {{hotkey}} wird frei."
+    }
+  },
+  "connections": {
+    "manageKeys": "Schlüssel in KI-Verbindungen verwalten",
+    "names": {
+      "openai": "OpenAI",
+      "anthropic": "Anthropic",
+      "gemini": "Google Gemini",
+      "groq": "Groq",
+      "openrouter": "OpenRouter",
+      "mistral": "Mistral",
+      "tinfoil": "Tinfoil",
+      "corti": "Corti",
+      "xai": "xAI",
+      "deepgram": "Deepgram",
+      "assemblyai": "AssemblyAI",
+      "copilot": "GitHub Copilot",
+      "cloud": "OpenWhispr Cloud"
+    },
+    "search": {
+      "providerDescription": "Der API-Schlüssel dieses Anbieters, ob er gespeichert ist, und die Funktionen, die ihn nutzen.",
+      "copilotDescription": "Mit GitHub anmelden, und die Funktionen, die GitHub Copilot nutzen.",
+      "cloudDescription": "Ob OpenWhispr Cloud an und angemeldet ist, und die Funktionen, die es nutzen."
+    },
+    "sections": {
+      "providers": {
+        "title": "Verbindungen",
+        "description": "Ein Schlüssel pro Anbieter, geteilt von allen Funktionen, die ihn wählen. „Genutzt von“ zeigt, was gerade darauf läuft; abgeblendete Funktionen sind aus oder können nicht laufen."
+      },
+      "endpoints": {
+        "title": "Selbst gehostete & benutzerdefinierte Endpunkte",
+        "description": "Pro Funktion eingestellt, ein Server für die Bereinigung ändert also nicht den Chat. Benutzerdefiniert ist eine OpenAI-kompatible API, die als Anbieter einer Funktion gewählt ist, mit eigenem Schlüssel; selbst gehostet ist ein Server in Ihrem Netzwerk."
+      },
+      "local": {
+        "title": "Lokale Modelle",
+        "description": "Auf diesem Computer gespeicherte Modelle, die laufen, ohne etwas nach außen zu senden."
+      },
+      "enterprise": {
+        "title": "Enterprise",
+        "description": "Azure OpenAI, AWS Bedrock oder Google Vertex mit Zugangsdaten Ihrer Organisation."
+      }
+    },
+    "status": {
+      "keySaved": "Schlüssel gespeichert",
+      "notConnected": "Nicht verbunden",
+      "signedIn": "Angemeldet",
+      "signedInAs": "Angemeldet als @{{login}}",
+      "signingIn": "Anmeldung…",
+      "notSignedIn": "Nicht angemeldet",
+      "off": "Aus",
+      "noKey": "Kein Schlüssel gespeichert"
+    },
+    "credentials": {
+      "languageModelKey": "API-Schlüssel für Sprachmodelle"
+    },
+    "actions": {
+      "remove": "Entfernen"
+    },
+    "remove": {
+      "title": "{{name}} entfernen?",
+      "description": "Der Schlüssel wird von diesem Computer gelöscht. Sie können ihn jederzeit wieder hinzufügen.",
+      "inUse": "Diesen Schlüssel nutzen {{features}}. Ohne ihn funktionieren sie nicht, bis Sie wieder einen hinzufügen."
+    },
+    "more": {
+      "title": "Weitere Anbieter ({{count}})"
+    },
+    "usedBy": {
+      "label": "Genutzt von",
+      "none": "Von keiner Funktion genutzt",
+      "inherits": "übernimmt von {{feature}}",
+      "fallback": "weicht auf {{feature}} aus",
+      "off": {
+        "disabled": "aus",
+        "policy": "von Ihrer Organisation gesperrt",
+        "cloudOff": "Cloud ist aus",
+        "signedOut": "Anmeldung nötig",
+        "unsupported": "dort nicht unterstützt",
+        "managedUnavailable": "verwaltete Einrichtung nicht verfügbar"
+      }
+    },
+    "features": {
+      "assistantVision": "Modell für Bildschirmkontext"
+    },
+    "copilot": {
+      "managed": "Ihre Organisation erlaubt GitHub Copilot nicht."
+    },
+    "cloud": {
+      "off": "In Datenschutz & Daten ausgeschaltet, daher kann keine Funktion es nutzen.",
+      "openPrivacy": "Datenschutz & Daten öffnen",
+      "managed": "Ihre Organisation erlaubt OpenWhispr Cloud nicht.",
+      "automatic": "Automatisch: OpenWhispr wählt das Modell für jede Funktion.",
+      "signedOut": "Melden Sie sich bei Ihrem OpenWhispr-Konto an, um es zu nutzen.",
+      "signIn": "Auf der Profilseite anmelden"
+    },
+    "endpoints": {
+      "none": "Keine eingerichtet. Wählen Sie in den Modelleinstellungen einer Funktion „Benutzerdefiniert“ oder „Selbst gehostet“, um einen hinzuzufügen.",
+      "custom": "Benutzerdefinierter Anbieter",
+      "selfHosted": "Selbst gehosteter Server",
+      "noUrl": "Keine URL",
+      "noModel": "Kein Modell",
+      "editIn": "In {{feature}} bearbeiten",
+      "sttKeySaved": "Ein API-Schlüssel für alle benutzerdefinierten Spracherkennungs-Endpunkte: gespeichert",
+      "sttNoKey": "Ein API-Schlüssel für alle benutzerdefinierten Spracherkennungs-Endpunkte: keiner gespeichert",
+      "featureKey": "Sein API-Schlüssel wird bei dieser Funktion gespeichert."
+    },
+    "local": {
+      "kinds": {
+        "speech": "Spracherkennung",
+        "language": "Sprachmodell",
+        "search": "Suche"
+      },
+      "columns": {
+        "model": "Modell",
+        "kind": "Art",
+        "size": "Größe",
+        "usedBy": "Genutzt von"
+      },
+      "none": "Noch keine Spracherkennungs- oder Sprachmodelle heruntergeladen.",
+      "bundled": "Integriert",
+      "noteSearch": "Notizsuche",
+      "browse": "Modell herunterladen ({{count}} verfügbar)",
+      "installing": "Wird installiert…",
+      "inUse": "Genutzt von {{features}}. Wählen Sie dort zuerst ein anderes Modell."
+    },
+    "enterprise": {
+      "managedDescription": "Ihre Organisation verwaltet diese Bereitstellungen; hier ist nichts einzurichten.",
+      "personal": "Ihre Einrichtung",
+      "notSetUp": "Nicht eingerichtet. Wählen Sie in den Modelleinstellungen einer Funktion „Enterprise“, um die Azure-, Bedrock- oder Vertex-Zugangsdaten Ihrer Organisation zu nutzen.",
+      "setUp": "In der Bereinigung einrichten"
     }
   }
 }

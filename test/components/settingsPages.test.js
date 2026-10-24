@@ -301,6 +301,50 @@ test("every nav string exists in all 11 locales", async () => {
   }
 });
 
+test("AI Connections & Local Models opens from Setup, its cards and its links", async () => {
+  const { SETTINGS_NAV, resolveSettingsDestination, locateSetting, settingsBreadcrumbKeys } =
+    await load();
+  const providers = await import("../../src/components/settings/connectionProviders.ts");
+  const { CONNECTION_PROVIDERS, connectionDestination } = providers.default ?? providers;
+
+  // First in Setup, before App & Controls, on its own (no parent).
+  const setup = SETTINGS_NAV.find((group) => group.id === "setup");
+  assert.deepEqual(setup.items[0], { kind: "page", page: "connections" });
+  assert.equal(setup.items[1].kind === "parent" && setup.items[1].id, "app");
+  assert.deepEqual(settingsBreadcrumbKeys("connections"), [
+    "settingsNav.groups.setup",
+    "settingsNav.pages.connections.title",
+  ]);
+
+  const resolve = (destination, ctx = ALL) =>
+    resolveSettingsDestination(destination, { ctx, locateSetting });
+  assert.deepEqual(resolve("connections"), { page: "connections" });
+  // Visible with Cloud off and without the agent: keys serve every feature.
+  assert.deepEqual(resolve("connections", CLOUD_OFF), { page: "connections" });
+  assert.deepEqual(resolve("connections", { ...ALL, agentAllowed: false }), {
+    page: "connections",
+  });
+  // Every provider card, Copilot and Cloud ("Manage keys in AI Connections ›").
+  for (const id of [...CONNECTION_PROVIDERS.map((provider) => provider.id), "copilot", "cloud"]) {
+    assert.deepEqual(resolve(connectionDestination(id)), {
+      page: "connections",
+      settingId: `connections.${id}`,
+    });
+  }
+  assert.deepEqual(resolve("#connections.localModels"), {
+    page: "connections",
+    settingId: "connections.localModels",
+  });
+  // The page's own links out.
+  for (const [destination, page] of [
+    ["privacyData#privacy.cloud", "privacyData"],
+    ["account#account.signIn", "account"],
+    ["cleanup#dictation.cleanup.model", "cleanup"],
+  ]) {
+    assert.equal(resolve(destination).page, page, destination);
+  }
+});
+
 test("the retired saved tabs are read once, mapped to pages and removed", async () => {
   const { takeSavedLegacyTabs, RETIRED_TAB_KEYS } = await load();
   const store = new Map([

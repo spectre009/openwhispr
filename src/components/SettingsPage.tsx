@@ -100,7 +100,6 @@ import { useToast } from "./ui/useToast";
 import { useTheme } from "../hooks/useTheme";
 import type {
   ChineseScriptPreference,
-  GpuDevice,
   LocalTranscriptionProvider,
   InferenceMode,
 } from "../types/electron";
@@ -165,6 +164,8 @@ import { enterpriseProviderName, getTranscriptionProvider } from "../models/Mode
 import { useManagedScopeResolution } from "../stores/enterpriseIdentityStore";
 import { supportsLiveTranscriptionPreview } from "../utils/transcriptionPreview";
 import SettingsPageHeader from "./settings/SettingsPageHeader";
+import GpuDeviceSelector from "./settings/GpuDeviceSelector";
+import AiConnectionsPage from "./settings/AiConnectionsPage";
 import {
   SETTINGS_PAGE_IDS,
   SETTINGS_PAGES,
@@ -809,7 +810,7 @@ function TranscriptionSection({
       )}
 
       {/* Local decoding still serves meetings and uploads, so the GPU choice stays reachable. */}
-      <GpuDeviceSelector purpose="transcription" />
+      <GpuDeviceSelector purpose="transcription" data-setting-id="dictation.stt.gpu" />
     </div>
   );
 }
@@ -897,7 +898,7 @@ function AiModelsSection({
             onModeChange={handleCleanupModeChange}
             data-setting-id="dictation.cleanup.model"
           />
-          <GpuDeviceSelector purpose="intelligence" />
+          <GpuDeviceSelector purpose="intelligence" data-setting-id="dictation.cleanup.gpu" />
         </>
       )}
     </div>
@@ -960,73 +961,6 @@ export function AccountAvatar({ image, name }: { image?: string | null; name: st
       ) : (
         <UserCircle className="w-5 h-5" />
       )}
-    </div>
-  );
-}
-
-function GpuDeviceSelector({ purpose }: { purpose: "transcription" | "intelligence" }) {
-  const { t } = useTranslation();
-  const [gpus, setGpus] = useState<GpuDevice[]>([]);
-  const [selectedUuid, setSelectedUuid] = useState("");
-  const [loaded, setLoaded] = useState(false);
-
-  useEffect(() => {
-    Promise.all([
-      window.electronAPI?.listGpus?.() ?? Promise.resolve([]),
-      window.electronAPI?.getGpuDeviceIndex?.(purpose) ?? Promise.resolve(""),
-    ])
-      .then(([gpuList, savedUuid]) => {
-        setGpus(gpuList);
-        setSelectedUuid(savedUuid || gpuList[0]?.uuid || "");
-        setLoaded(true);
-      })
-      .catch(() => setLoaded(true));
-  }, [purpose]);
-
-  if (!loaded || gpus.length < 2) return null;
-
-  return (
-    <div
-      data-setting-id={purpose === "transcription" ? "dictation.stt.gpu" : "dictation.cleanup.gpu"}
-      className="border-t border-border/70 pt-4 mt-4"
-    >
-      <SectionHeader
-        title={t(`settingsPage.${purpose}.gpuDevice.title`)}
-        description={t(`settingsPage.${purpose}.gpuDevice.description`)}
-      />
-      <SettingsPanel>
-        <SettingsPanelRow>
-          <div className="relative w-full">
-            <select
-              value={selectedUuid}
-              onChange={async (e) => {
-                const uuid = e.target.value;
-                setSelectedUuid(uuid);
-                await window.electronAPI?.setGpuDeviceIndex?.(purpose, uuid);
-              }}
-              className="w-full appearance-none rounded-md border border-border bg-background px-3 pe-10 py-2 text-sm"
-            >
-              {gpus.map((gpu) => (
-                <option key={gpu.uuid} value={gpu.uuid}>
-                  GPU {gpu.index}: {gpu.name} ({Math.round(gpu.vramMb / 1024)}GB)
-                </option>
-              ))}
-            </select>
-            <svg
-              className="pointer-events-none absolute end-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground"
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="m6 9 6 6 6-6" />
-            </svg>
-          </div>
-        </SettingsPanelRow>
-      </SettingsPanel>
     </div>
   );
 }
@@ -5029,6 +4963,9 @@ EOF`,
 
       case "noteFormatting":
         return <NoteFormattingSettings />;
+
+      case "connections":
+        return <AiConnectionsPage />;
 
       default:
         return <div className="space-y-6">{renderPreferencesBlocks(pageId)}</div>;

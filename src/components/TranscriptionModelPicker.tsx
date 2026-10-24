@@ -48,6 +48,7 @@ import { GetApiKeyLink } from "./ui/GetApiKeyLink";
 import { getCachedPlatform } from "../utils/platform";
 import { pickWhisperGpuBackend } from "../utils/whisperGpuPack";
 import { useSettingsVisible } from "./settings/useSettingsVisible";
+import ManageKeysLink from "./settings/ManageKeysLink";
 import logger from "../utils/logger";
 import type { ParakeetCheckResult } from "../types/electron";
 
@@ -1396,6 +1397,9 @@ export default function TranscriptionModelPicker({
                       )}
                     </div>
                   ))}
+
+                  {/* The same shared key, with where else it's used, on AI Connections. */}
+                  <ManageKeysLink provider={displayedCloudProvider} />
 
                   <div className="space-y-1.5">
                     <label className="text-xs font-medium text-foreground">
