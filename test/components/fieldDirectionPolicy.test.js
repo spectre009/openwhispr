@@ -90,6 +90,8 @@ const EXPECTED_SHARED_FIELD_DIRECTIONS = {
   "src/components/settings/EnterpriseCheckoutDialog.tsx": ["inherit"],
   // The model picker's filter: model and provider names, typed in any script.
   "src/components/settings/modelPicker/ModelPicker.tsx": ["auto"],
+  // The custom connection: a replacement key, its name (any script) and its endpoint URL.
+  "src/components/settings/CustomConnectionCard.tsx": ["ltr", "auto", "ltr"],
   "src/components/settings/ProfileSection.tsx": ["auto", "ltr", "ltr", "ltr"],
   // A speech-to-text custom endpoint's URL and model id, and Corti's tenant id.
   "src/components/settings/TranscriptionConfigEditor.tsx": ["ltr", "ltr", "ltr"],

@@ -951,6 +951,20 @@ export const SETTINGS_SEARCH_DESCRIPTORS: readonly SettingDescriptor[] = [
     groupKey: "connections.sections.providers.title",
     aliases: ["openwhispr cloud", "cloud", "automatic", "openwhispr account"],
   }),
+  row("connections.custom", CONNECTIONS, "connections.custom.title", {
+    descriptionKey: "connections.custom.search.description",
+    groupKey: "connections.sections.providers.title",
+    aliases: [
+      "azure",
+      "azure openai",
+      "foundry",
+      "little buddy",
+      "openai compatible",
+      "custom endpoint",
+      "custom connection",
+      "deployment",
+    ],
+  }),
   row("connections.endpoints", CONNECTIONS, "connections.sections.endpoints.title", {
     descriptionKey: "connections.sections.endpoints.description",
     aliases: [

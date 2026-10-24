@@ -5753,7 +5753,8 @@
       "editIn": "Modifier dans {{feature}}",
       "sttKeySaved": "Une clé API pour tous les points de terminaison personnalisés de transcription : enregistrée",
       "sttNoKey": "Une clé API pour tous les points de terminaison personnalisés de transcription : aucune",
-      "featureKey": "Sa clé API est enregistrée avec cette fonctionnalité."
+      "featureKey": "Sa clé API est enregistrée avec cette fonctionnalité.",
+      "allCovered": "Tous les points de terminaison personnalisés utilisés passent par {{name}}."
     },
     "local": {
       "kinds": {
@@ -5779,6 +5780,98 @@
       "personal": "Votre configuration",
       "notSetUp": "Non configuré. Choisissez Enterprise dans les réglages de modèle d'une fonctionnalité pour utiliser les identifiants Azure, Bedrock ou Vertex de votre organisation.",
       "setUp": "Configurer dans Nettoyage"
+    },
+    "custom": {
+      "title": "Connexion personnalisée",
+      "description": "Votre propre point de terminaison : une ressource Azure OpenAI ou Foundry, ou toute API compatible OpenAI. Configurez-le une fois, avec une seule clé, pour toutes les fonctionnalités qui l'utilisent.",
+      "add": "Ajouter une connexion personnalisée",
+      "managed": "Votre organisation n'autorise pas les points de terminaison personnalisés.",
+      "saveAsRefused": "Impossible de l'enregistrer comme connexion.",
+      "differentKey": "clé différente",
+      "actionFailed": "Cela n'a pas fonctionné. Réessayez.",
+      "kinds": {
+        "azure": "Azure OpenAI",
+        "openaiCompatible": "Compatible OpenAI"
+      },
+      "actions": {
+        "check": "Vérifier la connexion",
+        "checking": "Vérification…",
+        "more": "Autres actions pour {{name}}",
+        "rename": "Renommer",
+        "editEndpoint": "Modifier le point de terminaison",
+        "replaceKey": "Remplacer la clé",
+        "remove": "Supprimer…",
+        "replace": "Remplacer",
+        "addKey": "Ajouter une clé",
+        "update": "Mettre à jour",
+        "saveAs": "Enregistrer comme connexion"
+      },
+      "fields": {
+        "key": "Clé",
+        "models": "Modèles",
+        "name": "Nom",
+        "endpoint": "Point de terminaison",
+        "apiKey": "Clé API"
+      },
+      "models": {
+        "speech": "Voix :",
+        "language": "Langage :",
+        "none": "Aucun pour l'instant. Les modèles apparaissent ici dès qu'une fonctionnalité en utilise un ou qu'une vérification les liste."
+      },
+      "check": {
+        "ok": "{{name}} est joignable et la clé a été acceptée. Rien de ce que vous avez dicté n'a été envoyé.",
+        "listed": "{{name}} est joignable et la clé a été acceptée.",
+        "deployments": "Déploiements : {{deployments}}.",
+        "azureRoutes": "Les modèles de langage utilisent l'API /openai/v1 de la ressource ; la transcription utilise ses URL de déploiement. Rien de ce que vous avez dicté n'a été envoyé.",
+        "unlisted": "{{name}} est joignable et la clé a été acceptée. Azure n'a pas listé les déploiements de cette ressource : seuls les modèles que vous avez utilisés ici sont listés.",
+        "auth": "Clé refusée ({{status}}). Le point de terminaison a répondu, mais n'a pas accepté cette clé. Remplacez-la par une clé de la page Keys and Endpoint de la ressource.",
+        "authFeatures": "{{features}} échoueront d'ici là.",
+        "network": "Impossible de joindre {{name}}. Vérifiez l'adresse et votre réseau.",
+        "status": "Impossible de joindre {{name}} : le point de terminaison a répondu {{status}}.",
+        "blocked": "Cette adresse appartient à OpenWhispr, et OpenWhispr Cloud est désactivé dans Confidentialité & données : elle n'a pas été contactée.",
+        "invalid": "La connexion ne peut pas utiliser ce point de terminaison."
+      },
+      "errors": {
+        "required": "Saisissez l'URL du point de terminaison.",
+        "invalidUrl": "Ce n'est pas une URL http ou https valide.",
+        "httpsRequired": "Utilisez https. Le http simple ne fonctionne qu'avec les serveurs de votre réseau.",
+        "azureResourceOnly": "Collez le point de terminaison de la ressource depuis la page Keys and Endpoint d'Azure, par exemple https://<resource>.openai.azure.com/. Les URL de projets Foundry et les URL de requêtes complètes ne sont pas acceptées.",
+        "baseUrlOnly": "Collez uniquement l'URL de base, sans nom d'utilisateur, mot de passe, requête (?) ni fragment (#)."
+      },
+      "dialog": {
+        "addTitle": "Ajouter une connexion personnalisée",
+        "saveAsTitle": "Enregistrer comme connexion",
+        "editTitle": "Modifier {{name}}",
+        "saveAsFrom": "À partir du point de terminaison personnalisé de {{feature}}. Les fonctionnalités qui utilisent déjà ce point de terminaison rejoignent aussi « Utilisé par ».",
+        "editNote": "Un nouveau point de terminaison déplace avec lui toutes les fonctionnalités qui utilisent {{name}}, avec les mêmes modèles et clés.",
+        "endpointHelp": "Le point de terminaison de la ressource, sur la page Keys and Endpoint d'Azure. Pour les autres serveurs, collez leur URL de base compatible OpenAI (qui se termine généralement par /v1).",
+        "azureDetected": "Azure OpenAI détecté",
+        "languageModels": "Modèles de langage",
+        "speechToText": "Transcription",
+        "sourceKey": "Clé enregistrée de {{feature}}",
+        "sourceKeyHelp": "Copiée sur cet ordinateur depuis la clé de {{feature}} ; elle n'est jamais affichée en entier.",
+        "useDifferentKey": "Utiliser une autre clé",
+        "keyHelp": "Stockée chiffrée sur cet ordinateur et affichée uniquement masquée.",
+        "save": "Enregistrer la connexion",
+        "saveFailed": "Impossible d'enregistrer la connexion. Réessayez."
+      },
+      "replace": {
+        "title": "Remplacer la clé de {{name}}",
+        "label": "Nouvelle clé API",
+        "placeholder": "Collez la nouvelle clé",
+        "features": "Cela met aussi à jour les fonctionnalités qui utilisent {{name}}, pour qu'aucune ne garde l'ancienne clé :",
+        "noFeatures": "Aucune fonctionnalité n'utilise encore {{name}}.",
+        "confirm": "Remplacer la clé"
+      },
+      "remove": {
+        "inUseTitle": "{{name}} est utilisé",
+        "inUseDescription": "Faites passer ces fonctionnalités sur un autre modèle avant de supprimer la connexion, pour que rien ne cesse de fonctionner :",
+        "title": "Supprimer {{name}} ?",
+        "description": "La connexion et sa clé sont supprimées de cet ordinateur. Les fonctionnalités gardent leurs propres réglages et clés."
+      },
+      "search": {
+        "description": "Votre propre point de terminaison Azure OpenAI ou compatible OpenAI, sa clé et les fonctionnalités qui l'utilisent."
+      }
     }
   },
   "modelPicker": {

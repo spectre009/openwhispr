@@ -5753,7 +5753,8 @@
       "editIn": "Editar em {{feature}}",
       "sttKeySaved": "Uma chave API para todos os endpoints personalizados de voz para texto: salva",
       "sttNoKey": "Uma chave API para todos os endpoints personalizados de voz para texto: nenhuma salva",
-      "featureKey": "A chave API fica salva com este recurso."
+      "featureKey": "A chave API fica salva com este recurso.",
+      "allCovered": "Todos os endpoints personalizados em uso passam por {{name}}."
     },
     "local": {
       "kinds": {
@@ -5779,6 +5780,98 @@
       "personal": "Sua configuração",
       "notSetUp": "Não configurado. Escolha Corporativo nas configurações de modelo de um recurso para usar as credenciais Azure, Bedrock ou Vertex da sua organização.",
       "setUp": "Configurar na Limpeza"
+    },
+    "custom": {
+      "title": "Conexão personalizada",
+      "description": "Seu próprio endpoint: um recurso do Azure OpenAI ou Foundry, ou qualquer API compatível com OpenAI. Configure uma vez, com uma só chave, para todos os recursos que o usam.",
+      "add": "Adicionar conexão personalizada",
+      "managed": "Sua organização não permite endpoints personalizados.",
+      "saveAsRefused": "Não pode ser salvo como a conexão.",
+      "differentKey": "chave diferente",
+      "actionFailed": "Não funcionou. Tente novamente.",
+      "kinds": {
+        "azure": "Azure OpenAI",
+        "openaiCompatible": "Compatível com OpenAI"
+      },
+      "actions": {
+        "check": "Verificar conexão",
+        "checking": "Verificando…",
+        "more": "Mais ações para {{name}}",
+        "rename": "Renomear",
+        "editEndpoint": "Editar endpoint",
+        "replaceKey": "Substituir chave",
+        "remove": "Remover…",
+        "replace": "Substituir",
+        "addKey": "Adicionar uma chave",
+        "update": "Atualizar",
+        "saveAs": "Salvar como conexão"
+      },
+      "fields": {
+        "key": "Chave",
+        "models": "Modelos",
+        "name": "Nome",
+        "endpoint": "Endpoint",
+        "apiKey": "Chave de API"
+      },
+      "models": {
+        "speech": "Fala:",
+        "language": "Linguagem:",
+        "none": "Nenhum ainda. Os modelos aparecem aqui quando um recurso usa um ou uma verificação os lista."
+      },
+      "check": {
+        "ok": "{{name}} foi alcançado e a chave foi aceita. Nada do que você ditou foi enviado.",
+        "listed": "{{name}} foi alcançado e a chave foi aceita.",
+        "deployments": "Implantações: {{deployments}}.",
+        "azureRoutes": "Os modelos de linguagem usam a API /openai/v1 do recurso; a conversão de fala em texto usa as URLs de implantação. Nada do que você ditou foi enviado.",
+        "unlisted": "{{name}} foi alcançado e a chave foi aceita. O Azure não listou as implantações deste recurso, então só os modelos que você usou aqui são listados.",
+        "auth": "Chave rejeitada ({{status}}). O endpoint respondeu, mas não aceitou esta chave. Substitua-a por uma chave da página Keys and Endpoint do recurso.",
+        "authFeatures": "{{features}} vão falhar até lá.",
+        "network": "Não foi possível alcançar {{name}}. Verifique o endereço e sua rede.",
+        "status": "Não foi possível alcançar {{name}}: o endpoint respondeu {{status}}.",
+        "blocked": "Este endereço pertence ao OpenWhispr, e o OpenWhispr Cloud está desativado em Privacidade e dados, então ele não foi contatado.",
+        "invalid": "A conexão não pode usar este endpoint."
+      },
+      "errors": {
+        "required": "Informe a URL do endpoint.",
+        "invalidUrl": "Isso não é uma URL http ou https válida.",
+        "httpsRequired": "Use https. O http simples só funciona com servidores na sua rede.",
+        "azureResourceOnly": "Cole o endpoint do recurso da página Keys and Endpoint do Azure, como https://<resource>.openai.azure.com/. URLs de projetos do Foundry e URLs completas de solicitações não são aceitas.",
+        "baseUrlOnly": "Cole só a URL base, sem nome de usuário, senha, consulta (?) ou fragmento (#)."
+      },
+      "dialog": {
+        "addTitle": "Adicionar conexão personalizada",
+        "saveAsTitle": "Salvar como conexão",
+        "editTitle": "Editar {{name}}",
+        "saveAsFrom": "Do endpoint personalizado de {{feature}}. Os recursos que já usam o mesmo endpoint também entram em “Usado por”.",
+        "editNote": "Um novo endpoint leva junto todos os recursos que usam {{name}}, com os mesmos modelos e chaves.",
+        "endpointHelp": "O endpoint do recurso, na página Keys and Endpoint do Azure. Para outros servidores, cole a URL base compatível com OpenAI (geralmente termina em /v1).",
+        "azureDetected": "Azure OpenAI detectado",
+        "languageModels": "Modelos de linguagem",
+        "speechToText": "Fala em texto",
+        "sourceKey": "Chave salva de {{feature}}",
+        "sourceKeyHelp": "Copiada neste computador a partir da chave de {{feature}}; nunca é mostrada inteira.",
+        "useDifferentKey": "Usar outra chave",
+        "keyHelp": "Armazenada criptografada neste computador e mostrada só mascarada.",
+        "save": "Salvar conexão",
+        "saveFailed": "Não foi possível salvar a conexão. Tente novamente."
+      },
+      "replace": {
+        "title": "Substituir a chave de {{name}}",
+        "label": "Nova chave de API",
+        "placeholder": "Cole a nova chave",
+        "features": "Isso também atualiza os recursos que usam {{name}}, para que nenhum fique com a chave antiga:",
+        "noFeatures": "Nenhum recurso usa {{name}} ainda.",
+        "confirm": "Substituir chave"
+      },
+      "remove": {
+        "inUseTitle": "{{name}} está em uso",
+        "inUseDescription": "Mude estes recursos para outro modelo antes de remover a conexão, para que nada pare de funcionar:",
+        "title": "Remover {{name}}?",
+        "description": "A conexão e a chave são excluídas deste computador. Os recursos mantêm as próprias configurações e chaves."
+      },
+      "search": {
+        "description": "Seu próprio endpoint do Azure OpenAI ou compatível com OpenAI, a chave dele e os recursos que o usam."
+      }
     }
   },
   "modelPicker": {

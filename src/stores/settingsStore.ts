@@ -71,6 +71,12 @@ import { readCachedTinfoilModels } from "../models/tinfoilModelCache";
 import { recordTinfoilModelSwitch } from "./tinfoilModelSwitchStore";
 import { COPILOT_FALLBACK_MODELS, readCachedCopilotModels } from "../models/copilotModelCache";
 import { COPILOT_PROVIDER_ID, isCopilotScopeSupported } from "../config/copilot";
+import {
+  CUSTOM_CONNECTION_STORE_KEY,
+  normalizeCustomConnection,
+  parseCustomConnection,
+  type CustomConnection,
+} from "../config/customConnection";
 import { MEETING_STREAMING_PROVIDER_IDS } from "../helpers/meetingTranscriptionRouting";
 import { STREAMING_ONLY_PROVIDERS } from "../helpers/transcriptionRoute";
 import {
@@ -1336,6 +1342,16 @@ export interface SettingsState
   setCustomTranscriptionApiKey: (key: string) => void;
   setCleanupCustomApiKey: (key: string) => void;
 
+  /** The custom connection on AI Connections (local only), or null. */
+  customConnection: CustomConnection | null;
+  /** Its key, hydrated from main and shown masked only. Main writes it (custom-connection-* IPCs). */
+  customConnectionApiKey: string;
+  /** Creates or replaces the connection. */
+  setCustomConnection: (connection: CustomConnection) => void;
+  /** Renames it, moves its endpoint or updates its models; nothing without a connection. */
+  updateCustomConnection: (patch: Partial<CustomConnection>) => void;
+  removeCustomConnection: () => void;
+
   // Corti (BYOK)
   cortiEnvironment: string;
   cortiTenant: string;
@@ -1603,23 +1619,61 @@ const SECRET_IPC_SAVERS = {
 type SecretProvider = keyof typeof SECRET_IPC_SAVERS;
 
 const secretSaveTimers: Partial<Record<SecretProvider, ReturnType<typeof setTimeout>>> = {};
-function debouncedSaveSecret(provider: SecretProvider, key: string) {
-  if (!isBrowser) return;
-  debouncedPersistToEnv();
-  const timer = secretSaveTimers[provider];
-  if (timer) clearTimeout(timer);
-  secretSaveTimers[provider] = setTimeout(() => {
-    const api = window.electronAPI;
-    const save = api?.[SECRET_IPC_SAVERS[provider]] as
-      ((k: string) => Promise<unknown>) | undefined;
+const pendingSecretValues: Partial<Record<SecretProvider, string>> = {};
+
+function sendSecret(provider: SecretProvider, key: string): Promise<unknown> {
+  const api = window.electronAPI;
+  const save = api?.[SECRET_IPC_SAVERS[provider]] as ((k: string) => Promise<unknown>) | undefined;
+  return (
     save?.(key)?.catch((err) => {
       logger.warn(
         "Failed to persist secret",
         { provider, error: (err as Error).message },
         "settings"
       );
-    });
+    }) ?? Promise.resolve()
+  );
+}
+
+function debouncedSaveSecret(provider: SecretProvider, key: string) {
+  if (!isBrowser) return;
+  debouncedPersistToEnv();
+  const timer = secretSaveTimers[provider];
+  if (timer) clearTimeout(timer);
+  pendingSecretValues[provider] = key;
+  secretSaveTimers[provider] = setTimeout(() => {
+    delete secretSaveTimers[provider];
+    delete pendingSecretValues[provider];
+    void sendSecret(provider, key);
   }, 250);
+}
+
+// A key slot's store field ("chatAgentCustomApiKey") → its debounced saver.
+function secretProviderOf(storeKey: string): SecretProvider | null {
+  const isSaver = (name: string) => Object.prototype.hasOwnProperty.call(SECRET_IPC_SAVERS, name);
+  const provider = isSaver(storeKey) ? storeKey : storeKey.replace(/ApiKey$/, "");
+  return isSaver(provider) ? (provider as SecretProvider) : null;
+}
+
+/**
+ * Drops a key slot's pending debounced save, so it can't overwrite a copy main
+ * is about to write there (the custom connection's key).
+ */
+export function cancelPendingSecretSave(storeKey: string): void {
+  const provider = secretProviderOf(storeKey);
+  if (!provider || !secretSaveTimers[provider]) return;
+  clearTimeout(secretSaveTimers[provider]);
+  delete secretSaveTimers[provider];
+  delete pendingSecretValues[provider];
+}
+
+/** Sends a key slot's pending debounced save now, so main reads the value just entered. */
+export async function flushPendingSecretSave(storeKey: string): Promise<void> {
+  const provider = secretProviderOf(storeKey);
+  if (!provider || !secretSaveTimers[provider]) return;
+  const key = pendingSecretValues[provider] ?? "";
+  cancelPendingSecretSave(storeKey);
+  await sendSecret(provider, key);
 }
 
 const STALE_SECRET_LOCALSTORAGE_KEYS = [
@@ -1644,6 +1698,7 @@ const STALE_SECRET_LOCALSTORAGE_KEYS = [
   "dictationAgentCustomApiKey",
   "dictationAgentVisionCustomApiKey",
   "chatAgentCustomApiKey",
+  "customConnectionApiKey",
   "bedrockAccessKeyId",
   "bedrockSecretAccessKey",
   "bedrockSessionToken",
@@ -1766,6 +1821,10 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   assemblyaiApiKey: "",
   customTranscriptionApiKey: "",
   cleanupCustomApiKey: "",
+  customConnectionApiKey: "",
+  customConnection: isBrowser
+    ? parseCustomConnection(localStorage.getItem("customConnection"))
+    : null,
 
   // Enterprise providers
   enterpriseSetupMode: (() => {
@@ -2464,6 +2523,22 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
     set({ cleanupCustomApiKey: key });
     debouncedSaveSecret("cleanupCustom", key);
     invalidateApiKeyCaches("custom");
+  },
+
+  // Written as JSON, "null" when removed: the storage listener ignores removals.
+  setCustomConnection: (connection: CustomConnection) => {
+    const next = normalizeCustomConnection(connection);
+    if (isBrowser) localStorage.setItem("customConnection", JSON.stringify(next));
+    set({ customConnection: next });
+  },
+  updateCustomConnection: (patch: Partial<CustomConnection>) => {
+    const current = get().customConnection;
+    if (!current) return;
+    get().setCustomConnection({ ...current, ...patch });
+  },
+  removeCustomConnection: () => {
+    if (isBrowser) localStorage.setItem("customConnection", "null");
+    set({ customConnection: null });
   },
 
   // Enterprise provider setters
@@ -3615,13 +3690,15 @@ export async function initializeSettings(): Promise<void> {
       pendingSecretUpdates.add(storeKey);
       return;
     }
-    const saver =
-      SECRET_IPC_SAVERS[storeKey as SecretProvider] ||
-      SECRET_IPC_SAVERS[storeKey.replace(/ApiKey$/, "") as SecretProvider];
-    if (!saver) return;
-    const getter = window.electronAPI?.[
-      saver.replace(/^save/, "get") as keyof typeof window.electronAPI
-    ] as (() => Promise<string | null>) | undefined;
+    // The custom connection's key has a getter but no renderer saver.
+    const provider = secretProviderOf(storeKey);
+    const getterName =
+      storeKey === CUSTOM_CONNECTION_STORE_KEY
+        ? "getCustomConnectionKey"
+        : provider && SECRET_IPC_SAVERS[provider].replace(/^save/, "get");
+    if (!getterName) return;
+    const getter = window.electronAPI?.[getterName as keyof typeof window.electronAPI] as
+      (() => Promise<string | null>) | undefined;
     if (!getter) return;
     try {
       const key = await getter();
@@ -3678,6 +3755,7 @@ export async function initializeSettings(): Promise<void> {
         vertexApiKey,
         deepgram,
         assemblyai,
+        customConnectionKey,
       ] = await Promise.all([
         window.electronAPI.getOpenAIKey?.(),
         window.electronAPI.getAnthropicKey?.(),
@@ -3704,6 +3782,7 @@ export async function initializeSettings(): Promise<void> {
         window.electronAPI.getVertexApiKey?.(),
         window.electronAPI.getDeepgramKey?.(),
         window.electronAPI.getAssemblyAIKey?.(),
+        window.electronAPI.getCustomConnectionKey?.(),
       ]);
 
       useSettingsStore.setState({
@@ -3738,6 +3817,7 @@ export async function initializeSettings(): Promise<void> {
         vertexApiKey: vertexApiKey || "",
         deepgramApiKey: deepgram || "",
         assemblyaiApiKey: assemblyai || "",
+        customConnectionApiKey: customConnectionKey || "",
       });
 
       if (localStorage.getItem("_dictationAgentSeeded") === "key-pending") {
@@ -4128,6 +4208,8 @@ export async function initializeSettings(): Promise<void> {
       value = normalizeRecordingModeColor(newValue, "translation");
     } else if (key === "recordingReminderMinutes") {
       value = normalizeRecordingReminderMinutes(newValue);
+    } else if (key === "customConnection") {
+      value = parseCustomConnection(newValue);
     } else {
       value = newValue;
     }

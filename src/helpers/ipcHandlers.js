@@ -51,6 +51,7 @@ const {
 } = require("./connectors/connectorIpc");
 const { createNoteAttendeesLookup, searchContacts } = require("./connectors/contactSearch");
 const { registerCopilotIpc } = require("./copilot/copilotIpc");
+const { registerCustomConnectionIpc } = require("./customConnectionIpc");
 // The renderer's ModelRegistry is not main-loadable; the raw registry data is
 // packaged, and the route resolver only needs {id, baseUrl} per provider.
 const transcriptionProviderBaseUrls = () =>
@@ -1853,19 +1854,21 @@ class IPCHandlers {
     // Counts changes to any key in Settings. A streaming socket keeps the count it
     // was opened under, so a start never reuses one authenticated before a change.
     let credentialGeneration = 0;
+    // Counts a change and tells windows which settings changed, by name only.
+    // A renderer's own save skips its sender, leaving the editor's pending input alone.
+    const announceKeyChange = (storeKeys, exceptSenderId = null) => {
+      credentialGeneration += 1;
+      for (const win of BrowserWindow.getAllWindows()) {
+        if (win.isDestroyed() || win.webContents.id === exceptSenderId) continue;
+        for (const storeKey of storeKeys) win.webContents.send("api-key-updated", storeKey);
+      }
+    };
     const saveSecretKey = (getter, saver, storeKey) => (event, key) => {
       if (typeof key !== "string") throw new TypeError("API key must be a string");
       // Committing an unedited key field saves the same value again.
       const changed = this.environmentManager[getter]() !== key;
       const result = this.environmentManager[saver](key);
-      if (!changed) return result;
-      credentialGeneration += 1;
-      // Notify peers by setting name only; leave the editor's pending input alone.
-      for (const win of BrowserWindow.getAllWindows()) {
-        if (!win.isDestroyed() && win.webContents.id !== event.sender.id) {
-          win.webContents.send("api-key-updated", storeKey);
-        }
-      }
+      if (changed) announceKeyChange([storeKey], event.sender.id);
       return result;
     };
 
@@ -1873,6 +1876,13 @@ class IPCHandlers {
       ipcMain.handle(`get-${k.base}-key`, () => this.environmentManager[k.get]());
       ipcMain.handle(`save-${k.base}-key`, saveSecretKey(k.get, k.save, k.storeKey));
     }
+
+    // Copies main makes between key slots: every window refreshes, the sender too.
+    registerCustomConnectionIpc({
+      ipcMain,
+      environmentManager: this.environmentManager,
+      onKeysChanged: (storeKeys) => announceKeyChange(storeKeys),
+    });
 
     ipcMain.handle("db-save-transcription", async (event, text, rawText, options) => {
       // The trace's steps are written in the row's transaction, if main allows them.

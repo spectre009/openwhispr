@@ -14,6 +14,9 @@ const SECRET_KEYS = [
   "CORTI_CLIENT_SECRET",
   "CUSTOM_TRANSCRIPTION_API_KEY",
   "CUSTOM_CLEANUP_API_KEY",
+  // The custom connection's key (AI Connections). Main copies it into the
+  // feature slots above; the renderer only ever shows it masked.
+  "CUSTOM_CONNECTION_API_KEY",
   "BEDROCK_ACCESS_KEY_ID",
   "BEDROCK_SECRET_ACCESS_KEY",
   "BEDROCK_SESSION_TOKEN",
@@ -310,6 +313,31 @@ class EnvironmentManager {
   saveCleanupCustomKey(key) {
     delete process.env.CUSTOM_REASONING_API_KEY;
     return this._saveKey("CUSTOM_CLEANUP_API_KEY", key);
+  }
+
+  getCustomConnectionKey() {
+    return this._getKey("CUSTOM_CONNECTION_API_KEY");
+  }
+
+  saveCustomConnectionKey(key) {
+    return this._saveKey("CUSTOM_CONNECTION_API_KEY", key);
+  }
+
+  // Awaited, unlike _saveKey: resolves once the secret is on disk (encrypted,
+  // or in .env where encryption is unavailable), so a copy main makes between
+  // key slots survives a restart before any window is told about it.
+  async persistSecret(envVarName, value) {
+    if (!SECRET_KEY_SET.has(envVarName)) throw new Error("Not a secret key");
+    const next = typeof value === "string" ? value : "";
+    if (envVarName === "CUSTOM_CLEANUP_API_KEY") delete process.env.CUSTOM_REASONING_API_KEY;
+    if (this._encryptionAvailable()) {
+      await this._saveSecretKey(envVarName, next);
+    } else {
+      if (next) process.env[envVarName] = next;
+      else delete process.env[envVarName];
+      await this.saveAllKeysToEnvFile();
+    }
+    return { success: true };
   }
 
   // Enterprise providers — AWS Bedrock

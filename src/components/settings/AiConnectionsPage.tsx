@@ -58,12 +58,16 @@ import type {
   WhisperModelResult,
 } from "../../types/electron";
 import type { ManagedEnterpriseScope } from "../../types/enterpriseIdentity";
+import {
+  featuresUsingConnection,
+  type ConnectionUse,
+  type CustomConnection,
+} from "../../config/customConnection";
 import CopilotSignIn from "./CopilotSignIn";
 import GpuDeviceSelector from "./GpuDeviceSelector";
 import { SettingsLink } from "./ManageKeysLink";
 import { useOpenSettingsLink } from "./settingsLink";
 import { useSettingsVisible } from "./useSettingsVisible";
-import { SETTINGS_PAGES } from "./settingsPages";
 import {
   CONNECTION_PROVIDERS,
   findConnectionProvider,
@@ -73,38 +77,32 @@ import {
   type ConnectionProviderId,
 } from "./connectionProviders";
 import {
-  USAGE_FEATURE_PAGES,
+  USAGE_FEATURE_TITLE_KEYS,
   computeConnectionUsage,
   endpointUsages,
   enterpriseUsages,
   isActiveUsage,
+  isCustomConnectionAllowed,
   usagesOfLocalModel,
   usagesOfProvider,
   type FeatureUsage,
   type LocalModelEngine,
   type UsageFeature,
 } from "./connectionUsage";
+import { CustomConnectionGroup, SaveAsConnection } from "./CustomConnectionCard";
 
 /**
  * Settings › AI Connections & Local Models: every shared credential and
- * sign-in, the per-feature custom and self-hosted endpoints, downloaded
- * models, and the enterprise setup, each with where it's used right now
- * (connectionUsage.ts). The language-model pickers on feature pages take no
- * keys and link here instead; speech-to-text pickers keep their key fields,
- * which edit the same store fields through the same setters as this page.
- * Keys only ever show masked, and replacing one never reveals the old one.
+ * sign-in, the custom connection (CustomConnectionCard.tsx), the per-feature
+ * custom and self-hosted endpoints, downloaded models, and the enterprise
+ * setup, each with where it's used right now (connectionUsage.ts). The
+ * language-model pickers on feature pages take no keys and link here instead;
+ * speech-to-text pickers keep their key fields, which edit the same store
+ * fields through the same setters as this page. Keys only ever show masked,
+ * and replacing one never reveals the old one.
  */
 
 type Translate = (key: string, options?: Record<string, unknown>) => string;
-
-const FEATURE_TITLE_KEYS = Object.fromEntries(
-  (Object.keys(USAGE_FEATURE_PAGES) as UsageFeature[]).map((feature) => [
-    feature,
-    feature === "assistantVision"
-      ? "connections.features.assistantVision"
-      : SETTINGS_PAGES[USAGE_FEATURE_PAGES[feature]].titleKey,
-  ])
-) as Record<UsageFeature, string>;
 
 const STT_FEATURES: ReadonlySet<UsageFeature> = new Set([
   "recognition",
@@ -113,7 +111,7 @@ const STT_FEATURES: ReadonlySet<UsageFeature> = new Set([
 ]);
 
 function featureTitle(t: Translate, feature: UsageFeature): string {
-  return t(FEATURE_TITLE_KEYS[feature]);
+  return t(USAGE_FEATURE_TITLE_KEYS[feature]);
 }
 
 function featureList(t: Translate, usages: readonly FeatureUsage[]): string {
@@ -474,10 +472,14 @@ function ConnectionsSection({
   usages,
   policy,
   cloudDisabled,
+  connection,
+  connectionUses,
 }: {
   usages: readonly FeatureUsage[];
   policy: PolicyDecisionSnapshot;
   cloudDisabled: boolean;
+  connection: CustomConnection | null;
+  connectionUses: readonly ConnectionUse[];
 }) {
   const { t } = useTranslation();
   const { isCompact } = useSettingsLayout();
@@ -617,6 +619,12 @@ function ConnectionsSection({
           )}
         </div>
       )}
+      <CustomConnectionGroup
+        connection={connection}
+        uses={connectionUses}
+        usages={usages}
+        policy={policy}
+      />
       <ConfirmDialog
         open={confirmDialog.open}
         onOpenChange={(open) => !open && hideConfirmDialog()}
@@ -633,10 +641,24 @@ function ConnectionsSection({
 
 // ── Self-hosted & custom endpoints ──────────────────────────────────────────
 
-function EndpointsSection({ usages }: { usages: readonly FeatureUsage[] }) {
+function EndpointsSection({
+  usages,
+  policy,
+  customConnection,
+  connectionUses,
+}: {
+  usages: readonly FeatureUsage[];
+  policy: PolicyDecisionSnapshot;
+  customConnection: CustomConnection | null;
+  connectionUses: readonly ConnectionUse[];
+}) {
   const { t } = useTranslation();
   const sttKeySaved = useSettingsStore((s) => !!s.customTranscriptionApiKey?.trim());
-  const endpoints = endpointUsages(usages);
+  // Custom endpoints the connection covers are on its card's "Used by" instead.
+  const covered = new Set(connectionUses.map((use) => use.feature));
+  const all = endpointUsages(usages);
+  const endpoints = all.filter((usage) => !covered.has(usage.feature));
+  const offerSaveAs = !customConnection && isCustomConnectionAllowed(policy);
 
   return (
     <div data-setting-id="connections.endpoints" className="space-y-3">
@@ -645,7 +667,11 @@ function EndpointsSection({ usages }: { usages: readonly FeatureUsage[] }) {
         description={t("connections.sections.endpoints.description")}
       />
       {endpoints.length === 0 ? (
-        <p className="text-xs text-muted-foreground">{t("connections.endpoints.none")}</p>
+        <p className="text-xs text-muted-foreground">
+          {all.length > 0 && customConnection
+            ? t("connections.endpoints.allCovered", { name: customConnection.name })
+            : t("connections.endpoints.none")}
+        </p>
       ) : (
         <SettingsPanel>
           {endpoints.map((usage) => {
@@ -709,6 +735,11 @@ function EndpointsSection({ usages }: { usages: readonly FeatureUsage[] }) {
                             )
                           : t("connections.endpoints.featureKey")}
                       </p>
+                    )}
+                    {custom && offerSaveAs && (
+                      <div className="pt-1">
+                        <SaveAsConnection usage={usage} usages={usages} />
+                      </div>
                     )}
                   </div>
                   <SettingsLink destination={usage.edit} className="shrink-0">
@@ -1237,11 +1268,24 @@ export default function AiConnectionsPage() {
   useEnterpriseIdentityStore((state) => state.status);
 
   const usages = computeConnectionUsage({ settings, policy, cloudDisabled, stylesInUse });
+  const customConnection = settings.customConnection;
+  const connectionUses = featuresUsingConnection(usages, customConnection, settings);
 
   return (
     <div className="space-y-8">
-      <ConnectionsSection usages={usages} policy={policy} cloudDisabled={cloudDisabled} />
-      <EndpointsSection usages={usages} />
+      <ConnectionsSection
+        usages={usages}
+        policy={policy}
+        cloudDisabled={cloudDisabled}
+        connection={customConnection}
+        connectionUses={connectionUses}
+      />
+      <EndpointsSection
+        usages={usages}
+        policy={policy}
+        customConnection={customConnection}
+        connectionUses={connectionUses}
+      />
       <LocalModelsSection usages={usages} />
       <EnterpriseSection usages={usages} />
     </div>

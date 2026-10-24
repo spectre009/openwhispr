@@ -5753,7 +5753,8 @@
       "editIn": "Modifica in {{feature}}",
       "sttKeySaved": "Una chiave API per tutti gli endpoint personalizzati di trascrizione: salvata",
       "sttNoKey": "Una chiave API per tutti gli endpoint personalizzati di trascrizione: nessuna salvata",
-      "featureKey": "La sua chiave API è salvata con questa funzione."
+      "featureKey": "La sua chiave API è salvata con questa funzione.",
+      "allCovered": "Tutti gli endpoint personalizzati in uso passano da {{name}}."
     },
     "local": {
       "kinds": {
@@ -5779,6 +5780,98 @@
       "personal": "La tua configurazione",
       "notSetUp": "Non configurato. Scegli Enterprise nelle impostazioni del modello di una funzione per usare le credenziali Azure, Bedrock o Vertex della tua organizzazione.",
       "setUp": "Configura in Pulizia"
+    },
+    "custom": {
+      "title": "Connessione personalizzata",
+      "description": "Il tuo endpoint: una risorsa Azure OpenAI o Foundry, o qualsiasi API compatibile con OpenAI. Configuralo una volta, con un'unica chiave, per tutte le funzioni che lo usano.",
+      "add": "Aggiungi connessione personalizzata",
+      "managed": "La tua organizzazione non consente endpoint personalizzati.",
+      "saveAsRefused": "Non può essere salvato come connessione.",
+      "differentKey": "chiave diversa",
+      "actionFailed": "Non ha funzionato. Riprova.",
+      "kinds": {
+        "azure": "Azure OpenAI",
+        "openaiCompatible": "Compatibile con OpenAI"
+      },
+      "actions": {
+        "check": "Verifica connessione",
+        "checking": "Verifica in corso…",
+        "more": "Altre azioni per {{name}}",
+        "rename": "Rinomina",
+        "editEndpoint": "Modifica endpoint",
+        "replaceKey": "Sostituisci chiave",
+        "remove": "Rimuovi…",
+        "replace": "Sostituisci",
+        "addKey": "Aggiungi una chiave",
+        "update": "Aggiorna",
+        "saveAs": "Salva come connessione"
+      },
+      "fields": {
+        "key": "Chiave",
+        "models": "Modelli",
+        "name": "Nome",
+        "endpoint": "Endpoint",
+        "apiKey": "Chiave API"
+      },
+      "models": {
+        "speech": "Voce:",
+        "language": "Linguaggio:",
+        "none": "Ancora nessuno. I modelli compaiono qui quando una funzione ne usa uno o una verifica li elenca."
+      },
+      "check": {
+        "ok": "{{name}} raggiunto e chiave accettata. Non è stato inviato nulla di ciò che hai dettato.",
+        "listed": "{{name}} raggiunto e chiave accettata.",
+        "deployments": "Distribuzioni: {{deployments}}.",
+        "azureRoutes": "I modelli linguistici usano l'API /openai/v1 della risorsa; la trascrizione usa i suoi URL di distribuzione. Non è stato inviato nulla di ciò che hai dettato.",
+        "unlisted": "{{name}} raggiunto e chiave accettata. Azure non ha elencato le distribuzioni di questa risorsa, quindi sono elencati solo i modelli che hai usato qui.",
+        "auth": "Chiave rifiutata ({{status}}). L'endpoint ha risposto, ma non ha accettato questa chiave. Sostituiscila con una chiave della pagina Keys and Endpoint della risorsa.",
+        "authFeatures": "{{features}} non funzioneranno fino ad allora.",
+        "network": "Impossibile raggiungere {{name}}. Controlla l'indirizzo e la rete.",
+        "status": "Impossibile raggiungere {{name}}: l'endpoint ha risposto {{status}}.",
+        "blocked": "Questo indirizzo appartiene a OpenWhispr e OpenWhispr Cloud è disattivato in Privacy e dati, quindi non è stato contattato.",
+        "invalid": "La connessione non può usare questo endpoint."
+      },
+      "errors": {
+        "required": "Inserisci l'URL dell'endpoint.",
+        "invalidUrl": "Non è un URL http o https valido.",
+        "httpsRequired": "Usa https. L'http semplice funziona solo con i server della tua rete.",
+        "azureResourceOnly": "Incolla l'endpoint della risorsa dalla pagina Keys and Endpoint di Azure, ad esempio https://<resource>.openai.azure.com/. Gli URL dei progetti Foundry e gli URL di richiesta completi non sono accettati.",
+        "baseUrlOnly": "Incolla solo l'URL di base, senza nome utente, password, query (?) o frammento (#)."
+      },
+      "dialog": {
+        "addTitle": "Aggiungi connessione personalizzata",
+        "saveAsTitle": "Salva come connessione",
+        "editTitle": "Modifica {{name}}",
+        "saveAsFrom": "Dall'endpoint personalizzato di {{feature}}. Anche le funzioni che usano già lo stesso endpoint compaiono in “Usato da”.",
+        "editNote": "Un nuovo endpoint sposta con sé tutte le funzioni che usano {{name}}, con gli stessi modelli e chiavi.",
+        "endpointHelp": "L'endpoint della risorsa dalla pagina Keys and Endpoint di Azure. Per altri server, incolla il loro URL di base compatibile con OpenAI (di solito termina con /v1).",
+        "azureDetected": "Azure OpenAI rilevato",
+        "languageModels": "Modelli linguistici",
+        "speechToText": "Voce in testo",
+        "sourceKey": "Chiave salvata di {{feature}}",
+        "sourceKeyHelp": "Copiata su questo computer dalla chiave di {{feature}}; non viene mai mostrata per intero.",
+        "useDifferentKey": "Usa un'altra chiave",
+        "keyHelp": "Salvata crittografata su questo computer e mostrata solo mascherata.",
+        "save": "Salva connessione",
+        "saveFailed": "Impossibile salvare la connessione. Riprova."
+      },
+      "replace": {
+        "title": "Sostituisci la chiave di {{name}}",
+        "label": "Nuova chiave API",
+        "placeholder": "Incolla la nuova chiave",
+        "features": "Vengono aggiornate anche le funzioni che usano {{name}}, così nessuna mantiene la vecchia chiave:",
+        "noFeatures": "Nessuna funzione usa ancora {{name}}.",
+        "confirm": "Sostituisci chiave"
+      },
+      "remove": {
+        "inUseTitle": "{{name}} è in uso",
+        "inUseDescription": "Passa queste funzioni a un altro modello prima di rimuovere la connessione, così niente smette di funzionare:",
+        "title": "Rimuovere {{name}}?",
+        "description": "La connessione e la sua chiave vengono eliminate da questo computer. Le funzioni mantengono le proprie impostazioni e chiavi."
+      },
+      "search": {
+        "description": "Il tuo endpoint Azure OpenAI o compatibile con OpenAI, la sua chiave e le funzioni che lo usano."
+      }
     }
   },
   "modelPicker": {

@@ -5753,7 +5753,8 @@
       "editIn": "{{feature}} で編集",
       "sttKeySaved": "音声認識のカスタムエンドポイント共通の API キー：保存済み",
       "sttNoKey": "音声認識のカスタムエンドポイント共通の API キー：未保存",
-      "featureKey": "API キーはこの機能に保存されています。"
+      "featureKey": "API キーはこの機能に保存されています。",
+      "allCovered": "使用中のカスタムエンドポイントはすべて {{name}} を経由しています。"
     },
     "local": {
       "kinds": {
@@ -5779,6 +5780,98 @@
       "personal": "あなたの設定",
       "notSetUp": "未設定です。組織の Azure、Bedrock、Vertex の認証情報を使うには、機能のモデル設定でエンタープライズを選んでください。",
       "setUp": "クリーンアップで設定"
+    },
+    "custom": {
+      "title": "カスタム接続",
+      "description": "独自のエンドポイント：Azure OpenAI または Foundry のリソース、あるいは OpenAI 互換の任意の API。一度設定すれば、1 つのキーでそれを使うすべての機能に使えます。",
+      "add": "カスタム接続を追加",
+      "managed": "組織がカスタムエンドポイントを許可していません。",
+      "saveAsRefused": "接続として保存できません。",
+      "differentKey": "別のキー",
+      "actionFailed": "うまくいきませんでした。もう一度お試しください。",
+      "kinds": {
+        "azure": "Azure OpenAI",
+        "openaiCompatible": "OpenAI 互換"
+      },
+      "actions": {
+        "check": "接続を確認",
+        "checking": "確認中…",
+        "more": "{{name}} のその他の操作",
+        "rename": "名前を変更",
+        "editEndpoint": "エンドポイントを編集",
+        "replaceKey": "キーを置き換え",
+        "remove": "削除…",
+        "replace": "置き換え",
+        "addKey": "キーを追加",
+        "update": "更新",
+        "saveAs": "接続として保存"
+      },
+      "fields": {
+        "key": "キー",
+        "models": "モデル",
+        "name": "名前",
+        "endpoint": "エンドポイント",
+        "apiKey": "API キー"
+      },
+      "models": {
+        "speech": "音声：",
+        "language": "言語：",
+        "none": "まだありません。機能がモデルを使うか、確認で一覧が取得されるとここに表示されます。"
+      },
+      "check": {
+        "ok": "{{name}} に接続でき、キーが受け入れられました。ディクテーションした内容は送信されていません。",
+        "listed": "{{name}} に接続でき、キーが受け入れられました。",
+        "deployments": "デプロイ：{{deployments}}。",
+        "azureRoutes": "言語モデルはリソースの /openai/v1 API を、音声文字起こしはデプロイの URL を使います。ディクテーションした内容は送信されていません。",
+        "unlisted": "{{name}} に接続でき、キーが受け入れられました。Azure がこのリソースのデプロイを一覧表示しなかったため、ここで使ったモデルだけが表示されます。",
+        "auth": "キーが拒否されました（{{status}}）。エンドポイントは応答しましたが、このキーを受け入れませんでした。リソースの Keys and Endpoint ページのキーに置き換えてください。",
+        "authFeatures": "それまで {{features}} は失敗します。",
+        "network": "{{name}} に接続できませんでした。アドレスとネットワークを確認してください。",
+        "status": "{{name}} に接続できませんでした：エンドポイントの応答は {{status}} でした。",
+        "blocked": "このアドレスは OpenWhispr のもので、プライバシーとデータで OpenWhispr Cloud がオフになっているため、接続しませんでした。",
+        "invalid": "この接続ではこのエンドポイントを使えません。"
+      },
+      "errors": {
+        "required": "エンドポイントの URL を入力してください。",
+        "invalidUrl": "有効な http または https の URL ではありません。",
+        "httpsRequired": "https を使ってください。通常の http はネットワーク内のサーバーでのみ使えます。",
+        "azureResourceOnly": "Azure の Keys and Endpoint ページにあるリソースのエンドポイント（例：https://<resource>.openai.azure.com/）を貼り付けてください。Foundry のプロジェクト URL や完全なリクエスト URL は使えません。",
+        "baseUrlOnly": "ユーザー名、パスワード、クエリ（?）、フラグメント（#）を含まないベース URL だけを貼り付けてください。"
+      },
+      "dialog": {
+        "addTitle": "カスタム接続を追加",
+        "saveAsTitle": "接続として保存",
+        "editTitle": "{{name}} を編集",
+        "saveAsFrom": "{{feature}} のカスタムエンドポイントから作成します。同じエンドポイントを使っている機能も「使用中」に加わります。",
+        "editNote": "新しいエンドポイントにすると、{{name}} を使うすべての機能がモデルとキーはそのままで移動します。",
+        "endpointHelp": "Azure の Keys and Endpoint ページにあるリソースのエンドポイント。その他のサーバーでは、OpenAI 互換のベース URL（通常は /v1 で終わる）を貼り付けてください。",
+        "azureDetected": "Azure OpenAI を検出しました",
+        "languageModels": "言語モデル",
+        "speechToText": "音声文字起こし",
+        "sourceKey": "{{feature}} の保存済みキー",
+        "sourceKeyHelp": "{{feature}} のキーからこのコンピューター上でコピーされます。全体が表示されることはありません。",
+        "useDifferentKey": "別のキーを使う",
+        "keyHelp": "このコンピューターに暗号化して保存され、マスクされた形でのみ表示されます。",
+        "save": "接続を保存",
+        "saveFailed": "接続を保存できませんでした。もう一度お試しください。"
+      },
+      "replace": {
+        "title": "{{name}} のキーを置き換え",
+        "label": "新しい API キー",
+        "placeholder": "新しいキーを貼り付け",
+        "features": "{{name}} を使う機能も更新され、古いキーが残る機能はなくなります：",
+        "noFeatures": "{{name}} を使っている機能はまだありません。",
+        "confirm": "キーを置き換え"
+      },
+      "remove": {
+        "inUseTitle": "{{name}} は使用中です",
+        "inUseDescription": "何も動かなくならないよう、接続を削除する前にこれらの機能を別のモデルに切り替えてください：",
+        "title": "{{name}} を削除しますか？",
+        "description": "接続とそのキーがこのコンピューターから削除されます。各機能は自分の設定とキーを保持します。"
+      },
+      "search": {
+        "description": "独自の Azure OpenAI または OpenAI 互換のエンドポイント、そのキー、それを使う機能。"
+      }
     }
   },
   "modelPicker": {

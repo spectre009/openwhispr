@@ -5753,7 +5753,8 @@
       "editIn": "In {{feature}} bearbeiten",
       "sttKeySaved": "Ein API-Schlüssel für alle benutzerdefinierten Spracherkennungs-Endpunkte: gespeichert",
       "sttNoKey": "Ein API-Schlüssel für alle benutzerdefinierten Spracherkennungs-Endpunkte: keiner gespeichert",
-      "featureKey": "Sein API-Schlüssel wird bei dieser Funktion gespeichert."
+      "featureKey": "Sein API-Schlüssel wird bei dieser Funktion gespeichert.",
+      "allCovered": "Alle genutzten benutzerdefinierten Endpunkte laufen über {{name}}."
     },
     "local": {
       "kinds": {
@@ -5779,6 +5780,98 @@
       "personal": "Ihre Einrichtung",
       "notSetUp": "Nicht eingerichtet. Wählen Sie in den Modelleinstellungen einer Funktion „Enterprise“, um die Azure-, Bedrock- oder Vertex-Zugangsdaten Ihrer Organisation zu nutzen.",
       "setUp": "In der Bereinigung einrichten"
+    },
+    "custom": {
+      "title": "Benutzerdefinierte Verbindung",
+      "description": "Ihr eigener Endpunkt: eine Azure-OpenAI- oder Foundry-Ressource oder eine beliebige OpenAI-kompatible API. Einmal eingerichtet, mit einem Schlüssel für alle Funktionen, die ihn nutzen.",
+      "add": "Benutzerdefinierte Verbindung hinzufügen",
+      "managed": "Ihre Organisation erlaubt keine benutzerdefinierten Endpunkte.",
+      "saveAsRefused": "Kann nicht als Verbindung gespeichert werden.",
+      "differentKey": "anderer Schlüssel",
+      "actionFailed": "Das hat nicht geklappt. Versuchen Sie es erneut.",
+      "kinds": {
+        "azure": "Azure OpenAI",
+        "openaiCompatible": "OpenAI-kompatibel"
+      },
+      "actions": {
+        "check": "Verbindung prüfen",
+        "checking": "Wird geprüft…",
+        "more": "Weitere Aktionen für {{name}}",
+        "rename": "Umbenennen",
+        "editEndpoint": "Endpunkt bearbeiten",
+        "replaceKey": "Schlüssel ersetzen",
+        "remove": "Entfernen…",
+        "replace": "Ersetzen",
+        "addKey": "Schlüssel hinzufügen",
+        "update": "Aktualisieren",
+        "saveAs": "Als Verbindung speichern"
+      },
+      "fields": {
+        "key": "Schlüssel",
+        "models": "Modelle",
+        "name": "Name",
+        "endpoint": "Endpunkt",
+        "apiKey": "API-Schlüssel"
+      },
+      "models": {
+        "speech": "Sprache-zu-Text:",
+        "language": "Sprachmodelle:",
+        "none": "Noch keine. Modelle erscheinen hier, sobald eine Funktion eines nutzt oder eine Prüfung sie auflistet."
+      },
+      "check": {
+        "ok": "{{name}} erreicht; der Schlüssel wurde akzeptiert. Nichts von Ihrem Diktat wurde gesendet.",
+        "listed": "{{name}} erreicht; der Schlüssel wurde akzeptiert.",
+        "deployments": "Bereitstellungen: {{deployments}}.",
+        "azureRoutes": "Sprachmodelle nutzen die /openai/v1-API der Ressource, Sprache-zu-Text ihre Bereitstellungs-URLs. Nichts von Ihrem Diktat wurde gesendet.",
+        "unlisted": "{{name}} erreicht; der Schlüssel wurde akzeptiert. Azure hat die Bereitstellungen dieser Ressource nicht aufgelistet, daher werden nur die hier genutzten Modelle angezeigt.",
+        "auth": "Schlüssel abgelehnt ({{status}}). Der Endpunkt hat geantwortet, diesen Schlüssel aber nicht akzeptiert. Ersetzen Sie ihn durch einen Schlüssel von der Seite „Keys and Endpoint“ der Ressource.",
+        "authFeatures": "{{features}} schlagen bis dahin fehl.",
+        "network": "{{name}} ist nicht erreichbar. Prüfen Sie die Adresse und Ihr Netzwerk.",
+        "status": "{{name}} ist nicht erreichbar: Der Endpunkt hat mit {{status}} geantwortet.",
+        "blocked": "Diese Adresse gehört zu OpenWhispr, und OpenWhispr Cloud ist in Datenschutz & Daten ausgeschaltet, daher wurde sie nicht kontaktiert.",
+        "invalid": "Diesen Endpunkt kann die Verbindung nicht nutzen."
+      },
+      "errors": {
+        "required": "Geben Sie die Endpunkt-URL ein.",
+        "invalidUrl": "Das ist keine gültige http- oder https-URL.",
+        "httpsRequired": "Verwenden Sie https. Einfaches http funktioniert nur mit Servern in Ihrem Netzwerk.",
+        "azureResourceOnly": "Fügen Sie den Ressourcen-Endpunkt von der Azure-Seite „Keys and Endpoint“ ein, etwa https://<resource>.openai.azure.com/. Foundry-Projekt-URLs und vollständige Anfrage-URLs werden nicht akzeptiert.",
+        "baseUrlOnly": "Fügen Sie nur die Basis-URL ein, ohne Benutzername, Passwort, Abfrage (?) oder Fragment (#)."
+      },
+      "dialog": {
+        "addTitle": "Benutzerdefinierte Verbindung hinzufügen",
+        "saveAsTitle": "Als Verbindung speichern",
+        "editTitle": "{{name}} bearbeiten",
+        "saveAsFrom": "Vom benutzerdefinierten Endpunkt von {{feature}}. Funktionen, die denselben Endpunkt schon nutzen, erscheinen ebenfalls unter „Genutzt von“.",
+        "editNote": "Ein neuer Endpunkt nimmt alle Funktionen mit, die {{name}} nutzen, mit denselben Modellen und Schlüsseln.",
+        "endpointHelp": "Der Ressourcen-Endpunkt von der Azure-Seite „Keys and Endpoint“. Für andere Server fügen Sie deren OpenAI-kompatible Basis-URL ein (endet meist auf /v1).",
+        "azureDetected": "Azure OpenAI erkannt",
+        "languageModels": "Sprachmodelle",
+        "speechToText": "Sprache-zu-Text",
+        "sourceKey": "Gespeicherter Schlüssel von {{feature}}",
+        "sourceKeyHelp": "Wird auf diesem Computer aus dem Schlüssel von {{feature}} kopiert und nie vollständig angezeigt.",
+        "useDifferentKey": "Anderen Schlüssel verwenden",
+        "keyHelp": "Wird verschlüsselt auf diesem Computer gespeichert und nur maskiert angezeigt.",
+        "save": "Verbindung speichern",
+        "saveFailed": "Die Verbindung konnte nicht gespeichert werden. Versuchen Sie es erneut."
+      },
+      "replace": {
+        "title": "Schlüssel von {{name}} ersetzen",
+        "label": "Neuer API-Schlüssel",
+        "placeholder": "Neuen Schlüssel einfügen",
+        "features": "Damit werden auch die Funktionen aktualisiert, die {{name}} nutzen, sodass keine den alten Schlüssel behält:",
+        "noFeatures": "Noch keine Funktion nutzt {{name}}.",
+        "confirm": "Schlüssel ersetzen"
+      },
+      "remove": {
+        "inUseTitle": "{{name}} wird genutzt",
+        "inUseDescription": "Stellen Sie diese Funktionen auf ein anderes Modell um, bevor Sie die Verbindung entfernen, damit nichts ausfällt:",
+        "title": "{{name}} entfernen?",
+        "description": "Die Verbindung und ihr Schlüssel werden von diesem Computer gelöscht. Funktionen behalten ihre eigenen Einstellungen und Schlüssel."
+      },
+      "search": {
+        "description": "Ihr eigener Azure-OpenAI- oder OpenAI-kompatibler Endpunkt, sein Schlüssel und die Funktionen, die ihn nutzen."
+      }
     }
   },
   "modelPicker": {

@@ -5753,7 +5753,8 @@
       "editIn": "Edit in {{feature}}",
       "sttKeySaved": "One API key for every speech-to-text custom endpoint: saved",
       "sttNoKey": "One API key for every speech-to-text custom endpoint: none saved",
-      "featureKey": "Its API key is kept with this feature."
+      "featureKey": "Its API key is kept with this feature.",
+      "allCovered": "Every custom endpoint in use goes through {{name}}."
     },
     "local": {
       "kinds": {
@@ -5779,6 +5780,98 @@
       "personal": "Your setup",
       "notSetUp": "Not set up. Pick Enterprise in a feature's model settings to use your organization's Azure, Bedrock or Vertex credentials.",
       "setUp": "Set up in Cleanup"
+    },
+    "custom": {
+      "title": "Custom connection",
+      "description": "Your own endpoint: an Azure OpenAI or Foundry resource, or any OpenAI-compatible API. Set it up once, with one key, for every feature that uses it.",
+      "add": "Add custom connection",
+      "managed": "Your organization doesn't allow custom endpoints.",
+      "saveAsRefused": "Can't be saved as the connection.",
+      "differentKey": "different key",
+      "actionFailed": "That didn't work. Try again.",
+      "kinds": {
+        "azure": "Azure OpenAI",
+        "openaiCompatible": "OpenAI-compatible"
+      },
+      "actions": {
+        "check": "Check connection",
+        "checking": "Checking…",
+        "more": "More actions for {{name}}",
+        "rename": "Rename",
+        "editEndpoint": "Edit endpoint",
+        "replaceKey": "Replace key",
+        "remove": "Remove…",
+        "replace": "Replace",
+        "addKey": "Add a key",
+        "update": "Update",
+        "saveAs": "Save as connection"
+      },
+      "fields": {
+        "key": "Key",
+        "models": "Models",
+        "name": "Name",
+        "endpoint": "Endpoint",
+        "apiKey": "API key"
+      },
+      "models": {
+        "speech": "Speech:",
+        "language": "Language:",
+        "none": "None yet. Models show here once a feature uses one, or a check lists them."
+      },
+      "check": {
+        "ok": "Reached {{name}}; the key was accepted. Nothing you dictated was sent.",
+        "listed": "Reached {{name}}; the key was accepted.",
+        "deployments": "Deployments: {{deployments}}.",
+        "azureRoutes": "Language models use the resource's /openai/v1 API; speech-to-text uses its deployment URLs. Nothing you dictated was sent.",
+        "unlisted": "Reached {{name}}; the key was accepted. Azure didn't list this resource's deployments, so only the models you've used here are listed.",
+        "auth": "Key rejected ({{status}}). The endpoint answered, but didn't accept this key. Replace it with a key from the resource's Keys and Endpoint page.",
+        "authFeatures": "{{features}} will fail until then.",
+        "network": "Couldn't reach {{name}}. Check the address and your network.",
+        "status": "Couldn't reach {{name}}: the endpoint answered {{status}}.",
+        "blocked": "This address belongs to OpenWhispr, and OpenWhispr Cloud is turned off in Privacy & Data, so it wasn't contacted.",
+        "invalid": "The connection can't use this endpoint."
+      },
+      "errors": {
+        "required": "Enter the endpoint URL.",
+        "invalidUrl": "That isn't a valid http or https URL.",
+        "httpsRequired": "Use https. Plain http only works for servers on your network.",
+        "azureResourceOnly": "Paste the resource endpoint from Azure's Keys and Endpoint page, such as https://<resource>.openai.azure.com/. Foundry project URLs and full request URLs aren't accepted.",
+        "baseUrlOnly": "Paste the base URL only, without a user name, password, query (?) or fragment (#)."
+      },
+      "dialog": {
+        "addTitle": "Add custom connection",
+        "saveAsTitle": "Save as connection",
+        "editTitle": "Edit {{name}}",
+        "saveAsFrom": "From {{feature}}'s custom endpoint. Features already using the same endpoint join “Used by” too.",
+        "editNote": "A new endpoint moves every feature that uses {{name}} with it, keeping their models and keys.",
+        "endpointHelp": "The resource endpoint from Azure's Keys and Endpoint page. For other servers, paste their OpenAI-compatible base URL (usually ending in /v1).",
+        "azureDetected": "Azure OpenAI detected",
+        "languageModels": "Language models",
+        "speechToText": "Speech-to-text",
+        "sourceKey": "{{feature}}'s saved key",
+        "sourceKeyHelp": "Copied on this computer from {{feature}}'s key; it's never shown in full.",
+        "useDifferentKey": "Use a different key",
+        "keyHelp": "Stored encrypted on this computer and shown only masked.",
+        "save": "Save connection",
+        "saveFailed": "Couldn't save the connection. Try again."
+      },
+      "replace": {
+        "title": "Replace {{name}}'s key",
+        "label": "New API key",
+        "placeholder": "Paste the new key",
+        "features": "This also updates the features that use {{name}}, so none of them keeps the old key:",
+        "noFeatures": "No feature uses {{name}} yet.",
+        "confirm": "Replace key"
+      },
+      "remove": {
+        "inUseTitle": "{{name}} is in use",
+        "inUseDescription": "Switch these features to another model before removing the connection, so nothing stops working:",
+        "title": "Remove {{name}}?",
+        "description": "The connection and its key are deleted from this computer. Features keep their own settings and keys."
+      },
+      "search": {
+        "description": "Your own Azure OpenAI or OpenAI-compatible endpoint, its key, and the features that use it."
+      }
     }
   },
   "modelPicker": {

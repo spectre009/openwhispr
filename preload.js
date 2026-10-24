@@ -688,6 +688,16 @@ contextBridge.exposeInMainWorld("electronAPI", {
   getCleanupCustomKey: () => ipcRenderer.invoke("get-cleanup-custom-key"),
   saveCleanupCustomKey: (key) => ipcRenderer.invoke("save-cleanup-custom-key", key),
 
+  // The custom connection (AI Connections). Main makes every key copy; there is
+  // no plain save, and comparisons answer booleans.
+  getCustomConnectionKey: () => ipcRenderer.invoke("get-custom-connection-key"),
+  customConnectionCopyKey: (args) => ipcRenderer.invoke("custom-connection-copy-key", args),
+  customConnectionSaveKey: (args) => ipcRenderer.invoke("custom-connection-save-key", args),
+  customConnectionApplyKey: (args) => ipcRenderer.invoke("custom-connection-apply-key", args),
+  customConnectionCompare: (args) => ipcRenderer.invoke("custom-connection-compare", args),
+  customConnectionDeleteKey: () => ipcRenderer.invoke("custom-connection-delete-key"),
+  customConnectionCheck: (args) => ipcRenderer.invoke("custom-connection-check", args),
+
   // Enterprise provider key management
   getBedrockRegion: () => ipcRenderer.invoke("get-bedrock-region"),
   saveBedrockRegion: (value) => ipcRenderer.invoke("save-bedrock-region", value),

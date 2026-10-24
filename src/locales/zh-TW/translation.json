@@ -5753,7 +5753,8 @@
       "editIn": "在{{feature}}中編輯",
       "sttKeySaved": "所有語音轉文字自訂端點共用一把 API 金鑰：已儲存",
       "sttNoKey": "所有語音轉文字自訂端點共用一把 API 金鑰：未儲存",
-      "featureKey": "其 API 金鑰隨此功能儲存。"
+      "featureKey": "其 API 金鑰隨此功能儲存。",
+      "allCovered": "所有使用中的自訂端點都經由 {{name}}。"
     },
     "local": {
       "kinds": {
@@ -5779,6 +5780,98 @@
       "personal": "您的設定",
       "notSetUp": "尚未設定。在某功能的模型設定中選擇「企業級」，即可使用您組織的 Azure、Bedrock 或 Vertex 憑證。",
       "setUp": "在清理中設定"
+    },
+    "custom": {
+      "title": "自訂連線",
+      "description": "您自己的端點：Azure OpenAI 或 Foundry 資源，或任何相容 OpenAI 的 API。設定一次，以一組金鑰供所有使用它的功能使用。",
+      "add": "新增自訂連線",
+      "managed": "您的組織不允許使用自訂端點。",
+      "saveAsRefused": "無法儲存為連線。",
+      "differentKey": "金鑰不同",
+      "actionFailed": "操作未成功，請再試一次。",
+      "kinds": {
+        "azure": "Azure OpenAI",
+        "openaiCompatible": "相容 OpenAI"
+      },
+      "actions": {
+        "check": "檢查連線",
+        "checking": "正在檢查…",
+        "more": "{{name}} 的更多動作",
+        "rename": "重新命名",
+        "editEndpoint": "編輯端點",
+        "replaceKey": "取代金鑰",
+        "remove": "移除…",
+        "replace": "取代",
+        "addKey": "新增金鑰",
+        "update": "更新",
+        "saveAs": "儲存為連線"
+      },
+      "fields": {
+        "key": "金鑰",
+        "models": "模型",
+        "name": "名稱",
+        "endpoint": "端點",
+        "apiKey": "API 金鑰"
+      },
+      "models": {
+        "speech": "語音：",
+        "language": "語言：",
+        "none": "尚無。某個功能使用模型或檢查列出模型後，會顯示在這裡。"
+      },
+      "check": {
+        "ok": "已連上 {{name}}，金鑰已被接受。沒有傳送您口述的任何內容。",
+        "listed": "已連上 {{name}}，金鑰已被接受。",
+        "deployments": "部署：{{deployments}}。",
+        "azureRoutes": "語言模型使用該資源的 /openai/v1 API；語音轉文字使用其部署 URL。沒有傳送您口述的任何內容。",
+        "unlisted": "已連上 {{name}}，金鑰已被接受。Azure 未列出此資源的部署，因此只列出您在這裡用過的模型。",
+        "auth": "金鑰遭拒（{{status}}）。端點有回應，但不接受此金鑰。請改用該資源「Keys and Endpoint」頁面中的金鑰。",
+        "authFeatures": "在此之前，{{features}} 將無法運作。",
+        "network": "無法連上 {{name}}。請檢查位址和網路。",
+        "status": "無法連上 {{name}}：端點回應 {{status}}。",
+        "blocked": "此位址屬於 OpenWhispr，而 OpenWhispr Cloud 已在「隱私與資料」中關閉，因此沒有連線。",
+        "invalid": "此連線無法使用該端點。"
+      },
+      "errors": {
+        "required": "請輸入端點 URL。",
+        "invalidUrl": "這不是有效的 http 或 https URL。",
+        "httpsRequired": "請使用 https。一般 http 只適用於您網路中的伺服器。",
+        "azureResourceOnly": "請貼上 Azure「Keys and Endpoint」頁面中的資源端點，例如 https://<resource>.openai.azure.com/。不接受 Foundry 專案 URL 和完整的請求 URL。",
+        "baseUrlOnly": "請只貼上基礎 URL，不要包含使用者名稱、密碼、查詢（?）或片段（#）。"
+      },
+      "dialog": {
+        "addTitle": "新增自訂連線",
+        "saveAsTitle": "儲存為連線",
+        "editTitle": "編輯 {{name}}",
+        "saveAsFrom": "來自{{feature}}的自訂端點。已使用同一端點的功能也會加入「使用於」。",
+        "editNote": "更換端點後，所有使用 {{name}} 的功能都會一併移轉，模型和金鑰保持不變。",
+        "endpointHelp": "Azure「Keys and Endpoint」頁面中的資源端點。其他伺服器請貼上其相容 OpenAI 的基礎 URL（通常以 /v1 結尾）。",
+        "azureDetected": "已偵測到 Azure OpenAI",
+        "languageModels": "語言模型",
+        "speechToText": "語音轉文字",
+        "sourceKey": "{{feature}}已儲存的金鑰",
+        "sourceKeyHelp": "在這台電腦上從{{feature}}的金鑰複製；絕不會完整顯示。",
+        "useDifferentKey": "使用其他金鑰",
+        "keyHelp": "加密儲存在這台電腦上，只以遮罩形式顯示。",
+        "save": "儲存連線",
+        "saveFailed": "無法儲存連線，請再試一次。"
+      },
+      "replace": {
+        "title": "取代 {{name}} 的金鑰",
+        "label": "新的 API 金鑰",
+        "placeholder": "貼上新金鑰",
+        "features": "這也會更新使用 {{name}} 的功能，確保沒有功能保留舊金鑰：",
+        "noFeatures": "還沒有功能使用 {{name}}。",
+        "confirm": "取代金鑰"
+      },
+      "remove": {
+        "inUseTitle": "{{name}} 正在使用中",
+        "inUseDescription": "移除連線前，請先將這些功能切換到其他模型，以免無法運作：",
+        "title": "要移除 {{name}} 嗎？",
+        "description": "連線及其金鑰會從這台電腦刪除。各功能會保留自己的設定和金鑰。"
+      },
+      "search": {
+        "description": "您自己的 Azure OpenAI 或相容 OpenAI 的端點、其金鑰以及使用它的功能。"
+      }
     }
   },
   "modelPicker": {

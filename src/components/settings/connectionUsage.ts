@@ -10,6 +10,7 @@ import {
 import {
   isAgentAllowed,
   isModeAllowedByPolicy,
+  isProviderAllowedByPolicy,
   isScreenContextAllowed,
   type PolicyDecisionSnapshot,
 } from "../../stores/policyRules";
@@ -20,11 +21,13 @@ import {
   resolveDictationAgentVisionInference,
 } from "../../helpers/dictationAgentInference.js";
 import { COPILOT_PROVIDER_ID, isCopilotScopeSupported } from "../../config/copilot";
-import type { InferenceScope } from "../../config/inferenceScopes";
+import { INFERENCE_SCOPES, type InferenceScope } from "../../config/inferenceScopes";
+import type { CustomConnectionSlot } from "../../config/customConnection";
+import { inheritsFallbackEndpoint } from "../../helpers/reasoningRouting";
 import type { InferenceMode } from "../../types/electron";
 import type { ManagedEnterpriseScopeResolution } from "../../types/enterpriseIdentity";
 import { noteFormattingInheritsCleanup } from "./featurePageStatus";
-import type { SettingsPageId } from "./settingsPages";
+import { SETTINGS_PAGES, type SettingsPageId } from "./settingsPages";
 
 /**
  * "Used by" on Settings › AI Connections & Local Models: which feature runs on
@@ -38,7 +41,9 @@ import type { SettingsPageId } from "./settingsPages";
  * while this one's can't) or off (the feature is switched off or can't run).
  *
  * Pure: the result carries ids, model ids and endpoint hosts only, never a
- * key, token or full URL.
+ * key, token or full URL. A custom endpoint also names the store field its URL
+ * comes from and the key slot its request reads (`customEndpoint`), for the
+ * custom connection's "Used by" (config/customConnection.js).
  */
 
 export type UsageFeature =
@@ -96,6 +101,16 @@ export interface FeatureUsage {
   offReason?: UsageOffReason;
   /** Where the feature picks its model: `<page>#<settingId>`. */
   edit: string;
+  /** A custom endpoint: where its request reads the URL and the key. */
+  customEndpoint?: CustomEndpointSource;
+}
+
+/** Names only: a store field and a key slot, never their values. */
+export interface CustomEndpointSource {
+  /** The store field the URL comes from: the feature's own, or the one it borrows. */
+  urlField: keyof SettingsState;
+  /** The key slot the request reads. */
+  slot: CustomConnectionSlot;
 }
 
 /** The page each feature's name and model setting live on. */
@@ -111,6 +126,16 @@ export const USAGE_FEATURE_PAGES: Readonly<Record<UsageFeature, SettingsPageId>>
   liveRecording: "liveRecording",
   fileTranscription: "fileTranscription",
 };
+
+/** Each feature's name: its page's title (the Screen Context Model has its own). */
+export const USAGE_FEATURE_TITLE_KEYS = Object.fromEntries(
+  (Object.keys(USAGE_FEATURE_PAGES) as UsageFeature[]).map((feature) => [
+    feature,
+    feature === "assistantVision"
+      ? "connections.features.assistantVision"
+      : SETTINGS_PAGES[USAGE_FEATURE_PAGES[feature]].titleKey,
+  ])
+) as Readonly<Record<UsageFeature, string>>;
 
 /** Where each feature's model is picked ("Edit in <feature>"). Styles run on Cleanup's model. */
 export const USAGE_EDIT_DESTINATIONS: Readonly<Record<UsageFeature, string>> = {
@@ -187,11 +212,63 @@ export function isActiveUsage(usage: FeatureUsage): boolean {
   return usage.kind !== "off";
 }
 
-type Routed = { connection: ConnectionRef; offReason?: UsageOffReason };
+type Routed = {
+  connection: ConnectionRef;
+  offReason?: UsageOffReason;
+  customEndpoint?: CustomEndpointSource;
+};
 
 function cloudReason(effective: SettingsState, cloudDisabled: boolean): UsageOffReason | undefined {
   if (cloudDisabled) return "cloudOff";
   return effective.isSignedIn ? undefined : "signedOut";
+}
+
+const LLM_KEY_SLOTS: Readonly<Record<InferenceScope, CustomConnectionSlot>> = {
+  dictationCleanup: "CUSTOM_CLEANUP_API_KEY",
+  dictationAgent: "DICTATION_AGENT_CUSTOM_API_KEY",
+  dictationAgentVision: "DICTATION_AGENT_VISION_CUSTOM_API_KEY",
+  noteFormatting: "NOTE_FORMATTING_CUSTOM_API_KEY",
+  chatIntelligence: "CHAT_AGENT_CUSTOM_API_KEY",
+  dictationTranslation: "TRANSLATION_CUSTOM_API_KEY",
+};
+
+/**
+ * Where an LLM scope's custom request reads its URL and key, as the request
+ * resolves them: an unset URL is the fallback scope's (note formatting →
+ * Cleanup, the screen context model → the assistant), and so is the key when
+ * the request borrows it (selectResolvedNoteFormatting,
+ * resolveDictationAgentVisionInference); a scope with no key of its own sends
+ * Cleanup's when its URL is Cleanup's (canBorrowCleanupCustomKey).
+ */
+function llmCustomEndpoint(scope: InferenceScope, s: SettingsState): CustomEndpointSource {
+  const keys: Partial<Record<string, keyof SettingsState>> = INFERENCE_SCOPES[scope].storeKeys;
+  const value = (field: keyof SettingsState | undefined) =>
+    field ? String(s[field] ?? "").trim() : "";
+  const fallback = (INFERENCE_SCOPES[scope] as { fallbackScope?: InferenceScope }).fallbackScope;
+  const ownUrlField = keys.cloudBaseUrl as keyof SettingsState;
+  const urlField =
+    s[ownUrlField] || !fallback
+      ? ownUrlField
+      : (INFERENCE_SCOPES[fallback].storeKeys.cloudBaseUrl as keyof SettingsState);
+  const own = LLM_KEY_SLOTS[scope];
+  if (value(keys.customApiKey)) return { urlField, slot: own };
+  if (fallback) {
+    const borrows = inheritsFallbackEndpoint(
+      {
+        mode: s[keys.mode as keyof SettingsState],
+        cloudBaseUrl: s[ownUrlField],
+        remoteUrl: keys.remoteUrl ? s[keys.remoteUrl] : undefined,
+      },
+      selectResolvedLLMConfig(s, fallback).mode
+    );
+    const fallbackKey = INFERENCE_SCOPES[fallback].storeKeys.customApiKey as keyof SettingsState;
+    if (borrows && value(fallbackKey)) return { urlField, slot: LLM_KEY_SLOTS[fallback] };
+  }
+  const url = value(urlField);
+  if (url && url === value("cleanupCloudBaseUrl")) {
+    return { urlField, slot: "CUSTOM_CLEANUP_API_KEY" };
+  }
+  return { urlField, slot: own };
 }
 
 /** What an LLM scope's resolved config connects to. Null: nothing picked yet. */
@@ -234,6 +311,7 @@ function llmRoute(
             model,
             secret: "feature",
           },
+          customEndpoint: llmCustomEndpoint(scope, effective),
         };
       }
       if (provider === COPILOT_PROVIDER_ID) {
@@ -252,6 +330,8 @@ interface TranscriptionChoice {
   provider: string;
   model: string;
   baseUrl: string;
+  /** The store field `baseUrl` comes from (Recognition's when the surface borrows it). */
+  baseUrlField: keyof SettingsState;
   localProvider: string;
   localModel: string;
   remoteUrl: string;
@@ -342,6 +422,8 @@ function transcriptionRoute(
             model: choice.model?.trim() ?? "",
             secret: "speechToText",
           },
+          // Every speech-to-text custom endpoint shares one key.
+          customEndpoint: { urlField: choice.baseUrlField, slot: "CUSTOM_TRANSCRIPTION_API_KEY" },
         };
       }
       return { connection: { type: "provider", provider } };
@@ -374,6 +456,7 @@ export function computeConnectionUsage(input: ConnectionUsageInput): FeatureUsag
       ...(from ? { from } : {}),
       ...(offReason ? { offReason } : {}),
       edit: USAGE_EDIT_DESTINATIONS[feature],
+      ...(routed.customEndpoint ? { customEndpoint: routed.customEndpoint } : {}),
     });
   };
   const llm = (scope: InferenceScope) => selectResolvedLLMConfig(effective, scope);
@@ -393,6 +476,7 @@ export function computeConnectionUsage(input: ConnectionUsageInput): FeatureUsag
         provider: effective.cloudTranscriptionProvider,
         model: effective.cloudTranscriptionModel,
         baseUrl: effective.cloudTranscriptionBaseUrl,
+        baseUrlField: "cloudTranscriptionBaseUrl",
         localProvider: effective.localTranscriptionProvider,
         localModel: localTranscriptionModel(effective.localTranscriptionProvider, {
           whisper: effective.whisperModel,
@@ -419,6 +503,9 @@ export function computeConnectionUsage(input: ConnectionUsageInput): FeatureUsag
     provider: meeting.cloudTranscriptionProvider,
     model: meeting.cloudTranscriptionModel,
     baseUrl: meeting.cloudTranscriptionBaseUrl,
+    baseUrlField: effective.meetingCloudTranscriptionBaseUrl
+      ? "meetingCloudTranscriptionBaseUrl"
+      : "cloudTranscriptionBaseUrl",
     localProvider: meeting.localTranscriptionProvider,
     localModel: localTranscriptionModel(meeting.localTranscriptionProvider, {
       whisper: meeting.whisperModel,
@@ -455,6 +542,9 @@ export function computeConnectionUsage(input: ConnectionUsageInput): FeatureUsag
     provider: upload.cloudTranscriptionProvider,
     model: upload.cloudTranscriptionModel,
     baseUrl: upload.cloudTranscriptionBaseUrl,
+    baseUrlField: effective.uploadCloudTranscriptionBaseUrl
+      ? "uploadCloudTranscriptionBaseUrl"
+      : "cloudTranscriptionBaseUrl",
     localProvider: upload.localTranscriptionProvider,
     localModel: localTranscriptionModel(upload.localTranscriptionProvider, {
       whisper: upload.whisperModel,
@@ -598,4 +688,13 @@ export function endpointUsages(usages: readonly FeatureUsage[]): FeatureUsage[] 
 /** Uses of enterprise providers (managed deployments and personal setups). */
 export function enterpriseUsages(usages: readonly FeatureUsage[]): FeatureUsage[] {
   return usages.filter((usage) => usage.connection.type === "enterprise");
+}
+
+/** Whether policy lets any feature pick the Custom endpoint provider (the custom connection's gate). */
+export function isCustomConnectionAllowed(policy: PolicyDecisionSnapshot): boolean {
+  return (["llm", "transcription"] as const).some(
+    (scope) =>
+      isModeAllowedByPolicy(policy, scope, "providers") &&
+      isProviderAllowedByPolicy(policy, scope, "custom")
+  );
 }

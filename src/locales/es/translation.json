@@ -5753,7 +5753,8 @@
       "editIn": "Editar en {{feature}}",
       "sttKeySaved": "Una clave API para todos los endpoints personalizados de voz a texto: guardada",
       "sttNoKey": "Una clave API para todos los endpoints personalizados de voz a texto: ninguna guardada",
-      "featureKey": "Su clave API se guarda con esta función."
+      "featureKey": "Su clave API se guarda con esta función.",
+      "allCovered": "Todos los endpoints personalizados en uso pasan por {{name}}."
     },
     "local": {
       "kinds": {
@@ -5779,6 +5780,98 @@
       "personal": "Tu configuración",
       "notSetUp": "Sin configurar. Elige Empresarial en los ajustes de modelo de una función para usar las credenciales de Azure, Bedrock o Vertex de tu organización.",
       "setUp": "Configurar en Limpieza"
+    },
+    "custom": {
+      "title": "Conexión personalizada",
+      "description": "Tu propio endpoint: un recurso de Azure OpenAI o Foundry, o cualquier API compatible con OpenAI. Configúralo una vez, con una sola clave, para todas las funciones que lo usen.",
+      "add": "Añadir conexión personalizada",
+      "managed": "Tu organización no permite endpoints personalizados.",
+      "saveAsRefused": "No se puede guardar como la conexión.",
+      "differentKey": "clave distinta",
+      "actionFailed": "No ha funcionado. Inténtalo de nuevo.",
+      "kinds": {
+        "azure": "Azure OpenAI",
+        "openaiCompatible": "Compatible con OpenAI"
+      },
+      "actions": {
+        "check": "Comprobar conexión",
+        "checking": "Comprobando…",
+        "more": "Más acciones para {{name}}",
+        "rename": "Cambiar nombre",
+        "editEndpoint": "Editar endpoint",
+        "replaceKey": "Reemplazar clave",
+        "remove": "Quitar…",
+        "replace": "Reemplazar",
+        "addKey": "Añadir una clave",
+        "update": "Actualizar",
+        "saveAs": "Guardar como conexión"
+      },
+      "fields": {
+        "key": "Clave",
+        "models": "Modelos",
+        "name": "Nombre",
+        "endpoint": "Endpoint",
+        "apiKey": "Clave de API"
+      },
+      "models": {
+        "speech": "Voz:",
+        "language": "Lenguaje:",
+        "none": "Ninguno todavía. Los modelos aparecen aquí cuando una función usa uno o una comprobación los lista."
+      },
+      "check": {
+        "ok": "Se ha conectado con {{name}} y la clave se ha aceptado. No se ha enviado nada de lo que dictaste.",
+        "listed": "Se ha conectado con {{name}} y la clave se ha aceptado.",
+        "deployments": "Implementaciones: {{deployments}}.",
+        "azureRoutes": "Los modelos de lenguaje usan la API /openai/v1 del recurso; la conversión de voz a texto usa sus URL de implementación. No se ha enviado nada de lo que dictaste.",
+        "unlisted": "Se ha conectado con {{name}} y la clave se ha aceptado. Azure no ha listado las implementaciones de este recurso, así que solo se muestran los modelos que has usado aquí.",
+        "auth": "Clave rechazada ({{status}}). El endpoint respondió, pero no aceptó esta clave. Reemplázala por una clave de la página Keys and Endpoint del recurso.",
+        "authFeatures": "{{features}} fallarán hasta entonces.",
+        "network": "No se ha podido conectar con {{name}}. Revisa la dirección y tu red.",
+        "status": "No se ha podido conectar con {{name}}: el endpoint respondió {{status}}.",
+        "blocked": "Esta dirección pertenece a OpenWhispr y OpenWhispr Cloud está desactivado en Privacidad y datos, así que no se ha contactado.",
+        "invalid": "La conexión no puede usar este endpoint."
+      },
+      "errors": {
+        "required": "Introduce la URL del endpoint.",
+        "invalidUrl": "No es una URL http o https válida.",
+        "httpsRequired": "Usa https. El http sin cifrar solo funciona con servidores de tu red.",
+        "azureResourceOnly": "Pega el endpoint del recurso de la página Keys and Endpoint de Azure, como https://<resource>.openai.azure.com/. No se aceptan URL de proyectos de Foundry ni URL de solicitudes completas.",
+        "baseUrlOnly": "Pega solo la URL base, sin nombre de usuario, contraseña, consulta (?) ni fragmento (#)."
+      },
+      "dialog": {
+        "addTitle": "Añadir conexión personalizada",
+        "saveAsTitle": "Guardar como conexión",
+        "editTitle": "Editar {{name}}",
+        "saveAsFrom": "Del endpoint personalizado de {{feature}}. Las funciones que ya usan el mismo endpoint también se añaden a “Usado por”.",
+        "editNote": "Un endpoint nuevo traslada con él todas las funciones que usan {{name}}, con sus mismos modelos y claves.",
+        "endpointHelp": "El endpoint del recurso de la página Keys and Endpoint de Azure. Para otros servidores, pega su URL base compatible con OpenAI (suele terminar en /v1).",
+        "azureDetected": "Azure OpenAI detectado",
+        "languageModels": "Modelos de lenguaje",
+        "speechToText": "Voz a texto",
+        "sourceKey": "Clave guardada de {{feature}}",
+        "sourceKeyHelp": "Se copia en este equipo desde la clave de {{feature}}; nunca se muestra completa.",
+        "useDifferentKey": "Usar otra clave",
+        "keyHelp": "Se guarda cifrada en este equipo y solo se muestra enmascarada.",
+        "save": "Guardar conexión",
+        "saveFailed": "No se ha podido guardar la conexión. Inténtalo de nuevo."
+      },
+      "replace": {
+        "title": "Reemplazar la clave de {{name}}",
+        "label": "Nueva clave de API",
+        "placeholder": "Pega la nueva clave",
+        "features": "También se actualizan las funciones que usan {{name}}, para que ninguna conserve la clave antigua:",
+        "noFeatures": "Ninguna función usa {{name}} todavía.",
+        "confirm": "Reemplazar clave"
+      },
+      "remove": {
+        "inUseTitle": "{{name}} está en uso",
+        "inUseDescription": "Cambia estas funciones a otro modelo antes de quitar la conexión, para que nada deje de funcionar:",
+        "title": "¿Quitar {{name}}?",
+        "description": "La conexión y su clave se eliminan de este equipo. Las funciones conservan sus propios ajustes y claves."
+      },
+      "search": {
+        "description": "Tu propio endpoint de Azure OpenAI o compatible con OpenAI, su clave y las funciones que lo usan."
+      }
     }
   },
   "modelPicker": {

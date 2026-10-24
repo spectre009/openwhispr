@@ -35,8 +35,18 @@ import type {
 import type { GlossaryRule, GlossarySnapshot, GlossarySpelling } from "../utils/glossary";
 import type { PostTranscriptionTrace } from "../helpers/postTranscription";
 import type { StyleHotkeyResult, StyleHotkeyState } from "../config/styles/library";
+import type { CustomConnectionSlot } from "../config/customConnection";
 
 export type LocalTranscriptionProvider = "whisper" | "nvidia" | "cohere";
+
+/** Check connection on the custom connection: reachability and key, never a key or body. */
+export interface CustomConnectionCheckResult {
+  status: "ok" | "auth" | "network" | "invalid" | "blocked";
+  httpStatus?: number;
+  /** Azure deployments, when the resource listed them. */
+  deployments?: Array<{ id: string; model: string }>;
+  discovery: "listed" | "unavailable";
+}
 
 export type DictionaryEntrySource = "manual" | "learned";
 
@@ -2675,6 +2685,28 @@ declare global {
       saveDictationAgentVisionCustomKey?: (key: string) => Promise<void>;
       getChatAgentCustomKey?: () => Promise<string | null>;
       saveChatAgentCustomKey?: (key: string) => Promise<void>;
+
+      // The custom connection: main copies its key between slots; no plain save.
+      getCustomConnectionKey?: () => Promise<string | null>;
+      customConnectionCopyKey?: (args: {
+        fromSlot: CustomConnectionSlot;
+      }) => Promise<{ success: boolean }>;
+      customConnectionSaveKey?: (args: {
+        key: string;
+        applyTo: CustomConnectionSlot[];
+      }) => Promise<{ success: boolean }>;
+      customConnectionApplyKey?: (args: {
+        slots: CustomConnectionSlot[];
+      }) => Promise<{ success: boolean }>;
+      customConnectionCompare?: (args: {
+        slots: CustomConnectionSlot[];
+      }) => Promise<Partial<Record<CustomConnectionSlot, boolean>>>;
+      customConnectionDeleteKey?: () => Promise<{ success: boolean }>;
+      customConnectionCheck?: (args: {
+        endpoint: string;
+        key?: string;
+        fromSlot?: CustomConnectionSlot;
+      }) => Promise<CustomConnectionCheckResult>;
 
       // Enterprise provider key persistence
       getBedrockRegion?: () => Promise<string | null>;
