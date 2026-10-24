@@ -178,6 +178,8 @@
     "pttUnavailable": "OpenWhispr のキーリスナーを利用できません。"
   },
   "common": {
+    "showAll": "すべて表示",
+    "showLess": "折りたたむ",
     "continue": "続ける",
     "add": "追加",
     "retry": "再試行",

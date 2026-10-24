@@ -3,7 +3,8 @@ import { useTranslation } from "react-i18next";
 import { useShallow } from "zustand/react/shallow";
 import { Button } from "./button";
 import { Input } from "./input";
-import { Textarea } from "./textarea";
+import { AutoGrowTextarea } from "./AutoGrowTextarea";
+import ClampedText from "./ClampedText";
 import { Toggle } from "./toggle";
 import { ConfirmDialog } from "./dialog";
 import {
@@ -485,17 +486,25 @@ export default function StyleStudio({ className = "" }: { className?: string }) 
                         ? t("styles.editor.showOneStepBlock")
                         : t("styles.editor.showRestylePrompt")}
                     </summary>
-                    <pre
-                      dir="ltr"
-                      className="mt-2 max-h-72 overflow-y-auto whitespace-pre-wrap rounded-lg border border-border/70 bg-muted/30 p-3 font-mono text-[11px] leading-relaxed"
+                    <ClampedText
+                      collapsedRem={18}
+                      className="mt-2 rounded-lg border border-border/70 bg-muted/30 p-3"
                     >
-                      {saved.runMode === "one-step"
-                        ? buildOneStepStyleBlock({
-                            name: saved.name,
-                            instruction: saved.instruction,
-                          })
-                        : buildRestylePrompt({ name: saved.name, instruction: saved.instruction })}
-                    </pre>
+                      <pre
+                        dir="ltr"
+                        className="whitespace-pre-wrap font-mono text-[11px] leading-relaxed"
+                      >
+                        {saved.runMode === "one-step"
+                          ? buildOneStepStyleBlock({
+                              name: saved.name,
+                              instruction: saved.instruction,
+                            })
+                          : buildRestylePrompt({
+                              name: saved.name,
+                              instruction: saved.instruction,
+                            })}
+                      </pre>
+                    </ClampedText>
                   </details>
                 )}
               </div>
@@ -537,14 +546,14 @@ export default function StyleStudio({ className = "" }: { className?: string }) 
                     <span className="text-xs text-muted-foreground">
                       {t("styles.editor.instruction")}
                     </span>
-                    <Textarea
+                    <AutoGrowTextarea
                       dir="auto"
                       value={draft.instruction}
                       maxLength={STYLE_INSTRUCTION_MAX_LENGTH}
                       onChange={(e) =>
                         setDraft((prev) => ({ ...prev, instruction: e.target.value }))
                       }
-                      rows={6}
+                      minRows={6}
                       className="text-xs leading-relaxed"
                       placeholder={t("styles.editor.instructionPlaceholder")}
                     />
@@ -716,11 +725,11 @@ export default function StyleStudio({ className = "" }: { className?: string }) 
                       <p className="text-xs font-medium text-foreground mb-2">
                         {t("promptStudio.test.inputLabel")}
                       </p>
-                      <Textarea
+                      <AutoGrowTextarea
                         dir="auto"
                         value={testText}
                         onChange={(e) => setTestText(e.target.value)}
-                        rows={3}
+                        minRows={3}
                         className="text-xs"
                         placeholder={t("promptStudio.test.inputPlaceholder")}
                       />
@@ -897,7 +906,10 @@ function ModeOutput({
           </Button>
         )}
       </div>
-      <div className="min-h-16 bg-muted/30 dark:bg-surface-raised/30 border border-border/70 rounded-lg p-3 max-h-64 overflow-y-auto">
+      <ClampedText
+        collapsedRem={16}
+        className="min-h-16 bg-muted/30 dark:bg-surface-raised/30 border border-border/70 rounded-lg p-3"
+      >
         {pending ? (
           <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <Loader2 className="w-3 h-3 animate-spin" />
@@ -912,7 +924,7 @@ function ModeOutput({
             {result?.text ?? ""}
           </pre>
         )}
-      </div>
+      </ClampedText>
     </div>
   );
 }

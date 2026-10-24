@@ -70,7 +70,8 @@ async function loadStudio(t) {
       "react-i18next": "export function useTranslation() { return { t: (key) => key }; }",
       "zustand/react/shallow": "export function useShallow(selector) { return selector; }",
       "./button": "export function Button() {}",
-      "./textarea": "export function Textarea() {}",
+      "./AutoGrowTextarea": "export function AutoGrowTextarea() {}",
+      "./ClampedText": "export default function ClampedText() {}",
       "/icons": `
         export const Eye = () => null, Edit3 = () => null, Play = () => null, Copy = () => null,
           TestTube = () => null, AlertTriangle = () => null, Check = () => null, Info = () => null;

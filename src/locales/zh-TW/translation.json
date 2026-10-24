@@ -178,6 +178,8 @@
     "pttUnavailable": "OpenWhispr 按鍵監聽程式無法使用。"
   },
   "common": {
+    "showAll": "顯示全部",
+    "showLess": "收合",
     "continue": "繼續",
     "add": "新增",
     "retry": "重試",

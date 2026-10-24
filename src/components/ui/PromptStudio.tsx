@@ -2,7 +2,8 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useShallow } from "zustand/react/shallow";
 import { Button } from "./button";
-import { Textarea } from "./textarea";
+import { AutoGrowTextarea } from "./AutoGrowTextarea";
+import ClampedText from "./ClampedText";
 import { Eye, Edit3, Play, Copy, TestTube, AlertTriangle, Check, Info } from "../icons";
 import PromptLibraryBar, { PromptDraftActions } from "./PromptLibraryBar";
 import PromptTestSet from "./PromptTestSet";
@@ -376,14 +377,17 @@ export default function PromptStudio({ className = "", kind = "cleanup" }: Promp
                   )}
                 </Button>
               </div>
-              <div className="bg-muted/30 dark:bg-surface-raised/30 border border-border/70 rounded-lg p-4 max-h-80 overflow-y-auto">
+              <ClampedText
+                collapsedRem={20}
+                className="bg-muted/30 dark:bg-surface-raised/30 border border-border/70 rounded-lg p-4"
+              >
                 <pre
                   dir="auto"
                   className="text-xs font-mono text-muted-foreground whitespace-pre-wrap leading-relaxed"
                 >
                   {editor.savedText.replace(/\{\{agentName\}\}/g, agentName)}
                 </pre>
-              </div>
+              </ClampedText>
               {editor.isDirty && (
                 <p className="text-xs text-warning mt-2">
                   {t("promptStudio.library.viewShowsSaved")}
@@ -414,11 +418,11 @@ export default function PromptStudio({ className = "", kind = "cleanup" }: Promp
               </div>
 
               <div className="px-5 py-4">
-                <Textarea
+                <AutoGrowTextarea
                   dir="auto"
                   value={editor.editorText}
                   onChange={(e) => editor.setDraft(e.target.value)}
-                  rows={16}
+                  minRows={8}
                   className="font-mono text-xs leading-relaxed"
                   placeholder={t("promptStudio.edit.placeholder")}
                 />
@@ -613,11 +617,11 @@ export default function PromptStudio({ className = "", kind = "cleanup" }: Promp
                       </span>
                     )}
                   </div>
-                  <Textarea
+                  <AutoGrowTextarea
                     dir="auto"
                     value={testText}
                     onChange={(e) => setTestText(e.target.value)}
-                    rows={3}
+                    minRows={3}
                     className="text-xs"
                     placeholder={t("promptStudio.test.inputPlaceholder")}
                   />
@@ -686,14 +690,17 @@ export default function PromptStudio({ className = "", kind = "cleanup" }: Promp
                         <Copy className="w-3 h-3 text-muted-foreground" />
                       </Button>
                     </div>
-                    <div className="bg-muted/30 dark:bg-surface-raised/30 border border-border/70 rounded-lg p-4 max-h-48 overflow-y-auto">
+                    <ClampedText
+                      collapsedRem={12}
+                      className="bg-muted/30 dark:bg-surface-raised/30 border border-border/70 rounded-lg p-4"
+                    >
                       <pre
                         dir="auto"
                         className="text-xs text-foreground whitespace-pre-wrap leading-relaxed"
                       >
                         {testResult}
                       </pre>
-                    </div>
+                    </ClampedText>
                   </div>
                 )}
               </div>

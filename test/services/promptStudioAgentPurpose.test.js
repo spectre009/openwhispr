@@ -43,7 +43,8 @@ test("Prompt Studio labels dictation-agent runs for policy enforcement", async (
             "react-i18next": "i18n",
             "zustand/react/shallow": "zustand-shallow",
             "./button": "button",
-            "./textarea": "textarea",
+            "./AutoGrowTextarea": "textarea",
+            "./ClampedText": "clamped-text",
             "../icons": "icons",
             "./dialog": "dialog",
           };
@@ -98,7 +99,10 @@ test("Prompt Studio labels dictation-agent runs for policy enforcement", async (
             return `export function useShallow(selector) { return selector; }`;
           }
           if (id === "\0prompt-studio-button") return "export function Button() {}";
-          if (id === "\0prompt-studio-textarea") return "export function Textarea() {}";
+          if (id === "\0prompt-studio-textarea") return "export function AutoGrowTextarea() {}";
+          if (id === "\0prompt-studio-clamped-text") {
+            return "export default function ClampedText() {}";
+          }
           if (id === "\0prompt-studio-icons") {
             return `
               export const Eye = () => null;

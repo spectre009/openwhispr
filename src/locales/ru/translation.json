@@ -178,6 +178,8 @@
     "pttUnavailable": "Слушатель клавиш OpenWhispr недоступен."
   },
   "common": {
+    "showAll": "Показать полностью",
+    "showLess": "Свернуть",
     "continue": "Продолжить",
     "add": "Добавить",
     "retry": "Повторить",

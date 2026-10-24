@@ -20,22 +20,31 @@ function componentFiles(directory) {
   });
 }
 
+// AutoGrowTextarea is a shared textarea too: it passes `dir` through to Textarea
+// (or to a bare <textarea> when unstyled), so its consumers are classified here.
+const FIELD_PRIMITIVES = new Set([
+  "src/components/ui/input.tsx",
+  "src/components/ui/textarea.tsx",
+  "src/components/ui/AutoGrowTextarea.tsx",
+]);
+
 function sharedFieldInventory() {
   return componentFiles(path.join(repoRoot, "src/components")).flatMap((absolutePath) => {
+    const file = path.relative(repoRoot, absolutePath).split(path.sep).join("/");
+    if (FIELD_PRIMITIVES.has(file)) return [];
+
     const text = fs.readFileSync(absolutePath, "utf8");
-    return [...text.matchAll(/<(Input|Textarea)\b[\s\S]*?\/>/g)].map((match) => ({
-      file: path.relative(repoRoot, absolutePath).split(path.sep).join("/"),
+    return [...text.matchAll(/<(Input|Textarea|AutoGrowTextarea)\b[\s\S]*?\/>/g)].map((match) => ({
+      file,
       direction: match[0].match(/\bdir="([^"]+)"/)?.[1] ?? "inherit",
     }));
   });
 }
 
 function nativeFieldInventory() {
-  const primitiveFiles = new Set(["src/components/ui/input.tsx", "src/components/ui/textarea.tsx"]);
-
   return componentFiles(path.join(repoRoot, "src/components")).flatMap((absolutePath) => {
     const file = path.relative(repoRoot, absolutePath).split(path.sep).join("/");
-    if (primitiveFiles.has(file)) return [];
+    if (FIELD_PRIMITIVES.has(file)) return [];
 
     const text = fs.readFileSync(absolutePath, "utf8");
     return [...text.matchAll(/<(input|textarea)\b[\s\S]*?\/>/g)].map((match) => ({
@@ -76,6 +85,8 @@ const EXPECTED_SHARED_FIELD_DIRECTIONS = {
   "src/components/notes/DeleteSpaceDialog.tsx": ["auto"],
   "src/components/notes/UploadAudioView.tsx": ["auto"],
   "src/components/onboarding/ProviderSetupStep.tsx": ["ltr", "ltr", "ltr", "ltr", "ltr", "ltr"],
+  // The draft of a saved Chat prompt (the built-in one shows as read-only text).
+  "src/components/settings/ChatAgentSettings.tsx": ["auto"],
   "src/components/settings/DictationAgentSettings.tsx": ["auto"],
   "src/components/settings/EnterpriseCheckoutDialog.tsx": ["inherit"],
   "src/components/settings/ProfileSection.tsx": ["auto", "ltr", "ltr", "ltr"],
@@ -121,8 +132,6 @@ const EXPECTED_NATIVE_FIELD_DIRECTIONS = {
   "src/components/onboarding/DemoStep.tsx": ["auto"],
   "src/components/onboarding/LanguageSelectionStep.tsx": ["auto"],
   "src/components/onboarding/UseCaseStep.tsx": ["auto"],
-  // The built-in prompt (read-only) and the draft of a saved one.
-  "src/components/settings/ChatAgentSettings.tsx": ["auto", "auto"],
   "src/components/settings/ProfileSection.tsx": ["inherit"],
   // The custom recording color: a color value, no text.
   "src/components/settings/RecordingIndicatorRows.tsx": ["inherit"],
@@ -163,6 +172,23 @@ test("shared field primitives inherit unless a consumer declares its content dir
   );
   assert.match(prose, /\sdir="auto"/);
   assert.match(prose, />مرحبا OpenWhispr 2.0<\/textarea>/);
+
+  const { AutoGrowTextarea } = await vite.ssrLoadModule("/components/ui/AutoGrowTextarea.tsx");
+  for (const unstyled of [false, true]) {
+    const grown = renderToStaticMarkup(
+      React.createElement(AutoGrowTextarea, { unstyled, value: "مرحبا", readOnly: true })
+    );
+    assert.doesNotMatch(grown, /\sdir=/);
+    const grownProse = renderToStaticMarkup(
+      React.createElement(AutoGrowTextarea, {
+        unstyled,
+        dir: "auto",
+        value: "مرحبا",
+        readOnly: true,
+      })
+    );
+    assert.match(grownProse, /\sdir="auto"/);
+  }
 });
 
 test("every shared Input and Textarea consumer has an explicit reviewed classification", () => {

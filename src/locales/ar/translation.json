@@ -4691,6 +4691,8 @@
     "pttUnavailable": "مستمع مفاتيح OpenWhispr غير متوفر."
   },
   "common": {
+    "showAll": "إظهار الكل",
+    "showLess": "إظهار أقل",
     "continue": "متابعة",
     "add": "إضافة",
     "retry": "إعادة المحاولة",

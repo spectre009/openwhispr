@@ -4,7 +4,8 @@ import type { TFunction } from "i18next";
 import { useShallow } from "zustand/react/shallow";
 import { Button } from "./button";
 import { Input } from "./input";
-import { Textarea } from "./textarea";
+import { AutoGrowTextarea } from "./AutoGrowTextarea";
+import ClampedText from "./ClampedText";
 import { Toggle } from "./toggle";
 import { Progress } from "./progress";
 import { ConfirmDialog } from "./dialog";
@@ -682,12 +683,11 @@ function CaseEditor({
 
   return (
     <li className="space-y-2 rounded-lg border border-primary/30 px-3 py-3">
-      <pre
-        dir="auto"
-        className="max-h-24 overflow-y-auto whitespace-pre-wrap text-xs text-muted-foreground"
-      >
-        {testCase.rawText}
-      </pre>
+      <ClampedText collapsedRem={6}>
+        <pre dir="auto" className="whitespace-pre-wrap text-xs text-muted-foreground">
+          {testCase.rawText}
+        </pre>
+      </ClampedText>
       <label className="block space-y-1">
         <span className="text-xs text-muted-foreground">
           {t("promptStudio.testSet.edit.label")}
@@ -720,11 +720,11 @@ function CaseEditor({
           <span className="text-xs text-muted-foreground">
             {t("promptStudio.testSet.edit.mustContain")}
           </span>
-          <Textarea
+          <AutoGrowTextarea
             dir="auto"
             value={mustContain}
             onChange={(e) => setMustContain(e.target.value)}
-            rows={3}
+            minRows={3}
             className="text-xs"
           />
         </label>
@@ -732,11 +732,11 @@ function CaseEditor({
           <span className="text-xs text-muted-foreground">
             {t("promptStudio.testSet.edit.mustNotContain")}
           </span>
-          <Textarea
+          <AutoGrowTextarea
             dir="auto"
             value={mustNotContain}
             onChange={(e) => setMustNotContain(e.target.value)}
-            rows={3}
+            minRows={3}
             className="text-xs"
           />
         </label>

@@ -178,6 +178,8 @@
     "pttUnavailable": "Il listener di tasti di OpenWhispr non è disponibile."
   },
   "common": {
+    "showAll": "Mostra tutto",
+    "showLess": "Mostra meno",
     "continue": "Continua",
     "add": "Aggiungi",
     "retry": "Riprova",

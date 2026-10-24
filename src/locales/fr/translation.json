@@ -178,6 +178,8 @@
     "pttUnavailable": "L'écouteur de touches d'OpenWhispr n'est pas disponible."
   },
   "common": {
+    "showAll": "Tout afficher",
+    "showLess": "Afficher moins",
     "continue": "Continuer",
     "add": "Ajouter",
     "retry": "Réessayer",

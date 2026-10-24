@@ -178,6 +178,8 @@
     "pttUnavailable": "OpenWhispr's key listener isn't available."
   },
   "common": {
+    "showAll": "Show all",
+    "showLess": "Show less",
     "continue": "Continue",
     "add": "Add",
     "retry": "Retry",

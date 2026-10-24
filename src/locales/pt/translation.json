@@ -157,6 +157,8 @@
     "pttUnavailable": "O listener de teclas do OpenWhispr não está disponível."
   },
   "common": {
+    "showAll": "Mostrar tudo",
+    "showLess": "Mostrar menos",
     "continue": "Continuar",
     "add": "Adicionar",
     "retry": "Tentar novamente",

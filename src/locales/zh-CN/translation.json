@@ -178,6 +178,8 @@
     "pttUnavailable": "OpenWhispr 按键监听器不可用。"
   },
   "common": {
+    "showAll": "显示全部",
+    "showLess": "收起",
     "continue": "继续",
     "add": "添加",
     "retry": "重试",

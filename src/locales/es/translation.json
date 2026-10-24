@@ -178,6 +178,8 @@
     "pttUnavailable": "El detector de teclas de OpenWhispr no está disponible."
   },
   "common": {
+    "showAll": "Mostrar todo",
+    "showLess": "Mostrar menos",
     "continue": "Continuar",
     "add": "Añadir",
     "retry": "Reintentar",
