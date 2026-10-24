@@ -437,12 +437,30 @@ function ensureLoginEntry() {
   }
 }
 
+// A process started from an agent session (a Copilot CLI tool command) sits in the session's
+// kill-on-close job object, which forbids breakaway, and so would Stable if spawned directly: it
+// would die whenever the session or the app ends. Explorer opens a shortcut to it outside that
+// job, as at login.
+const STABLE_SHORTCUT = path.join(HOME, "launch-stable.lnk");
+
 function startStableProcess() {
-  spawn(INSTALLED_EXE, ["--hidden"], {
-    cwd: INSTALL_DIR,
+  fs.mkdirSync(HOME, { recursive: true });
+  run(
+    "powershell.exe",
+    [
+      "-NoProfile",
+      "-NonInteractive",
+      "-Command",
+      "$s = (New-Object -ComObject WScript.Shell).CreateShortcut($env:OW_LNK); " +
+        "$s.TargetPath = $env:OW_EXE; $s.Arguments = '--hidden'; " +
+        "$s.WorkingDirectory = $env:OW_DIR; $s.Save()",
+    ],
+    { env: cleanEnv({ OW_LNK: STABLE_SHORTCUT, OW_EXE: INSTALLED_EXE, OW_DIR: INSTALL_DIR }) }
+  );
+  spawn(path.join(process.env.SystemRoot || "C:\\Windows", "explorer.exe"), [STABLE_SHORTCUT], {
     env: cleanEnv(),
     detached: true,
-    windowsHide: false,
+    windowsHide: true,
     stdio: "ignore",
   }).unref();
 }
