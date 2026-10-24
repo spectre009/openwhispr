@@ -1944,6 +1944,73 @@
     },
     "title": "Einstellungen"
   },
+  "settingsNav": {
+    "groups": {
+      "features": "Funktionen",
+      "setup": "Einrichtung",
+      "data": "Daten"
+    },
+    "parents": {
+      "dictation": "Diktat",
+      "dictationDescription": "Erkennung, Bereinigung, Stile und Ausgabe für alles, was Sie diktieren.",
+      "notes": "Notizen & Uploads",
+      "notesDescription": "Transkription und Formatierung für aufgenommene Notizen und hochgeladene Audiodateien.",
+      "app": "App & Steuerung",
+      "appDescription": "Darstellung, Töne, Benachrichtigungen, Start, Notizdateien und Hotkeys."
+    },
+    "pages": {
+      "recognition": {
+        "title": "Erkennung",
+        "description": "Wandelt Ihre Stimme in Text um: die Transkriptions-Engine, die Sprache, die Sie sprechen, und die Sprachaktivitätserkennung."
+      },
+      "cleanup": {
+        "title": "Bereinigung"
+      },
+      "output": {
+        "title": "Ausgabe",
+        "description": "Was nach dem Diktat mit dem Text passiert: Einfügen, Zwischenablage und Lernen aus Ihren Korrekturen."
+      },
+      "chat": {
+        "description": "Das Modell und die Anweisungen für getippte Chats in OpenWhispr."
+      },
+      "liveRecording": {
+        "title": "Live-Aufnahme",
+        "description": "Transkription für Notizen, die Sie live aufnehmen, etwa Meetings."
+      },
+      "fileTranscription": {
+        "title": "Dateitranskription",
+        "description": "Transkription für Audiodateien, die Sie hochladen."
+      },
+      "noteFormatting": {
+        "description": "Macht aus Transkripten formatierte Notizen und gibt ihnen Titel."
+      },
+      "appearance": {
+        "title": "Darstellung & Sprache",
+        "description": "Das Design und die Sprache der Oberfläche."
+      },
+      "audio": {
+        "title": "Mikrofon & Töne",
+        "description": "Das Eingabegerät sowie Töne und Medien während des Diktierens."
+      },
+      "noteFiles": {
+        "title": "Notizdateien & Import",
+        "description": "Notizen als Markdown-Dateien speichern und Notizen aus Granola importieren."
+      }
+    },
+    "elsewhere": {
+      "dictionary": "Wörterbuch & Glossar"
+    },
+    "switch": {
+      "on": "Ein",
+      "off": "Aus"
+    },
+    "pills": {
+      "prompt": "Prompt: {{name}}",
+      "alsoUsedBy": "Auch genutzt von {{features}}",
+      "noteFormattingInherits": "Notizformatierung (erbt)",
+      "inheritsFromCleanup": "Übernimmt leere Felder von der Bereinigung"
+    }
+  },
   "settingsLayer": {
     "backTo": "Zurück zu „{{view}}“",
     "sections": "Einstellungsbereiche",

@@ -16,7 +16,12 @@ const TARGET_OPTIONS = registry.languages
 
 const OPTION_BY_CODE = new Map(TARGET_OPTIONS.map((o) => [o.value, o]));
 
-export default function DictationTranslationSettings() {
+export default function DictationTranslationSettings({
+  hideEnableToggle = false,
+}: {
+  /** The page header holds the title and on/off switch (Settings › Translation). */
+  hideEnableToggle?: boolean;
+} = {}) {
   const { t } = useTranslation();
   const useDictationTranslation = useSettingsStore((s) => s.useDictationTranslation);
   const setUseDictationTranslation = useSettingsStore((s) => s.setUseDictationTranslation);
@@ -46,20 +51,30 @@ export default function DictationTranslationSettings() {
 
   return (
     <div className="space-y-4">
-      <SectionHeader
-        title={t("dictationTranslation.title")}
-        description={t("dictationTranslation.description")}
-      />
-      <SettingsPanel>
-        <SettingsPanelRow data-setting-id="translation.enabled">
-          <SettingsRow
-            label={t("dictationTranslation.enabled")}
-            description={t("dictationTranslation.enabledDescription")}
-          >
-            <Toggle checked={useDictationTranslation} onChange={setUseDictationTranslation} />
-          </SettingsRow>
-        </SettingsPanelRow>
-      </SettingsPanel>
+      {!hideEnableToggle && (
+        <>
+          <SectionHeader
+            title={t("dictationTranslation.title")}
+            description={t("dictationTranslation.description")}
+          />
+          <SettingsPanel>
+            <SettingsPanelRow data-setting-id="translation.enabled">
+              <SettingsRow
+                label={t("dictationTranslation.enabled")}
+                description={t("dictationTranslation.enabledDescription")}
+              >
+                <Toggle checked={useDictationTranslation} onChange={setUseDictationTranslation} />
+              </SettingsRow>
+            </SettingsPanelRow>
+          </SettingsPanel>
+        </>
+      )}
+
+      {hideEnableToggle && !useDictationTranslation && (
+        <p className="text-xs text-muted-foreground">
+          {t("dictationTranslation.enabledDescription")}
+        </p>
+      )}
 
       {useDictationTranslation && (
         <>

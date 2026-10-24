@@ -7,14 +7,15 @@ import type {
   SettingsSearchToggles,
   SettingsSearchValueKey,
 } from "./types";
-import type { SettingsSectionType } from "../../SettingsPage";
+import { SETTINGS_PAGES, type SettingsPageId } from "../settingsPages";
 import type { Platform } from "../../../utils/platform";
 
 /**
  * Settings search: one descriptor per setting row or block, plus the Settings
  * pages and two app pages outside Settings. Each setting row carries a
  * matching `data-setting-id` in the markup (test/components/settingsSearchRegistry
- * fails otherwise). Locations are data, so moving a setting only moves its entry.
+ * fails otherwise). Locations are data (a page, see settingsPages.ts), so
+ * moving a setting only moves its entry.
  */
 
 type Rule = (ctx: SettingsSearchContext) => SettingAvailability;
@@ -68,10 +69,11 @@ const localModel =
 const multiGpu: Rule = (ctx) => ((ctx.gpuCount ?? 0) >= 2 ? true : { reason: R.multiGpu });
 
 // Builders keep the list readable: `row` is a setting anchored at its own id.
-const at = (section: SettingsSectionType, subTab?: string): SettingsLocation =>
-  subTab ? { section, subTab } : { section };
+const at = (page: SettingsPageId, subTab?: string): SettingsLocation =>
+  subTab ? { page, subTab } : { page };
 
 type RowOptions = Omit<SettingDescriptor, "id" | "kind" | "location" | "titleKey">;
+type PageOptions = Omit<RowOptions, "anchor" | "fallbackAnchor" | "reveal" | "value">;
 
 function row(
   id: string,
@@ -82,13 +84,20 @@ function row(
   return { id, kind: "setting", location, titleKey, anchor: id, ...options };
 }
 
-function page(
+/** A Settings page, titled and described as the nav shows it. */
+function page(id: string, pageId: SettingsPageId, options: PageOptions = {}): SettingDescriptor {
+  const { titleKey, descriptionKey } = SETTINGS_PAGES[pageId];
+  return { id, kind: "page", location: at(pageId), titleKey, descriptionKey, ...options };
+}
+
+/** A nav parent (Dictation, Notes & Uploads, App & Controls): opens its first page. */
+function parent(
   id: string,
-  location: SettingsLocation,
   titleKey: string,
-  options: Omit<RowOptions, "anchor" | "fallbackAnchor" | "reveal" | "value"> = {}
+  firstPage: SettingsPageId,
+  options: PageOptions = {}
 ): SettingDescriptor {
-  return { id, kind: "page", location, titleKey, ...options };
+  return { id, kind: "page", location: at(firstPage), titleKey, ...options };
 }
 
 /** The model editor of an LLM scope and the two toggles under it (derived anchors). */
@@ -108,6 +117,7 @@ function llmEditor(
         "model",
         "llm",
         "ai model",
+        "language model",
         "provider",
         "api key",
         "byok",
@@ -149,16 +159,23 @@ function llmEditor(
   ];
 }
 
-const PREFS = at("general");
+const RECOGNITION = at("recognition");
+const CLEANUP = at("cleanup");
+const STYLES = at("styles");
+const OUTPUT = at("output");
+const ASSISTANT = at("assistant");
+const TRANSLATION = at("translation");
+const CHAT = at("chat");
+const LIVE_RECORDING = at("liveRecording");
+const FILE_TRANSCRIPTION = at("fileTranscription");
+const NOTE_FORMATTING = at("noteFormatting");
+const APPEARANCE = at("appearance");
+const AUDIO = at("audio");
+const NOTIFICATIONS = at("notifications");
+const FLOATING = at("floatingIcon");
+const STARTUP = at("startup");
+const NOTE_FILES = at("noteFiles");
 const HOTKEYS = at("hotkeys");
-const STT_DICTATION = at("speechToText", "dictation");
-const STT_NOTES = at("speechToText", "noteRecording");
-const STT_UPLOAD = at("speechToText", "upload");
-const CLEANUP = at("llms", "dictationCleanup");
-const ASSISTANT = at("llms", "dictationAgent");
-const TRANSLATION = at("llms", "dictationTranslation");
-const NOTE_FORMATTING = at("llms", "noteFormatting");
-const CHAT = at("llms", "chatIntelligence");
 const PRIVACY = at("privacyData");
 const SYSTEM = at("system");
 
@@ -185,8 +202,7 @@ const VAD_FIELDS = [
 
 export const SETTINGS_SEARCH_DESCRIPTORS: readonly SettingDescriptor[] = [
   // ── Account ──────────────────────────────────────────────────────────────
-  page("page.account", at("account"), "settingsModal.sections.account.label", {
-    descriptionKey: "settingsModal.sections.account.description",
+  page("page.account", "account", {
     aliases: ["account", "profile", "sign in", "login", "email"],
     available: cloudOn,
   }),
@@ -220,8 +236,7 @@ export const SETTINGS_SEARCH_DESCRIPTORS: readonly SettingDescriptor[] = [
   }),
 
   // ── Plans & Billing ──────────────────────────────────────────────────────
-  page("page.plansBilling", at("plansBilling"), "settingsModal.sections.plansBilling.label", {
-    descriptionKey: "settingsModal.sections.plansBilling.description",
+  page("page.plansBilling", "plansBilling", {
     aliases: ["billing", "subscription", "plan", "invoice", "payment"],
     available: cloudOn,
   }),
@@ -237,8 +252,7 @@ export const SETTINGS_SEARCH_DESCRIPTORS: readonly SettingDescriptor[] = [
   }),
 
   // ── Workspace ────────────────────────────────────────────────────────────
-  page("page.workspace", at("workspace"), "settingsModal.sections.workspace.label", {
-    descriptionKey: "settingsModal.sections.workspace.description",
+  page("page.workspace", "workspace", {
     aliases: ["team", "organization", "org", "company"],
     available: signedIn,
   }),
@@ -261,35 +275,56 @@ export const SETTINGS_SEARCH_DESCRIPTORS: readonly SettingDescriptor[] = [
     })
   ),
 
-  // ── Preferences ──────────────────────────────────────────────────────────
-  page("page.general", PREFS, "settingsModal.sections.general.label", {
-    descriptionKey: "settingsModal.sections.general.description",
-    aliases: ["preferences", "general", "options"],
+  // ── App & Controls (the old Preferences, split into pages) ───────────────
+  parent("page.general", "settingsNav.parents.app", "appearance", {
+    descriptionKey: "settingsNav.parents.appDescription",
+    aliases: ["preferences", "general", "options", "app", "controls"],
   }),
-  row("preferences.theme", PREFS, "settingsPage.general.appearance.theme", {
+  page("page.appearance", "appearance", {
+    aliases: ["appearance", "look", "theme", "language", "interface"],
+  }),
+  page("page.audio", "audio", {
+    aliases: ["microphone", "mic", "sounds", "audio", "media"],
+  }),
+  page("page.notifications", "notifications", {
+    aliases: ["notifications", "alerts"],
+  }),
+  page("page.floatingIcon", "floatingIcon", {
+    aliases: ["pill", "overlay", "recording indicator", "floating icon"],
+  }),
+  page("page.startup", "startup", {
+    aliases: ["startup", "launch"],
+  }),
+  page("page.noteFiles", "noteFiles", {
+    aliases: ["note files", "markdown", "import", "granola", "export"],
+  }),
+  page("page.output", "output", {
+    aliases: ["output", "paste", "clipboard", "insert text"],
+  }),
+  row("preferences.theme", APPEARANCE, "settingsPage.general.appearance.theme", {
     descriptionKey: "settingsPage.general.appearance.themeDescription",
     groupKey: "settingsPage.general.appearance.title",
     aliases: ["dark mode", "light mode", "night mode", "appearance", "color scheme", "theme"],
     aliasKeys: ["settingsSearch.aliases.darkMode"],
     value: "theme",
   }),
-  row("preferences.sounds.dictation", PREFS, "settingsPage.general.soundEffects.dictationSounds", {
+  row("preferences.sounds.dictation", AUDIO, "settingsPage.general.soundEffects.dictationSounds", {
     descriptionKey: "settingsPage.general.soundEffects.dictationSoundsDescription",
     groupKey: "settingsPage.general.soundEffects.title",
     aliases: ["sound", "audio cues", "beep", "chime", "sound effects"],
   }),
-  row("preferences.sounds.pauseMedia", PREFS, "settingsPage.general.soundEffects.pauseMedia", {
+  row("preferences.sounds.pauseMedia", AUDIO, "settingsPage.general.soundEffects.pauseMedia", {
     descriptionKey: "settingsPage.general.soundEffects.pauseMediaDescription",
     groupKey: "settingsPage.general.soundEffects.title",
     aliases: ["pause music", "spotify", "media", "mute"],
   }),
-  row("preferences.notifications", PREFS, "settingsPage.general.notifications.title", {
+  row("preferences.notifications", NOTIFICATIONS, "settingsPage.general.notifications.title", {
     descriptionKey: "settingsPage.general.notifications.description",
     aliases: ["notifications", "alerts", "toasts", "popups"],
   }),
   row(
     "preferences.notifications.disableAll",
-    PREFS,
+    NOTIFICATIONS,
     "settingsPage.general.notifications.disableAll",
     {
       descriptionKey: "settingsPage.general.notifications.disableAllDescription",
@@ -299,7 +334,7 @@ export const SETTINGS_SEARCH_DESCRIPTORS: readonly SettingDescriptor[] = [
   ),
   row(
     "preferences.notifications.meetingDetection",
-    PREFS,
+    NOTIFICATIONS,
     "settingsPage.general.notifications.meetingDetection",
     {
       descriptionKey: "settingsPage.general.notifications.meetingDetectionDescription",
@@ -309,7 +344,7 @@ export const SETTINGS_SEARCH_DESCRIPTORS: readonly SettingDescriptor[] = [
   ),
   row(
     "preferences.notifications.calendarReminders",
-    PREFS,
+    NOTIFICATIONS,
     "settingsPage.general.notifications.calendarReminders",
     {
       descriptionKey: "settingsPage.general.notifications.calendarRemindersDescription",
@@ -317,52 +352,57 @@ export const SETTINGS_SEARCH_DESCRIPTORS: readonly SettingDescriptor[] = [
       aliases: ["calendar", "reminder", "upcoming meeting"],
     }
   ),
-  row("dictation.output.autoPaste", PREFS, "settingsPage.general.clipboard.autoPaste", {
+  row("dictation.output.autoPaste", OUTPUT, "settingsPage.general.clipboard.autoPaste", {
     descriptionKey: "settingsPage.general.clipboard.autoPasteDescription",
     groupKey: "settingsPage.general.clipboard.title",
     aliases: ["paste", "insert text", "type text", "clipboard", "output"],
   }),
-  row("dictation.output.keepInClipboard", PREFS, "settingsPage.general.clipboard.keepInClipboard", {
-    descriptionKey: "settingsPage.general.clipboard.keepInClipboardDescription",
-    groupKey: "settingsPage.general.clipboard.title",
-    aliases: ["clipboard", "copy", "restore clipboard"],
-  }),
-  row("notes.files.enabled", PREFS, "settings.noteFiles.title", {
+  row(
+    "dictation.output.keepInClipboard",
+    OUTPUT,
+    "settingsPage.general.clipboard.keepInClipboard",
+    {
+      descriptionKey: "settingsPage.general.clipboard.keepInClipboardDescription",
+      groupKey: "settingsPage.general.clipboard.title",
+      aliases: ["clipboard", "copy", "restore clipboard"],
+    }
+  ),
+  row("notes.files.enabled", NOTE_FILES, "settings.noteFiles.title", {
     descriptionKey: "settings.noteFiles.description",
     aliases: ["markdown", "obsidian", "export notes", "files", "folder", "sync folder"],
   }),
-  row("notes.files.path", PREFS, "settings.noteFiles.path", {
+  row("notes.files.path", NOTE_FILES, "settings.noteFiles.path", {
     groupKey: "settings.noteFiles.title",
     aliases: ["notes folder", "location", "directory"],
     available: requires("noteFiles", "notes.files.enabled"),
   }),
-  row("notes.files.rebuild", PREFS, "settings.noteFiles.rebuild", {
+  row("notes.files.rebuild", NOTE_FILES, "settings.noteFiles.rebuild", {
     descriptionKey: "settings.noteFiles.rebuildDescription",
     groupKey: "settings.noteFiles.title",
     aliases: ["regenerate files", "reexport"],
     available: requires("noteFiles", "notes.files.enabled"),
   }),
-  row("notes.import.granola", PREFS, "settings.granolaImport.title", {
+  row("notes.import.granola", NOTE_FILES, "settings.granolaImport.title", {
     descriptionKey: "settings.granolaImport.description",
     aliases: ["import", "granola", "csv", "migrate notes"],
   }),
-  row("preferences.floatingIcon", PREFS, FLOATING_ICON, {
+  row("preferences.floatingIcon", FLOATING, FLOATING_ICON, {
     descriptionKey: "settingsPage.general.floatingIcon.description",
     aliases: ["pill", "overlay", "bubble", "widget", "floating button", "indicator"],
   }),
-  row("preferences.floatingIcon.autoHide", PREFS, "settingsPage.general.floatingIcon.autoHide", {
+  row("preferences.floatingIcon.autoHide", FLOATING, "settingsPage.general.floatingIcon.autoHide", {
     descriptionKey: "settingsPage.general.floatingIcon.autoHideDescription",
     groupKey: FLOATING_ICON,
     aliases: ["hide pill", "hide overlay"],
   }),
-  row("preferences.floatingIcon.display", PREFS, "settingsPage.general.floatingIcon.display", {
+  row("preferences.floatingIcon.display", FLOATING, "settingsPage.general.floatingIcon.display", {
     descriptionKey: "settingsPage.general.floatingIcon.displayDescription",
     groupKey: FLOATING_ICON,
     aliases: ["monitor", "screen", "display", "multi monitor"],
   }),
   row(
     "preferences.floatingIcon.startPosition",
-    PREFS,
+    FLOATING,
     "settingsPage.general.floatingIcon.startPosition",
     {
       descriptionKey: "settingsPage.general.floatingIcon.startPositionDescription",
@@ -370,13 +410,13 @@ export const SETTINGS_SEARCH_DESCRIPTORS: readonly SettingDescriptor[] = [
       aliases: ["position", "corner", "placement", "where"],
     }
   ),
-  row("preferences.recording.style", PREFS, "settingsPage.general.floatingIcon.recordingStyle", {
+  row("preferences.recording.style", FLOATING, "settingsPage.general.floatingIcon.recordingStyle", {
     groupKey: FLOATING_ICON,
     aliases: ["recording indicator", "rec", "waveform", "orb"],
   }),
   row(
     "preferences.recording.elapsed",
-    PREFS,
+    FLOATING,
     "settingsPage.general.floatingIcon.recordingShowElapsed",
     {
       descriptionKey: "settingsPage.general.floatingIcon.recordingShowElapsedDescription",
@@ -384,14 +424,14 @@ export const SETTINGS_SEARCH_DESCRIPTORS: readonly SettingDescriptor[] = [
       aliases: ["timer", "elapsed time", "duration"],
     }
   ),
-  row("preferences.recording.color", PREFS, "settingsPage.general.floatingIcon.recordingColor", {
+  row("preferences.recording.color", FLOATING, "settingsPage.general.floatingIcon.recordingColor", {
     descriptionKey: "settingsPage.general.floatingIcon.recordingColorDescription",
     groupKey: FLOATING_ICON,
     aliases: ["color", "colour", "accent"],
   }),
   row(
     "preferences.recording.colorByMode",
-    PREFS,
+    FLOATING,
     "settingsPage.general.floatingIcon.recordingColorByMode",
     {
       descriptionKey: "settingsPage.general.floatingIcon.recordingColorByModeDescription",
@@ -401,7 +441,7 @@ export const SETTINGS_SEARCH_DESCRIPTORS: readonly SettingDescriptor[] = [
   ),
   row(
     "preferences.recording.assistantColor",
-    PREFS,
+    FLOATING,
     "settingsPage.general.floatingIcon.recordingAssistantColor",
     {
       groupKey: FLOATING_ICON,
@@ -411,7 +451,7 @@ export const SETTINGS_SEARCH_DESCRIPTORS: readonly SettingDescriptor[] = [
   ),
   row(
     "preferences.recording.translationColor",
-    PREFS,
+    FLOATING,
     "settingsPage.general.floatingIcon.recordingTranslationColor",
     {
       groupKey: FLOATING_ICON,
@@ -419,19 +459,19 @@ export const SETTINGS_SEARCH_DESCRIPTORS: readonly SettingDescriptor[] = [
       available: requires("colorByMode", "preferences.recording.colorByMode"),
     }
   ),
-  row("preferences.recording.edgeStrip", PREFS, "settingsPage.general.floatingIcon.edgeStrip", {
+  row("preferences.recording.edgeStrip", FLOATING, "settingsPage.general.floatingIcon.edgeStrip", {
     descriptionKey: "settingsPage.general.floatingIcon.edgeStripDescription",
     groupKey: FLOATING_ICON,
     aliases: ["border", "frame", "screen edge", "glow"],
   }),
-  row("preferences.recording.tray", PREFS, "settingsPage.general.floatingIcon.recordingTray", {
+  row("preferences.recording.tray", FLOATING, "settingsPage.general.floatingIcon.recordingTray", {
     descriptionKey: "settingsPage.general.floatingIcon.recordingTrayDescription",
     groupKey: FLOATING_ICON,
     aliases: ["tray icon", "system tray", "menu bar"],
   }),
   row(
     "preferences.recording.reminder",
-    PREFS,
+    FLOATING,
     "settingsPage.general.floatingIcon.recordingReminder",
     {
       descriptionKey: "settingsPage.general.floatingIcon.recordingReminderDescription",
@@ -439,54 +479,59 @@ export const SETTINGS_SEARCH_DESCRIPTORS: readonly SettingDescriptor[] = [
       aliases: ["still recording", "reminder", "forgot"],
     }
   ),
-  row("preferences.uiLanguage", PREFS, "settings.language.uiLabel", {
+  row("preferences.uiLanguage", APPEARANCE, "settings.language.uiLabel", {
     descriptionKey: "settings.language.uiDescription",
     groupKey: "settings.language.sectionTitle",
     aliases: ["language", "interface language", "display language", "locale", "translation"],
     value: "uiLanguage",
   }),
-  row("dictation.language", PREFS, "settings.language.transcriptionLabel", {
+  row("dictation.language", RECOGNITION, "settings.language.transcriptionLabel", {
     descriptionKey: "settings.language.transcriptionDescription",
     groupKey: "settings.language.sectionTitle",
     aliases: ["spoken language", "dictation language", "language", "auto detect"],
     value: "transcriptionLanguage",
   }),
-  row("dictation.language.chineseScript", PREFS, "settings.language.chineseScriptLabel", {
+  row("dictation.language.chineseScript", RECOGNITION, "settings.language.chineseScriptLabel", {
     descriptionKey: "settings.language.chineseScriptDescription",
     groupKey: "settings.language.sectionTitle",
     aliases: ["simplified", "traditional", "chinese", "mandarin"],
     available: requires("autoLanguage", "dictation.language", R.autoLanguageOnly),
   }),
-  row("preferences.startup.launchAtLogin", PREFS, "settingsPage.general.startup.launchAtLogin", {
+  row("preferences.startup.launchAtLogin", STARTUP, "settingsPage.general.startup.launchAtLogin", {
     descriptionKey: "settingsPage.general.startup.launchAtLoginDescription",
     groupKey: "settingsPage.general.startup.title",
     aliases: ["autostart", "auto start", "start with windows", "login item", "boot", "startup"],
     aliasKeys: ["settingsSearch.aliases.autostart"],
   }),
-  row("preferences.startup.startMinimized", PREFS, "settingsPage.general.startup.startMinimized", {
-    descriptionKey: "settingsPage.general.startup.startMinimizedDescription",
-    groupKey: "settingsPage.general.startup.title",
-    aliases: ["tray", "background", "hidden", "minimized"],
-  }),
-  row("preferences.microphone", PREFS, "settingsPage.general.microphone.title", {
+  row(
+    "preferences.startup.startMinimized",
+    STARTUP,
+    "settingsPage.general.startup.startMinimized",
+    {
+      descriptionKey: "settingsPage.general.startup.startMinimizedDescription",
+      groupKey: "settingsPage.general.startup.title",
+      aliases: ["tray", "background", "hidden", "minimized"],
+    }
+  ),
+  row("preferences.microphone", AUDIO, "settingsPage.general.microphone.title", {
     descriptionKey: "settingsPage.general.microphone.description",
     aliases: ["mic", "microphone", "input device", "headset", "audio input"],
   }),
-  row("preferences.microphone.device", PREFS, "microphoneSettings.inputDevice", {
+  row("preferences.microphone.device", AUDIO, "microphoneSettings.inputDevice", {
     descriptionKey: "microphoneSettings.helpText",
     groupKey: "settingsPage.general.microphone.title",
     aliases: ["mic", "input device", "headset", "built-in microphone", "usb mic"],
   }),
-  row("preferences.microphone.warmHold", PREFS, "microphoneSettings.warmHold.label", {
+  row("preferences.microphone.warmHold", AUDIO, "microphoneSettings.warmHold.label", {
     descriptionKey: "microphoneSettings.warmHold.description",
     groupKey: "settingsPage.general.microphone.title",
     aliases: ["keep microphone open", "latency", "warm", "mic delay"],
   }),
-  row("dictation.output.autoLearn", PREFS, "settingsPage.dictionary.autoLearnTitle", {
+  row("dictation.output.autoLearn", OUTPUT, "settingsPage.dictionary.autoLearnTitle", {
     descriptionKey: "settingsPage.dictionary.autoLearnDescription",
     aliases: ["dictionary", "corrections", "learn words", "vocabulary"],
   }),
-  row("dictation.output.waylandPaste", PREFS, "settingsPage.general.waylandPaste.title", {
+  row("dictation.output.waylandPaste", OUTPUT, "settingsPage.general.waylandPaste.title", {
     descriptionKey: "settingsPage.general.waylandPaste.description",
     aliases: ["ydotool", "wtype", "paste", "linux", "wayland", "xclip"],
     available: (ctx) =>
@@ -494,8 +539,7 @@ export const SETTINGS_SEARCH_DESCRIPTORS: readonly SettingDescriptor[] = [
   }),
 
   // ── Hotkeys ──────────────────────────────────────────────────────────────
-  page("page.hotkeys", HOTKEYS, "settingsModal.sections.hotkeys.label", {
-    descriptionKey: "settingsModal.sections.hotkeys.description",
+  page("page.hotkeys", "hotkeys", {
     aliases: ["shortcuts", "keyboard", "keybindings", "hotkeys"],
     aliasKeys: ["settingsSearch.aliases.shortcut"],
   }),
@@ -542,24 +586,25 @@ export const SETTINGS_SEARCH_DESCRIPTORS: readonly SettingDescriptor[] = [
     value: "hotkey.styles",
   }),
 
-  // ── Speech-to-Text ───────────────────────────────────────────────────────
-  page("page.speechToText", at("speechToText"), "settingsModal.sections.speechToText.label", {
-    descriptionKey: "settingsModal.sections.speechToText.description",
-    aliases: ["stt", "transcription", "asr", "speech recognition"],
+  // ── Recognition, Live Recording, File Transcription (the old Speech-to-Text) ──
+  parent("page.dictation", "settingsNav.parents.dictation", "recognition", {
+    descriptionKey: "settingsNav.parents.dictationDescription",
+    aliases: ["dictation", "dictate", "voice typing"],
   }),
-  page("page.speechToText.dictation", STT_DICTATION, "settingsPage.speechToText.tabs.dictation", {
-    aliases: ["dictation", "stt"],
+  page("page.speechToText.dictation", "recognition", {
+    aliases: ["dictation", "stt", "speech to text", "transcription", "asr", "speech recognition"],
   }),
-  page(
-    "page.speechToText.noteRecording",
-    STT_NOTES,
-    "settingsPage.speechToText.tabs.noteRecording",
-    { aliases: ["meeting", "note recording", "stt"] }
-  ),
-  page("page.speechToText.upload", STT_UPLOAD, "settingsPage.speechToText.tabs.upload", {
-    aliases: ["upload", "audio file", "file transcription", "stt"],
+  parent("page.notes", "settingsNav.parents.notes", "liveRecording", {
+    descriptionKey: "settingsNav.parents.notesDescription",
+    aliases: ["notes", "meetings", "uploads"],
   }),
-  row("dictation.stt.engine", STT_DICTATION, "settingsSearch.titles.dictationEngine", {
+  page("page.speechToText.noteRecording", "liveRecording", {
+    aliases: ["meeting", "note recording", "stt", "speech to text"],
+  }),
+  page("page.speechToText.upload", "fileTranscription", {
+    aliases: ["upload", "audio file", "file transcription", "stt", "speech to text"],
+  }),
+  row("dictation.stt.engine", RECOGNITION, "settingsSearch.titles.dictationEngine", {
     descriptionKey: "settingsSearch.descriptions.engine",
     value: "stt.dictation",
     aliases: [
@@ -583,14 +628,14 @@ export const SETTINGS_SEARCH_DESCRIPTORS: readonly SettingDescriptor[] = [
       "enterprise",
     ],
   }),
-  row("dictation.stt.preview", STT_DICTATION, "settingsPage.transcription.transcriptionPreview", {
+  row("dictation.stt.preview", RECOGNITION, "settingsPage.transcription.transcriptionPreview", {
     descriptionKey: "settingsPage.transcription.transcriptionPreviewDescription",
     // Also hidden under a managed enterprise engine, which the context doesn't see.
     fallbackAnchor: "dictation.stt.engine",
     aliases: ["live preview", "streaming", "realtime", "real-time"],
     available: requires("transcriptionPreview", "dictation.stt.engine", R.streamingOnly),
   }),
-  row("dictation.stt.vad", STT_DICTATION, VAD_GROUP, {
+  row("dictation.stt.vad", RECOGNITION, VAD_GROUP, {
     descriptionKey: "settingsPage.transcription.vad.description",
     aliases: ["vad", "silero", "voice activity detection", "silence", "hallucination"],
     available: vadAvailable,
@@ -598,7 +643,7 @@ export const SETTINGS_SEARCH_DESCRIPTORS: readonly SettingDescriptor[] = [
   ...(["dictation", "noteRecording", "meeting"] as const).map((toggle) =>
     row(
       `dictation.stt.vad.${toggle}`,
-      STT_DICTATION,
+      RECOGNITION,
       `settingsPage.transcription.vad.toggles.${toggle}.title`,
       {
         descriptionKey: `settingsPage.transcription.vad.toggles.${toggle}.description`,
@@ -611,7 +656,7 @@ export const SETTINGS_SEARCH_DESCRIPTORS: readonly SettingDescriptor[] = [
   ...VAD_FIELDS.map(([field, aliases]) =>
     row(
       `dictation.stt.vad.${field}`,
-      STT_DICTATION,
+      RECOGNITION,
       `settingsPage.transcription.vad.fields.${field}.label`,
       {
         descriptionKey: `settingsPage.transcription.vad.fields.${field}.info`,
@@ -622,13 +667,13 @@ export const SETTINGS_SEARCH_DESCRIPTORS: readonly SettingDescriptor[] = [
       }
     )
   ),
-  row("dictation.stt.gpu", STT_DICTATION, "settingsPage.transcription.gpuDevice.title", {
+  row("dictation.stt.gpu", RECOGNITION, "settingsPage.transcription.gpuDevice.title", {
     descriptionKey: "settingsPage.transcription.gpuDevice.description",
     fallbackAnchor: "dictation.stt.engine",
     aliases: ["gpu", "cuda", "nvidia", "graphics card", "video card"],
     available: multiGpu,
   }),
-  row("notes.recording.engine", STT_NOTES, "settingsSearch.titles.noteRecordingEngine", {
+  row("notes.recording.engine", LIVE_RECORDING, "settingsSearch.titles.noteRecordingEngine", {
     descriptionKey: "settingsSearch.descriptions.engine",
     value: "stt.noteRecording",
     aliases: [
@@ -644,49 +689,48 @@ export const SETTINGS_SEARCH_DESCRIPTORS: readonly SettingDescriptor[] = [
       "model",
     ],
   }),
-  row("notes.recording.speakerDetection", STT_NOTES, "settings.meeting.speakerDetection.title", {
-    descriptionKey: "settings.meeting.speakerDetection.description",
-    aliases: ["diarization", "speakers", "who said", "speaker labels"],
-  }),
+  row(
+    "notes.recording.speakerDetection",
+    LIVE_RECORDING,
+    "settings.meeting.speakerDetection.title",
+    {
+      descriptionKey: "settings.meeting.speakerDetection.description",
+      aliases: ["diarization", "speakers", "who said", "speaker labels"],
+    }
+  ),
   row(
     "notes.recording.echoCancellation",
-    STT_NOTES,
+    LIVE_RECORDING,
     "settingsPage.transcription.aec.toggle.title",
     {
       descriptionKey: "settingsPage.transcription.aec.toggle.description",
       aliases: ["aec", "echo", "speakers", "feedback"],
     }
   ),
-  row("notes.upload.engine", STT_UPLOAD, "settingsSearch.titles.uploadEngine", {
+  row("notes.upload.engine", FILE_TRANSCRIPTION, "settingsSearch.titles.uploadEngine", {
     descriptionKey: "settingsSearch.descriptions.engine",
     value: "stt.upload",
     aliases: ["upload", "audio file", "file", "speech to text", "stt", "whisper", "model"],
   }),
 
-  // ── Language Models ──────────────────────────────────────────────────────
-  page("page.llms", at("llms"), "settingsModal.sections.llms.label", {
-    descriptionKey: "settingsModal.sections.llms.description",
-    aliases: ["llm", "ai", "language model", "models"],
+  // ── Cleanup, Styles, Voice Assistant, Translation, Note Formatting, Chat ──
+  page("page.llms.dictationCleanup", "cleanup", {
+    aliases: ["cleanup", "llm", "ai cleanup", "language model"],
   }),
-  page("page.llms.dictationCleanup", CLEANUP, "settingsPage.llms.tabs.dictationCleanup", {
-    aliases: ["cleanup", "llm"],
+  page("page.styles", "styles", {
+    aliases: ["styles", "style studio", "restyle", "tone"],
   }),
-  page("page.llms.dictationAgent", ASSISTANT, "settingsPage.llms.tabs.dictationAgent", {
-    aliases: ["assistant", "voice agent", "agent"],
+  page("page.llms.dictationAgent", "assistant", {
+    aliases: ["assistant", "voice agent", "agent", "voice assistant"],
     available: agentAllowed,
   }),
-  page(
-    "page.llms.dictationTranslation",
-    TRANSLATION,
-    "settingsPage.llms.tabs.dictationTranslation",
-    {
-      aliases: ["translate", "translation"],
-    }
-  ),
-  page("page.llms.noteFormatting", NOTE_FORMATTING, "settingsPage.llms.tabs.noteFormatting", {
-    aliases: ["notes", "summary", "formatting"],
+  page("page.llms.dictationTranslation", "translation", {
+    aliases: ["translate", "translation"],
   }),
-  page("page.llms.chatIntelligence", CHAT, "settingsPage.llms.tabs.chatIntelligence", {
+  page("page.llms.noteFormatting", "noteFormatting", {
+    aliases: ["notes", "summary", "formatting", "note formatting"],
+  }),
+  page("page.llms.chatIntelligence", "chat", {
     aliases: ["chat", "agent"],
     available: agentAllowed,
   }),
@@ -720,16 +764,16 @@ export const SETTINGS_SEARCH_DESCRIPTORS: readonly SettingDescriptor[] = [
     descriptionKey: "settingsPage.prompts.description",
     aliases: ["prompt studio", "system prompt", "instructions", "custom prompt", "test set"],
   }),
-  row("dictation.styles", CLEANUP, "styles.section.title", {
+  row("dictation.styles", STYLES, "styles.section.title", {
     descriptionKey: "styles.section.description",
     aliases: ["style studio", "tone", "formal", "email", "restyle", "rewrite"],
   }),
-  row("dictation.styles.dictationStyle", CLEANUP, "styles.picker.label", {
+  row("dictation.styles.dictationStyle", STYLES, "styles.picker.label", {
     descriptionKey: "styles.picker.description",
     groupKey: "styles.section.title",
     aliases: ["default style", "style", "plain"],
   }),
-  row("dictation.styles.list", CLEANUP, "styles.list.title", {
+  row("dictation.styles.list", STYLES, "styles.list.title", {
     groupKey: "styles.section.title",
     aliases: ["new style", "styles", "custom style"],
   }),
@@ -834,8 +878,7 @@ export const SETTINGS_SEARCH_DESCRIPTORS: readonly SettingDescriptor[] = [
   }),
 
   // ── Privacy & Data ───────────────────────────────────────────────────────
-  page("page.privacyData", PRIVACY, "settingsModal.sections.privacyData.label", {
-    descriptionKey: "settingsModal.sections.privacyData.description",
+  page("page.privacyData", "privacyData", {
     aliases: ["privacy", "data", "permissions"],
   }),
   row("privacy.cloud", PRIVACY, "settingsPage.openWhisprCloud.label", {
@@ -916,8 +959,7 @@ export const SETTINGS_SEARCH_DESCRIPTORS: readonly SettingDescriptor[] = [
   ),
 
   // ── System ───────────────────────────────────────────────────────────────
-  page("page.system", SYSTEM, "settingsModal.sections.system.label", {
-    descriptionKey: "settingsModal.sections.system.description",
+  page("page.system", "system", {
     aliases: ["system", "about", "advanced"],
   }),
   row("system.updates.version", SYSTEM, "settingsPage.general.updates.currentVersion", {

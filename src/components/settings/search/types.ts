@@ -1,38 +1,14 @@
-import type { SettingsSectionType } from "../../SettingsPage";
 import type { IntegrationsSection } from "../../integrations/integrationsSections";
 import type { Platform } from "../../../utils/platform";
+import type { SettingsLocation } from "../settingsPages";
 
-/** Sections in Settings nav order: search groups its results the same way. */
-export const SETTINGS_SECTION_ORDER: readonly SettingsSectionType[] = [
-  "account",
-  "plansBilling",
-  "workspace",
-  "general",
-  "hotkeys",
-  "speechToText",
-  "llms",
-  "privacyData",
-  "system",
-];
+export type { SettingsLocation } from "../settingsPages";
 
-/** Sub-tabs a location may name, per section (SettingsPage / WorkspaceSection hold the real lists). */
-export const SETTINGS_SUB_TABS: Readonly<Partial<Record<SettingsSectionType, readonly string[]>>> =
-  {
-    speechToText: ["dictation", "noteRecording", "upload"],
-    llms: [
-      "dictationCleanup",
-      "dictationAgent",
-      "dictationTranslation",
-      "noteFormatting",
-      "chatIntelligence",
-    ],
-    workspace: ["general", "members", "teams", "developer"],
-  };
+/** The Workspace page's tabs, which a location may name (WorkspaceSection holds the real list). */
+export const WORKSPACE_SUB_TABS: readonly string[] = ["general", "members", "teams", "developer"];
 
-/** The i18n key of a sub-tab's label. */
-export function subTabLabelKey(section: SettingsSectionType, subTab: string): string {
-  if (section === "speechToText") return `settingsPage.speechToText.tabs.${subTab}`;
-  if (section === "llms") return `settingsPage.llms.tabs.${subTab}`;
+/** The i18n key of a Workspace tab's label. */
+export function subTabLabelKey(subTab: string): string {
   return `settingsPage.workspace.tab.${subTab}`;
 }
 
@@ -115,11 +91,6 @@ export interface SettingsSearchContext {
   interpolation: Record<string, string | number>;
 }
 
-export interface SettingsLocation {
-  section: SettingsSectionType;
-  subTab?: string;
-}
-
 /** An app page outside Settings that search finds. */
 export interface ElsewhereLocation {
   view: "dictionary" | "integrations";
@@ -142,7 +113,7 @@ export interface SettingDescriptor {
   /** Stable and scope-qualified ("dictation.cleanup.model"); search destinations use it. */
   id: string;
   kind: SettingDescriptorKind;
-  /** Where it lives in Settings; Stage 4 moves settings by changing this. */
+  /** The page it lives on (and Workspace tab); moving a setting moves only this. */
   location?: SettingsLocation;
   /** For `elsewhere`: the app page it opens. */
   elsewhere?: ElsewhereLocation;

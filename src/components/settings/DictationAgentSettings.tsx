@@ -19,7 +19,12 @@ import PermissionCard from "../ui/PermissionCard";
 import PromptStudio from "../ui/PromptStudio";
 import InferenceConfigEditor from "./InferenceConfigEditor";
 
-export default function DictationAgentSettings() {
+export default function DictationAgentSettings({
+  hideEnableToggle = false,
+}: {
+  /** The page header holds the on/off switch (Settings › Voice Assistant). */
+  hideEnableToggle?: boolean;
+} = {}) {
   const { t } = useTranslation();
   const useDictationAgent = useSettingsStore((s) => s.useDictationAgent);
   const setUseDictationAgent = useSettingsStore((s) => s.setUseDictationAgent);
@@ -150,24 +155,26 @@ export default function DictationAgentSettings() {
 
   return (
     <div className="space-y-4">
-      <SettingsPanel>
-        <SettingsPanelRow data-setting-id="assistant.enabled">
-          <SettingsRow
-            label={t("dictationAgent.enabled")}
-            description={
-              agentAllowed
-                ? t("dictationAgent.enabledDescription", { agentName })
-                : t("common.managedByOrg")
-            }
-          >
-            <Toggle
-              checked={useDictationAgent}
-              onChange={setUseDictationAgent}
-              disabled={!agentAllowed}
-            />
-          </SettingsRow>
-        </SettingsPanelRow>
-      </SettingsPanel>
+      {!hideEnableToggle && (
+        <SettingsPanel>
+          <SettingsPanelRow data-setting-id="assistant.enabled">
+            <SettingsRow
+              label={t("dictationAgent.enabled")}
+              description={
+                agentAllowed
+                  ? t("dictationAgent.enabledDescription", { agentName })
+                  : t("common.managedByOrg")
+              }
+            >
+              <Toggle
+                checked={useDictationAgent}
+                onChange={setUseDictationAgent}
+                disabled={!agentAllowed}
+              />
+            </SettingsRow>
+          </SettingsPanelRow>
+        </SettingsPanel>
+      )}
 
       {useDictationAgent && (
         <InferenceConfigEditor scope="dictationAgent" data-setting-id="assistant.model" />

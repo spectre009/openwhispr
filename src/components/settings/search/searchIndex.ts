@@ -1,6 +1,7 @@
 import type { SettingDescriptor, SettingsSearchContext } from "./types";
-import { SETTINGS_SECTION_ORDER, subTabLabelKey } from "./types";
+import { subTabLabelKey } from "./types";
 import { findSettingDescriptor, settingAvailability } from "./registry";
+import { SETTINGS_ELSEWHERE_ORDER, SETTINGS_PAGES, settingsPageTrail } from "../settingsPages";
 import type { SettingsSearchEntry } from "./match";
 
 /** i18next's `t`, narrowed to what the index needs. */
@@ -8,21 +9,30 @@ export type Translate = (key: string, options?: Record<string, unknown>) => stri
 
 const ELSEWHERE_GROUP = "elsewhere";
 
-function sectionLabel(t: Translate, section: string): string {
-  return t(`settingsModal.sections.${section}.label`);
-}
-
-/** The breadcrumb under a result's title. */
+/**
+ * The breadcrumb under a result's title, from the nav tree: the parent, the
+ * page, the Workspace tab and the block ("Dictation › Cleanup"). A page's own
+ * entry shows only its parent; a parent's entry shows nothing.
+ */
 function pathOf(descriptor: SettingDescriptor, t: Translate): string[] {
   if (descriptor.kind === "elsewhere") {
     return descriptor.elsewhere?.view === "integrations" ? [t("sidebar.integrations")] : [];
   }
   const location = descriptor.location;
   if (!location) return [];
-  if (descriptor.kind === "page") return location.subTab ? [sectionLabel(t, location.section)] : [];
-  const path = [sectionLabel(t, location.section)];
-  if (location.subTab) path.push(t(subTabLabelKey(location.section, location.subTab)));
-  if (descriptor.groupKey) path.push(t(descriptor.groupKey, {}));
+  const trail = settingsPageTrail(location.page);
+  const parent = trail.parentTitleKey ? [t(trail.parentTitleKey)] : [];
+  if (descriptor.kind === "page") {
+    return descriptor.titleKey === trail.titleKey ? parent : [];
+  }
+  const pageTitle = t(trail.titleKey);
+  const path = [...parent, pageTitle];
+  if (location.subTab) path.push(t(subTabLabelKey(location.subTab)));
+  // A block named like its page (Notifications on Notifications) isn't repeated.
+  if (descriptor.groupKey && descriptor.groupKey !== trail.titleKey) {
+    const group = t(descriptor.groupKey, {});
+    if (group !== pageTitle) path.push(group);
+  }
   return path;
 }
 
@@ -30,7 +40,8 @@ function pathOf(descriptor: SettingDescriptor, t: Translate): string[] {
  * Turns the registry into what the matcher searches, for one UI language and
  * one state of the settings: translated and English titles, the breadcrumb,
  * aliases, allowlisted values and, for what can't be opened now, the reason.
- * Rebuilt when the language or the context changes.
+ * Results group by their top-level nav item (Dictation, Voice Assistant, …) in
+ * nav order. Rebuilt when the language or the context changes.
  */
 export function buildSettingsSearchIndex({
   descriptors,
@@ -50,19 +61,15 @@ export function buildSettingsSearchIndex({
     const availability = settingAvailability(descriptor, ctx);
     if (availability === null) return;
 
-    const section = descriptor.location?.section;
-    const groupId = descriptor.kind === "elsewhere" || !section ? ELSEWHERE_GROUP : section;
-    const groupOrder =
-      groupId === ELSEWHERE_GROUP
-        ? SETTINGS_SECTION_ORDER.length
-        : SETTINGS_SECTION_ORDER.indexOf(groupId as (typeof SETTINGS_SECTION_ORDER)[number]);
+    const page = descriptor.kind === "elsewhere" ? undefined : descriptor.location?.page;
+    const trail = page ? settingsPageTrail(page) : undefined;
 
     let unavailable: SettingsSearchEntry["unavailable"];
     if (availability !== true) {
       const prerequisite = findSettingDescriptor(availability.prerequisite);
       const prerequisiteTitle = prerequisite ? t(prerequisite.titleKey, vars) : undefined;
       const prerequisitePage = prerequisite?.location
-        ? sectionLabel(t, prerequisite.location.section)
+        ? t(SETTINGS_PAGES[prerequisite.location.page].titleKey, vars)
         : "";
       unavailable = {
         reason: t(availability.reason, {
@@ -78,12 +85,10 @@ export function buildSettingsSearchIndex({
     entries.push({
       id: descriptor.id,
       kind: descriptor.kind,
-      groupId,
-      groupLabel:
-        groupId === ELSEWHERE_GROUP
-          ? t("settingsSearch.groups.elsewhere")
-          : sectionLabel(t, groupId),
-      groupOrder,
+      pageId: page,
+      groupId: trail ? trail.topId : ELSEWHERE_GROUP,
+      groupLabel: trail ? t(trail.topTitleKey) : t("settingsSearch.groups.elsewhere"),
+      groupOrder: trail ? trail.topOrder : SETTINGS_ELSEWHERE_ORDER,
       order,
       title: t(descriptor.titleKey, vars),
       titleEn: tEn(descriptor.titleKey, vars),

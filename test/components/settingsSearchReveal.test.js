@@ -120,24 +120,24 @@ test("skips a hidden copy of the anchor and lands on the one that shows", async 
   assert.equal(element.id, "shown-copy");
 });
 
-test("a copy still showing in the old sub-tab is not the one it lands on", async (t) => {
+test("a copy on another page (still showing in the same frame) is not the one it lands on", async (t) => {
   const { revealSetting } = await load();
   const { root } = setup(
     t,
-    `<div data-settings-tab="noteRecording" id="old-tab"><div data-setting-id="dictation.stt.vad" id="old-copy"></div></div>
-     <div data-settings-tab="dictation" class="hidden" id="new-tab"><div data-setting-id="dictation.stt.vad" id="new-copy"></div></div>`
+    `<div data-settings-page-id="liveRecording" id="old-page"><div data-setting-id="dictation.stt.vad" id="old-copy"></div></div>
+     <div data-settings-page-id="recognition" class="hidden" id="new-page"><div data-setting-id="dictation.stt.vad" id="new-copy"></div></div>`
   );
   const landing = revealSetting({
     root,
     anchor: "dictation.stt.vad",
-    subTab: "dictation",
+    page: "recognition",
     isVisible,
     flashMs: 20,
   });
   await wait(40);
   assert.ok(!root.querySelector("#old-copy").hasAttribute("data-search-flash"));
-  root.querySelector("#old-tab").classList.add("hidden");
-  root.querySelector("#new-tab").classList.remove("hidden");
+  root.querySelector("#old-page").classList.add("hidden");
+  root.querySelector("#new-page").classList.remove("hidden");
   const element = await landing;
   assert.equal(element.id, "new-copy");
 });
@@ -272,4 +272,58 @@ test("a new flash ends the previous one; tall blocks align to the top; reduced m
   assert.ok(!first.hasAttribute("data-search-flash"), "the earlier flash was ended");
   assert.ok(tall.hasAttribute("data-search-flash"));
   assert.deepEqual(scrolled.at(-1), { id: "tall", options: { block: "start", behavior: "auto" } });
+});
+
+// Ctrl+K: choosing a Settings result used to leave focus on <body> (the palette
+// returns focus to what had it before, which is inert under Settings).
+test("the landed row takes focus when nothing in Settings has it, and gives up its tabindex", async (t) => {
+  const { focusLandedSetting } = await load();
+  const { root } = setup(
+    t,
+    `<input id="search" /><div data-setting-id="row" id="row"></div><button data-setting-id="control" id="control"></button>`
+  );
+  root.tabIndex = -1;
+  const doc = happyWindow.document;
+  const row = root.querySelector("#row");
+
+  doc.activeElement?.blur?.();
+  focusLandedSetting(root, row);
+  assert.equal(doc.activeElement, row);
+  assert.equal(row.getAttribute("tabindex"), "-1");
+  root.querySelector("#search").focus();
+  assert.equal(row.hasAttribute("tabindex"), false, "focusable only while it has focus");
+
+  // Focus the user put in Settings (the search field) stays there.
+  focusLandedSetting(root, row);
+  assert.equal(doc.activeElement, root.querySelector("#search"));
+
+  // A control that reacts to keys isn't focused; the layer is.
+  doc.activeElement.blur();
+  focusLandedSetting(root, root.querySelector("#control"));
+  assert.equal(doc.activeElement, root);
+  // From the layer root, a later landing moves on to the row.
+  focusLandedSetting(root, row);
+  assert.equal(doc.activeElement, row);
+});
+
+test("closing the palette after a Settings result focuses the flashed row, else the layer", async (t) => {
+  const { focusSettingsAfterPalette, focusLandedSetting } = await load();
+  const doc = happyWindow.document;
+  const { root } = setup(t, `<div data-setting-id="row" id="row"></div>`);
+  root.tabIndex = -1;
+
+  doc.activeElement?.blur?.();
+  focusSettingsAfterPalette(doc);
+  assert.equal(doc.activeElement, root, "the reveal hasn't landed yet");
+
+  root.querySelector("#row").setAttribute("data-search-flash", "");
+  doc.activeElement.blur();
+  focusSettingsAfterPalette(doc);
+  assert.equal(doc.activeElement, root.querySelector("#row"));
+
+  // A closed (inert) Settings layer is left alone.
+  doc.activeElement.blur();
+  root.setAttribute("inert", "");
+  focusLandedSetting(root, root.querySelector("#row"));
+  assert.notEqual(doc.activeElement, root.querySelector("#row"));
 });

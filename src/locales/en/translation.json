@@ -1944,6 +1944,73 @@
     },
     "title": "Settings"
   },
+  "settingsNav": {
+    "groups": {
+      "features": "Features",
+      "setup": "Setup",
+      "data": "Data"
+    },
+    "parents": {
+      "dictation": "Dictation",
+      "dictationDescription": "Recognition, cleanup, styles and output for everything you dictate.",
+      "notes": "Notes & Uploads",
+      "notesDescription": "Speech-to-text and formatting for recorded notes and uploaded audio.",
+      "app": "App & Controls",
+      "appDescription": "Appearance, sounds, notifications, startup, note files and hotkeys."
+    },
+    "pages": {
+      "recognition": {
+        "title": "Recognition",
+        "description": "Turns your voice into text: the speech-to-text engine, the language you speak and voice detection."
+      },
+      "cleanup": {
+        "title": "Cleanup"
+      },
+      "output": {
+        "title": "Output",
+        "description": "What happens to the text after you dictate: pasting, the clipboard and learning from your corrections."
+      },
+      "chat": {
+        "description": "The model and instructions for typed chats in OpenWhispr."
+      },
+      "liveRecording": {
+        "title": "Live Recording",
+        "description": "Speech-to-text for notes you record live, such as meetings."
+      },
+      "fileTranscription": {
+        "title": "File Transcription",
+        "description": "Speech-to-text for audio files you upload."
+      },
+      "noteFormatting": {
+        "description": "Turns transcripts into formatted notes and gives them titles."
+      },
+      "appearance": {
+        "title": "Appearance & Language",
+        "description": "The theme and the language of the interface."
+      },
+      "audio": {
+        "title": "Microphone & Sounds",
+        "description": "The input device, and the sounds and media while you dictate."
+      },
+      "noteFiles": {
+        "title": "Note Files & Import",
+        "description": "Save notes as Markdown files, and import notes from Granola."
+      }
+    },
+    "elsewhere": {
+      "dictionary": "Dictionary & Glossary"
+    },
+    "switch": {
+      "on": "On",
+      "off": "Off"
+    },
+    "pills": {
+      "prompt": "Prompt: {{name}}",
+      "alsoUsedBy": "Also used by {{features}}",
+      "noteFormattingInherits": "Note Formatting (inherits)",
+      "inheritsFromCleanup": "Inherits unset fields from Cleanup"
+    }
+  },
   "settingsLayer": {
     "backTo": "Back to {{view}}",
     "sections": "Settings sections",

@@ -19,7 +19,9 @@ export interface SettingsSearchUnavailable {
 export interface SettingsSearchEntry {
   id: string;
   kind: SettingDescriptorKind;
-  /** A Settings section id, or "elsewhere" for app pages. */
+  /** The Settings page it opens (its icon heads the result); none for app pages. */
+  pageId?: string;
+  /** Its top-level nav item (a page or a parent like Dictation), or "elsewhere". */
   groupId: string;
   groupLabel: string;
   groupOrder: number;
@@ -29,7 +31,7 @@ export interface SettingsSearchEntry {
   /** The English title, so English terms work in every UI language. */
   titleEn: string;
   description: string;
-  /** Breadcrumb under the title: section › sub-tab › block. */
+  /** Breadcrumb under the title: parent › page › block. */
   path: string[];
   aliases: string[];
   value?: string;
@@ -183,7 +185,7 @@ export function rankSettings(
   return results.sort(byScore).slice(0, limit);
 }
 
-/** Matches grouped by section in nav order, best first within a group. */
+/** Matches grouped by top-level nav item in nav order, best first within a group. */
 export function searchSettings(
   index: readonly SettingsSearchEntry[],
   query: string,

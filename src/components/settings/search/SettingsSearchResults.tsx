@@ -18,8 +18,8 @@ interface SettingsSearchResultsProps {
   highlighted: number;
   onHighlight: (index: number) => void;
   onOpen: (entry: SettingsSearchEntry) => void;
-  /** The icon of a result's group (its Settings section). */
-  iconFor: (groupId: string) => IconComponent | undefined;
+  /** The icon of a result's Settings page (or its nav group). */
+  iconFor: (pageOrGroupId: string) => IconComponent | undefined;
   listId: string;
 }
 
@@ -43,7 +43,8 @@ function Highlighted({ text, query }: { text: string; query: string }) {
 
 /**
  * Settings search results, in place of the page while the query isn't empty:
- * grouped by section, each with its breadcrumb, description and current value.
+ * grouped by nav item (Dictation, Voice Assistant, …), each with its
+ * breadcrumb, description and current value.
  * A result behind a prerequisite says why and opens the prerequisite instead.
  */
 export default function SettingsSearchResults({
@@ -100,7 +101,9 @@ export default function SettingsSearchResults({
                 const position = index;
                 const active = position === highlighted;
                 const Icon =
-                  entry.kind === "elsewhere" ? ExternalLink : (iconFor(entry.groupId) ?? Info);
+                  entry.kind === "elsewhere"
+                    ? ExternalLink
+                    : (iconFor(entry.pageId ?? entry.groupId) ?? Info);
                 const path = entry.path.length ? entry.path.join(" › ") : t("settingsModal.title");
                 return (
                   <div

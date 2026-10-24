@@ -1850,6 +1850,73 @@
     },
     "title": "Impostazioni"
   },
+  "settingsNav": {
+    "groups": {
+      "features": "Funzionalità",
+      "setup": "Configurazione",
+      "data": "Dati"
+    },
+    "parents": {
+      "dictation": "Dettatura",
+      "dictationDescription": "Riconoscimento, pulizia, stili e output di tutto ciò che detti.",
+      "notes": "Note e caricamenti",
+      "notesDescription": "Trascrizione e formattazione delle note registrate e dell'audio caricato.",
+      "app": "App e controlli",
+      "appDescription": "Aspetto, suoni, notifiche, avvio, file delle note e scorciatoie."
+    },
+    "pages": {
+      "recognition": {
+        "title": "Riconoscimento",
+        "description": "Trasforma la tua voce in testo: il motore di trascrizione, la lingua che parli e il rilevamento della voce."
+      },
+      "cleanup": {
+        "title": "Pulizia"
+      },
+      "output": {
+        "title": "Output",
+        "description": "Cosa succede al testo dopo la dettatura: incolla, appunti e apprendimento dalle tue correzioni."
+      },
+      "chat": {
+        "description": "Il modello e le istruzioni per le chat scritte in OpenWhispr."
+      },
+      "liveRecording": {
+        "title": "Registrazione dal vivo",
+        "description": "Trascrizione delle note che registri dal vivo, come le riunioni."
+      },
+      "fileTranscription": {
+        "title": "Trascrizione di file",
+        "description": "Trascrizione dei file audio che carichi."
+      },
+      "noteFormatting": {
+        "description": "Trasforma le trascrizioni in note formattate e dà loro un titolo."
+      },
+      "appearance": {
+        "title": "Aspetto e lingua",
+        "description": "Il tema e la lingua dell'interfaccia."
+      },
+      "audio": {
+        "title": "Microfono e suoni",
+        "description": "Il dispositivo di input, e i suoni e i contenuti multimediali durante la dettatura."
+      },
+      "noteFiles": {
+        "title": "File delle note e importazione",
+        "description": "Salva le note come file Markdown e importa note da Granola."
+      }
+    },
+    "elsewhere": {
+      "dictionary": "Dizionario e glossario"
+    },
+    "switch": {
+      "on": "Attivo",
+      "off": "Disattivo"
+    },
+    "pills": {
+      "prompt": "Prompt: {{name}}",
+      "alsoUsedBy": "Usato anche da {{features}}",
+      "noteFormattingInherits": "Formattazione note (eredita)",
+      "inheritsFromCleanup": "Eredita da Pulizia i campi non impostati"
+    }
+  },
   "settingsLayer": {
     "backTo": "Torna a «{{view}}»",
     "sections": "Sezioni delle impostazioni",

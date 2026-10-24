@@ -1,5 +1,5 @@
 import { findSettingDescriptor } from "./registry";
-import { settingDestination } from "../../settingsSections";
+import { settingDestination } from "../settingsPages";
 import type { ElsewhereLocation, SettingsLocation } from "./types";
 import type { SettingsSearchEntry } from "./match";
 

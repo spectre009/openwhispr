@@ -5,6 +5,8 @@
  * free of React so it runs against happy-dom in tests.
  */
 
+import { SETTINGS_LAYER_ATTRIBUTE } from "../settingsLayerPolicy";
+
 export const SETTING_ANCHOR_ATTRIBUTE = "data-setting-id";
 /** Set on the element while it flashes; the live check and tests read it. */
 export const SEARCH_FLASH_ATTRIBUTE = "data-search-flash";
@@ -12,8 +14,11 @@ export const SEARCH_FLASH_ATTRIBUTE = "data-search-flash";
 export const SETTINGS_SCROLLER_ATTRIBUTE = "data-settings-scroller";
 /** A collapsible trigger inside an anchor that reveal may open. */
 export const SETTING_EXPAND_ATTRIBUTE = "data-setting-expand";
-/** A sub-tab's panel (SettingsPage's TabPanel): an anchor in another tab is a stale copy. */
-export const SETTINGS_TAB_ATTRIBUTE = "data-settings-tab";
+/**
+ * A page's body (SettingsPage keeps visited pages mounted, hidden): an anchor
+ * on another page is a copy, e.g. the VAD block on Recognition and Live Recording.
+ */
+export const SETTINGS_PAGE_ATTRIBUTE = "data-settings-page-id";
 
 export const SEARCH_FLASH_MS = 1600;
 const WAIT_TIMEOUT_MS = 2000;
@@ -30,11 +35,11 @@ export interface RevealSettingOptions {
   /** Anchors of collapsed blocks to open first (`<details>` or an `aria-expanded` trigger). */
   expand?: readonly string[];
   /**
-   * The sub-tab the setting lives in. The tab switches in an effect after the
-   * navigation, so until then a copy in the old tab (the VAD block renders in
-   * two) may still show; anchors inside another tab's panel don't count.
+   * The page the setting lives on. Visited pages stay mounted (hidden), so an
+   * anchor inside another page's body doesn't count, even while that page is
+   * still the one showing.
    */
-  subTab?: string;
+  page?: string;
   signal?: AbortSignal;
   reducedMotion?: boolean;
   timeoutMs?: number;
@@ -53,20 +58,20 @@ export function isElementVisible(element: Element): boolean {
 
 const escapeAttributeValue = (value: string) => value.replace(/["\\]/g, "\\$&");
 
-/** The first rendered, visible element carrying this anchor (in `subTab`'s panel, if it's in one). */
+/** The first rendered, visible element carrying this anchor (on `page`, if it's on a page). */
 export function findVisibleAnchor(
   root: ParentNode,
   anchor: string,
   isVisible: (element: Element) => boolean = isElementVisible,
-  subTab?: string
+  page?: string
 ): HTMLElement | null {
   const candidates = root.querySelectorAll<HTMLElement>(
     `[${SETTING_ANCHOR_ATTRIBUTE}="${escapeAttributeValue(anchor)}"]`
   );
   for (const candidate of Array.from(candidates)) {
-    if (subTab) {
-      const tab = candidate.closest(`[${SETTINGS_TAB_ATTRIBUTE}]`);
-      if (tab && tab.getAttribute(SETTINGS_TAB_ATTRIBUTE) !== subTab) continue;
+    if (page) {
+      const body = candidate.closest(`[${SETTINGS_PAGE_ATTRIBUTE}]`);
+      if (body && body.getAttribute(SETTINGS_PAGE_ATTRIBUTE) !== page) continue;
     }
     if (candidate.isConnected && isVisible(candidate)) return candidate;
   }
@@ -134,7 +139,7 @@ export function revealSetting(options: RevealSettingOptions): Promise<HTMLElemen
     anchor,
     fallbackAnchor,
     expand = [],
-    subTab,
+    page,
     signal,
     reducedMotion = prefersReducedMotion(),
     timeoutMs = WAIT_TIMEOUT_MS,
@@ -173,14 +178,14 @@ export function revealSetting(options: RevealSettingOptions): Promise<HTMLElemen
       if (signal?.aborted) return finish(null);
       for (const id of expand) {
         if (expanded.has(id)) continue;
-        const block = findVisibleAnchor(root, id, isVisible, subTab);
+        const block = findVisibleAnchor(root, id, isVisible, page);
         if (block && expandBlock(block)) expanded.add(id);
       }
-      const target = findVisibleAnchor(root, anchor, isVisible, subTab);
+      const target = findVisibleAnchor(root, anchor, isVisible, page);
       if (target) return finish(target);
       const elapsed = now() - startedAt;
       if (fallbackAnchor) {
-        const parent = findVisibleAnchor(root, fallbackAnchor, isVisible, subTab);
+        const parent = findVisibleAnchor(root, fallbackAnchor, isVisible, page);
         if (parent) {
           fallbackSince ??= now();
           if (now() - fallbackSince >= fallbackGraceMs || elapsed >= timeoutMs) {
@@ -220,4 +225,51 @@ export function revealSetting(options: RevealSettingOptions): Promise<HTMLElemen
     }
     tick();
   });
+}
+
+// Controls that act on arrow keys: landing focus there would let the next key change a setting.
+const ARROW_KEY_CONTROL =
+  'input, select, textarea, button, [contenteditable="true"], [role="slider"], [role="radio"], [role="radiogroup"], [role="switch"], [role="tablist"], [role="tab"], [role="listbox"], [role="combobox"], [role="menu"], [role="spinbutton"]';
+
+/**
+ * After a search lands on a setting, focus goes to it when nothing in Settings
+ * has focus (a palette result leaves focus on the body): the flashed row
+ * itself (focusable only until it loses focus), or the layer root when the
+ * row is a control. Focus the user put in Settings (the search field) stays.
+ */
+export function focusLandedSetting(layer: HTMLElement, element: HTMLElement | null): void {
+  const doc = layer.ownerDocument;
+  const active = doc.activeElement;
+  if (layer.hasAttribute("inert")) return;
+  if (active && active !== doc.body && active !== layer) {
+    // In Settings already, or in a dialog over it that hands focus back itself.
+    if (layer.contains(active)) return;
+    if (
+      active.closest('[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"]')
+    )
+      return;
+  }
+  const target =
+    element && element.isConnected && layer.contains(element) && !element.matches(ARROW_KEY_CONTROL)
+      ? element
+      : layer;
+  if (target !== layer && !target.hasAttribute("tabindex")) {
+    target.setAttribute("tabindex", "-1");
+    target.addEventListener("blur", () => target.removeAttribute("tabindex"), { once: true });
+  }
+  target.focus({ preventScroll: true });
+}
+
+/**
+ * The palette closing after a Settings result: Radix would return focus to
+ * what had it before the palette (often inert under Settings now, which leaves
+ * focus on the body). Focus lands in Settings instead: on the flashed row if
+ * the reveal already finished, else the layer root (the reveal moves it on).
+ */
+export function focusSettingsAfterPalette(doc: Document): void {
+  const layer = doc.querySelector<HTMLElement>(`[${SETTINGS_LAYER_ATTRIBUTE}]`);
+  if (!layer) return;
+  const active = doc.activeElement;
+  if (active && active !== doc.body && active !== layer && layer.contains(active)) return;
+  focusLandedSetting(layer, layer.querySelector<HTMLElement>(`[${SEARCH_FLASH_ATTRIBUTE}]`));
 }

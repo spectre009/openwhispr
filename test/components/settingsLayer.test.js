@@ -114,9 +114,11 @@ async function mountSettings(t) {
   function Harness() {
     const settings = useSettingsLayerController();
     const [search, setSearch] = React.useState(null);
+    const [page, setPage] = React.useState("recognition");
     api.settings = settings;
     api.setSearch = setSearch;
     api.search = search;
+    api.page = page;
     return h(
       "div",
       { id: "region" },
@@ -140,13 +142,42 @@ async function mountSettings(t) {
               if (settings.closeSettings()) api.view = view;
             },
             onOpenSearch: () => {},
-            navItems: [
-              { id: "general", label: "Preferences", icon: NoIcon, group: "App" },
-              { id: "hotkeys", label: "Hotkeys", icon: NoIcon, group: "App" },
+            navGroups: [
+              {
+                id: "features",
+                label: "Features",
+                items: [
+                  {
+                    id: "dictation",
+                    label: "Dictation",
+                    icon: NoIcon,
+                    page: "recognition",
+                    children: [
+                      { id: "recognition", label: "Recognition", icon: NoIcon },
+                      { id: "cleanup", label: "Cleanup", icon: NoIcon },
+                    ],
+                  },
+                  { id: "translation", label: "Translation", icon: NoIcon, page: "translation" },
+                ],
+              },
+              {
+                id: "elsewhere",
+                label: "Elsewhere",
+                items: [
+                  {
+                    id: "dictionary",
+                    label: "Dictionary & Glossary",
+                    icon: NoIcon,
+                    onSelect: () => {
+                      api.elsewhere = "dictionary";
+                    },
+                  },
+                ],
+              },
             ],
-            activeSection: "general",
-            sectionLabel: "Preferences",
-            onSectionChange: () => {},
+            activePage: page,
+            breadcrumb: page === "translation" ? ["Features", "Translation"] : ["Dictation", page],
+            onNavigate: setPage,
             navigationKey: 0,
             returnFocusRef: settings.returnFocusRef,
             getFallbackFocus: () => happyWindow.document.getElementById("opener"),
@@ -427,6 +458,47 @@ test("Esc clears an active search before it leaves Settings", async (t) => {
   assert.equal(s.api.settings.open, false);
 });
 
+test("the nav shows a parent's pages while one is open, marks the page, and links out", async (t) => {
+  const s = await mountSettings(t);
+  await s.open();
+  const nav = (id) => s.layer().querySelector(`[data-settings-nav="${id}"]`);
+  const header = () => s.layer().querySelector("header h1").textContent;
+
+  // Dictation › Recognition is open: its pages show, Recognition is the page.
+  assert.equal(nav("dictation").getAttribute("aria-expanded"), "true");
+  assert.equal(nav("recognition").getAttribute("aria-current"), "page");
+  assert.equal(nav("dictation").hasAttribute("aria-current"), false, "a parent isn't a page");
+  assert.ok(nav("cleanup"));
+  assert.match(header(), /settingsModal\.title.*Dictation.*recognition/);
+
+  await s.act(() => nav("cleanup").click());
+  assert.equal(s.api.page, "cleanup");
+  assert.equal(nav("cleanup").getAttribute("aria-current"), "page");
+  assert.equal(nav("recognition").hasAttribute("aria-current"), false);
+
+  // Another page collapses Dictation's list.
+  await s.act(() => nav("translation").click());
+  assert.equal(s.api.page, "translation");
+  assert.equal(nav("dictation").getAttribute("aria-expanded"), "false");
+  assert.equal(nav("cleanup"), null);
+  assert.equal(nav("translation").getAttribute("aria-current"), "page");
+  assert.match(header(), /Features.*Translation/);
+
+  // A parent opens its first page.
+  await s.act(() => nav("dictation").click());
+  assert.equal(s.api.page, "recognition");
+
+  // Group labels head their items; Elsewhere links leave Settings, not navigate.
+  const groups = [...s.layer().querySelectorAll('nav [role="group"]')];
+  assert.deepEqual(
+    groups.map((group) => group.getAttribute("aria-label")),
+    ["Features", "Elsewhere"]
+  );
+  await s.act(() => nav("dictionary").click());
+  assert.equal(s.api.elsewhere, "dictionary");
+  assert.equal(s.api.page, "recognition");
+});
+
 // ControlPanel is too large to render here, so its wiring is read from source:
 // the layer is a sibling of the inert sidebar and <main>, mounted once and
 // never keyed (a key would remount it, losing drafts), and every request for
@@ -456,6 +528,11 @@ test("ControlPanel keeps the app inert under Settings and the layer mounted", ()
   // The markers the close rules look for are the ones the components render.
   assert.match(read("components/settings/SettingsLayer.tsx"), /data-settings-layer=""/);
   assert.match(read("components/CommandSearch.tsx"), /data-command-palette=""/);
+  // A Settings result chosen in the palette leaves focus in Settings, not on <body>.
+  assert.match(
+    read("components/CommandSearch.tsx"),
+    /onCloseAutoFocus=\{\(event\) => \{[\s\S]*?settingOpenedRef\.current[\s\S]*?event\.preventDefault\(\);\s*focusSettingsAfterPalette\(document\);/
+  );
   const policy = read("components/settings/settingsLayerPolicy.ts");
   assert.match(policy, /SETTINGS_LAYER_ATTRIBUTE = "data-settings-layer"/);
   assert.match(policy, /COMMAND_PALETTE_ATTRIBUTE = "data-command-palette"/);

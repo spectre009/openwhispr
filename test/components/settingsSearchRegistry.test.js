@@ -6,9 +6,10 @@ const { LOCALES, readLocale, makeContext, translators } = require("../lib/settin
 
 // The settings search registry against the source: every descriptor lands on a
 // `data-setting-id` that the markup renders, every anchor in the markup has a
-// descriptor, every location is a real section and sub-tab, every string
-// exists in all 11 locales, and availability explains prerequisites instead of
-// hiding results or pointing at something that isn't rendered.
+// descriptor, every location is a real page (every page has its descriptor,
+// every legacy destination still resolves), every string exists in all 11
+// locales, and availability explains prerequisites instead of hiding results
+// or pointing at something that isn't rendered.
 
 const SRC = path.join(__dirname, "..", "..", "src");
 const COMPONENTS = path.join(SRC, "components");
@@ -19,13 +20,20 @@ async function load() {
   const index = await import("../../src/components/settings/search/searchIndex.ts");
   const match = await import("../../src/components/settings/search/match.ts");
   const action = await import("../../src/components/settings/search/openSettingsResult.ts");
+  const pages = await loadPages();
   return {
     ...(registry.default ?? registry),
     ...(types.default ?? types),
     ...(index.default ?? index),
     ...(match.default ?? match),
     ...(action.default ?? action),
+    settingDestination: pages.settingDestination,
   };
+}
+
+async function loadPages() {
+  const pages = await import("../../src/components/settings/settingsPages.ts");
+  return pages.default ?? pages;
 }
 
 function componentFiles(directory = COMPONENTS) {
@@ -129,42 +137,84 @@ test("settings land on an anchor, pages and app pages navigate", async () => {
   }
 });
 
-test("every location is a real section and sub-tab", async () => {
-  const { SETTINGS_SEARCH_DESCRIPTORS, SETTINGS_SECTION_ORDER, SETTINGS_SUB_TABS } = await load();
-  // The sub-tab lists mirror the ones the components render.
+test("every location is a real page (and Workspace tab)", async () => {
+  const { SETTINGS_SEARCH_DESCRIPTORS, WORKSPACE_SUB_TABS } = await load();
+  const { SETTINGS_PAGE_IDS } = await loadPages();
+  // The Workspace tab list mirrors the one WorkspaceSection renders.
   const read = (file) => fs.readFileSync(path.join(COMPONENTS, file), "utf8");
   const list = (text, pattern) =>
     [...(text.match(pattern)?.[1] ?? "").matchAll(/"([^"]+)"/g)].map((m) => m[1]);
-  const page = read("SettingsPage.tsx");
-  assert.deepEqual(list(page, /const SPEECH_TABS: SpeechTab\[\] = \[([^\]]*)\]/), [
-    ...SETTINGS_SUB_TABS.speechToText,
-  ]);
-  assert.deepEqual(list(page, /const LLM_TABS: LlmTab\[\] = \[([^\]]*)\]/), [
-    ...SETTINGS_SUB_TABS.llms,
-  ]);
   assert.deepEqual(list(read("settings/WorkspaceSection.tsx"), /const SUB_TABS = \[([^\]]*)\]/), [
-    ...SETTINGS_SUB_TABS.workspace,
+    ...WORKSPACE_SUB_TABS,
   ]);
-  const sectionType = page.match(/export type SettingsSectionType =([^;]*);/)[1];
-  assert.deepEqual(
-    [...sectionType.matchAll(/"([^"]+)"/g)].map((m) => m[1]).sort(),
-    [...SETTINGS_SECTION_ORDER].sort()
-  );
 
   for (const { id, location } of SETTINGS_SEARCH_DESCRIPTORS) {
     if (!location) continue;
-    assert.ok(SETTINGS_SECTION_ORDER.includes(location.section), `${id}: ${location.section}`);
+    assert.ok(SETTINGS_PAGE_IDS.includes(location.page), `${id}: ${location.page}`);
+    assert.ok(!("section" in location), `${id} names a page, not a section`);
     if (location.subTab) {
-      assert.ok(
-        SETTINGS_SUB_TABS[location.section]?.includes(location.subTab),
-        `${id}: ${location.section}/${location.subTab}`
-      );
+      assert.equal(location.page, "workspace", `${id}: only Workspace has tabs`);
+      assert.ok(WORKSPACE_SUB_TABS.includes(location.subTab), `${id}: ${location.subTab}`);
     }
+  }
+});
+
+test("every page in the nav tree has a page descriptor titled like it", async () => {
+  const { SETTINGS_SEARCH_DESCRIPTORS } = await load();
+  const { SETTINGS_PAGE_IDS, SETTINGS_PAGES } = await loadPages();
+  for (const page of SETTINGS_PAGE_IDS) {
+    const own = SETTINGS_SEARCH_DESCRIPTORS.filter(
+      (descriptor) =>
+        descriptor.kind === "page" &&
+        descriptor.location?.page === page &&
+        !descriptor.location.subTab &&
+        descriptor.titleKey === SETTINGS_PAGES[page].titleKey
+    );
+    assert.equal(own.length, 1, `one page descriptor for ${page}`);
+    assert.equal(own[0].descriptionKey, SETTINGS_PAGES[page].descriptionKey, page);
+  }
+});
+
+test("every destination still resolves: legacy names, descriptors and pages", async () => {
+  const { SETTINGS_SEARCH_DESCRIPTORS, locateSetting, settingDestination } = await load();
+  const {
+    SETTINGS_PAGE_IDS,
+    SECTION_ALIASES,
+    LEGACY_SUB_TAB,
+    isSettingsPageId,
+    resolveSettingsDestination,
+  } = await loadPages();
+  const ctx = { cloudDisabled: false, isSignedIn: true, agentAllowed: true };
+  const legacy = [
+    ...Object.keys(SECTION_ALIASES),
+    ...Object.keys(LEGACY_SUB_TAB),
+    "account",
+    "plansBilling",
+    "workspace",
+    "general",
+    "hotkeys",
+    "speechToText",
+    "llms",
+    "privacyData",
+    "system",
+  ];
+  for (const name of [...legacy, ...SETTINGS_PAGE_IDS]) {
+    const { page } = resolveSettingsDestination(name, { ctx, locateSetting });
+    assert.ok(isSettingsPageId(page), `${name} → ${page}`);
+  }
+  // A search result's destination string lands on the descriptor's page.
+  for (const descriptor of SETTINGS_SEARCH_DESCRIPTORS) {
+    if (!descriptor.location) continue;
+    const destination = settingDestination(descriptor.id);
+    const resolved = resolveSettingsDestination(destination, { ctx, locateSetting });
+    assert.equal(resolved.page, descriptor.location.page, destination);
+    assert.equal(resolved.settingId, descriptor.id, destination);
   }
 });
 
 test("every search string exists in all 11 locales", async () => {
   const lib = await load();
+  const { SETTINGS_PAGES, SETTINGS_NAV } = await loadPages();
   const keys = new Set(lib.SETTINGS_SEARCH_REASON_KEYS);
   for (const descriptor of lib.SETTINGS_SEARCH_DESCRIPTORS) {
     for (const key of [descriptor.titleKey, descriptor.descriptionKey, descriptor.groupKey]) {
@@ -173,9 +223,13 @@ test("every search string exists in all 11 locales", async () => {
     for (const key of descriptor.aliasKeys ?? []) keys.add(key);
     const { location } = descriptor;
     if (location) {
-      keys.add(`settingsModal.sections.${location.section}.label`);
-      if (location.subTab) keys.add(lib.subTabLabelKey(location.section, location.subTab));
+      keys.add(SETTINGS_PAGES[location.page].titleKey);
+      if (location.subTab) keys.add(lib.subTabLabelKey(location.subTab));
     }
+  }
+  // Breadcrumbs and result groups name the nav's parents.
+  for (const group of SETTINGS_NAV) {
+    for (const item of group.items) if (item.kind === "parent") keys.add(item.titleKey);
   }
   // Strings the search UI and the index ask for directly.
   for (const file of componentFiles(path.join(COMPONENTS, "settings", "search"))) {
@@ -266,7 +320,7 @@ test("with Cloud off, account results explain the prerequisite and link to it", 
   // Opening it goes to the switch, never to the hidden page.
   assert.deepEqual(settingsSearchAction(profile), {
     kind: "navigate",
-    location: { section: "privacyData" },
+    location: { page: "privacyData" },
     settingId: "privacy.cloud",
     destination: "#privacy.cloud",
   });
@@ -312,7 +366,7 @@ test("with cleanup off, the cleanup model result leads to the cleanup toggle", a
   assert.equal(model.unavailable.prerequisite, "dictation.cleanup.enabled");
   assert.deepEqual(settingsSearchAction(model), {
     kind: "navigate",
-    location: { section: "llms", subTab: "dictationCleanup" },
+    location: { page: "cleanup" },
     settingId: "dictation.cleanup.enabled",
     destination: "#dictation.cleanup.enabled",
   });
@@ -371,13 +425,13 @@ test("opening results: settings land on their id, pages navigate, app pages leav
   const { settingsSearchAction } = await load();
   assert.deepEqual(settingsSearchAction({ id: "preferences.theme" }), {
     kind: "navigate",
-    location: { section: "general" },
+    location: { page: "appearance" },
     settingId: "preferences.theme",
     destination: "#preferences.theme",
   });
   assert.deepEqual(settingsSearchAction({ id: "page.llms.dictationAgent" }), {
     kind: "navigate",
-    location: { section: "llms", subTab: "dictationAgent" },
+    location: { page: "assistant" },
     settingId: undefined,
     destination: "#page.llms.dictationAgent",
   });

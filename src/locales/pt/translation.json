@@ -1829,6 +1829,73 @@
     },
     "title": "Configurações"
   },
+  "settingsNav": {
+    "groups": {
+      "features": "Recursos",
+      "setup": "Configuração",
+      "data": "Dados"
+    },
+    "parents": {
+      "dictation": "Ditado",
+      "dictationDescription": "Reconhecimento, limpeza, estilos e saída de tudo o que você dita.",
+      "notes": "Notas e envios",
+      "notesDescription": "Voz para texto e formatação de notas gravadas e áudios enviados.",
+      "app": "App e controles",
+      "appDescription": "Aparência, sons, notificações, inicialização, arquivos de notas e atalhos."
+    },
+    "pages": {
+      "recognition": {
+        "title": "Reconhecimento",
+        "description": "Transforma sua voz em texto: o mecanismo de voz para texto, o idioma que você fala e a detecção de voz."
+      },
+      "cleanup": {
+        "title": "Limpeza"
+      },
+      "output": {
+        "title": "Saída",
+        "description": "O que acontece com o texto depois do ditado: colar, a área de transferência e o aprendizado com suas correções."
+      },
+      "chat": {
+        "description": "O modelo e as instruções dos chats digitados no OpenWhispr."
+      },
+      "liveRecording": {
+        "title": "Gravação ao vivo",
+        "description": "Voz para texto das notas que você grava ao vivo, como reuniões."
+      },
+      "fileTranscription": {
+        "title": "Transcrição de arquivos",
+        "description": "Voz para texto dos arquivos de áudio que você envia."
+      },
+      "noteFormatting": {
+        "description": "Transforma transcrições em notas formatadas e dá títulos a elas."
+      },
+      "appearance": {
+        "title": "Aparência e idioma",
+        "description": "O tema e o idioma da interface."
+      },
+      "audio": {
+        "title": "Microfone e sons",
+        "description": "O dispositivo de entrada, e os sons e a mídia enquanto você dita."
+      },
+      "noteFiles": {
+        "title": "Arquivos de notas e importação",
+        "description": "Salve notas como arquivos Markdown e importe notas do Granola."
+      }
+    },
+    "elsewhere": {
+      "dictionary": "Dicionário e glossário"
+    },
+    "switch": {
+      "on": "Ativado",
+      "off": "Desativado"
+    },
+    "pills": {
+      "prompt": "Prompt: {{name}}",
+      "alsoUsedBy": "Também usado por {{features}}",
+      "noteFormattingInherits": "Formatação de notas (herda)",
+      "inheritsFromCleanup": "Herda da Limpeza os campos não definidos"
+    }
+  },
   "settingsLayer": {
     "backTo": "Voltar para “{{view}}”",
     "sections": "Seções das configurações",

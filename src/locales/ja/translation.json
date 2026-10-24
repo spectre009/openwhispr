@@ -1850,6 +1850,73 @@
     },
     "title": "設定"
   },
+  "settingsNav": {
+    "groups": {
+      "features": "機能",
+      "setup": "セットアップ",
+      "data": "データ"
+    },
+    "parents": {
+      "dictation": "ディクテーション",
+      "dictationDescription": "ディクテーションの認識、クリーンアップ、スタイル、出力。",
+      "notes": "ノートとアップロード",
+      "notesDescription": "録音したノートとアップロードした音声の文字起こしとフォーマット。",
+      "app": "アプリと操作",
+      "appDescription": "外観、サウンド、通知、起動、ノートファイル、ホットキー。"
+    },
+    "pages": {
+      "recognition": {
+        "title": "認識",
+        "description": "音声をテキストに変換します：音声認識エンジン、話す言語、音声検出。"
+      },
+      "cleanup": {
+        "title": "クリーンアップ"
+      },
+      "output": {
+        "title": "出力",
+        "description": "ディクテーション後のテキストの扱い：貼り付け、クリップボード、修正からの学習。"
+      },
+      "chat": {
+        "description": "OpenWhispr で入力するチャットのモデルと指示。"
+      },
+      "liveRecording": {
+        "title": "ライブ録音",
+        "description": "会議など、ライブで録音するノートの文字起こし。"
+      },
+      "fileTranscription": {
+        "title": "ファイルの文字起こし",
+        "description": "アップロードした音声ファイルの文字起こし。"
+      },
+      "noteFormatting": {
+        "description": "文字起こしを整形されたノートにし、タイトルを付けます。"
+      },
+      "appearance": {
+        "title": "外観と言語",
+        "description": "テーマとインターフェースの言語。"
+      },
+      "audio": {
+        "title": "マイクとサウンド",
+        "description": "入力デバイスと、ディクテーション中のサウンドとメディア。"
+      },
+      "noteFiles": {
+        "title": "ノートファイルとインポート",
+        "description": "ノートを Markdown ファイルとして保存し、Granola からノートをインポートします。"
+      }
+    },
+    "elsewhere": {
+      "dictionary": "辞書と用語集"
+    },
+    "switch": {
+      "on": "オン",
+      "off": "オフ"
+    },
+    "pills": {
+      "prompt": "プロンプト：{{name}}",
+      "alsoUsedBy": "{{features}} でも使用",
+      "noteFormattingInherits": "ノートのフォーマット（継承）",
+      "inheritsFromCleanup": "未設定の項目はクリーンアップから継承"
+    }
+  },
   "settingsLayer": {
     "backTo": "「{{view}}」に戻る",
     "sections": "設定メニュー",

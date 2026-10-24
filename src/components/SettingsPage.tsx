@@ -32,11 +32,6 @@ import {
   Copy,
   Trash2,
   Info,
-  MessageSquare,
-  FileAudio,
-  Wand2,
-  Upload,
-  Languages,
 } from "./icons";
 import { useAuth } from "../hooks/useAuth";
 import { AUTH_URL, signOut } from "../lib/auth";
@@ -77,11 +72,9 @@ import StyleStudio from "./ui/StyleStudio";
 import StyleHotkeysList from "./ui/StyleHotkeysList";
 import { STYLE_LIST_FOCUS, requestStyleFocus, useStyleStore } from "../stores/styleStore";
 import { styleHotkeyConflicts } from "../utils/styleHotkeys";
-import { ProviderTabs } from "./ui/ProviderTabs";
 import { HotkeyListInput } from "./ui/HotkeyListInput";
 import { useHotkeyRegistration } from "../hooks/useHotkeyRegistration";
 import { useHotkeyModeInfo } from "../hooks/useHotkeyModeInfo";
-import { useLocalStorage } from "../hooks/useLocalStorage";
 import { validateHotkeyForSlot } from "../utils/hotkeyValidation";
 import { getPlatform, getCachedPlatform } from "../utils/platform";
 import { formatHotkeyLabel } from "../utils/hotkeys";
@@ -158,7 +151,6 @@ import {
   maxAudioRetentionDays,
 } from "../stores/policyRules";
 import { usePolicyModeOptions, usePolicySnapshot } from "../hooks/usePolicy";
-import { usePolicyStore } from "../stores/policyStore";
 import { stopRecording } from "../stores/meetingRecordingStore";
 import { requestSignIn } from "../utils/requestSignIn";
 import { canManageSystemAudioInApp } from "../utils/systemAudioAccess";
@@ -172,6 +164,13 @@ import { formatAmount } from "../utils/formatAmount";
 import { enterpriseProviderName, getTranscriptionProvider } from "../models/ModelRegistry";
 import { useManagedScopeResolution } from "../stores/enterpriseIdentityStore";
 import { supportsLiveTranscriptionPreview } from "../utils/transcriptionPreview";
+import SettingsPageHeader from "./settings/SettingsPageHeader";
+import {
+  SETTINGS_PAGE_IDS,
+  SETTINGS_PAGES,
+  type PreferencesBlockId,
+  type SettingsPageId,
+} from "./settings/settingsPages";
 
 export type SettingsSectionType =
   | "account"
@@ -184,11 +183,16 @@ export type SettingsSectionType =
   | "privacyData"
   | "system";
 
+/** A Preferences block filter: the blocks of `general` a page shows (see settingsPages.ts). */
+type BlockFilter = (block: PreferencesBlockId) => boolean;
+const showAllBlocks: BlockFilter = () => true;
+
 interface SettingsPageProps {
-  activeSection?: SettingsSectionType;
-  /** `subTab` lands on a sub-tab of the section (e.g. `llms` → `dictationCleanup`). */
-  onNavigateToSection?: (section: SettingsSectionType, subTab?: string) => void;
-  /** When a legacy section ID was used (e.g. `meetings`), land on the matching sub-tab. */
+  /** The page shown; every page visited stays mounted, hidden (drafts and downloads survive). */
+  page?: SettingsPageId;
+  /** A link inside a page (Hotkeys → a style opens Styles). */
+  onNavigate?: (page: SettingsPageId, subTab?: string) => void;
+  /** The Workspace tab a destination named. */
   initialSubTab?: string;
   /** Changes with each navigation, so `initialSubTab` re-applies even when it's unchanged. */
   subTabRequestId?: number;
@@ -813,6 +817,8 @@ function TranscriptionSection({
 interface AiModelsSectionProps {
   useCleanupModel: boolean;
   setUseCleanupModel: (value: boolean) => void;
+  /** The page header holds the on/off switch (Settings › Dictation › Cleanup). */
+  enableToggleInHeader?: boolean;
   toast: (opts: {
     title: string;
     description: string;
@@ -851,7 +857,12 @@ function NoteFormattingSettings() {
   );
 }
 
-function AiModelsSection({ useCleanupModel, setUseCleanupModel, toast }: AiModelsSectionProps) {
+function AiModelsSection({
+  useCleanupModel,
+  setUseCleanupModel,
+  enableToggleInHeader = false,
+  toast,
+}: AiModelsSectionProps) {
   const { t } = useTranslation();
 
   const handleCleanupModeChange = (mode: InferenceMode) => {
@@ -866,16 +877,18 @@ function AiModelsSection({ useCleanupModel, setUseCleanupModel, toast }: AiModel
 
   return (
     <div className="space-y-4">
-      <SettingsPanel>
-        <SettingsPanelRow data-setting-id="dictation.cleanup.enabled">
-          <SettingsRow
-            label={t("settingsPage.aiModels.enableTextCleanup")}
-            description={t("settingsPage.aiModels.enableTextCleanupDescription")}
-          >
-            <Toggle checked={useCleanupModel} onChange={setUseCleanupModel} />
-          </SettingsRow>
-        </SettingsPanelRow>
-      </SettingsPanel>
+      {!enableToggleInHeader && (
+        <SettingsPanel>
+          <SettingsPanelRow data-setting-id="dictation.cleanup.enabled">
+            <SettingsRow
+              label={t("settingsPage.aiModels.enableTextCleanup")}
+              description={t("settingsPage.aiModels.enableTextCleanupDescription")}
+            >
+              <Toggle checked={useCleanupModel} onChange={setUseCleanupModel} />
+            </SettingsRow>
+          </SettingsPanelRow>
+        </SettingsPanel>
+      )}
 
       {useCleanupModel && (
         <>
@@ -889,39 +902,6 @@ function AiModelsSection({ useCleanupModel, setUseCleanupModel, toast }: AiModel
       )}
     </div>
   );
-}
-
-type SpeechTab = "dictation" | "noteRecording" | "upload";
-type LlmTab =
-  | "dictationCleanup"
-  | "dictationAgent"
-  | "dictationTranslation"
-  | "noteFormatting"
-  | "chatIntelligence";
-
-const SPEECH_TABS: SpeechTab[] = ["dictation", "noteRecording", "upload"];
-const LLM_TABS: LlmTab[] = [
-  "dictationCleanup",
-  "dictationAgent",
-  "dictationTranslation",
-  "noteFormatting",
-  "chatIntelligence",
-];
-const AGENT_LLM_TABS = new Set<LlmTab>(["dictationAgent", "chatIntelligence"]);
-
-function useSubTab<T extends string>(
-  storageKey: string,
-  options: readonly T[],
-  initial?: T,
-  requestId?: number
-) {
-  const [tab, setTab] = useLocalStorage<T>(storageKey, initial ?? options[0]);
-  useEffect(() => {
-    if (initial && initial !== tab) setTab(initial);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initial, requestId]);
-  const safeTab = options.includes(tab) ? tab : options[0];
-  return [safeTab, setTab] as const;
 }
 
 function VADLabelWithInfo({ label, description }: { label: string; description: string }) {
@@ -942,23 +922,6 @@ function VADLabelWithInfo({ label, description }: { label: string; description: 
           <p className="text-xs leading-relaxed text-muted-foreground">{description}</p>
         </PopoverContent>
       </Popover>
-    </div>
-  );
-}
-
-function TabPanel({
-  active,
-  tabId,
-  children,
-}: {
-  active: boolean;
-  /** The sub-tab's id: settings search lands only on anchors in the tab it asked for. */
-  tabId?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div data-settings-tab={tabId} className={active ? undefined : "hidden"}>
-      {children}
     </div>
   );
 }
@@ -996,139 +959,6 @@ export function AccountAvatar({ image, name }: { image?: string | null; name: st
         <span className="text-[13px] font-semibold leading-none select-none">{initials}</span>
       ) : (
         <UserCircle className="w-5 h-5" />
-      )}
-    </div>
-  );
-}
-
-function SpeechToTextTabs({
-  initialTab,
-  requestId,
-  renderDictation,
-  renderNoteRecording,
-  renderUpload,
-}: {
-  initialTab?: SpeechTab;
-  requestId?: number;
-  renderDictation: () => React.ReactNode;
-  renderNoteRecording: () => React.ReactNode;
-  renderUpload: () => React.ReactNode;
-}) {
-  const { t } = useTranslation();
-  const [tab, setTab] = useSubTab<SpeechTab>(
-    "settings.speechToTextTab",
-    SPEECH_TABS,
-    initialTab,
-    requestId
-  );
-
-  const subTabs = [
-    { id: "dictation", name: t("settingsPage.speechToText.tabs.dictation") },
-    { id: "noteRecording", name: t("settingsPage.speechToText.tabs.noteRecording") },
-    { id: "upload", name: t("settingsPage.speechToText.tabs.upload") },
-  ];
-
-  return (
-    <div className="space-y-4">
-      <SectionHeader
-        title={t("settingsPage.speechToText.title")}
-        description={t("settingsPage.speechToText.description")}
-      />
-      <ProviderTabs
-        providers={subTabs}
-        selectedId={tab}
-        onSelect={(id) => setTab(id as SpeechTab)}
-        renderIcon={(id) =>
-          id === "dictation" ? (
-            <Mic className="w-3.5 h-3.5" />
-          ) : id === "upload" ? (
-            <Upload className="w-3.5 h-3.5" />
-          ) : (
-            <FileAudio className="w-3.5 h-3.5" />
-          )
-        }
-      />
-      <TabPanel tabId="dictation" active={tab === "dictation"}>
-        {renderDictation()}
-      </TabPanel>
-      <TabPanel tabId="noteRecording" active={tab === "noteRecording"}>
-        {renderNoteRecording()}
-      </TabPanel>
-      <TabPanel tabId="upload" active={tab === "upload"}>
-        {renderUpload()}
-      </TabPanel>
-    </div>
-  );
-}
-
-function LlmsTabs({
-  initialTab,
-  requestId,
-  renderDictationCleanup,
-  renderDictationAgent,
-  renderDictationTranslation,
-  renderNoteFormatting,
-  renderChatIntelligence,
-}: {
-  initialTab?: LlmTab;
-  requestId?: number;
-  renderDictationCleanup: () => React.ReactNode;
-  renderDictationAgent: () => React.ReactNode;
-  renderDictationTranslation: () => React.ReactNode;
-  renderNoteFormatting: () => React.ReactNode;
-  renderChatIntelligence: () => React.ReactNode;
-}) {
-  const { t } = useTranslation();
-  const agentAllowed = usePolicyStore(isAgentAllowed);
-  const visibleTabIds = agentAllowed
-    ? LLM_TABS
-    : LLM_TABS.filter((tabId) => !AGENT_LLM_TABS.has(tabId));
-  const [tab, setTab] = useSubTab<LlmTab>("settings.llmsTab", visibleTabIds, initialTab, requestId);
-
-  const subTabs = [
-    { id: "dictationCleanup", name: t("settingsPage.llms.tabs.dictationCleanup") },
-    { id: "dictationAgent", name: t("settingsPage.llms.tabs.dictationAgent") },
-    { id: "dictationTranslation", name: t("settingsPage.llms.tabs.dictationTranslation") },
-    { id: "noteFormatting", name: t("settingsPage.llms.tabs.noteFormatting") },
-    { id: "chatIntelligence", name: t("settingsPage.llms.tabs.chatIntelligence") },
-  ].filter((item) => visibleTabIds.includes(item.id as LlmTab));
-
-  return (
-    <div className="space-y-4">
-      <SectionHeader
-        title={t("settingsPage.llms.title")}
-        description={t("settingsPage.llms.description")}
-      />
-      <ProviderTabs
-        providers={subTabs}
-        selectedId={tab}
-        onSelect={(id) => setTab(id as LlmTab)}
-        renderIcon={(id) => {
-          if (id === "dictationCleanup") return <Wand2 className="w-3.5 h-3.5" />;
-          if (id === "dictationAgent") return <Sparkles className="w-3.5 h-3.5" />;
-          if (id === "dictationTranslation") return <Languages className="w-3.5 h-3.5" />;
-          if (id === "noteFormatting") return <BookOpen className="w-3.5 h-3.5" />;
-          return <MessageSquare className="w-3.5 h-3.5" />;
-        }}
-      />
-      <TabPanel tabId="dictationCleanup" active={tab === "dictationCleanup"}>
-        {renderDictationCleanup()}
-      </TabPanel>
-      {agentAllowed && (
-        <TabPanel tabId="dictationAgent" active={tab === "dictationAgent"}>
-          {renderDictationAgent()}
-        </TabPanel>
-      )}
-      <TabPanel tabId="dictationTranslation" active={tab === "dictationTranslation"}>
-        {renderDictationTranslation()}
-      </TabPanel>
-      <TabPanel tabId="noteFormatting" active={tab === "noteFormatting"}>
-        {renderNoteFormatting()}
-      </TabPanel>
-      {agentAllowed && (
-        <TabPanel tabId="chatIntelligence" active={tab === "chatIntelligence"}>
-          {renderChatIntelligence()}
-        </TabPanel>
       )}
     </div>
   );
@@ -1202,8 +1032,8 @@ function GpuDeviceSelector({ purpose }: { purpose: "transcription" | "intelligen
 }
 
 export default function SettingsPage({
-  activeSection = "general",
-  onNavigateToSection,
+  page = "appearance",
+  onNavigate,
   initialSubTab,
   subTabRequestId,
 }: SettingsPageProps) {
@@ -1416,28 +1246,24 @@ export default function SettingsPage({
   }>({ fileCount: 0, totalBytes: 0 });
 
   useEffect(() => {
-    if (!settingsVisible || activeSection !== "privacyData") return;
+    if (!settingsVisible || page !== "privacyData") return;
     window.electronAPI
       ?.getAudioStorageUsage?.()
       .then((usage: { fileCount: number; totalBytes: number }) => {
         if (usage) setAudioStorageUsage(usage);
       })
       .catch(() => {});
-  }, [activeSection, settingsVisible]);
+  }, [page, settingsVisible]);
 
-  // Lazy keep-alive: mount AI sections only after the user has visited them once,
-  // then keep them mounted so model-download progress and IPC listeners survive
-  // section switches. The setState-during-render pattern flips the flag in the
-  // same commit as the section change, so there's no blank frame on first visit.
-  const [hasMountedSpeechToText, setHasMountedSpeechToText] = useState(
-    activeSection === "speechToText"
+  // Lazy keep-alive: a page mounts on its first visit, then stays mounted
+  // (hidden) so editor drafts, model-download progress and IPC listeners
+  // survive page switches. The setState-during-render pattern flips the flag
+  // in the same commit as the page change, so there's no blank frame.
+  const [visitedPages, setVisitedPages] = useState<ReadonlySet<SettingsPageId>>(
+    () => new Set([page])
   );
-  const [hasMountedLlms, setHasMountedLlms] = useState(activeSection === "llms");
-  if (activeSection === "speechToText" && !hasMountedSpeechToText) {
-    setHasMountedSpeechToText(true);
-  }
-  if (activeSection === "llms" && !hasMountedLlms) {
-    setHasMountedLlms(true);
+  if (!visitedPages.has(page)) {
+    setVisitedPages(new Set([...visitedPages, page]));
   }
 
   const handleClearAllAudio = async () => {
@@ -1645,13 +1471,13 @@ export default function SettingsPage({
     [dictationKey, meetingKey, voiceAgentKey, styleKeyConflicts, t]
   );
 
-  // The Hotkeys page's style list opens Style Studio (LLMs → Dictation Cleanup).
+  // The Hotkeys page's style list opens Styles at that style.
   const openStyleInStudio = useCallback(
     (styleId: string | null) => {
       requestStyleFocus(styleId ?? STYLE_LIST_FOCUS);
-      onNavigateToSection?.("llms", "dictationCleanup");
+      onNavigate?.("styles");
     },
-    [onNavigateToSection]
+    [onNavigate]
   );
 
   const {
@@ -2280,8 +2106,15 @@ export default function SettingsPage({
     </div>
   );
 
-  const renderSectionContent = () => {
-    switch (activeSection) {
+  // A section's body. `general` (the old Preferences) is split across pages:
+  // `show` picks its blocks, and `soleBlock` is a page made of that one block,
+  // whose page header already names it.
+  const renderSectionContent = (
+    section: SettingsSectionType,
+    show: BlockFilter = showAllBlocks,
+    soleBlock?: PreferencesBlockId
+  ) => {
+    switch (section) {
       case "account":
         return (
           <div data-setting-id="account" className="space-y-5">
@@ -3156,7 +2989,10 @@ export default function SettingsPage({
       case "workspace":
         return (
           <div data-setting-id="workspace">
-            <WorkspaceSection initialSubTab={initialSubTab} requestId={subTabRequestId} />
+            <WorkspaceSection
+              initialSubTab={page === "workspace" ? initialSubTab : undefined}
+              requestId={subTabRequestId}
+            />
           </div>
         );
 
@@ -3164,44 +3000,45 @@ export default function SettingsPage({
         return (
           <div className="space-y-6">
             {/* Appearance */}
-            <div>
-              <SectionHeader
-                title={t("settingsPage.general.appearance.title")}
-                description={t("settingsPage.general.appearance.description")}
-              />
-              <SettingsPanel>
-                <SettingsPanelRow data-setting-id="preferences.theme">
-                  <SettingsRow
-                    label={t("settingsPage.general.appearance.theme")}
-                    description={t("settingsPage.general.appearance.themeDescription")}
-                  >
-                    <div className="inline-flex items-center gap-px p-0.5 bg-muted/60 dark:bg-surface-2 rounded-md">
-                      {(
-                        [
-                          {
-                            value: "light",
-                            icon: Sun,
-                            label: t("settingsPage.general.appearance.light"),
-                          },
-                          {
-                            value: "dark",
-                            icon: Moon,
-                            label: t("settingsPage.general.appearance.dark"),
-                          },
-                          {
-                            value: "auto",
-                            icon: Monitor,
-                            label: t("settingsPage.general.appearance.auto"),
-                          },
-                        ] as const
-                      ).map((option) => {
-                        const Icon = option.icon;
-                        const isSelected = theme === option.value;
-                        return (
-                          <button
-                            key={option.value}
-                            onClick={() => setTheme(option.value)}
-                            className={`
+            {show("appearance") && (
+              <div>
+                <SectionHeader
+                  title={t("settingsPage.general.appearance.title")}
+                  description={t("settingsPage.general.appearance.description")}
+                />
+                <SettingsPanel>
+                  <SettingsPanelRow data-setting-id="preferences.theme">
+                    <SettingsRow
+                      label={t("settingsPage.general.appearance.theme")}
+                      description={t("settingsPage.general.appearance.themeDescription")}
+                    >
+                      <div className="inline-flex items-center gap-px p-0.5 bg-muted/60 dark:bg-surface-2 rounded-md">
+                        {(
+                          [
+                            {
+                              value: "light",
+                              icon: Sun,
+                              label: t("settingsPage.general.appearance.light"),
+                            },
+                            {
+                              value: "dark",
+                              icon: Moon,
+                              label: t("settingsPage.general.appearance.dark"),
+                            },
+                            {
+                              value: "auto",
+                              icon: Monitor,
+                              label: t("settingsPage.general.appearance.auto"),
+                            },
+                          ] as const
+                        ).map((option) => {
+                          const Icon = option.icon;
+                          const isSelected = theme === option.value;
+                          return (
+                            <button
+                              key={option.value}
+                              onClick={() => setTheme(option.value)}
+                              className={`
                               flex items-center gap-1 px-2.5 py-1 rounded-[5px] text-xs font-medium
                               transition-colors duration-100
                               ${
@@ -3210,389 +3047,424 @@ export default function SettingsPage({
                                   : "text-muted-foreground hover:text-foreground"
                               }
                             `}
-                          >
-                            <Icon className={`w-3 h-3 ${isSelected ? "text-primary" : ""}`} />
-                            {option.label}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </SettingsRow>
-                </SettingsPanelRow>
-              </SettingsPanel>
-            </div>
-
-            {/* Sound Effects */}
-            <div>
-              <SectionHeader title={t("settingsPage.general.soundEffects.title")} />
-              <SettingsPanel>
-                <SettingsPanelRow data-setting-id="preferences.sounds.dictation">
-                  <SettingsRow
-                    label={t("settingsPage.general.soundEffects.dictationSounds")}
-                    description={t("settingsPage.general.soundEffects.dictationSoundsDescription")}
-                  >
-                    <Toggle checked={audioCuesEnabled} onChange={setAudioCuesEnabled} />
-                  </SettingsRow>
-                </SettingsPanelRow>
-                <SettingsPanelRow data-setting-id="preferences.sounds.pauseMedia">
-                  <SettingsRow
-                    label={t("settingsPage.general.soundEffects.pauseMedia")}
-                    description={t("settingsPage.general.soundEffects.pauseMediaDescription")}
-                  >
-                    <Toggle checked={pauseMediaOnDictation} onChange={setPauseMediaOnDictation} />
-                  </SettingsRow>
-                </SettingsPanelRow>
-              </SettingsPanel>
-            </div>
-
-            {/* Notifications */}
-            <div data-setting-id="preferences.notifications">
-              <SectionHeader
-                title={t("settingsPage.general.notifications.title")}
-                description={t("settingsPage.general.notifications.description")}
-              />
-              <SettingsPanel>
-                <SettingsPanelRow data-setting-id="preferences.notifications.disableAll">
-                  <SettingsRow
-                    label={t("settingsPage.general.notifications.disableAll")}
-                    description={t("settingsPage.general.notifications.disableAllDescription")}
-                  >
-                    <Toggle
-                      checked={!notificationsEnabled}
-                      onChange={(v) => setNotificationsEnabled(!v)}
-                    />
-                  </SettingsRow>
-                </SettingsPanelRow>
-                <SettingsPanelRow data-setting-id="preferences.notifications.meetingDetection">
-                  <SettingsRow
-                    label={t("settingsPage.general.notifications.meetingDetection")}
-                    description={t(
-                      "settingsPage.general.notifications.meetingDetectionDescription"
-                    )}
-                  >
-                    <Toggle
-                      checked={notifyMeetingDetection}
-                      onChange={setNotifyMeetingDetection}
-                      disabled={!notificationsEnabled}
-                    />
-                  </SettingsRow>
-                </SettingsPanelRow>
-                <SettingsPanelRow data-setting-id="preferences.notifications.calendarReminders">
-                  <SettingsRow
-                    label={t("settingsPage.general.notifications.calendarReminders")}
-                    description={t(
-                      "settingsPage.general.notifications.calendarRemindersDescription"
-                    )}
-                  >
-                    <Toggle
-                      checked={notifyCalendarReminders}
-                      onChange={setNotifyCalendarReminders}
-                      disabled={!notificationsEnabled}
-                    />
-                  </SettingsRow>
-                </SettingsPanelRow>
-              </SettingsPanel>
-            </div>
-
-            {/* Clipboard */}
-            <div>
-              <SectionHeader title={t("settingsPage.general.clipboard.title")} />
-              <SettingsPanel>
-                <SettingsPanelRow data-setting-id="dictation.output.autoPaste">
-                  <SettingsRow
-                    label={t("settingsPage.general.clipboard.autoPaste")}
-                    description={t("settingsPage.general.clipboard.autoPasteDescription")}
-                  >
-                    <Toggle checked={autoPasteEnabled} onChange={setAutoPasteEnabled} />
-                  </SettingsRow>
-                </SettingsPanelRow>
-                <SettingsPanelRow data-setting-id="dictation.output.keepInClipboard">
-                  <SettingsRow
-                    label={t("settingsPage.general.clipboard.keepInClipboard")}
-                    description={t("settingsPage.general.clipboard.keepInClipboardDescription")}
-                  >
-                    <Toggle
-                      checked={keepTranscriptionInClipboard}
-                      onChange={setKeepTranscriptionInClipboard}
-                    />
-                  </SettingsRow>
-                </SettingsPanelRow>
-              </SettingsPanel>
-            </div>
-
-            {/* Save Notes as Files */}
-            <div>
-              <SectionHeader title={t("settings.noteFiles.title")} />
-              <SettingsPanel>
-                <SettingsPanelRow data-setting-id="notes.files.enabled">
-                  <SettingsRow
-                    label={t("settings.noteFiles.title")}
-                    description={t("settings.noteFiles.description")}
-                  >
-                    <Toggle checked={noteFilesEnabled} onChange={handleNoteFilesToggle} />
-                  </SettingsRow>
-                </SettingsPanelRow>
-                {noteFilesEnabled && (
-                  <>
-                    <SettingsPanelRow data-setting-id="notes.files.path">
-                      <SettingsRow
-                        label={t("settings.noteFiles.path")}
-                        description={
-                          <span dir="ltr" className="block break-all">
-                            {noteFilesPath || noteFilesDefaultPath || "..."}
-                          </span>
-                        }
-                      >
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-7 text-xs"
-                          onClick={handleNoteFilesChangePath}
-                        >
-                          {t("settings.noteFiles.changePath")}
-                        </Button>
-                      </SettingsRow>
-                    </SettingsPanelRow>
-                    <SettingsPanelRow data-setting-id="notes.files.rebuild">
-                      <SettingsRow
-                        label={t("settings.noteFiles.rebuild")}
-                        description={t("settings.noteFiles.rebuildDescription")}
-                      >
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-7 text-xs"
-                          disabled={noteFilesRebuilding}
-                          onClick={handleNoteFilesRebuild}
-                        >
-                          {noteFilesRebuilding ? (
-                            <Loader2 className="h-3 w-3 animate-spin" />
-                          ) : (
-                            t("settings.noteFiles.rebuild")
-                          )}
-                        </Button>
-                      </SettingsRow>
-                    </SettingsPanelRow>
-                  </>
-                )}
-              </SettingsPanel>
-            </div>
-
-            {/* Import from Granola */}
-            <GranolaImportSection showAlertDialog={showAlertDialog} />
-
-            {/* Floating Icon */}
-            <div data-setting-id="preferences.floatingIcon">
-              <SectionHeader
-                title={t("settingsPage.general.floatingIcon.title")}
-                description={t("settingsPage.general.floatingIcon.description")}
-              />
-              <SettingsPanel>
-                <SettingsPanelRow data-setting-id="preferences.floatingIcon.autoHide">
-                  <SettingsRow
-                    label={t("settingsPage.general.floatingIcon.autoHide")}
-                    description={t("settingsPage.general.floatingIcon.autoHideDescription")}
-                  >
-                    <Toggle checked={floatingIconAutoHide} onChange={setFloatingIconAutoHide} />
-                  </SettingsRow>
-                </SettingsPanelRow>
-                <FloatingIconPlacementRows
-                  panelStartPosition={panelStartPosition}
-                  setPanelStartPosition={setPanelStartPosition}
-                  floatingIconDisplay={floatingIconDisplay}
-                  floatingIconDisplayLabel={floatingIconDisplayLabel}
-                  setFloatingIconDisplay={setFloatingIconDisplay}
-                />
-                <RecordingIndicatorRows
-                  recordingIndicatorStyle={recordingIndicatorStyle}
-                  setRecordingIndicatorStyle={setRecordingIndicatorStyle}
-                  recordingIndicatorColor={recordingIndicatorColor}
-                  setRecordingIndicatorColor={setRecordingIndicatorColor}
-                  recordingEdgeStrip={recordingEdgeStrip}
-                  setRecordingEdgeStrip={setRecordingEdgeStrip}
-                  recordingEdgeStripDisplays={recordingEdgeStripDisplays}
-                  setRecordingEdgeStripDisplays={setRecordingEdgeStripDisplays}
-                  recordingTrayIndicator={recordingTrayIndicator}
-                  setRecordingTrayIndicator={setRecordingTrayIndicator}
-                />
-              </SettingsPanel>
-            </div>
-
-            {/* Language */}
-            <div>
-              <SectionHeader
-                title={t("settings.language.sectionTitle")}
-                description={t("settings.language.sectionDescription")}
-              />
-              <SettingsPanel>
-                <SettingsPanelRow data-setting-id="preferences.uiLanguage">
-                  <SettingsRow
-                    label={t("settings.language.uiLabel")}
-                    description={t("settings.language.uiDescription")}
-                  >
-                    <LanguageSelector
-                      value={uiLanguage}
-                      onChange={setUiLanguage}
-                      options={UI_LANGUAGE_OPTIONS}
-                      className="min-w-32"
-                    />
-                  </SettingsRow>
-                </SettingsPanelRow>
-                <SettingsPanelRow data-setting-id="dictation.language">
-                  <SettingsRow
-                    label={t("settings.language.transcriptionLabel")}
-                    description={t("settings.language.transcriptionDescription")}
-                  >
-                    <LanguageSelector
-                      value={preferredLanguage}
-                      onChange={(value) =>
-                        updateTranscriptionSettings({ preferredLanguage: value })
-                      }
-                    />
-                  </SettingsRow>
-                </SettingsPanelRow>
-                {preferredLanguage === "auto" && (
-                  <SettingsPanelRow data-setting-id="dictation.language.chineseScript">
-                    <SettingsRow
-                      label={t("settings.language.chineseScriptLabel")}
-                      description={t("settings.language.chineseScriptDescription")}
-                    >
-                      <Select
-                        value={chineseScriptPreference}
-                        onValueChange={(value: ChineseScriptPreference) =>
-                          updateTranscriptionSettings({ chineseScriptPreference: value })
-                        }
-                      >
-                        <SelectTrigger className="h-7 w-44 text-xs rounded-lg px-2.5 [&>svg]:h-3 [&>svg]:w-3">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem
-                            value="as-transcribed"
-                            className="text-xs py-1.5 ps-2.5 pe-7 rounded-md"
-                          >
-                            {t("settings.language.chineseScriptAsTranscribed")}
-                          </SelectItem>
-                          <SelectItem
-                            value="simplified"
-                            className="text-xs py-1.5 ps-2.5 pe-7 rounded-md"
-                          >
-                            {t("settings.language.chineseScriptSimplified")}
-                          </SelectItem>
-                          <SelectItem
-                            value="traditional"
-                            className="text-xs py-1.5 ps-2.5 pe-7 rounded-md"
-                          >
-                            {t("settings.language.chineseScriptTraditional")}
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
+                            >
+                              <Icon className={`w-3 h-3 ${isSelected ? "text-primary" : ""}`} />
+                              {option.label}
+                            </button>
+                          );
+                        })}
+                      </div>
                     </SettingsRow>
                   </SettingsPanelRow>
+                </SettingsPanel>
+              </div>
+            )}
+
+            {/* Sound Effects */}
+            {show("sounds") && (
+              <div>
+                <SectionHeader title={t("settingsPage.general.soundEffects.title")} />
+                <SettingsPanel>
+                  <SettingsPanelRow data-setting-id="preferences.sounds.dictation">
+                    <SettingsRow
+                      label={t("settingsPage.general.soundEffects.dictationSounds")}
+                      description={t(
+                        "settingsPage.general.soundEffects.dictationSoundsDescription"
+                      )}
+                    >
+                      <Toggle checked={audioCuesEnabled} onChange={setAudioCuesEnabled} />
+                    </SettingsRow>
+                  </SettingsPanelRow>
+                  <SettingsPanelRow data-setting-id="preferences.sounds.pauseMedia">
+                    <SettingsRow
+                      label={t("settingsPage.general.soundEffects.pauseMedia")}
+                      description={t("settingsPage.general.soundEffects.pauseMediaDescription")}
+                    >
+                      <Toggle checked={pauseMediaOnDictation} onChange={setPauseMediaOnDictation} />
+                    </SettingsRow>
+                  </SettingsPanelRow>
+                </SettingsPanel>
+              </div>
+            )}
+
+            {/* Notifications */}
+            {show("notifications") && (
+              <div data-setting-id="preferences.notifications">
+                {soleBlock !== "notifications" && (
+                  <SectionHeader
+                    title={t("settingsPage.general.notifications.title")}
+                    description={t("settingsPage.general.notifications.description")}
+                  />
                 )}
-              </SettingsPanel>
-            </div>
+                <SettingsPanel>
+                  <SettingsPanelRow data-setting-id="preferences.notifications.disableAll">
+                    <SettingsRow
+                      label={t("settingsPage.general.notifications.disableAll")}
+                      description={t("settingsPage.general.notifications.disableAllDescription")}
+                    >
+                      <Toggle
+                        checked={!notificationsEnabled}
+                        onChange={(v) => setNotificationsEnabled(!v)}
+                      />
+                    </SettingsRow>
+                  </SettingsPanelRow>
+                  <SettingsPanelRow data-setting-id="preferences.notifications.meetingDetection">
+                    <SettingsRow
+                      label={t("settingsPage.general.notifications.meetingDetection")}
+                      description={t(
+                        "settingsPage.general.notifications.meetingDetectionDescription"
+                      )}
+                    >
+                      <Toggle
+                        checked={notifyMeetingDetection}
+                        onChange={setNotifyMeetingDetection}
+                        disabled={!notificationsEnabled}
+                      />
+                    </SettingsRow>
+                  </SettingsPanelRow>
+                  <SettingsPanelRow data-setting-id="preferences.notifications.calendarReminders">
+                    <SettingsRow
+                      label={t("settingsPage.general.notifications.calendarReminders")}
+                      description={t(
+                        "settingsPage.general.notifications.calendarRemindersDescription"
+                      )}
+                    >
+                      <Toggle
+                        checked={notifyCalendarReminders}
+                        onChange={setNotifyCalendarReminders}
+                        disabled={!notificationsEnabled}
+                      />
+                    </SettingsRow>
+                  </SettingsPanelRow>
+                </SettingsPanel>
+              </div>
+            )}
+
+            {/* Clipboard */}
+            {show("clipboard") && (
+              <div>
+                <SectionHeader title={t("settingsPage.general.clipboard.title")} />
+                <SettingsPanel>
+                  <SettingsPanelRow data-setting-id="dictation.output.autoPaste">
+                    <SettingsRow
+                      label={t("settingsPage.general.clipboard.autoPaste")}
+                      description={t("settingsPage.general.clipboard.autoPasteDescription")}
+                    >
+                      <Toggle checked={autoPasteEnabled} onChange={setAutoPasteEnabled} />
+                    </SettingsRow>
+                  </SettingsPanelRow>
+                  <SettingsPanelRow data-setting-id="dictation.output.keepInClipboard">
+                    <SettingsRow
+                      label={t("settingsPage.general.clipboard.keepInClipboard")}
+                      description={t("settingsPage.general.clipboard.keepInClipboardDescription")}
+                    >
+                      <Toggle
+                        checked={keepTranscriptionInClipboard}
+                        onChange={setKeepTranscriptionInClipboard}
+                      />
+                    </SettingsRow>
+                  </SettingsPanelRow>
+                </SettingsPanel>
+              </div>
+            )}
+
+            {/* Save Notes as Files */}
+            {show("noteFiles") && (
+              <div>
+                <SectionHeader title={t("settings.noteFiles.title")} />
+                <SettingsPanel>
+                  <SettingsPanelRow data-setting-id="notes.files.enabled">
+                    <SettingsRow
+                      label={t("settings.noteFiles.title")}
+                      description={t("settings.noteFiles.description")}
+                    >
+                      <Toggle checked={noteFilesEnabled} onChange={handleNoteFilesToggle} />
+                    </SettingsRow>
+                  </SettingsPanelRow>
+                  {noteFilesEnabled && (
+                    <>
+                      <SettingsPanelRow data-setting-id="notes.files.path">
+                        <SettingsRow
+                          label={t("settings.noteFiles.path")}
+                          description={
+                            <span dir="ltr" className="block break-all">
+                              {noteFilesPath || noteFilesDefaultPath || "..."}
+                            </span>
+                          }
+                        >
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 text-xs"
+                            onClick={handleNoteFilesChangePath}
+                          >
+                            {t("settings.noteFiles.changePath")}
+                          </Button>
+                        </SettingsRow>
+                      </SettingsPanelRow>
+                      <SettingsPanelRow data-setting-id="notes.files.rebuild">
+                        <SettingsRow
+                          label={t("settings.noteFiles.rebuild")}
+                          description={t("settings.noteFiles.rebuildDescription")}
+                        >
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 text-xs"
+                            disabled={noteFilesRebuilding}
+                            onClick={handleNoteFilesRebuild}
+                          >
+                            {noteFilesRebuilding ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              t("settings.noteFiles.rebuild")
+                            )}
+                          </Button>
+                        </SettingsRow>
+                      </SettingsPanelRow>
+                    </>
+                  )}
+                </SettingsPanel>
+              </div>
+            )}
+
+            {/* Import from Granola */}
+            {show("granolaImport") && <GranolaImportSection showAlertDialog={showAlertDialog} />}
+
+            {/* Floating Icon */}
+            {show("floatingIcon") && (
+              <div data-setting-id="preferences.floatingIcon">
+                {soleBlock !== "floatingIcon" && (
+                  <SectionHeader
+                    title={t("settingsPage.general.floatingIcon.title")}
+                    description={t("settingsPage.general.floatingIcon.description")}
+                  />
+                )}
+                <SettingsPanel>
+                  <SettingsPanelRow data-setting-id="preferences.floatingIcon.autoHide">
+                    <SettingsRow
+                      label={t("settingsPage.general.floatingIcon.autoHide")}
+                      description={t("settingsPage.general.floatingIcon.autoHideDescription")}
+                    >
+                      <Toggle checked={floatingIconAutoHide} onChange={setFloatingIconAutoHide} />
+                    </SettingsRow>
+                  </SettingsPanelRow>
+                  <FloatingIconPlacementRows
+                    panelStartPosition={panelStartPosition}
+                    setPanelStartPosition={setPanelStartPosition}
+                    floatingIconDisplay={floatingIconDisplay}
+                    floatingIconDisplayLabel={floatingIconDisplayLabel}
+                    setFloatingIconDisplay={setFloatingIconDisplay}
+                  />
+                  <RecordingIndicatorRows
+                    recordingIndicatorStyle={recordingIndicatorStyle}
+                    setRecordingIndicatorStyle={setRecordingIndicatorStyle}
+                    recordingIndicatorColor={recordingIndicatorColor}
+                    setRecordingIndicatorColor={setRecordingIndicatorColor}
+                    recordingEdgeStrip={recordingEdgeStrip}
+                    setRecordingEdgeStrip={setRecordingEdgeStrip}
+                    recordingEdgeStripDisplays={recordingEdgeStripDisplays}
+                    setRecordingEdgeStripDisplays={setRecordingEdgeStripDisplays}
+                    recordingTrayIndicator={recordingTrayIndicator}
+                    setRecordingTrayIndicator={setRecordingTrayIndicator}
+                  />
+                </SettingsPanel>
+              </div>
+            )}
+
+            {/* Language: the interface language is on Appearance, the spoken one on Recognition */}
+            {(show("language.ui") || show("language.transcription")) && (
+              <div>
+                <SectionHeader
+                  title={t("settings.language.sectionTitle")}
+                  description={
+                    show("language.ui") && show("language.transcription")
+                      ? t("settings.language.sectionDescription")
+                      : undefined
+                  }
+                />
+                <SettingsPanel>
+                  {show("language.ui") && (
+                    <SettingsPanelRow data-setting-id="preferences.uiLanguage">
+                      <SettingsRow
+                        label={t("settings.language.uiLabel")}
+                        description={t("settings.language.uiDescription")}
+                      >
+                        <LanguageSelector
+                          value={uiLanguage}
+                          onChange={setUiLanguage}
+                          options={UI_LANGUAGE_OPTIONS}
+                          className="min-w-32"
+                        />
+                      </SettingsRow>
+                    </SettingsPanelRow>
+                  )}
+                  {show("language.transcription") && (
+                    <SettingsPanelRow data-setting-id="dictation.language">
+                      <SettingsRow
+                        label={t("settings.language.transcriptionLabel")}
+                        description={t("settings.language.transcriptionDescription")}
+                      >
+                        <LanguageSelector
+                          value={preferredLanguage}
+                          onChange={(value) =>
+                            updateTranscriptionSettings({ preferredLanguage: value })
+                          }
+                        />
+                      </SettingsRow>
+                    </SettingsPanelRow>
+                  )}
+                  {show("language.transcription") && preferredLanguage === "auto" && (
+                    <SettingsPanelRow data-setting-id="dictation.language.chineseScript">
+                      <SettingsRow
+                        label={t("settings.language.chineseScriptLabel")}
+                        description={t("settings.language.chineseScriptDescription")}
+                      >
+                        <Select
+                          value={chineseScriptPreference}
+                          onValueChange={(value: ChineseScriptPreference) =>
+                            updateTranscriptionSettings({ chineseScriptPreference: value })
+                          }
+                        >
+                          <SelectTrigger className="h-7 w-44 text-xs rounded-lg px-2.5 [&>svg]:h-3 [&>svg]:w-3">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem
+                              value="as-transcribed"
+                              className="text-xs py-1.5 ps-2.5 pe-7 rounded-md"
+                            >
+                              {t("settings.language.chineseScriptAsTranscribed")}
+                            </SelectItem>
+                            <SelectItem
+                              value="simplified"
+                              className="text-xs py-1.5 ps-2.5 pe-7 rounded-md"
+                            >
+                              {t("settings.language.chineseScriptSimplified")}
+                            </SelectItem>
+                            <SelectItem
+                              value="traditional"
+                              className="text-xs py-1.5 ps-2.5 pe-7 rounded-md"
+                            >
+                              {t("settings.language.chineseScriptTraditional")}
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </SettingsRow>
+                    </SettingsPanelRow>
+                  )}
+                </SettingsPanel>
+              </div>
+            )}
 
             {/* Startup */}
-            <div>
-              <SectionHeader
-                title={t("settingsPage.general.startup.title")}
-                description={t("settingsPage.general.startup.description")}
-              />
-              <SettingsPanel>
-                <SettingsPanelRow data-setting-id="preferences.startup.launchAtLogin">
-                  <SettingsRow
-                    label={t("settingsPage.general.startup.launchAtLogin")}
-                    description={t("settingsPage.general.startup.launchAtLoginDescription")}
-                  >
-                    <Toggle
-                      checked={autoStartEnabled}
-                      onChange={(checked: boolean) => handleAutoStartChange(checked)}
-                      disabled={autoStartLoading}
-                    />
-                  </SettingsRow>
-                </SettingsPanelRow>
-                {autoStartNeedsApproval && (
-                  <SettingsPanelRow>
-                    <Alert
-                      variant="warning"
-                      className="dark:bg-amber-950/50 dark:border-amber-800 dark:text-amber-200 dark:[&>svg]:text-amber-400"
-                    >
-                      <AlertTriangle className="h-4 w-4" />
-                      <AlertTitle>
-                        {t("settingsPage.general.startup.needsApproval.title")}
-                      </AlertTitle>
-                      <AlertDescription className="space-y-2">
-                        <p>{t("settingsPage.general.startup.needsApproval.description")}</p>
-                        <Button
-                          onClick={() => void window.electronAPI?.openLoginItemsSettings?.()}
-                          variant="outline"
-                          size="sm"
-                        >
-                          {t("settingsPage.general.startup.needsApproval.action")}
-                        </Button>
-                      </AlertDescription>
-                    </Alert>
-                  </SettingsPanelRow>
+            {show("startup") && (
+              <div>
+                {soleBlock !== "startup" && (
+                  <SectionHeader
+                    title={t("settingsPage.general.startup.title")}
+                    description={t("settingsPage.general.startup.description")}
+                  />
                 )}
-                <SettingsPanelRow data-setting-id="preferences.startup.startMinimized">
-                  <SettingsRow
-                    label={t("settingsPage.general.startup.startMinimized")}
-                    description={t("settingsPage.general.startup.startMinimizedDescription")}
-                  >
-                    <Toggle checked={startMinimized} onChange={setStartMinimized} />
-                  </SettingsRow>
-                </SettingsPanelRow>
-              </SettingsPanel>
-            </div>
+                <SettingsPanel>
+                  <SettingsPanelRow data-setting-id="preferences.startup.launchAtLogin">
+                    <SettingsRow
+                      label={t("settingsPage.general.startup.launchAtLogin")}
+                      description={t("settingsPage.general.startup.launchAtLoginDescription")}
+                    >
+                      <Toggle
+                        checked={autoStartEnabled}
+                        onChange={(checked: boolean) => handleAutoStartChange(checked)}
+                        disabled={autoStartLoading}
+                      />
+                    </SettingsRow>
+                  </SettingsPanelRow>
+                  {autoStartNeedsApproval && (
+                    <SettingsPanelRow>
+                      <Alert
+                        variant="warning"
+                        className="dark:bg-amber-950/50 dark:border-amber-800 dark:text-amber-200 dark:[&>svg]:text-amber-400"
+                      >
+                        <AlertTriangle className="h-4 w-4" />
+                        <AlertTitle>
+                          {t("settingsPage.general.startup.needsApproval.title")}
+                        </AlertTitle>
+                        <AlertDescription className="space-y-2">
+                          <p>{t("settingsPage.general.startup.needsApproval.description")}</p>
+                          <Button
+                            onClick={() => void window.electronAPI?.openLoginItemsSettings?.()}
+                            variant="outline"
+                            size="sm"
+                          >
+                            {t("settingsPage.general.startup.needsApproval.action")}
+                          </Button>
+                        </AlertDescription>
+                      </Alert>
+                    </SettingsPanelRow>
+                  )}
+                  <SettingsPanelRow data-setting-id="preferences.startup.startMinimized">
+                    <SettingsRow
+                      label={t("settingsPage.general.startup.startMinimized")}
+                      description={t("settingsPage.general.startup.startMinimizedDescription")}
+                    >
+                      <Toggle checked={startMinimized} onChange={setStartMinimized} />
+                    </SettingsRow>
+                  </SettingsPanelRow>
+                </SettingsPanel>
+              </div>
+            )}
 
             {/* Microphone */}
-            <div data-setting-id="preferences.microphone">
-              <SectionHeader
-                title={t("settingsPage.general.microphone.title")}
-                description={t("settingsPage.general.microphone.description")}
-              />
-              <SettingsPanel>
-                <SettingsPanelRow>
-                  <MicrophoneSettings
-                    microphoneSelectionMode={microphoneSelectionMode}
-                    selectedMicDeviceId={selectedMicDeviceId}
-                    selectedMicDeviceLabel={selectedMicDeviceLabel}
-                    micWarmHoldSeconds={micWarmHoldSeconds}
-                    onSelectionModeChange={setMicrophoneSelectionMode}
-                    onDeviceSelect={setSelectedMicDevice}
-                    onMicWarmHoldSecondsChange={setMicWarmHoldSeconds}
-                  />
-                </SettingsPanelRow>
-              </SettingsPanel>
-            </div>
+            {show("microphone") && (
+              <div data-setting-id="preferences.microphone">
+                <SectionHeader
+                  title={t("settingsPage.general.microphone.title")}
+                  description={t("settingsPage.general.microphone.description")}
+                />
+                <SettingsPanel>
+                  <SettingsPanelRow>
+                    <MicrophoneSettings
+                      microphoneSelectionMode={microphoneSelectionMode}
+                      selectedMicDeviceId={selectedMicDeviceId}
+                      selectedMicDeviceLabel={selectedMicDeviceLabel}
+                      micWarmHoldSeconds={micWarmHoldSeconds}
+                      onSelectionModeChange={setMicrophoneSelectionMode}
+                      onDeviceSelect={setSelectedMicDevice}
+                      onMicWarmHoldSecondsChange={setMicWarmHoldSeconds}
+                    />
+                  </SettingsPanelRow>
+                </SettingsPanel>
+              </div>
+            )}
 
             {/* Dictionary */}
-            <div>
-              <SectionHeader
-                title={t("settingsPage.dictionary.autoLearnTitle", {
-                  defaultValue: "Auto-learn from corrections",
-                })}
-              />
-              <SettingsPanel>
-                <SettingsPanelRow data-setting-id="dictation.output.autoLearn">
-                  <SettingsRow
-                    label={t("settingsPage.dictionary.autoLearnTitle", {
-                      defaultValue: "Auto-learn from corrections",
-                    })}
-                    description={t("settingsPage.dictionary.autoLearnDescription", {
-                      defaultValue:
-                        "When you correct a transcription in the target app, the corrected word is automatically added to your dictionary.",
-                    })}
-                  >
-                    <Toggle checked={autoLearnCorrections} onChange={setAutoLearnCorrections} />
-                  </SettingsRow>
-                </SettingsPanelRow>
-              </SettingsPanel>
-            </div>
+            {show("autoLearn") && (
+              <div>
+                <SectionHeader
+                  title={t("settingsPage.dictionary.autoLearnTitle", {
+                    defaultValue: "Auto-learn from corrections",
+                  })}
+                />
+                <SettingsPanel>
+                  <SettingsPanelRow data-setting-id="dictation.output.autoLearn">
+                    <SettingsRow
+                      label={t("settingsPage.dictionary.autoLearnTitle", {
+                        defaultValue: "Auto-learn from corrections",
+                      })}
+                      description={t("settingsPage.dictionary.autoLearnDescription", {
+                        defaultValue:
+                          "When you correct a transcription in the target app, the corrected word is automatically added to your dictionary.",
+                      })}
+                    >
+                      <Toggle checked={autoLearnCorrections} onChange={setAutoLearnCorrections} />
+                    </SettingsRow>
+                  </SettingsPanelRow>
+                </SettingsPanel>
+              </div>
+            )}
 
-            {/* Wayland Paste Diagnostics — only on Linux + Wayland */}
-            {ydotoolStatus?.isLinux && ydotoolStatus?.isWayland && (
+            {/* Wayland Paste Diagnostics — only on Linux + Wayland (its guide dialog goes with it) */}
+            {show("waylandPaste") && ydotoolStatus?.isLinux && ydotoolStatus?.isWayland && (
               <div data-setting-id="dictation.output.waylandPaste">
                 <SectionHeader
                   title={t("settingsPage.general.waylandPaste.title", {
@@ -5029,6 +4901,140 @@ EOF`,
     }
   };
 
+  // A page's Preferences blocks, in the page's order (settingsPages.ts lists them).
+  const renderPreferencesBlocks = (pageId: SettingsPageId) => {
+    const blocks = SETTINGS_PAGES[pageId].blocks ?? [];
+    return blocks.map((block) => (
+      <React.Fragment key={block}>
+        {renderSectionContent(
+          "general",
+          (candidate) => candidate === block,
+          blocks.length === 1 ? block : undefined
+        )}
+      </React.Fragment>
+    ));
+  };
+
+  const renderLocalWhisperVad = () =>
+    transcriptionMode === "local" &&
+    localTranscriptionProvider === "whisper" &&
+    renderWhisperVadSettings();
+
+  // A page's body, built from the old sections' bodies (moved, not rewritten).
+  const renderPage = (pageId: SettingsPageId): React.ReactNode => {
+    switch (pageId) {
+      case "account":
+      case "plansBilling":
+      case "workspace":
+      case "hotkeys":
+      case "privacyData":
+      case "system":
+        return renderSectionContent(pageId);
+
+      case "recognition":
+        return (
+          <div className="space-y-6">
+            <TranscriptionSection
+              isSignedIn={isSignedIn ?? false}
+              cloudTranscriptionMode={cloudTranscriptionMode}
+              setCloudTranscriptionMode={setCloudTranscriptionMode}
+              useLocalWhisper={useLocalWhisper}
+              setUseLocalWhisper={setUseLocalWhisper}
+              updateTranscriptionSettings={updateTranscriptionSettings}
+              cloudTranscriptionProvider={cloudTranscriptionProvider}
+              setCloudTranscriptionProvider={setCloudTranscriptionProvider}
+              cloudTranscriptionModel={cloudTranscriptionModel}
+              setCloudTranscriptionModel={setCloudTranscriptionModel}
+              localTranscriptionProvider={localTranscriptionProvider}
+              setLocalTranscriptionProvider={setLocalTranscriptionProvider}
+              whisperModel={whisperModel}
+              setWhisperModel={setWhisperModel}
+              parakeetModel={parakeetModel}
+              setParakeetModel={setParakeetModel}
+              cohereModel={cohereModel}
+              setCohereModel={setCohereModel}
+              cloudTranscriptionBaseUrl={cloudTranscriptionBaseUrl}
+              setCloudTranscriptionBaseUrl={setCloudTranscriptionBaseUrl}
+              transcriptionMode={transcriptionMode}
+              setTranscriptionMode={setTranscriptionMode}
+              remoteTranscriptionUrl={remoteTranscriptionUrl}
+              setRemoteTranscriptionUrl={setRemoteTranscriptionUrl}
+              remoteTranscriptionModel={remoteTranscriptionModel}
+              setRemoteTranscriptionModel={setRemoteTranscriptionModel}
+              showTranscriptionPreview={showTranscriptionPreview}
+              setShowTranscriptionPreview={setShowTranscriptionPreview}
+              toast={toast}
+            />
+            {renderPreferencesBlocks("recognition")}
+            {renderLocalWhisperVad()}
+          </div>
+        );
+
+      case "liveRecording":
+        return (
+          <div className="space-y-6">
+            <MeetingTranscriptionPanel />
+            {renderLocalWhisperVad()}
+          </div>
+        );
+
+      case "fileTranscription":
+        return (
+          <div className="space-y-6">
+            <UploadTranscriptionPanel />
+          </div>
+        );
+
+      case "cleanup":
+        return (
+          <div className="space-y-6">
+            {useCleanupModel && (
+              <AiModelsSection
+                useCleanupModel={useCleanupModel}
+                setUseCleanupModel={(value) => {
+                  updateCleanupSettings({ useCleanupModel: value });
+                }}
+                enableToggleInHeader
+                toast={toast}
+              />
+            )}
+            <div
+              data-setting-id="dictation.cleanup.prompt"
+              className={useCleanupModel ? "border-t border-border/70 pt-6" : undefined}
+            >
+              <SectionHeader
+                title={t("settingsPage.prompts.title")}
+                description={t("settingsPage.prompts.description")}
+              />
+              <PromptStudio />
+            </div>
+          </div>
+        );
+
+      case "styles":
+        return (
+          <div data-setting-id="dictation.styles">
+            <StyleStudio />
+          </div>
+        );
+
+      case "assistant":
+        return <DictationAgentSettings hideEnableToggle />;
+
+      case "translation":
+        return <DictationTranslationSettings hideEnableToggle />;
+
+      case "chat":
+        return <ChatAgentSettings />;
+
+      case "noteFormatting":
+        return <NoteFormattingSettings />;
+
+      default:
+        return <div className="space-y-6">{renderPreferencesBlocks(pageId)}</div>;
+    }
+  };
+
   return (
     <>
       {insightsOptInDialog}
@@ -5088,113 +5094,14 @@ EOF`,
         onOk={() => {}}
       />
 
-      {/* Mounted on first visit and kept alive so model-download progress and IPC listeners survive section switches. */}
-      {hasMountedSpeechToText && (
-        <TabPanel active={activeSection === "speechToText"}>
-          <SpeechToTextTabs
-            initialTab={
-              activeSection === "speechToText"
-                ? (initialSubTab as SpeechTab | undefined)
-                : undefined
-            }
-            requestId={subTabRequestId}
-            renderDictation={() => (
-              <div className="space-y-6">
-                <TranscriptionSection
-                  isSignedIn={isSignedIn ?? false}
-                  cloudTranscriptionMode={cloudTranscriptionMode}
-                  setCloudTranscriptionMode={setCloudTranscriptionMode}
-                  useLocalWhisper={useLocalWhisper}
-                  setUseLocalWhisper={setUseLocalWhisper}
-                  updateTranscriptionSettings={updateTranscriptionSettings}
-                  cloudTranscriptionProvider={cloudTranscriptionProvider}
-                  setCloudTranscriptionProvider={setCloudTranscriptionProvider}
-                  cloudTranscriptionModel={cloudTranscriptionModel}
-                  setCloudTranscriptionModel={setCloudTranscriptionModel}
-                  localTranscriptionProvider={localTranscriptionProvider}
-                  setLocalTranscriptionProvider={setLocalTranscriptionProvider}
-                  whisperModel={whisperModel}
-                  setWhisperModel={setWhisperModel}
-                  parakeetModel={parakeetModel}
-                  setParakeetModel={setParakeetModel}
-                  cohereModel={cohereModel}
-                  setCohereModel={setCohereModel}
-                  cloudTranscriptionBaseUrl={cloudTranscriptionBaseUrl}
-                  setCloudTranscriptionBaseUrl={setCloudTranscriptionBaseUrl}
-                  transcriptionMode={transcriptionMode}
-                  setTranscriptionMode={setTranscriptionMode}
-                  remoteTranscriptionUrl={remoteTranscriptionUrl}
-                  setRemoteTranscriptionUrl={setRemoteTranscriptionUrl}
-                  remoteTranscriptionModel={remoteTranscriptionModel}
-                  setRemoteTranscriptionModel={setRemoteTranscriptionModel}
-                  showTranscriptionPreview={showTranscriptionPreview}
-                  setShowTranscriptionPreview={setShowTranscriptionPreview}
-                  toast={toast}
-                />
-                {transcriptionMode === "local" &&
-                  localTranscriptionProvider === "whisper" &&
-                  renderWhisperVadSettings()}
-              </div>
-            )}
-            renderNoteRecording={() => (
-              <div className="space-y-6">
-                <MeetingTranscriptionPanel />
-                {transcriptionMode === "local" &&
-                  localTranscriptionProvider === "whisper" &&
-                  renderWhisperVadSettings()}
-              </div>
-            )}
-            renderUpload={() => (
-              <div className="space-y-6">
-                <UploadTranscriptionPanel />
-              </div>
-            )}
-          />
-        </TabPanel>
-      )}
-      {hasMountedLlms && (
-        <TabPanel active={activeSection === "llms"}>
-          <LlmsTabs
-            initialTab={
-              activeSection === "llms" ? (initialSubTab as LlmTab | undefined) : undefined
-            }
-            requestId={subTabRequestId}
-            renderChatIntelligence={() => <ChatAgentSettings />}
-            renderDictationCleanup={() => (
-              <div className="space-y-6">
-                <AiModelsSection
-                  useCleanupModel={useCleanupModel}
-                  setUseCleanupModel={(value) => {
-                    updateCleanupSettings({ useCleanupModel: value });
-                  }}
-                  toast={toast}
-                />
-                <div
-                  data-setting-id="dictation.cleanup.prompt"
-                  className="border-t border-border/70 pt-6"
-                >
-                  <SectionHeader
-                    title={t("settingsPage.prompts.title")}
-                    description={t("settingsPage.prompts.description")}
-                  />
-                  <PromptStudio />
-                </div>
-                <div data-setting-id="dictation.styles" className="border-t border-border/70 pt-6">
-                  <SectionHeader
-                    title={t("styles.section.title")}
-                    description={t("styles.section.description")}
-                  />
-                  <StyleStudio />
-                </div>
-              </div>
-            )}
-            renderDictationAgent={() => <DictationAgentSettings />}
-            renderDictationTranslation={() => <DictationTranslationSettings />}
-            renderNoteFormatting={() => <NoteFormattingSettings />}
-          />
-        </TabPanel>
-      )}
-      {renderSectionContent()}
+      {/* Each page mounts on its first visit and then stays mounted, hidden, so editor
+          drafts, model-download progress and IPC listeners survive page switches. */}
+      {SETTINGS_PAGE_IDS.filter((id) => visitedPages.has(id)).map((id) => (
+        <div key={id} data-settings-page-id={id} className={id === page ? undefined : "hidden"}>
+          <SettingsPageHeader page={id} />
+          {renderPage(id)}
+        </div>
+      ))}
     </>
   );
 }

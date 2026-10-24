@@ -1,63 +1,18 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
-// Destinations and request identity for the Settings layer: legacy deep links,
-// repeated requests, bare reopen, hidden sections, in-Settings links and the
-// cold-start drain of a section main kept waiting.
+// Navigation and request identity for the Settings layer: repeated requests,
+// bare reopen, in-Settings links and the cold-start drain of a destination main
+// kept waiting. Where each destination lands is in settingsPages.test.js.
 
 async function load() {
-  const sections = await import("../../src/components/settingsSections.ts");
+  const pages = await import("../../src/components/settings/settingsPages.ts");
   const navigation = await import("../../src/components/settings/settingsNavigation.ts");
-  return { ...(sections.default ?? sections), ...(navigation.default ?? navigation) };
+  return { ...(pages.default ?? pages), ...(navigation.default ?? navigation) };
 }
 
-test("legacy names and aliases land on their section and sub-tab", async () => {
-  const { resolveSettingsDestination } = await load();
-  const expectations = {
-    meetings: { section: "llms", subTab: "noteFormatting" },
-    intelligence: { section: "llms", subTab: "dictationCleanup" },
-    prompts: { section: "llms", subTab: "dictationCleanup" },
-    aiModels: { section: "llms", subTab: "dictationCleanup" },
-    agentMode: { section: "llms", subTab: "chatIntelligence" },
-    agentConfig: { section: "llms", subTab: "chatIntelligence" },
-    dictationAgent: { section: "llms", subTab: "dictationAgent" },
-    transcription: { section: "speechToText", subTab: "dictation" },
-    uploadTranscription: { section: "speechToText", subTab: "upload" },
-    softwareUpdates: { section: "system", subTab: undefined },
-    developer: { section: "system", subTab: undefined },
-    privacy: { section: "privacyData", subTab: undefined },
-    permissions: { section: "privacyData", subTab: undefined },
-    hotkeys: { section: "hotkeys", subTab: undefined },
-    llms: { section: "llms", subTab: undefined },
-    plansBilling: { section: "plansBilling", subTab: undefined },
-  };
-  for (const [requested, expected] of Object.entries(expectations)) {
-    assert.deepEqual(resolveSettingsDestination(requested, false), expected, requested);
-  }
-});
-
-test("no section opens on the default page, Preferences while Cloud is off", async () => {
-  const { resolveSettingsDestination } = await load();
-  assert.deepEqual(resolveSettingsDestination(undefined, false), {
-    section: "account",
-    subTab: undefined,
-  });
-  assert.deepEqual(resolveSettingsDestination(undefined, true), {
-    section: "general",
-    subTab: undefined,
-  });
-});
-
-test("account sections hidden with Cloud off fall back to Preferences", async () => {
-  const { resolveSettingsDestination, shownSettingsSection } = await load();
-  for (const section of ["account", "plansBilling", "workspace"]) {
-    assert.equal(resolveSettingsDestination(section, true).section, "general", section);
-  }
-  // The switch flipping while Settings is open moves off an account page...
-  assert.equal(shownSettingsSection("account", true), "general");
-  // ...without forgetting it, so turning Cloud back on shows it again.
-  assert.equal(shownSettingsSection("account", false), "account");
-});
+const ALL = { cloudDisabled: false, isSignedIn: true, agentAllowed: true };
+const CLOUD_OFF = { cloudDisabled: true, isSignedIn: false, agentAllowed: true };
 
 test("each named request gets a new id", async () => {
   const { nextSettingsRequest } = await load();
@@ -69,14 +24,21 @@ test("each named request gets a new id", async () => {
 
 test("first mount opens the request it was created for, or the default page", async () => {
   const { initialSettingsNavigation, nextSettingsRequest } = await load();
-  const opened = initialSettingsNavigation(nextSettingsRequest(null, "meetings"), false);
-  assert.equal(opened.section, "llms");
-  assert.equal(opened.subTab, "noteFormatting");
+  const opened = initialSettingsNavigation(nextSettingsRequest(null, "meetings"), { ctx: ALL });
+  assert.equal(opened.page, "noteFormatting");
   assert.equal(opened.requestId, 1);
+  assert.equal(opened.navigationId, 0);
 
-  const bare = initialSettingsNavigation(null, true);
-  assert.equal(bare.section, "general");
+  // After onboarding ("transcription"): Recognition.
+  const onboarded = initialSettingsNavigation(nextSettingsRequest(null, "transcription"), {
+    ctx: CLOUD_OFF,
+  });
+  assert.equal(onboarded.page, "recognition");
+
+  const bare = initialSettingsNavigation(null, { ctx: CLOUD_OFF });
+  assert.equal(bare.page, "recognition");
   assert.equal(bare.requestId, 0);
+  assert.equal(initialSettingsNavigation(null, { ctx: ALL }).page, "account");
 });
 
 test("a repeated named request navigates again after the user moved elsewhere", async () => {
@@ -87,32 +49,31 @@ test("a repeated named request navigates again after the user moved elsewhere", 
     nextSettingsRequest,
   } = await load();
   const first = nextSettingsRequest(null, "transcription");
-  let state = initialSettingsNavigation(first, false);
-  assert.equal(state.section, "speechToText");
+  let state = initialSettingsNavigation(first, { ctx: ALL });
+  assert.equal(state.page, "recognition");
 
   state = navigateWithinSettings(state, "hotkeys");
-  assert.equal(state.section, "hotkeys");
+  assert.equal(state.page, "hotkeys");
 
   const again = nextSettingsRequest(first, "transcription");
   const before = state.navigationId;
-  state = applySettingsRequest(state, again, false);
-  assert.equal(state.section, "speechToText");
-  assert.equal(state.subTab, "dictation");
+  state = applySettingsRequest(state, again, { ctx: ALL });
+  assert.equal(state.page, "recognition");
   assert.equal(state.requestId, again.id);
-  // The sub-tab is unchanged, so only the new navigation id makes it re-apply.
   assert.ok(state.navigationId > before);
 
   // The same request object seen again (a re-render) changes nothing.
-  assert.equal(applySettingsRequest(state, again, false), state);
+  assert.equal(applySettingsRequest(state, again, { ctx: ALL }), state);
 });
 
-test("the same section requested twice in a row still bumps the navigation", async () => {
+test("the same destination requested twice in a row still bumps the navigation", async () => {
   const { applySettingsRequest, initialSettingsNavigation, nextSettingsRequest } = await load();
   const first = nextSettingsRequest(null, "meetings");
-  const opened = initialSettingsNavigation(first, false);
-  const repeated = applySettingsRequest(opened, nextSettingsRequest(first, "meetings"), false);
-  assert.equal(repeated.section, "llms");
-  assert.equal(repeated.subTab, "noteFormatting");
+  const opened = initialSettingsNavigation(first, { ctx: ALL });
+  const repeated = applySettingsRequest(opened, nextSettingsRequest(first, "meetings"), {
+    ctx: ALL,
+  });
+  assert.equal(repeated.page, "noteFormatting");
   assert.equal(repeated.navigationId, opened.navigationId + 1);
 });
 
@@ -124,26 +85,25 @@ test("a bare reopen keeps the page Settings was on", async () => {
     nextSettingsRequest,
   } = await load();
   const request = nextSettingsRequest(null, "meetings");
-  let state = initialSettingsNavigation(request, false);
+  let state = initialSettingsNavigation(request, { ctx: ALL });
   state = navigateWithinSettings(state, "privacyData");
   // Ctrl+, and the sidebar's Settings button open without a new request.
-  assert.equal(applySettingsRequest(state, request, false), state);
-  assert.equal(applySettingsRequest(state, request, false).section, "privacyData");
+  assert.equal(applySettingsRequest(state, request, { ctx: ALL }), state);
+  assert.equal(applySettingsRequest(state, request, { ctx: ALL }).page, "privacyData");
 });
 
-test("Hotkeys → a style opens Cleanup again, even when it is already the sub-tab", async () => {
+test("Hotkeys → a style opens Styles again, even when it is already the page", async () => {
   const { initialSettingsNavigation, navigateWithinSettings } = await load();
-  let state = initialSettingsNavigation(null, false);
-  state = navigateWithinSettings(state, "llms", "dictationCleanup");
+  let state = initialSettingsNavigation(null, { ctx: ALL });
+  state = navigateWithinSettings(state, "styles");
   const first = state.navigationId;
   state = navigateWithinSettings(state, "hotkeys");
-  state = navigateWithinSettings(state, "llms", "dictationCleanup");
-  assert.equal(state.section, "llms");
-  assert.equal(state.subTab, "dictationCleanup");
+  state = navigateWithinSettings(state, "styles");
+  assert.equal(state.page, "styles");
   assert.ok(state.navigationId > first + 1);
 });
 
-test("the cold-start drain opens the waiting section; a bare show keeps the page", async () => {
+test("the cold-start drain opens the waiting destination; a bare show keeps the page", async () => {
   const { drainPendingSettingsSection } = await load();
   const calls = [];
   const open = (...args) => calls.push(args);
@@ -156,91 +116,57 @@ test("the cold-start drain opens the waiting section; a bare show keeps the page
   assert.deepEqual(calls, [], "nothing waiting on mount opens nothing");
 
   await drainPendingSettingsSection(async () => null, open, true);
-  assert.deepEqual(calls, [[]], "the app menu's Settings opens without a section");
+  assert.deepEqual(calls, [[]], "the app menu's Settings opens without a destination");
 
   calls.length = 0;
   await drainPendingSettingsSection(() => undefined, open, true);
   assert.deepEqual(calls, [[]], "a preload without the IPC still opens Settings");
 });
 
-// SettingsPage is too large to render here: its sub-tab hooks must re-apply on
-// every navigation id, and Hotkeys → a style still asks Style Studio for focus
-// before opening Cleanup.
-test("SettingsPage re-applies a requested sub-tab on every navigation", () => {
+// SettingsPage is too large to render here: Workspace re-applies its tab on
+// every navigation id, and Hotkeys → a style asks Style Studio for focus
+// before opening Styles.
+test("SettingsPage re-applies a Workspace tab on every navigation; Hotkeys opens Styles", () => {
   const fs = require("node:fs");
   const path = require("node:path");
   const read = (file) => fs.readFileSync(path.join(__dirname, "../../src", file), "utf8");
   const page = read("components/SettingsPage.tsx");
-  assert.match(page, /function useSubTab<[\s\S]*?\}, \[initial, requestId\]\);/);
-  // Speech-to-Text, Language Models and Workspace each re-apply their sub-tab.
-  assert.equal(page.match(/requestId=\{subTabRequestId\}/g)?.length, 3);
+  assert.equal(page.match(/requestId=\{subTabRequestId\}/g)?.length, 1);
+  assert.match(page, /initialSubTab=\{page === "workspace" \? initialSubTab : undefined\}/);
   assert.match(
     page,
-    /requestStyleFocus\(styleId \?\? STYLE_LIST_FOCUS\);\s*onNavigateToSection\?\.\("llms", "dictationCleanup"\);/
+    /requestStyleFocus\(styleId \?\? STYLE_LIST_FOCUS\);\s*onNavigate\?\.\("styles"\);/
   );
   const modal = read("components/SettingsModal.tsx");
   assert.match(modal, /subTabRequestId=\{current\.navigationId\}/);
-  assert.match(modal, /onNavigateToSection=\{handleSectionChange\}/);
+  assert.match(modal, /onNavigate=\{handleNavigate\}/);
+  assert.match(modal, /page=\{shownPage\}/);
 });
 
-// Settings search destinations: `#settingId` (or `section#settingId`) lands on
-// the setting's own section and sub-tab from the registry, keeps the id for the
-// reveal, and leaves every plain string caller as it was.
+// Settings search destinations: `#settingId` (or `<page>#<settingId>`) lands on
+// the setting's own page from the registry, keeps the id for the reveal, and
+// leaves every plain string caller as it was.
 
 async function locate() {
   const registry = await import("../../src/components/settings/search/registry.ts");
   return (registry.default ?? registry).locateSetting;
 }
 
-test("a setting destination parses into its section name and setting id", async () => {
+test("a setting destination parses into its name and setting id", async () => {
   const { parseSettingsDestination, settingDestination } = await load();
   assert.deepEqual(parseSettingsDestination("llms"), { name: "llms" });
   assert.deepEqual(parseSettingsDestination("#preferences.theme"), {
     name: undefined,
     settingId: "preferences.theme",
   });
-  assert.deepEqual(parseSettingsDestination("general#preferences.theme"), {
-    name: "general",
+  assert.deepEqual(parseSettingsDestination("appearance#preferences.theme"), {
+    name: "appearance",
     settingId: "preferences.theme",
   });
   assert.deepEqual(parseSettingsDestination("general#"), { name: "general" });
   assert.deepEqual(parseSettingsDestination(undefined), {});
   assert.equal(settingDestination("hotkeys.dictation"), "#hotkeys.dictation");
   assert.equal(settingDestination("hotkeys.dictation", "hotkeys"), "hotkeys#hotkeys.dictation");
-});
-
-test("a setting id lands on its registry location, sub-tab included", async () => {
-  const { resolveSettingsDestination } = await load();
-  const locateSetting = await locate();
-  assert.deepEqual(resolveSettingsDestination("#dictation.cleanup.model", false, locateSetting), {
-    section: "llms",
-    subTab: "dictationCleanup",
-    settingId: "dictation.cleanup.model",
-  });
-  assert.deepEqual(resolveSettingsDestination("#translation.targets", false, locateSetting), {
-    section: "llms",
-    subTab: "dictationTranslation",
-    settingId: "translation.targets",
-  });
-  // The registry wins over a stale section name.
-  assert.deepEqual(resolveSettingsDestination("system#preferences.theme", false, locateSetting), {
-    section: "general",
-    subTab: undefined,
-    settingId: "preferences.theme",
-  });
-  // An unknown id falls back to the section part (legacy names included).
-  assert.deepEqual(resolveSettingsDestination("meetings#gone.setting", false, locateSetting), {
-    section: "llms",
-    subTab: "noteFormatting",
-    settingId: "gone.setting",
-  });
-  // A hidden section never shows: Cloud off falls back to Preferences.
-  assert.equal(resolveSettingsDestination("#account.name", true, locateSetting).section, "general");
-  // Plain strings are unchanged, with or without a locator.
-  assert.deepEqual(resolveSettingsDestination("transcription", false, locateSetting), {
-    section: "speechToText",
-    subTab: "dictation",
-  });
 });
 
 test("Ctrl+K opening the same setting twice navigates (and reveals) twice", async () => {
@@ -251,48 +177,57 @@ test("Ctrl+K opening the same setting twice navigates (and reveals) twice", asyn
     nextSettingsRequest,
   } = await load();
   const locateSetting = await locate();
+  const options = { ctx: ALL, locateSetting };
   const first = nextSettingsRequest(null, "#hotkeys.activationMode");
-  let state = initialSettingsNavigation(first, false, locateSetting);
-  assert.equal(state.section, "hotkeys");
+  let state = initialSettingsNavigation(first, options);
+  assert.equal(state.page, "hotkeys");
   assert.equal(state.settingId, "hotkeys.activationMode");
 
   // Moving elsewhere through the nav forgets the setting to land on.
-  state = navigateWithinSettings(state, "general");
+  state = navigateWithinSettings(state, "appearance");
   assert.equal(state.settingId, undefined);
   assert.ok(!("settingId" in state));
 
   const again = nextSettingsRequest(first, "#hotkeys.activationMode");
   const before = state.navigationId;
-  state = applySettingsRequest(state, again, false, locateSetting);
-  assert.equal(state.section, "hotkeys");
+  state = applySettingsRequest(state, again, options);
+  assert.equal(state.page, "hotkeys");
   assert.equal(state.settingId, "hotkeys.activationMode");
   assert.ok(state.navigationId > before);
-  assert.equal(applySettingsRequest(state, again, false, locateSetting), state);
+  assert.equal(applySettingsRequest(state, again, options), state);
 });
 
 test("a search result inside Settings navigates with the setting to land on", async () => {
   const { initialSettingsNavigation, navigateWithinSettings } = await load();
-  let state = initialSettingsNavigation(null, false);
-  state = navigateWithinSettings(state, "llms", "dictationAgent", "assistant.screenContext");
+  let state = initialSettingsNavigation(null, { ctx: ALL });
+  state = navigateWithinSettings(state, "assistant", undefined, "assistant.screenContext");
   assert.deepEqual(
-    { section: state.section, subTab: state.subTab, settingId: state.settingId },
-    { section: "llms", subTab: "dictationAgent", settingId: "assistant.screenContext" }
+    { page: state.page, subTab: state.subTab, settingId: state.settingId },
+    { page: "assistant", subTab: undefined, settingId: "assistant.screenContext" }
   );
   const id = state.navigationId;
   // The same result again is a new navigation, so it lands again.
-  state = navigateWithinSettings(state, "llms", "dictationAgent", "assistant.screenContext");
+  state = navigateWithinSettings(state, "assistant", undefined, "assistant.screenContext");
   assert.equal(state.navigationId, id + 1);
+  // A Workspace tab is carried.
+  state = navigateWithinSettings(state, "workspace", "members", "workspace.members");
+  assert.equal(state.subTab, "members");
 });
 
-test("SettingsModal resolves setting ids, reveals them and clears the search on a request", () => {
+test("SettingsModal resolves setting ids, reveals and focuses them, and clears the search", () => {
   const fs = require("node:fs");
   const path = require("node:path");
   const modal = fs.readFileSync(
     path.join(__dirname, "../../src/components/SettingsModal.tsx"),
     "utf8"
   );
-  assert.match(modal, /initialSettingsNavigation\(request, cloudDisabled, locateSetting\)/);
-  assert.match(modal, /applySettingsRequest\(navigation, request, cloudDisabled, locateSetting\)/);
+  assert.match(modal, /initialSettingsNavigation\(request, \{\s*ctx: pageCtx,\s*locateSetting,/);
+  assert.match(
+    modal,
+    /applySettingsRequest\(navigation, request, \{ ctx: pageCtx, locateSetting \}\)/
+  );
   assert.match(modal, /if \(query\) setQuery\(""\);/);
   assert.match(modal, /revealSetting\(\{/);
+  assert.match(modal, /focusLandedSetting\(layer, landed\)/);
+  assert.match(modal, /shownSettingsPage\(current\.page, pageCtx\)/);
 });

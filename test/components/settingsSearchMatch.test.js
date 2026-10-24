@@ -125,13 +125,20 @@ test("localized aliases match in the UI language", async () => {
   assert.equal(ids(rankSettings(index, "modo oscuro"))[0], "preferences.theme");
 });
 
-test("results are grouped by section in nav order, the best match is highlighted", async () => {
-  const { index, searchSettings, SETTINGS_SECTION_ORDER } = await buildIndex();
+test("results are grouped by nav item in nav order, the best match is highlighted", async () => {
+  const { index, searchSettings } = await buildIndex();
   const outcome = searchSettings(index, "model");
   const order = outcome.groups.map((group) => group.id);
-  const expected = [...SETTINGS_SECTION_ORDER, "elsewhere"].filter((id) => order.includes(id));
-  assert.deepEqual(order, expected);
+  const groupOrder = (id) => index.find((entry) => entry.groupId === id).groupOrder;
+  assert.deepEqual(
+    order,
+    [...order].sort((a, b) => groupOrder(a) - groupOrder(b))
+  );
   assert.ok(order.length > 1);
+  // Groups are the nav's top-level items: Dictation's pages share one.
+  assert.ok(order.includes("dictation"));
+  assert.ok(!order.includes("cleanup") && !order.includes("recognition"));
+  assert.equal(outcome.groups.find((group) => group.id === "dictation").label, "Dictation");
   assert.deepEqual(
     outcome.results,
     outcome.groups.flatMap((group) => group.results),
@@ -150,12 +157,27 @@ test("results are grouped by section in nav order, the best match is highlighted
   assert.deepEqual(searchSettings(index, "  "), { groups: [], results: [], bestIndex: -1 });
 });
 
-test("breadcrumbs name the section, sub-tab and block", async () => {
+test("breadcrumbs follow the nav tree: parent, page and block", async () => {
   const { index } = await buildIndex();
   const byId = (id) => index.find((e) => e.id === id);
-  assert.deepEqual(byId("dictation.cleanup.model").path, ["Language Models", "Dictation Cleanup"]);
-  assert.deepEqual(byId("preferences.theme").path, ["Preferences", "Appearance"]);
-  assert.deepEqual(byId("page.llms.dictationAgent").path, ["Language Models"]);
+  assert.deepEqual(byId("dictation.cleanup.model").path, ["Dictation", "Cleanup"]);
+  assert.equal(byId("dictation.cleanup.model").groupId, "dictation");
+  assert.equal(byId("dictation.cleanup.model").pageId, "cleanup");
+  assert.deepEqual(byId("preferences.theme").path, [
+    "App & Controls",
+    "Appearance & Language",
+    "Appearance",
+  ]);
+  // A block named like its page isn't repeated.
+  assert.deepEqual(byId("preferences.notifications.disableAll").path, [
+    "App & Controls",
+    "Notifications",
+  ]);
+  assert.deepEqual(byId("assistant.model").path, ["Voice Assistant"]);
+  assert.deepEqual(byId("workspace.members").path, ["Workspace", "Members"]);
+  // A page shows its parent; a top-level page and a parent show nothing.
+  assert.deepEqual(byId("page.speechToText.dictation").path, ["Dictation"]);
+  assert.deepEqual(byId("page.llms.dictationAgent").path, []);
   assert.deepEqual(byId("page.general").path, []);
   assert.deepEqual(byId("elsewhere.integrations.calendars").path, ["Integrations"]);
   assert.equal(byId("elsewhere.dictionary").groupId, "elsewhere");

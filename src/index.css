@@ -1990,6 +1990,12 @@ a:hover {
   animation: settings-search-flash 1.6s ease-out both;
 }
 
+/* The landed row takes focus after a palette result (focusLandedSetting); the
+   flash marks it, so no focus ring is drawn on top. */
+[data-setting-id][tabindex="-1"]:focus:not([data-search-flash]) {
+  outline: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   [data-search-flash] {
     animation: none !important;

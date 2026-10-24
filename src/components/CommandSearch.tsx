@@ -34,6 +34,7 @@ import {
   settingsSearchAction,
   type SettingsSearchAction,
 } from "./settings/search/openSettingsResult";
+import { focusSettingsAfterPalette } from "./settings/search/revealSetting";
 
 /** The palette's Settings group shows this many of the best matches. */
 const PALETTE_SETTINGS_LIMIT = 5;
@@ -298,6 +299,8 @@ export default function CommandSearch({
 
   // Settings search: the same index and matcher as the Settings nav's field.
   const settingsQuery = open && !isConversationsMode && !!onSettingSelect ? query.trim() : "";
+  // A Settings result opened Settings at a page: focus lands there when the palette closes.
+  const settingOpenedRef = useRef(false);
   const settingsIndex = useSettingsSearchIndex(settingsQuery.length > 0);
   const settingResults = useMemo(
     () =>
@@ -331,6 +334,7 @@ export default function CommandSearch({
 
   const selectItem = useCallback(
     (item: FlatItem) => {
+      settingOpenedRef.current = false;
       if (item.kind === "container") onContainerSelect?.(item.target.spaceId, item.target.folderId);
       else if (item.kind === "note")
         onNoteSelect?.(item.note.id, item.note.folder_id ?? null, item.note.space_id);
@@ -339,6 +343,7 @@ export default function CommandSearch({
       else if (item.kind === "setting") {
         const action = settingsSearchAction(item.result.entry);
         if (action.kind !== "none") onSettingSelect?.(action);
+        settingOpenedRef.current = action.kind === "navigate";
       }
       onOpenChange(false);
     },
@@ -390,6 +395,14 @@ export default function CommandSearch({
           ref={registerContent}
           // Leaving Settings for a palette result ignores the closing palette.
           data-command-palette=""
+          onCloseAutoFocus={(event) => {
+            // Radix would focus what had focus before the palette; under Settings
+            // that's often inert now, which leaves focus on the body.
+            if (!settingOpenedRef.current) return;
+            settingOpenedRef.current = false;
+            event.preventDefault();
+            focusSettingsAfterPalette(document);
+          }}
           onInteractOutside={(e) => {
             // The filter dropdown makes this panel inert while it is open, so
             // the click that closes it lands on the overlay — see useDismissGuard.

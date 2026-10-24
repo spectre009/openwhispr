@@ -1,23 +1,23 @@
 import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { usePolicyStore } from "../stores/policyStore";
-import {
-  Sliders,
-  Mic,
-  Brain,
-  UserCircle,
-  Wrench,
-  Keyboard,
-  CreditCard,
-  Shield,
-  ShieldCheck,
-  Users,
-} from "./icons";
-import SettingsLayer, { type SettingsNavItem } from "./settings/SettingsLayer";
-import SettingsPage, { AccountAvatar, SettingsSectionType } from "./SettingsPage";
+import { isAgentAllowed } from "../stores/policyRules";
+import { ShieldCheck } from "./icons";
+import SettingsLayer, { type SettingsNavGroup } from "./settings/SettingsLayer";
+import SettingsPage, { AccountAvatar } from "./SettingsPage";
 import { useAuth } from "../hooks/useAuth";
 import { useOpenWhisprCloudDisabled } from "../stores/openWhisprCloudStore";
-import { shownSettingsSection, visibleSettingsSections } from "./settingsSections";
+import {
+  SETTINGS_PAGES,
+  settingsBreadcrumbKeys,
+  shownSettingsPage,
+  takeSavedLegacyTabs,
+  visibleSettingsNav,
+  type SavedLegacyTabs,
+  type SettingsPageContext,
+  type SettingsPageId,
+} from "./settings/settingsPages";
+import { settingsIcon, settingsPageIcon } from "./settings/settingsPageIcons";
 import {
   applySettingsRequest,
   initialSettingsNavigation,
@@ -36,23 +36,31 @@ import {
 } from "./settings/search/match";
 import { findSettingDescriptor, locateSetting } from "./settings/search/registry";
 import { settingsSearchAction } from "./settings/search/openSettingsResult";
-import { revealSetting } from "./settings/search/revealSetting";
+import { focusLandedSetting, revealSetting } from "./settings/search/revealSetting";
 import type { ElsewhereLocation } from "./settings/search/types";
-
-export type { SettingsSectionType };
 
 const NO_RESULTS = { groups: [], results: [], bestIndex: -1 };
 
+// The tabs Speech-to-Text and Language Models last showed, read (and their
+// keys removed) once per window; a bare legacy destination uses each once.
+let savedLegacyTabs: SavedLegacyTabs | undefined;
+function savedLegacyTabsOnce(): SavedLegacyTabs {
+  savedLegacyTabs ??= takeSavedLegacyTabs(
+    typeof localStorage === "undefined" ? undefined : localStorage
+  );
+  return savedLegacyTabs;
+}
+
 interface SettingsModalProps {
   open: boolean;
-  /** The latest named request (deep links, legacy names and `section#settingId` included). */
+  /** The latest named request (pages, legacy names and `<page>#<settingId>` included). */
   request: SettingsRequest | null;
   onRequestClose: () => boolean;
   railItems: ControlPanelNavItem[];
   activeView: ControlPanelView;
   onSelectView: (view: ControlPanelView) => void;
   onOpenSearch: () => void;
-  /** A search result that lives outside Settings (Dictionary, Integrations). */
+  /** A nav link or search result that lives outside Settings (Dictionary, Integrations). */
   onOpenElsewhere?: (location: ElsewhereLocation) => void;
   returnFocusRef?: React.RefObject<HTMLElement | null>;
   getFallbackFocus?: () => HTMLElement | null;
@@ -73,95 +81,79 @@ export default function SettingsModal({
   const { t } = useTranslation();
   const { isSignedIn, user } = useAuth();
   const cloudDisabled = useOpenWhisprCloudDisabled();
+  const agentAllowed = usePolicyStore(isAgentAllowed);
   const policyManaged = usePolicyStore((s) => s.managed);
-  const navItems: SettingsNavItem<SettingsSectionType>[] = useMemo(() => {
-    const items: SettingsNavItem<SettingsSectionType>[] = [
-      {
-        id: "account",
-        label: t("settingsModal.sections.account.label"),
-        icon: UserCircle,
-        description: t("settingsModal.sections.account.description"),
-        group: t("settingsModal.groups.account"),
-      },
-      {
-        id: "plansBilling",
-        label: t("settingsModal.sections.plansBilling.label"),
-        icon: CreditCard,
-        description: t("settingsModal.sections.plansBilling.description"),
-        group: t("settingsModal.groups.account"),
-      },
-      {
-        id: "workspace" as const,
-        label: t("settingsModal.sections.workspace.label"),
-        icon: Users,
-        description: t("settingsModal.sections.workspace.description"),
-        group: t("settingsModal.groups.account"),
-      },
-      {
-        id: "general",
-        label: t("settingsModal.sections.general.label"),
-        icon: Sliders,
-        description: t("settingsModal.sections.general.description"),
-        group: t("settingsModal.groups.app"),
-      },
-      {
-        id: "hotkeys",
-        label: t("settingsModal.sections.hotkeys.label"),
-        icon: Keyboard,
-        description: t("settingsModal.sections.hotkeys.description"),
-        group: t("settingsModal.groups.app"),
-      },
-      {
-        id: "speechToText",
-        label: t("settingsModal.sections.speechToText.label"),
-        icon: Mic,
-        description: t("settingsModal.sections.speechToText.description"),
-        group: t("settingsModal.groups.aiModels"),
-      },
-      {
-        id: "llms",
-        label: t("settingsModal.sections.llms.label"),
-        icon: Brain,
-        description: t("settingsModal.sections.llms.description"),
-        group: t("settingsModal.groups.aiModels"),
-      },
-      {
-        id: "privacyData",
-        label: t("settingsModal.sections.privacyData.label"),
-        icon: Shield,
-        description: t("settingsModal.sections.privacyData.description"),
-        group: t("settingsModal.groups.system"),
-      },
-      {
-        id: "system",
-        label: t("settingsModal.sections.system.label"),
-        icon: Wrench,
-        description: t("settingsModal.sections.system.description"),
-        group: t("settingsModal.groups.system"),
-      },
-    ];
-    return visibleSettingsSections(items, { isSignedIn, cloudDisabled });
-  }, [t, isSignedIn, cloudDisabled]);
+  // What decides which pages show: account pages need Cloud (Workspace also a
+  // sign-in), the voice assistant and chat need the organization's policy.
+  const pageCtx: SettingsPageContext = useMemo(
+    () => ({ cloudDisabled, isSignedIn: !!isSignedIn, agentAllowed }),
+    [cloudDisabled, isSignedIn, agentAllowed]
+  );
+
+  const navGroups: SettingsNavGroup<SettingsPageId>[] = useMemo(
+    () =>
+      visibleSettingsNav(pageCtx).map((group) => ({
+        id: group.id,
+        label: t(group.labelKey),
+        items: group.items.map((item) => {
+          if (item.kind === "page") {
+            const page = SETTINGS_PAGES[item.page];
+            return {
+              id: item.page,
+              label: t(page.titleKey),
+              icon: settingsIcon(page.icon),
+              page: item.page,
+            };
+          }
+          if (item.kind === "parent") {
+            return {
+              id: item.id,
+              label: t(item.titleKey),
+              icon: settingsIcon(item.icon),
+              page: item.pages[0],
+              children: item.pages.map((id) => ({
+                id,
+                label: t(SETTINGS_PAGES[id].titleKey),
+                icon: settingsIcon(SETTINGS_PAGES[id].icon),
+              })),
+            };
+          }
+          const location = item.location;
+          return {
+            id: item.id,
+            label: t(item.titleKey),
+            icon: settingsIcon(item.icon),
+            onSelect: () => onOpenElsewhere?.(location),
+          };
+        }),
+      })),
+    [t, pageCtx, onOpenElsewhere]
+  );
 
   // Settings stays mounted between opens: each named request navigates once,
   // and a bare open keeps whatever page it was on.
   const [navigation, setNavigation] = useState(() =>
-    initialSettingsNavigation(request, cloudDisabled, locateSetting)
+    initialSettingsNavigation(request, {
+      ctx: pageCtx,
+      locateSetting,
+      savedTabs: savedLegacyTabsOnce(),
+    })
   );
   const [query, setQuery] = useState("");
-  const current = applySettingsRequest(navigation, request, cloudDisabled, locateSetting);
+  const current = applySettingsRequest(navigation, request, { ctx: pageCtx, locateSetting });
   if (current !== navigation) {
     setNavigation(current);
     // A request (Ctrl+K's Settings results included) shows its page, not the results.
     if (query) setQuery("");
   }
 
-  const handleSectionChange = useCallback((section: SettingsSectionType, subTab?: string) => {
-    setNavigation((previous) => navigateWithinSettings(previous, section, subTab));
+  const handleNavigate = useCallback((page: SettingsPageId, subTab?: string) => {
+    setNavigation((previous) => navigateWithinSettings(previous, page, subTab));
   }, []);
-  // Turning the account & Cloud switch off while an account section is open
-  // moves the view off it without forgetting what was asked for.
-  const shownSection = shownSettingsSection(current.section, cloudDisabled);
+  // A page that's hidden now (the account & Cloud switch turned off while an
+  // account page is open, a sign-out, the agent policy) shows its fallback,
+  // without forgetting what was asked for.
+  const shownPage = shownSettingsPage(current.page, pageCtx);
 
   // ── Settings search ────────────────────────────────────────────────────────
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -193,10 +185,8 @@ export default function SettingsModal({
         onOpenElsewhere?.(action.location);
         return;
       }
-      const { section, subTab } = action.location;
-      setNavigation((previous) =>
-        navigateWithinSettings(previous, section, subTab, action.settingId)
-      );
+      const { page, subTab } = action.location;
+      setNavigation((previous) => navigateWithinSettings(previous, page, subTab, action.settingId));
     },
     [onOpenElsewhere]
   );
@@ -230,7 +220,8 @@ export default function SettingsModal({
   }, []);
 
   // A navigation that names a setting lands on it once its page has rendered:
-  // the anchor is awaited, scrolled to and flashed. A newer navigation cancels it.
+  // the anchor is awaited, scrolled to and flashed, and takes focus when
+  // nothing in Settings has it (a Ctrl+K result). A newer navigation cancels it.
   const revealRef = useRef<{ navigationId: number; controller: AbortController } | null>(null);
   useEffect(() => {
     const active = revealRef.current;
@@ -240,7 +231,7 @@ export default function SettingsModal({
     }
     if (!open || !current.settingId || revealRef.current) return;
     const descriptor = findSettingDescriptor(current.settingId);
-    const layer = document.querySelector(`[${SETTINGS_LAYER_ATTRIBUTE}]`);
+    const layer = document.querySelector<HTMLElement>(`[${SETTINGS_LAYER_ATTRIBUTE}]`);
     if (!descriptor?.anchor || !layer) return;
     const controller = new AbortController();
     revealRef.current = { navigationId: current.navigationId, controller };
@@ -249,34 +240,31 @@ export default function SettingsModal({
       anchor: descriptor.anchor,
       fallbackAnchor: descriptor.fallbackAnchor,
       expand: descriptor.reveal?.expand,
-      subTab: descriptor.location?.subTab,
+      page: descriptor.location?.page,
       signal: controller.signal,
+    }).then((landed) => {
+      if (landed && !controller.signal.aborted) focusLandedSetting(layer, landed);
     });
   }, [open, current.navigationId, current.settingId]);
 
-  const iconFor = useCallback(
-    (groupId: string) => navItems.find((item) => item.id === groupId)?.icon,
-    [navItems]
-  );
+  const breadcrumb = searching
+    ? [t("settingsSearch.breadcrumb")]
+    : settingsBreadcrumbKeys(shownPage).map((key) => t(key));
 
   return (
-    <SettingsLayer<SettingsSectionType>
+    <SettingsLayer<SettingsPageId>
       open={open}
       onRequestClose={onRequestClose}
       railItems={railItems}
       activeView={activeView}
       onSelectView={onSelectView}
       onOpenSearch={onOpenSearch}
-      navItems={navItems}
-      activeSection={shownSection}
-      sectionLabel={
-        searching
-          ? t("settingsSearch.breadcrumb")
-          : t(`settingsModal.sections.${shownSection}.label`, { defaultValue: "" })
-      }
-      onSectionChange={(section) => {
+      navGroups={navGroups}
+      activePage={shownPage}
+      breadcrumb={breadcrumb}
+      onNavigate={(page) => {
         setQuery("");
-        handleSectionChange(section);
+        handleNavigate(page);
       }}
       navigationKey={current.navigationId}
       returnFocusRef={returnFocusRef}
@@ -308,7 +296,7 @@ export default function SettingsModal({
             highlighted={highlighted}
             onHighlight={(index) => setCursor({ query, index })}
             onOpen={openResult}
-            iconFor={iconFor}
+            iconFor={settingsPageIcon}
             listId={listId}
           />
         ) : undefined
@@ -339,8 +327,8 @@ export default function SettingsModal({
       }
     >
       <SettingsPage
-        activeSection={shownSection}
-        onNavigateToSection={handleSectionChange}
+        page={shownPage}
+        onNavigate={handleNavigate}
         initialSubTab={current.subTab}
         subTabRequestId={current.navigationId}
       />

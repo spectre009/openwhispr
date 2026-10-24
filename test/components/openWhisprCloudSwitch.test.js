@@ -7,30 +7,35 @@ const assert = require("node:assert/strict");
 // The Integrations sections module pulls in icon components compiled for a global React.
 globalThis.React = require("react");
 
-test("Settings drops the account sections and opens on Preferences while off", async () => {
-  const sections = await import("../../src/components/settingsSections.ts");
-  const items = ["account", "plansBilling", "workspace", "general", "privacyData", "system"].map(
-    (id) => ({ id })
-  );
-  const ids = (list) => list.map((item) => item.id);
+test("Settings drops the account pages and opens on Dictation › Recognition while off", async () => {
+  const mod = await import("../../src/components/settings/settingsPages.ts");
+  const pages = mod.default ?? mod;
+  const accountPages = (ctx) =>
+    pages
+      .visibleSettingsNav(ctx)
+      .flatMap((group) => group.items)
+      .filter((item) => item.kind === "page")
+      .map((item) => item.page)
+      .filter((page) => ["account", "plansBilling", "workspace"].includes(page));
 
-  assert.deepEqual(
-    ids(sections.visibleSettingsSections(items, { isSignedIn: false, cloudDisabled: false })),
-    ["account", "plansBilling", "general", "privacyData", "system"]
-  );
-  assert.deepEqual(
-    ids(sections.visibleSettingsSections(items, { isSignedIn: false, cloudDisabled: true })),
-    ["general", "privacyData", "system"]
-  );
+  const on = { cloudDisabled: false, isSignedIn: false, agentAllowed: true };
+  const off = { cloudDisabled: true, isSignedIn: false, agentAllowed: true };
+  assert.deepEqual(accountPages(on), ["account", "plansBilling"]);
+  assert.deepEqual(accountPages({ ...on, isSignedIn: true }), [
+    "account",
+    "plansBilling",
+    "workspace",
+  ]);
+  assert.deepEqual(accountPages(off), []);
 
-  const aliases = { aiModels: "llms", privacy: "privacyData" };
-  assert.equal(sections.resolveSettingsSection(undefined, aliases, false), "account");
-  assert.equal(sections.resolveSettingsSection(undefined, aliases, true), "general");
-  assert.equal(sections.resolveSettingsSection("plansBilling", aliases, true), "general");
-  assert.equal(sections.resolveSettingsSection("account", aliases, true), "general");
-  assert.equal(sections.resolveSettingsSection("privacy", aliases, true), "privacyData");
-  assert.equal(sections.shownSettingsSection("workspace", true), "general");
-  assert.equal(sections.shownSettingsSection("workspace", false), "workspace");
+  const resolve = (destination, ctx) => pages.resolveSettingsDestination(destination, { ctx }).page;
+  assert.equal(resolve(undefined, on), "account");
+  assert.equal(resolve(undefined, off), "recognition");
+  assert.equal(resolve("plansBilling", off), "recognition");
+  assert.equal(resolve("account", off), "recognition");
+  assert.equal(resolve("privacy", off), "privacyData");
+  assert.equal(pages.shownSettingsPage("workspace", off), "recognition");
+  assert.equal(pages.shownSettingsPage("workspace", { ...on, isSignedIn: true }), "workspace");
 });
 
 test("the OpenWhispr Cloud mode disappears, unless it is the one selected", async () => {

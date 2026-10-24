@@ -97,9 +97,12 @@ const terms = (...parts: Array<string | undefined>) =>
 /**
  * Provider and model of an LLM scope. Reads only mode, provider and model:
  * the resolved config also carries the scope's API key and endpoints, which
- * search must never show or match.
+ * search must never show or match. Feature page headers show the same label.
  */
-function describeLlm(config: ResolvedLLMConfig, t: Translate): SettingsSearchValue {
+export function describeLlm(
+  config: Pick<ResolvedLLMConfig, "mode" | "provider" | "model">,
+  t: Translate
+): SettingsSearchValue {
   const { mode, provider, model } = config;
   const modeLabel = t(LLM_MODE_KEYS[mode] ?? LLM_MODE_KEYS.providers);
   if (mode === "openwhispr") return { display: modeLabel, terms: ["openwhispr", "cloud"] };

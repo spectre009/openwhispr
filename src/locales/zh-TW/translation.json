@@ -1850,6 +1850,73 @@
     },
     "title": "設定"
   },
+  "settingsNav": {
+    "groups": {
+      "features": "功能",
+      "setup": "配置",
+      "data": "資料"
+    },
+    "parents": {
+      "dictation": "聽寫",
+      "dictationDescription": "聽寫的辨識、清理、風格與輸出。",
+      "notes": "筆記與上傳",
+      "notesDescription": "錄製筆記與上傳音訊的語音轉文字與格式化。",
+      "app": "應用程式與控制",
+      "appDescription": "外觀、聲音、通知、啟動、筆記檔案與快捷鍵。"
+    },
+    "pages": {
+      "recognition": {
+        "title": "辨識",
+        "description": "將你的語音轉為文字：語音轉文字引擎、你說的語言與語音偵測。"
+      },
+      "cleanup": {
+        "title": "清理"
+      },
+      "output": {
+        "title": "輸出",
+        "description": "聽寫後文字的處理：貼上、剪貼簿，以及從你的更正中學習。"
+      },
+      "chat": {
+        "description": "OpenWhispr 中文字聊天使用的模型與指令。"
+      },
+      "liveRecording": {
+        "title": "即時錄音",
+        "description": "即時錄製的筆記（例如會議）的語音轉文字。"
+      },
+      "fileTranscription": {
+        "title": "檔案轉錄",
+        "description": "你上傳的音訊檔案的語音轉文字。"
+      },
+      "noteFormatting": {
+        "description": "將轉錄內容整理成格式化筆記並產生標題。"
+      },
+      "appearance": {
+        "title": "外觀與語言",
+        "description": "主題與介面語言。"
+      },
+      "audio": {
+        "title": "麥克風與聲音",
+        "description": "輸入裝置，以及聽寫時的聲音與媒體。"
+      },
+      "noteFiles": {
+        "title": "筆記檔案與匯入",
+        "description": "將筆記儲存為 Markdown 檔案，並從 Granola 匯入筆記。"
+      }
+    },
+    "elsewhere": {
+      "dictionary": "字典與詞彙表"
+    },
+    "switch": {
+      "on": "開",
+      "off": "關"
+    },
+    "pills": {
+      "prompt": "提示詞：{{name}}",
+      "alsoUsedBy": "{{features}} 也在使用",
+      "noteFormattingInherits": "筆記格式化（繼承）",
+      "inheritsFromCleanup": "未設定的欄位繼承自清理"
+    }
+  },
   "settingsLayer": {
     "backTo": "返回{{view}}",
     "sections": "設定導覽",

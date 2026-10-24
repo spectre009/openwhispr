@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ChevronLeft, ChevronRight, Search, Settings } from "../icons";
+import { ChevronLeft, ChevronRight, ExternalLink, Search, Settings } from "../icons";
 import WindowControls from "../WindowControls";
 import { cn } from "../lib/utils";
 import { SettingsLayoutProvider } from "../ui/useSettingsLayout";
@@ -33,12 +33,32 @@ const railButtonClass =
 const railIconClass =
   "text-foreground/70 group-hover:text-foreground/90 dark:text-foreground/65 dark:group-hover:text-foreground/85 transition-colors duration-150";
 
-export interface SettingsNavItem<T extends string> {
+type NavIcon = React.ComponentType<{ className?: string }>;
+
+/** A page under a parent in the Settings nav (Dictation › Cleanup). */
+export interface SettingsNavPageLink<T extends string> {
   id: T;
   label: string;
-  icon: React.ComponentType<{ className?: string }>;
-  group?: string;
-  description?: string;
+  icon: NavIcon;
+}
+
+export interface SettingsNavItem<T extends string> {
+  /** A page id, a parent id (dictation) or an app page outside Settings. */
+  id: string;
+  label: string;
+  icon: NavIcon;
+  /** The page it opens; a parent opens its first page. */
+  page?: T;
+  /** A parent's pages, listed under it while one of them is open. */
+  children?: SettingsNavPageLink<T>[];
+  /** Leaves Settings for an app page (Dictionary, Integrations) instead. */
+  onSelect?: () => void;
+}
+
+export interface SettingsNavGroup<T extends string> {
+  id: string;
+  label: string;
+  items: SettingsNavItem<T>[];
 }
 
 export interface SettingsLayerProps<T extends string> {
@@ -51,10 +71,11 @@ export interface SettingsLayerProps<T extends string> {
   activeView: ControlPanelView;
   onSelectView: (view: ControlPanelView) => void;
   onOpenSearch: () => void;
-  navItems: SettingsNavItem<T>[];
-  activeSection: T;
-  sectionLabel: string;
-  onSectionChange: (section: T) => void;
+  navGroups: SettingsNavGroup<T>[];
+  activePage: T;
+  /** The top bar's trail after "Settings" (the parent or group, then the page). */
+  breadcrumb: string[];
+  onNavigate: (page: T) => void;
   /** Changes on every navigation; the content scrolls back to the top. */
   navigationKey: number;
   /** Above the nav (hidden while the nav shows icons only), e.g. account identity. */
@@ -108,10 +129,10 @@ export default function SettingsLayer<T extends string>({
   activeView,
   onSelectView,
   onOpenSearch,
-  navItems,
-  activeSection,
-  sectionLabel,
-  onSectionChange,
+  navGroups,
+  activePage,
+  breadcrumb,
+  onNavigate,
   navigationKey,
   header,
   notice,
@@ -245,17 +266,6 @@ export default function SettingsLayer<T extends string>({
     if (contentRef.current) contentRef.current.scrollTop = 0;
   }, [navigationKey]);
 
-  const groupedItems = useMemo(() => {
-    const groups: { label: string | null; items: SettingsNavItem<T>[] }[] = [];
-    for (const item of navItems) {
-      const group = item.group ?? null;
-      const last = groups[groups.length - 1];
-      if (last && last.label === group) last.items.push(item);
-      else groups.push({ label: group, items: [item] });
-    }
-    return groups;
-  }, [navItems]);
-
   const backLabel = t("settingsLayer.backTo", {
     view: railItems.find((item) => item.id === activeView)?.label ?? t("sidebar.home"),
   });
@@ -335,11 +345,24 @@ export default function SettingsLayer<T extends string>({
               {/* Global h1 styles are display-sized; this is chrome, so pin it down. */}
               <h1 className="flex min-w-0 items-center gap-1.5 text-sm! font-medium! leading-none! tracking-normal!">
                 <span className="shrink-0 text-muted-foreground">{t("settingsModal.title")}</span>
-                <ChevronRight
-                  size={12}
-                  className="shrink-0 text-muted-foreground/60 rtl:rotate-180"
-                />
-                <span className="truncate text-foreground">{sectionLabel}</span>
+                {breadcrumb.map((part, index) => (
+                  <React.Fragment key={index}>
+                    <ChevronRight
+                      size={12}
+                      className="shrink-0 text-muted-foreground/60 rtl:rotate-180"
+                    />
+                    <span
+                      className={cn(
+                        "truncate",
+                        index === breadcrumb.length - 1
+                          ? "text-foreground"
+                          : "shrink-[2] text-muted-foreground"
+                      )}
+                    >
+                      {part}
+                    </span>
+                  </React.Fragment>
+                ))}
               </h1>
               <button
                 type="button"
@@ -419,11 +442,24 @@ export default function SettingsLayer<T extends string>({
                     </div>
                   )}
 
-                  {groupedItems.map((group, groupIndex) => (
-                    <div key={group.label ?? groupIndex} className="mt-4">
-                      {!navIconsOnly && group.label && (
+                  {navGroups.map((group, groupIndex) => (
+                    <div
+                      key={group.id}
+                      role="group"
+                      aria-label={group.label}
+                      className={cn(
+                        "mt-4",
+                        navIconsOnly &&
+                          groupIndex > 0 &&
+                          "border-t border-border/60 pt-3 dark:border-white/10"
+                      )}
+                    >
+                      {!navIconsOnly && (
                         <div className="px-2.5 pb-1">
-                          <span className="text-[11px] font-medium text-muted-foreground/70 dark:text-muted-foreground/65">
+                          <span
+                            aria-hidden="true"
+                            className="text-[11px] font-medium text-muted-foreground/70 dark:text-muted-foreground/65"
+                          >
                             {group.label}
                           </span>
                         </div>
@@ -431,30 +467,93 @@ export default function SettingsLayer<T extends string>({
                       <div className="space-y-px">
                         {group.items.map((item) => {
                           const Icon = item.icon;
-                          const isActive = activeSection === item.id;
+                          const children = item.children ?? [];
+                          // A parent shows its pages while one of them is open.
+                          const expanded = children.some((child) => child.id === activePage);
+                          const isActive = !item.children && item.page === activePage;
                           return (
-                            <button
-                              key={item.id}
-                              type="button"
-                              data-section-id={item.id}
-                              aria-current={isActive ? "page" : undefined}
-                              onClick={() => onSectionChange(item.id)}
-                              title={navIconsOnly ? item.label : undefined}
-                              aria-label={navIconsOnly ? item.label : undefined}
-                              className={navRowClass(isActive)}
-                            >
-                              <Icon className={navIconClass(isActive)} />
-                              {!navIconsOnly && (
-                                <span
+                            <div key={item.id}>
+                              <button
+                                type="button"
+                                data-settings-nav={item.id}
+                                aria-current={isActive ? "page" : undefined}
+                                aria-expanded={item.children ? expanded : undefined}
+                                onClick={() => {
+                                  if (item.onSelect) item.onSelect();
+                                  else if (item.page) onNavigate(item.page);
+                                }}
+                                title={navIconsOnly ? item.label : undefined}
+                                aria-label={navIconsOnly ? item.label : undefined}
+                                className={cn(
+                                  navRowClass(isActive),
+                                  expanded && "text-foreground dark:text-foreground"
+                                )}
+                              >
+                                <Icon className={navIconClass(isActive || expanded)} />
+                                {!navIconsOnly && (
+                                  <>
+                                    <span
+                                      className={cn(
+                                        "min-w-0 flex-1 truncate leading-tight",
+                                        isActive || expanded ? "font-medium" : "font-normal"
+                                      )}
+                                    >
+                                      {item.label}
+                                    </span>
+                                    {item.onSelect && (
+                                      <ExternalLink
+                                        aria-hidden="true"
+                                        className="h-3 w-3 shrink-0 text-muted-foreground/60 rtl:-scale-x-100"
+                                      />
+                                    )}
+                                  </>
+                                )}
+                              </button>
+                              {expanded && (
+                                <div
                                   className={cn(
-                                    "min-w-0 flex-1 truncate leading-tight",
-                                    isActive ? "font-medium" : "font-normal"
+                                    "mt-px mb-1 space-y-px border-s border-border/70 dark:border-white/10",
+                                    navIconsOnly ? "ms-2.5 ps-1" : "ms-[17px] ps-2"
                                   )}
                                 >
-                                  {item.label}
-                                </span>
+                                  {children.map((child) => {
+                                    const ChildIcon = child.icon;
+                                    const childActive = child.id === activePage;
+                                    return (
+                                      <button
+                                        key={child.id}
+                                        type="button"
+                                        data-settings-nav={child.id}
+                                        aria-current={childActive ? "page" : undefined}
+                                        onClick={() => onNavigate(child.id)}
+                                        title={navIconsOnly ? child.label : undefined}
+                                        aria-label={navIconsOnly ? child.label : undefined}
+                                        className={cn(
+                                          navRowClass(childActive),
+                                          "h-7",
+                                          !navIconsOnly && "px-2 text-[12.5px]"
+                                        )}
+                                      >
+                                        {navIconsOnly ? (
+                                          <ChildIcon
+                                            className={cn(navIconClass(childActive), "h-3.5 w-3.5")}
+                                          />
+                                        ) : (
+                                          <span
+                                            className={cn(
+                                              "min-w-0 flex-1 truncate leading-tight",
+                                              childActive ? "font-medium" : "font-normal"
+                                            )}
+                                          >
+                                            {child.label}
+                                          </span>
+                                        )}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
                               )}
-                            </button>
+                            </div>
                           );
                         })}
                       </div>

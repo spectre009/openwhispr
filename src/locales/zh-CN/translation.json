@@ -1850,6 +1850,73 @@
     },
     "title": "设置"
   },
+  "settingsNav": {
+    "groups": {
+      "features": "功能",
+      "setup": "配置",
+      "data": "数据"
+    },
+    "parents": {
+      "dictation": "听写",
+      "dictationDescription": "听写的识别、清理、风格和输出。",
+      "notes": "笔记与上传",
+      "notesDescription": "录制笔记和上传音频的语音转文字与格式化。",
+      "app": "应用与控制",
+      "appDescription": "外观、声音、通知、启动、笔记文件和快捷键。"
+    },
+    "pages": {
+      "recognition": {
+        "title": "识别",
+        "description": "将你的语音转为文字：语音转文字引擎、你说的语言和语音检测。"
+      },
+      "cleanup": {
+        "title": "清理"
+      },
+      "output": {
+        "title": "输出",
+        "description": "听写后文字的处理：粘贴、剪贴板，以及从你的更正中学习。"
+      },
+      "chat": {
+        "description": "OpenWhispr 中文字聊天使用的模型和指令。"
+      },
+      "liveRecording": {
+        "title": "实时录音",
+        "description": "实时录制的笔记（如会议）的语音转文字。"
+      },
+      "fileTranscription": {
+        "title": "文件转录",
+        "description": "你上传的音频文件的语音转文字。"
+      },
+      "noteFormatting": {
+        "description": "将转录内容整理为格式化笔记并生成标题。"
+      },
+      "appearance": {
+        "title": "外观与语言",
+        "description": "主题和界面语言。"
+      },
+      "audio": {
+        "title": "麦克风与声音",
+        "description": "输入设备，以及听写时的声音和媒体。"
+      },
+      "noteFiles": {
+        "title": "笔记文件与导入",
+        "description": "将笔记保存为 Markdown 文件，并从 Granola 导入笔记。"
+      }
+    },
+    "elsewhere": {
+      "dictionary": "词典与术语表"
+    },
+    "switch": {
+      "on": "开",
+      "off": "关"
+    },
+    "pills": {
+      "prompt": "提示词：{{name}}",
+      "alsoUsedBy": "{{features}} 也在使用",
+      "noteFormattingInherits": "笔记格式化（继承）",
+      "inheritsFromCleanup": "未设置的字段继承自清理"
+    }
+  },
   "settingsLayer": {
     "backTo": "返回{{view}}",
     "sections": "设置导航",

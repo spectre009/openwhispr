@@ -1944,6 +1944,73 @@
     },
     "title": "Paramètres"
   },
+  "settingsNav": {
+    "groups": {
+      "features": "Fonctionnalités",
+      "setup": "Configuration",
+      "data": "Données"
+    },
+    "parents": {
+      "dictation": "Dictée",
+      "dictationDescription": "Reconnaissance, nettoyage, styles et sortie de tout ce que vous dictez.",
+      "notes": "Notes et imports",
+      "notesDescription": "Transcription et mise en forme des notes enregistrées et des fichiers audio importés.",
+      "app": "App et commandes",
+      "appDescription": "Apparence, sons, notifications, démarrage, fichiers de notes et raccourcis."
+    },
+    "pages": {
+      "recognition": {
+        "title": "Reconnaissance",
+        "description": "Transforme votre voix en texte : le moteur de transcription, la langue que vous parlez et la détection de la voix."
+      },
+      "cleanup": {
+        "title": "Nettoyage"
+      },
+      "output": {
+        "title": "Sortie",
+        "description": "Ce que devient le texte après la dictée : le collage, le presse-papiers et l'apprentissage de vos corrections."
+      },
+      "chat": {
+        "description": "Le modèle et les instructions des chats écrits dans OpenWhispr."
+      },
+      "liveRecording": {
+        "title": "Enregistrement en direct",
+        "description": "Transcription des notes que vous enregistrez en direct, comme les réunions."
+      },
+      "fileTranscription": {
+        "title": "Transcription de fichiers",
+        "description": "Transcription des fichiers audio que vous importez."
+      },
+      "noteFormatting": {
+        "description": "Transforme les transcriptions en notes mises en forme et leur donne un titre."
+      },
+      "appearance": {
+        "title": "Apparence et langue",
+        "description": "Le thème et la langue de l'interface."
+      },
+      "audio": {
+        "title": "Micro et sons",
+        "description": "Le périphérique d'entrée, et les sons et médias pendant la dictée."
+      },
+      "noteFiles": {
+        "title": "Fichiers de notes et import",
+        "description": "Enregistrez les notes en fichiers Markdown et importez des notes depuis Granola."
+      }
+    },
+    "elsewhere": {
+      "dictionary": "Dictionnaire et glossaire"
+    },
+    "switch": {
+      "on": "Activé",
+      "off": "Désactivé"
+    },
+    "pills": {
+      "prompt": "Prompt : {{name}}",
+      "alsoUsedBy": "Également utilisé par {{features}}",
+      "noteFormattingInherits": "Mise en forme des notes (hérite)",
+      "inheritsFromCleanup": "Reprend du Nettoyage les champs non définis"
+    }
+  },
   "settingsLayer": {
     "backTo": "Retour à « {{view}} »",
     "sections": "Sections des paramètres",
