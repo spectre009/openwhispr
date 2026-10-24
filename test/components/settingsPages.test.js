@@ -157,7 +157,13 @@ test("page ids, parents and settings resolve; a setting's page wins over the nam
   for (const page of SETTINGS_PAGE_IDS) {
     assert.deepEqual(resolveSettingsDestination(page, { ctx: ALL }), { page }, page);
   }
-  assert.equal(resolveSettingsDestination("dictation", { ctx: ALL }).page, "recognition");
+  assert.equal(resolveSettingsDestination("dictation", { ctx: ALL }).page, "overview");
+  // Overview is Dictation's first page, also with Cloud off and without the agent.
+  assert.equal(resolveSettingsDestination("dictation", { ctx: CLOUD_OFF }).page, "overview");
+  assert.equal(
+    resolveSettingsDestination("dictation", { ctx: { ...ALL, agentAllowed: false } }).page,
+    "overview"
+  );
   assert.equal(resolveSettingsDestination("notes", { ctx: ALL }).page, "liveRecording");
   assert.equal(resolveSettingsDestination("app", { ctx: ALL }).page, "appearance");
 
@@ -494,4 +500,48 @@ test("feature headers: the prompt in use, and what shares Cleanup's model", asyn
     "noteFormatting",
   ]);
   assert.deepEqual(cleanupSharedWith({ stylesInUse: false, noteFormattingInherits: false }), []);
+});
+
+test("Dictation › Overview comes first; Overview, Styles and Hotkeys lay out wide", async () => {
+  const {
+    SETTINGS_NAV,
+    SETTINGS_PAGES,
+    SETTINGS_PAGE_IDS,
+    firstSettingsPageOf,
+    isWideSettingsPage,
+    resolveSettingsDestination,
+    settingsBreadcrumbKeys,
+    settingsPageParent,
+    locateSetting,
+  } = await load();
+  const dictation = SETTINGS_NAV.flatMap((group) => group.items).find(
+    (item) => item.kind === "parent" && item.id === "dictation"
+  );
+  assert.deepEqual(dictation.pages, ["overview", "recognition", "cleanup", "styles", "output"]);
+  assert.equal(firstSettingsPageOf("dictation", ALL), "overview");
+  assert.equal(firstSettingsPageOf("dictation", CLOUD_OFF), "overview");
+  assert.equal(settingsPageParent("overview"), "dictation");
+  assert.deepEqual(settingsBreadcrumbKeys("overview"), [
+    "settingsNav.parents.dictation",
+    "settingsNav.pages.overview.title",
+  ]);
+  // By id, by setting, and the parent; nothing that named another page moved.
+  const resolve = (destination, ctx = ALL) =>
+    resolveSettingsDestination(destination, { ctx, locateSetting });
+  assert.deepEqual(resolve("overview"), { page: "overview" });
+  assert.deepEqual(resolve("#dictation.overview.lastDictation"), {
+    page: "overview",
+    settingId: "dictation.overview.lastDictation",
+  });
+  assert.deepEqual(resolve("#hotkeys.cancel"), { page: "hotkeys", settingId: "hotkeys.cancel" });
+  for (const [name, page] of Object.entries(LEGACY_PAGES)) {
+    assert.equal(resolve(name).page, page, name);
+  }
+  // The default page and hidden-page fallbacks stay where they were.
+  assert.deepEqual(resolve(undefined, CLOUD_OFF), { page: "recognition" });
+  assert.equal(resolve("account", CLOUD_OFF).page, "recognition");
+
+  const wide = SETTINGS_PAGE_IDS.filter((page) => isWideSettingsPage(page));
+  assert.deepEqual(wide.sort(), ["hotkeys", "overview", "styles"]);
+  assert.equal(SETTINGS_PAGES.cleanup.wide, undefined, "feature pages keep the reading width");
 });

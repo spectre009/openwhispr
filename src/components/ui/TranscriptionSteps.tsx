@@ -1,34 +1,16 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import type { TFunction } from "i18next";
 import { Loader2 } from "../icons";
 import { useSettingsStore } from "../../stores/settingsStore";
 import { useStyleStore } from "../../stores/styleStore";
 import { DEFAULT_PROMPT_ID, findPromptEntry } from "../../config/prompts/library";
 import { findStyle } from "../../config/styles/library";
 import type { TranscriptionStepRecord, TranscriptionStepsResult } from "../../types/electron";
+import { stepKindLabel, stepOutcomeLabel } from "./transcriptionStepLabels";
 
 // Step history for one dictation, read from main on demand. Main scopes it to
 // the current account (or the signed-out namespace); rows from before step
 // history, or pulled from the cloud, have none.
-
-const KIND_KEYS: Record<string, string> = {
-  stt: "stt",
-  glossary: "glossary",
-  cleanup: "cleanup",
-  translation: "translation",
-  agent: "agent",
-  style: "style",
-  finalize: "finalize",
-};
-
-function kindLabel(step: TranscriptionStepRecord, t: TFunction): string {
-  if (step.kind === "finalize" && step.detail?.snippets) {
-    return t("controlPanel.history.steps.kinds.snippets");
-  }
-  const key = KIND_KEYS[step.kind];
-  return key ? t(`controlPanel.history.steps.kinds.${key}`) : step.kind;
-}
 
 function StepPrompt({ step }: { step: TranscriptionStepRecord }) {
   const { t } = useTranslation();
@@ -165,10 +147,10 @@ export default function TranscriptionSteps({ id, revision }: { id: number; revis
           return (
             <li key={index} className="text-xs">
               <div className="flex flex-wrap items-baseline gap-x-1.5">
-                <span className="font-medium text-foreground/90">{kindLabel(step, t)}</span>
+                <span className="font-medium text-foreground/90">{stepKindLabel(step, t)}</span>
                 {step.outcome !== "ok" && (
                   <span className="rounded-sm bg-muted px-1 text-[10px] uppercase tracking-wide text-muted-foreground">
-                    {t(`controlPanel.history.steps.outcomes.${step.outcome}`)}
+                    {stepOutcomeLabel(step.outcome, t)}
                   </span>
                 )}
                 {facts.length > 0 && (

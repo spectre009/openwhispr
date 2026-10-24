@@ -1960,6 +1960,10 @@
       "appDescription": "Apparence, sons, notifications, démarrage, fichiers de notes et raccourcis."
     },
     "pages": {
+      "overview": {
+        "title": "Vue d'ensemble",
+        "description": "Ce qui se passe entre le raccourci de dictée et le texte collé. Chaque étape ouvre ses réglages."
+      },
       "recognition": {
         "title": "Reconnaissance",
         "description": "Transforme votre voix en texte : le moteur de transcription, la langue que vous parlez et la détection de la voix."
@@ -2000,6 +2004,9 @@
       "connections": {
         "title": "Connexions IA et modèles locaux",
         "description": "Comptes connectés, clés API et modèles téléchargés au même endroit, avec ce qui utilise chacun. Les fonctionnalités les choisissent dans leurs réglages de modèle."
+      },
+      "hotkeys": {
+        "description": "Tous les raccourcis globaux dans un seul tableau. Les conflits sont vérifiés entre tous, raccourcis de style compris."
       }
     },
     "elsewhere": {
@@ -2014,6 +2021,70 @@
       "alsoUsedBy": "Également utilisé par {{features}}",
       "noteFormattingInherits": "Mise en forme des notes (hérite)",
       "inheritsFromCleanup": "Reprend du Nettoyage les champs non définis"
+    }
+  },
+  "settingsOverview": {
+    "pipeline": {
+      "title": "Comment une dictée est traitée",
+      "note": "Ce bandeau explique les étapes plutôt que leur ordre exact : les mots du dictionnaire servent aussi d'indices à la Reconnaissance, et un style en une étape s'exécute avec le Nettoyage en une seule requête.",
+      "settingState": "{{setting}} : {{state}}",
+      "dictionary": {
+        "counts": "Dictionnaire : {{words}} · Glossaire : {{rules}} · Snippets : {{snippets}}",
+        "status": "Ouvre la page Dictionnaire"
+      },
+      "cleanup": {
+        "offStatus": "Le texte reste tel que reconnu ; un style peut encore le réécrire"
+      },
+      "style": {
+        "value": "{{hotkey}} : {{style}}",
+        "status": "Activés : {{on}} sur {{total}} · Avec raccourci : {{keys}}"
+      },
+      "personality": {
+        "title": "Personnalité",
+        "value": "Votre façon de parler et d'écrire",
+        "status": "Prévu"
+      }
+    },
+    "last": {
+      "title": "Dernière dictée",
+      "description": "Les étapes enregistrées de la dictée la plus récente, côte à côte, nommées comme dans Historique › Voir les étapes.",
+      "none": "Aucune dictée pour l'instant. La prochaine s'affichera ici, étape par étape.",
+      "historyOff": "Les étapes ne sont pas enregistrées tant que l'historique local est désactivé.",
+      "openPrivacy": "L'activer dans Confidentialité & données",
+      "noCorrections": "Aucune correction",
+      "pasted": "Collé",
+      "total": "{{seconds}} s au total"
+    },
+    "hotkeys": {
+      "all": "Tous les raccourcis"
+    }
+  },
+  "settingsHotkeys": {
+    "table": {
+      "title": "Tous les raccourcis",
+      "description": "Comment chaque raccourci global se déclenche et où se trouve sa fonction."
+    },
+    "columns": {
+      "action": "Action",
+      "hotkey": "Raccourci",
+      "how": "Comment"
+    },
+    "activation": {
+      "description": "Maintenir : parlez tant que la touche est enfoncée. Appui : appuyez pour commencer, puis à nouveau pour arrêter. Les raccourcis de style suivent ce mode."
+    },
+    "how": {
+      "followsDictation": "{{mode}}, comme la dictée",
+      "likeDictation": "Comme la dictée",
+      "whileRecording": "Pendant l'enregistrement"
+    },
+    "styleRow": "Style : {{style}}",
+    "styleRowDescription": "Dicte dans ce style",
+    "notSet": "Non défini",
+    "styleOff": "Style désactivé",
+    "editStyle": "Modifier le style",
+    "cancel": {
+      "title": "Annuler l'enregistrement",
+      "description": "Arrête une dictée pendant l'enregistrement ; rien n'est collé."
     }
   },
   "settingsLayer": {
@@ -5514,6 +5585,9 @@
       "new": "Nouveau style",
       "inUse": "Utilisé",
       "toggle": "Activer ou désactiver {{name}}"
+    },
+    "detail": {
+      "builtIn": "Intégré"
     },
     "runMode": {
       "twoSteps": "Deux étapes",

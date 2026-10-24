@@ -1960,6 +1960,10 @@
       "appDescription": "Appearance, sounds, notifications, startup, note files and hotkeys."
     },
     "pages": {
+      "overview": {
+        "title": "Overview",
+        "description": "What happens between your dictation hotkey and the pasted text. Each step opens its settings."
+      },
       "recognition": {
         "title": "Recognition",
         "description": "Turns your voice into text: the speech-to-text engine, the language you speak and voice detection."
@@ -2000,6 +2004,9 @@
       "connections": {
         "title": "AI Connections & Local Models",
         "description": "Sign-ins, API keys and downloaded models in one place, with what uses each one. Features pick from these in their model settings."
+      },
+      "hotkeys": {
+        "description": "Every global hotkey in one table. Conflicts are checked across all of them, style hotkeys included."
       }
     },
     "elsewhere": {
@@ -2014,6 +2021,70 @@
       "alsoUsedBy": "Also used by {{features}}",
       "noteFormattingInherits": "Note Formatting (inherits)",
       "inheritsFromCleanup": "Inherits unset fields from Cleanup"
+    }
+  },
+  "settingsOverview": {
+    "pipeline": {
+      "title": "How a Dictation Is Processed",
+      "note": "The strip explains the steps rather than their exact order: dictionary words also go to Recognition as hints, and a one-step style runs with Cleanup in one request.",
+      "settingState": "{{setting}}: {{state}}",
+      "dictionary": {
+        "counts": "Dictionary: {{words}} · Glossary: {{rules}} · Snippets: {{snippets}}",
+        "status": "Opens the Dictionary page"
+      },
+      "cleanup": {
+        "offStatus": "Text stays as recognized; a style can still restyle it"
+      },
+      "style": {
+        "value": "{{hotkey}}: {{style}}",
+        "status": "On: {{on}} of {{total}} · With a hotkey: {{keys}}"
+      },
+      "personality": {
+        "title": "Personality",
+        "value": "How you speak and write",
+        "status": "Planned"
+      }
+    },
+    "last": {
+      "title": "Last Dictation",
+      "description": "The newest dictation's saved steps side by side, named as in History › View steps.",
+      "none": "No dictations yet. Your next one shows here, step by step.",
+      "historyOff": "Steps aren't saved while local history is off.",
+      "openPrivacy": "Turn it on in Privacy & Data",
+      "noCorrections": "No corrections",
+      "pasted": "Pasted",
+      "total": "{{seconds}} s in total"
+    },
+    "hotkeys": {
+      "all": "All hotkeys"
+    }
+  },
+  "settingsHotkeys": {
+    "table": {
+      "title": "All Hotkeys",
+      "description": "How each global hotkey triggers and where its feature lives."
+    },
+    "columns": {
+      "action": "Action",
+      "hotkey": "Hotkey",
+      "how": "How"
+    },
+    "activation": {
+      "description": "Hold: talk while the key is down. Tap: press to start, press again to stop. Style hotkeys follow it."
+    },
+    "how": {
+      "followsDictation": "{{mode}}, like dictation",
+      "likeDictation": "Like dictation",
+      "whileRecording": "While recording"
+    },
+    "styleRow": "Style: {{style}}",
+    "styleRowDescription": "Dictates in this style",
+    "notSet": "Not set",
+    "styleOff": "Style off",
+    "editStyle": "Edit style",
+    "cancel": {
+      "title": "Cancel Recording",
+      "description": "Stops a dictation while it records; nothing is pasted."
     }
   },
   "settingsLayer": {
@@ -5514,6 +5585,9 @@
       "new": "New style",
       "inUse": "In use",
       "toggle": "Switch {{name}} on or off"
+    },
+    "detail": {
+      "builtIn": "Built-in"
     },
     "runMode": {
       "twoSteps": "Two steps",

@@ -26,6 +26,7 @@ import {
   Play,
   Plus,
   Save,
+  Sparkles,
   TestTube,
   Trash2,
 } from "../icons";
@@ -78,11 +79,13 @@ import {
 } from "../../services/cleanupWithPrompt";
 import logger from "../../utils/logger";
 
-// Settings → Language Models → Dictation Cleanup → Styles. Each style is a
-// short instruction that restyles a dictation after cleanup (two steps) or
-// with it (one step). The editor mirrors Prompt Studio: View, Customize and
-// Test. Drafts are never saved until Save. Test runs the style one step
-// against two steps, on one input or on the style's test set.
+// Settings → Dictation → Styles. Each style is a short instruction that
+// restyles a dictation after cleanup (two steps) or with it (one step). Laid
+// out master–detail on a wide page: the styles on the left (Plain first, each
+// with how it runs, its keys and its switch), the selected one's editor on the
+// right; stacked when narrow. The editor mirrors Prompt Studio: View,
+// Customize and Test. Drafts are never saved until Save. Test runs the style
+// one step against two steps, on one input or on the style's test set.
 
 const NEW_STYLE_ID = "__new__";
 
@@ -196,19 +199,34 @@ export default function StyleStudio({ className = "" }: { className?: string }) 
   // Another page (the Hotkeys page's style hotkey list) asked for a style.
   const focusStyleId = useStyleStore((s) => s.focusStyleId);
   const rootRef = useRef<HTMLDivElement>(null);
+  // Each list row's select button, so a request can put focus on the style it opened.
+  const rowRefs = useRef(new Map<string, HTMLButtonElement>());
+  const registerRow = (id: string) => (element: HTMLButtonElement | null) => {
+    if (element) rowRefs.current.set(id, element);
+    else rowRefs.current.delete(id);
+  };
   useEffect(() => {
     if (!focusStyleId) return;
     requestStyleFocus(null);
-    if (findStyle(library, focusStyleId)) {
+    const found = !!findStyle(library, focusStyleId);
+    if (found) {
       setSelectedId(focusStyleId);
       setActiveTab("view");
     }
     // The settings page shows this section a moment later. Not cleared when
     // the request resets above: that re-run must not cancel the scroll.
-    setTimeout(() => rootRef.current?.scrollIntoView({ block: "start", behavior: "smooth" }), 100);
+    setTimeout(() => {
+      rootRef.current?.scrollIntoView({ block: "start", behavior: "smooth" });
+      if (found) rowRefs.current.get(focusStyleId)?.focus({ preventScroll: true });
+    }, 100);
   }, [focusStyleId, library]);
 
   const hotkeyLabel = formatHotkeyLabel(dictationKey);
+  // The dictation hotkey, shown on the row of the style it applies.
+  const dictationHotkeyChip = {
+    label: hotkeyLabel,
+    title: t("settingsPage.general.hotkey.title"),
+  };
   const pickable = selectableStyles(library);
   const draftStyle: RecordingStyle = snapshotStyle({
     id: selected?.id ?? "draft",
@@ -385,410 +403,479 @@ export default function StyleStudio({ className = "" }: { className?: string }) 
         )}
       </div>
 
-      {/* ── The styles ── */}
-      <div data-setting-id="dictation.styles.list" className="space-y-1.5">
-        <div className="flex items-center justify-between gap-2">
-          <p className="text-xs font-medium text-foreground">{t("styles.list.title")}</p>
-          <Button onClick={() => select(NEW_STYLE_ID)} variant="outline" size="sm" className="h-8">
-            <Plus className="w-3.5 h-3.5" />
-            {t("styles.list.new")}
-          </Button>
-        </div>
-        <ul className="space-y-1.5">
-          <StyleRow
-            emoji=""
-            name={t("styles.plain.name")}
-            detail={t("styles.plain.detail")}
-            selected={isPlain}
-            inUse={library.dictationStyleId === PLAIN_STYLE_ID}
-            onSelect={() => select(PLAIN_STYLE_ID)}
-          />
-          {library.styles.map((style) => (
-            <StyleRow
-              key={style.id}
-              emoji={style.emoji}
-              name={style.name}
-              detail={
-                style.hotkey
-                  ? `${runModeLabel(style.runMode)} · ${formatHotkeyLabel(style.hotkey)}`
-                  : runModeLabel(style.runMode)
-              }
-              selected={selectedId === style.id}
-              inUse={library.dictationStyleId === style.id}
-              enabled={style.enabled}
-              onToggle={(enabled) => void saveStyle(style.id, { enabled })}
-              onSelect={() => select(style.id)}
-            />
-          ))}
-        </ul>
-      </div>
-
-      {/* ── The editor ── */}
-      <div className="rounded-xl border border-border/70 dark:border-border-subtle bg-card dark:bg-surface-2 overflow-hidden">
-        <div className="flex border-b border-border/70 dark:border-border-subtle">
-          {tabs.map((tab) => {
-            const Icon = tab.icon;
-            const isActive = activeTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-xs font-medium transition-colors duration-150 border-b-2 ${
-                  isActive
-                    ? "border-primary text-foreground bg-primary/5 dark:bg-primary/3"
-                    : "border-transparent text-muted-foreground hover:text-foreground hover:bg-black/2 dark:hover:bg-white/2"
-                }`}
-              >
-                <Icon className="w-3.5 h-3.5" />
-                {tab.label}
-              </button>
-            );
-          })}
-        </div>
-
-        {isPlain ? (
-          <div className="px-5 py-4 space-y-2">
-            <p className="text-xs font-medium text-foreground">{t("styles.plain.name")}</p>
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              {t("styles.plain.description")}
-            </p>
+      {/* ── Master–detail: the styles on the left, the selected one's editor on the right ── */}
+      <div className="@container">
+        <div className="grid gap-4 @3xl:grid-cols-[260px_minmax(0,1fr)] @3xl:items-start">
+          {/* ── The styles ── */}
+          <div data-setting-id="dictation.styles.list" className="space-y-1.5">
+            <p className="text-xs font-medium text-foreground">{t("styles.list.title")}</p>
+            <ul className="space-y-1.5">
+              <StyleRow
+                id={PLAIN_STYLE_ID}
+                emoji=""
+                builtIn
+                name={t("styles.plain.name")}
+                detail={t("styles.plain.detail")}
+                hotkeys={library.dictationStyleId === PLAIN_STYLE_ID ? [dictationHotkeyChip] : []}
+                selected={isPlain}
+                inUse={library.dictationStyleId === PLAIN_STYLE_ID}
+                onSelect={() => select(PLAIN_STYLE_ID)}
+                rowRef={registerRow(PLAIN_STYLE_ID)}
+              />
+              {library.styles.map((style) => (
+                <StyleRow
+                  key={style.id}
+                  id={style.id}
+                  emoji={style.emoji}
+                  name={style.name}
+                  detail={runModeLabel(style.runMode)}
+                  hotkeys={[
+                    ...(library.dictationStyleId === style.id ? [dictationHotkeyChip] : []),
+                    ...(style.hotkey
+                      ? [
+                          {
+                            label: formatHotkeyLabel(style.hotkey),
+                            title: t("styles.hotkey.label"),
+                          },
+                        ]
+                      : []),
+                  ]}
+                  selected={selectedId === style.id}
+                  inUse={library.dictationStyleId === style.id}
+                  enabled={style.enabled}
+                  onToggle={(enabled) => void saveStyle(style.id, { enabled })}
+                  onSelect={() => select(style.id)}
+                  rowRef={registerRow(style.id)}
+                />
+              ))}
+            </ul>
+            <Button
+              onClick={() => select(NEW_STYLE_ID)}
+              variant="outline"
+              size="sm"
+              aria-pressed={isNew}
+              className="h-8 w-full justify-start"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              {t("styles.list.new")}
+            </Button>
           </div>
-        ) : (
-          <>
-            {/* ── View ── */}
-            {activeTab === "view" && (
-              <div className="divide-y divide-border/60 dark:divide-border-subtle">
-                <div className="px-5 py-4 space-y-2">
-                  <p dir="auto" className="text-sm font-medium text-foreground">
-                    {saved.emoji ? `${saved.emoji} ` : ""}
-                    {saved.name || t("styles.editor.untitled")}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {runModeLabel(saved.runMode)} ·{" "}
-                    {selected?.enabled ? t("styles.editor.on") : t("styles.editor.off")} ·{" "}
-                    {saved.appGlossary
-                      ? t("styles.editor.appGlossaryOn")
-                      : t("styles.editor.appGlossaryOff")}
-                  </p>
-                  <div className="bg-muted/30 dark:bg-surface-raised/30 border border-border/70 rounded-lg p-4">
-                    <p dir="auto" className="text-xs text-foreground whitespace-pre-wrap">
-                      {saved.instruction || t("styles.editor.noInstruction")}
-                    </p>
-                  </div>
-                  {isDirty && (
-                    <p className="text-xs text-warning">
-                      {t("promptStudio.library.viewShowsSaved")}
-                    </p>
+
+          {/* ── The editor ── */}
+          <div
+            data-style-detail={selectedId}
+            className="min-w-0 rounded-xl border border-border/70 dark:border-border-subtle bg-card dark:bg-surface-2 overflow-hidden"
+          >
+            <div className="flex items-center gap-2 border-b border-border/70 dark:border-border-subtle px-5 py-3">
+              {isPlain ? (
+                <Sparkles className="w-4 h-4 shrink-0 text-primary" />
+              ) : (
+                saved.emoji && (
+                  <span dir="auto" className="shrink-0 text-base leading-none">
+                    {saved.emoji}
+                  </span>
+                )
+              )}
+              <p dir="auto" className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
+                {isPlain
+                  ? t("styles.plain.name")
+                  : isNew
+                    ? t("styles.list.new")
+                    : saved.name || t("styles.editor.untitled")}
+              </p>
+              {!isNew && (
+                <span
+                  className={cn(
+                    "shrink-0 rounded-full px-2 py-px text-[11px] font-medium",
+                    isPlain || selected?.enabled
+                      ? "bg-primary/10 text-primary"
+                      : "bg-muted text-muted-foreground"
                   )}
-                </div>
-                {selected && <StyleHotkeyField style={selected} />}
-                {saved.instruction && (
-                  <details className="px-5 py-4 text-xs text-muted-foreground">
-                    <summary className="cursor-pointer select-none">
-                      {saved.runMode === "one-step"
-                        ? t("styles.editor.showOneStepBlock")
-                        : t("styles.editor.showRestylePrompt")}
-                    </summary>
-                    <ClampedText
-                      collapsedRem={18}
-                      className="mt-2 rounded-lg border border-border/70 bg-muted/30 p-3"
-                    >
-                      <pre
-                        dir="ltr"
-                        className="whitespace-pre-wrap font-mono text-[11px] leading-relaxed"
-                      >
-                        {saved.runMode === "one-step"
-                          ? buildOneStepStyleBlock({
-                              name: saved.name,
-                              instruction: saved.instruction,
-                            })
-                          : buildRestylePrompt({
-                              name: saved.name,
-                              instruction: saved.instruction,
-                            })}
-                      </pre>
-                    </ClampedText>
-                  </details>
-                )}
-              </div>
-            )}
-
-            {/* ── Customize ── */}
-            {activeTab === "edit" && (
-              <div className="divide-y divide-border/60 dark:divide-border-subtle">
-                <div className="px-5 py-4 space-y-3">
-                  <div className="grid grid-cols-[5rem_1fr] gap-2">
-                    <label className="block space-y-1">
-                      <span className="text-xs text-muted-foreground">
-                        {t("styles.editor.emoji")}
-                      </span>
-                      <Input
-                        dir="auto"
-                        value={draft.emoji}
-                        maxLength={STYLE_EMOJI_MAX_LENGTH}
-                        onChange={(e) => setDraft((prev) => ({ ...prev, emoji: e.target.value }))}
-                        className="h-9 text-sm text-center"
-                        placeholder="💬"
-                      />
-                    </label>
-                    <label className="block space-y-1">
-                      <span className="text-xs text-muted-foreground">
-                        {t("styles.editor.name")}
-                      </span>
-                      <Input
-                        dir="auto"
-                        value={draft.name}
-                        maxLength={STYLE_NAME_MAX_LENGTH}
-                        onChange={(e) => setDraft((prev) => ({ ...prev, name: e.target.value }))}
-                        className="h-9 text-xs"
-                        placeholder={t("styles.editor.namePlaceholder")}
-                      />
-                    </label>
-                  </div>
-                  <label className="block space-y-1">
-                    <span className="text-xs text-muted-foreground">
-                      {t("styles.editor.instruction")}
-                    </span>
-                    <AutoGrowTextarea
-                      dir="auto"
-                      value={draft.instruction}
-                      maxLength={STYLE_INSTRUCTION_MAX_LENGTH}
-                      onChange={(e) =>
-                        setDraft((prev) => ({ ...prev, instruction: e.target.value }))
-                      }
-                      minRows={6}
-                      className="text-xs leading-relaxed"
-                      placeholder={t("styles.editor.instructionPlaceholder")}
-                    />
-                    <span className="block text-[11px] text-muted-foreground/80">
-                      {t("styles.editor.instructionHint")}
-                    </span>
-                  </label>
-                </div>
-
-                <div className="px-5 py-4 space-y-2">
-                  <p className="text-xs font-medium text-foreground">
-                    {t("styles.editor.runMode")}
-                  </p>
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    {(["two-step", "one-step"] as const).map((mode) => (
-                      <button
-                        key={mode}
-                        type="button"
-                        aria-pressed={draft.runMode === mode}
-                        onClick={() => setDraft((prev) => ({ ...prev, runMode: mode }))}
-                        className={cn(
-                          "rounded-lg border px-3 py-2 text-start transition-colors",
-                          draft.runMode === mode
-                            ? "border-primary bg-primary/5"
-                            : "border-border/70 hover:bg-muted/40"
-                        )}
-                      >
-                        <span className="block text-xs font-medium text-foreground">
-                          {runModeLabel(mode)}
-                        </span>
-                        <span className="block text-[11px] text-muted-foreground leading-relaxed">
-                          {t(
-                            mode === "one-step"
-                              ? "styles.runMode.oneStepDescription"
-                              : "styles.runMode.twoStepsDescription"
-                          )}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="px-5 py-4">
-                  <div className="flex items-start gap-3">
-                    <Toggle
-                      checked={draft.appGlossary}
-                      onChange={(value) => setDraft((prev) => ({ ...prev, appGlossary: value }))}
-                      ariaLabel={t("styles.editor.appGlossary")}
-                    />
-                    <div className="space-y-0.5">
-                      <p className="text-xs font-medium text-foreground">
-                        {t("styles.editor.appGlossary")}
-                      </p>
-                      <p className="text-[11px] text-muted-foreground leading-relaxed">
-                        {t("styles.editor.appGlossaryDescription")}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {selected && <StyleHotkeyField style={selected} />}
-
-                <div className="px-5 py-4">
-                  <div className="flex flex-wrap items-center gap-2">
-                    {isDirty ? (
-                      <span className="text-xs text-warning">
-                        ● {t("promptStudio.library.unsaved")}
-                      </span>
-                    ) : (
-                      justSaved && (
-                        <span className="flex items-center gap-1 text-xs text-success">
-                          <Check className="w-3 h-3" />
-                          {t("promptStudio.library.saved")}
-                        </span>
-                      )
-                    )}
-                    <span className="flex-1" />
-                    {selected && (
-                      <Button
-                        onClick={() => setConfirmDelete(true)}
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 px-2 text-destructive hover:text-destructive"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                        {t("promptStudio.library.actions.delete")}
-                      </Button>
-                    )}
-                    {(isDirty || isNew) && (
-                      <Button onClick={discard} variant="ghost" size="sm" className="h-8">
-                        {t("promptStudio.library.actions.discard")}
-                      </Button>
-                    )}
-                    <Button
-                      onClick={save}
-                      size="sm"
-                      className="h-8"
-                      disabled={!draftComplete || (!isNew && !isDirty)}
-                    >
-                      <Save className="w-3.5 h-3.5" />
-                      {t("promptStudio.common.save")}
-                    </Button>
-                  </div>
-                  {!draftComplete && (
-                    <p className="text-xs text-muted-foreground/80 mt-1.5">
-                      {t("styles.editor.incomplete")}
-                    </p>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* ── Test ── */}
-            {activeTab === "test" && (
-              <div className="divide-y divide-border/60 dark:divide-border-subtle">
-                <div className="px-5 py-3">
-                  <div
-                    role="tablist"
-                    className="inline-flex rounded-lg border border-border/70 dark:border-border-subtle p-0.5"
+                >
+                  {isPlain
+                    ? t("styles.detail.builtIn")
+                    : selected?.enabled
+                      ? t("styles.editor.on")
+                      : t("styles.editor.off")}
+                </span>
+              )}
+            </div>
+            <div className="flex border-b border-border/70 dark:border-border-subtle">
+              {tabs.map((tab) => {
+                const Icon = tab.icon;
+                const isActive = activeTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-xs font-medium transition-colors duration-150 border-b-2 ${
+                      isActive
+                        ? "border-primary text-foreground bg-primary/5 dark:bg-primary/3"
+                        : "border-transparent text-muted-foreground hover:text-foreground hover:bg-black/2 dark:hover:bg-white/2"
+                    }`}
                   >
-                    {(["single", "set"] as const).map((mode) => (
-                      <button
-                        key={mode}
-                        type="button"
-                        role="tab"
-                        aria-selected={testMode === mode}
-                        onClick={() => setTestMode(mode)}
-                        className={`px-3 py-1 text-xs font-medium rounded-md transition-colors duration-150 ${
-                          testMode === mode
-                            ? "bg-primary/10 text-foreground"
-                            : "text-muted-foreground hover:text-foreground"
-                        }`}
-                      >
-                        {t(
-                          mode === "single"
-                            ? "promptStudio.testSet.modeSingle"
-                            : "promptStudio.testSet.modeSet"
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+                    <Icon className="w-3.5 h-3.5" />
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </div>
 
-                {testMode === "set" ? (
-                  selected ? (
-                    <PromptTestSet
-                      style={{
-                        style: snapshotStyle({ ...draftStyle, id: selected.id }),
-                        isDraft: isDirty,
-                      }}
-                      agentName={agentName}
-                    />
-                  ) : (
-                    <p className="px-5 py-4 text-xs text-muted-foreground">
-                      {t("styles.test.saveFirst")}
-                    </p>
-                  )
-                ) : (
-                  <>
-                    <div className="px-5 py-4">
-                      <div className="flex items-start gap-2.5 rounded-lg border border-primary/20 bg-primary/5 dark:bg-primary/10 px-4 py-3">
-                        <Info className="w-3.5 h-3.5 text-primary mt-0.5 shrink-0" />
-                        <p className="text-xs text-muted-foreground leading-relaxed">
-                          {t(isDirty || isNew ? "styles.test.singleDraft" : "styles.test.single")}
+            {isPlain ? (
+              <div className="px-5 py-4 space-y-2">
+                <p className="text-xs font-medium text-foreground">{t("styles.plain.name")}</p>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  {t("styles.plain.description")}
+                </p>
+              </div>
+            ) : (
+              <>
+                {/* ── View ── */}
+                {activeTab === "view" && (
+                  <div className="divide-y divide-border/60 dark:divide-border-subtle">
+                    <div className="px-5 py-4 space-y-2">
+                      <p dir="auto" className="text-sm font-medium text-foreground">
+                        {saved.emoji ? `${saved.emoji} ` : ""}
+                        {saved.name || t("styles.editor.untitled")}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {runModeLabel(saved.runMode)} ·{" "}
+                        {selected?.enabled ? t("styles.editor.on") : t("styles.editor.off")} ·{" "}
+                        {saved.appGlossary
+                          ? t("styles.editor.appGlossaryOn")
+                          : t("styles.editor.appGlossaryOff")}
+                      </p>
+                      <div className="bg-muted/30 dark:bg-surface-raised/30 border border-border/70 rounded-lg p-4">
+                        <p dir="auto" className="text-xs text-foreground whitespace-pre-wrap">
+                          {saved.instruction || t("styles.editor.noInstruction")}
                         </p>
                       </div>
-                    </div>
-                    <div className="px-5 py-4">
-                      <p className="text-xs font-medium text-foreground mb-2">
-                        {t("promptStudio.test.inputLabel")}
-                      </p>
-                      <AutoGrowTextarea
-                        dir="auto"
-                        value={testText}
-                        onChange={(e) => setTestText(e.target.value)}
-                        minRows={3}
-                        className="text-xs"
-                        placeholder={t("promptStudio.test.inputPlaceholder")}
-                      />
-                    </div>
-                    <div className="px-5 py-4">
-                      <Button
-                        onClick={() => void runSingle()}
-                        disabled={!testText.trim() || running || !draftComplete || !reachable}
-                        size="sm"
-                        className="w-full"
-                      >
-                        {running ? (
-                          <Loader2 className="w-3.5 h-3.5 me-2 animate-spin" />
-                        ) : (
-                          <Play className="w-3.5 h-3.5 me-2" />
-                        )}
-                        {running ? t("promptStudio.test.processing") : t("styles.test.runBoth")}
-                      </Button>
-                      {!reachable && (
-                        <p className="text-xs text-muted-foreground/80 mt-1.5">
-                          {t("promptStudio.test.noModelSelected")}
+                      {isDirty && (
+                        <p className="text-xs text-warning">
+                          {t("promptStudio.library.viewShowsSaved")}
                         </p>
                       )}
-                      {selected && (
-                        <div className="mt-2 flex flex-wrap items-center gap-2">
-                          <Button
-                            onClick={() => void saveAsTestCase()}
-                            disabled={!testText.trim()}
-                            variant="outline"
-                            size="sm"
-                            className="h-7 text-xs"
-                          >
-                            {t("promptStudio.test.saveAsCase")}
-                          </Button>
-                          {notice && <p className="text-xs text-muted-foreground/80">{notice}</p>}
-                        </div>
-                      )}
                     </div>
-                    {(results["one-step"] || results["two-step"]) && (
-                      <div className="px-5 py-4 grid gap-3 sm:grid-cols-2">
-                        {RUN_MODES.map((mode) => (
-                          <ModeOutput
-                            key={mode}
-                            title={runModeLabel(mode)}
-                            result={results[mode]}
-                            pending={running && !results[mode]}
+                    {selected && <StyleHotkeyField style={selected} />}
+                    {saved.instruction && (
+                      <details className="px-5 py-4 text-xs text-muted-foreground">
+                        <summary className="cursor-pointer select-none">
+                          {saved.runMode === "one-step"
+                            ? t("styles.editor.showOneStepBlock")
+                            : t("styles.editor.showRestylePrompt")}
+                        </summary>
+                        <ClampedText
+                          collapsedRem={18}
+                          className="mt-2 rounded-lg border border-border/70 bg-muted/30 p-3"
+                        >
+                          <pre
+                            dir="ltr"
+                            className="whitespace-pre-wrap font-mono text-[11px] leading-relaxed"
+                          >
+                            {saved.runMode === "one-step"
+                              ? buildOneStepStyleBlock({
+                                  name: saved.name,
+                                  instruction: saved.instruction,
+                                })
+                              : buildRestylePrompt({
+                                  name: saved.name,
+                                  instruction: saved.instruction,
+                                })}
+                          </pre>
+                        </ClampedText>
+                      </details>
+                    )}
+                  </div>
+                )}
+
+                {/* ── Customize ── */}
+                {activeTab === "edit" && (
+                  <div className="divide-y divide-border/60 dark:divide-border-subtle">
+                    <div className="px-5 py-4 space-y-3">
+                      <div className="grid grid-cols-[5rem_1fr] gap-2">
+                        <label className="block space-y-1">
+                          <span className="text-xs text-muted-foreground">
+                            {t("styles.editor.emoji")}
+                          </span>
+                          <Input
+                            dir="auto"
+                            value={draft.emoji}
+                            maxLength={STYLE_EMOJI_MAX_LENGTH}
+                            onChange={(e) =>
+                              setDraft((prev) => ({ ...prev, emoji: e.target.value }))
+                            }
+                            className="h-9 text-sm text-center"
+                            placeholder="💬"
                           />
+                        </label>
+                        <label className="block space-y-1">
+                          <span className="text-xs text-muted-foreground">
+                            {t("styles.editor.name")}
+                          </span>
+                          <Input
+                            dir="auto"
+                            value={draft.name}
+                            maxLength={STYLE_NAME_MAX_LENGTH}
+                            onChange={(e) =>
+                              setDraft((prev) => ({ ...prev, name: e.target.value }))
+                            }
+                            className="h-9 text-xs"
+                            placeholder={t("styles.editor.namePlaceholder")}
+                          />
+                        </label>
+                      </div>
+                      <label className="block space-y-1">
+                        <span className="text-xs text-muted-foreground">
+                          {t("styles.editor.instruction")}
+                        </span>
+                        <AutoGrowTextarea
+                          dir="auto"
+                          value={draft.instruction}
+                          maxLength={STYLE_INSTRUCTION_MAX_LENGTH}
+                          onChange={(e) =>
+                            setDraft((prev) => ({ ...prev, instruction: e.target.value }))
+                          }
+                          minRows={6}
+                          className="text-xs leading-relaxed"
+                          placeholder={t("styles.editor.instructionPlaceholder")}
+                        />
+                        <span className="block text-[11px] text-muted-foreground/80">
+                          {t("styles.editor.instructionHint")}
+                        </span>
+                      </label>
+                    </div>
+
+                    <div className="px-5 py-4 space-y-2">
+                      <p className="text-xs font-medium text-foreground">
+                        {t("styles.editor.runMode")}
+                      </p>
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        {(["two-step", "one-step"] as const).map((mode) => (
+                          <button
+                            key={mode}
+                            type="button"
+                            aria-pressed={draft.runMode === mode}
+                            onClick={() => setDraft((prev) => ({ ...prev, runMode: mode }))}
+                            className={cn(
+                              "rounded-lg border px-3 py-2 text-start transition-colors",
+                              draft.runMode === mode
+                                ? "border-primary bg-primary/5"
+                                : "border-border/70 hover:bg-muted/40"
+                            )}
+                          >
+                            <span className="block text-xs font-medium text-foreground">
+                              {runModeLabel(mode)}
+                            </span>
+                            <span className="block text-[11px] text-muted-foreground leading-relaxed">
+                              {t(
+                                mode === "one-step"
+                                  ? "styles.runMode.oneStepDescription"
+                                  : "styles.runMode.twoStepsDescription"
+                              )}
+                            </span>
+                          </button>
                         ))}
                       </div>
-                    )}
-                  </>
+                    </div>
+
+                    <div className="px-5 py-4">
+                      <div className="flex items-start gap-3">
+                        <Toggle
+                          checked={draft.appGlossary}
+                          onChange={(value) =>
+                            setDraft((prev) => ({ ...prev, appGlossary: value }))
+                          }
+                          ariaLabel={t("styles.editor.appGlossary")}
+                        />
+                        <div className="space-y-0.5">
+                          <p className="text-xs font-medium text-foreground">
+                            {t("styles.editor.appGlossary")}
+                          </p>
+                          <p className="text-[11px] text-muted-foreground leading-relaxed">
+                            {t("styles.editor.appGlossaryDescription")}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {selected && <StyleHotkeyField style={selected} />}
+
+                    <div className="px-5 py-4">
+                      <div className="flex flex-wrap items-center gap-2">
+                        {isDirty ? (
+                          <span className="text-xs text-warning">
+                            ● {t("promptStudio.library.unsaved")}
+                          </span>
+                        ) : (
+                          justSaved && (
+                            <span className="flex items-center gap-1 text-xs text-success">
+                              <Check className="w-3 h-3" />
+                              {t("promptStudio.library.saved")}
+                            </span>
+                          )
+                        )}
+                        <span className="flex-1" />
+                        {selected && (
+                          <Button
+                            onClick={() => setConfirmDelete(true)}
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 px-2 text-destructive hover:text-destructive"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            {t("promptStudio.library.actions.delete")}
+                          </Button>
+                        )}
+                        {(isDirty || isNew) && (
+                          <Button onClick={discard} variant="ghost" size="sm" className="h-8">
+                            {t("promptStudio.library.actions.discard")}
+                          </Button>
+                        )}
+                        <Button
+                          onClick={save}
+                          size="sm"
+                          className="h-8"
+                          disabled={!draftComplete || (!isNew && !isDirty)}
+                        >
+                          <Save className="w-3.5 h-3.5" />
+                          {t("promptStudio.common.save")}
+                        </Button>
+                      </div>
+                      {!draftComplete && (
+                        <p className="text-xs text-muted-foreground/80 mt-1.5">
+                          {t("styles.editor.incomplete")}
+                        </p>
+                      )}
+                    </div>
+                  </div>
                 )}
-              </div>
+
+                {/* ── Test ── */}
+                {activeTab === "test" && (
+                  <div className="divide-y divide-border/60 dark:divide-border-subtle">
+                    <div className="px-5 py-3">
+                      <div
+                        role="tablist"
+                        className="inline-flex rounded-lg border border-border/70 dark:border-border-subtle p-0.5"
+                      >
+                        {(["single", "set"] as const).map((mode) => (
+                          <button
+                            key={mode}
+                            type="button"
+                            role="tab"
+                            aria-selected={testMode === mode}
+                            onClick={() => setTestMode(mode)}
+                            className={`px-3 py-1 text-xs font-medium rounded-md transition-colors duration-150 ${
+                              testMode === mode
+                                ? "bg-primary/10 text-foreground"
+                                : "text-muted-foreground hover:text-foreground"
+                            }`}
+                          >
+                            {t(
+                              mode === "single"
+                                ? "promptStudio.testSet.modeSingle"
+                                : "promptStudio.testSet.modeSet"
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {testMode === "set" ? (
+                      selected ? (
+                        <PromptTestSet
+                          style={{
+                            style: snapshotStyle({ ...draftStyle, id: selected.id }),
+                            isDraft: isDirty,
+                          }}
+                          agentName={agentName}
+                        />
+                      ) : (
+                        <p className="px-5 py-4 text-xs text-muted-foreground">
+                          {t("styles.test.saveFirst")}
+                        </p>
+                      )
+                    ) : (
+                      <>
+                        <div className="px-5 py-4">
+                          <div className="flex items-start gap-2.5 rounded-lg border border-primary/20 bg-primary/5 dark:bg-primary/10 px-4 py-3">
+                            <Info className="w-3.5 h-3.5 text-primary mt-0.5 shrink-0" />
+                            <p className="text-xs text-muted-foreground leading-relaxed">
+                              {t(
+                                isDirty || isNew ? "styles.test.singleDraft" : "styles.test.single"
+                              )}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="px-5 py-4">
+                          <p className="text-xs font-medium text-foreground mb-2">
+                            {t("promptStudio.test.inputLabel")}
+                          </p>
+                          <AutoGrowTextarea
+                            dir="auto"
+                            value={testText}
+                            onChange={(e) => setTestText(e.target.value)}
+                            minRows={3}
+                            className="text-xs"
+                            placeholder={t("promptStudio.test.inputPlaceholder")}
+                          />
+                        </div>
+                        <div className="px-5 py-4">
+                          <Button
+                            onClick={() => void runSingle()}
+                            disabled={!testText.trim() || running || !draftComplete || !reachable}
+                            size="sm"
+                            className="w-full"
+                          >
+                            {running ? (
+                              <Loader2 className="w-3.5 h-3.5 me-2 animate-spin" />
+                            ) : (
+                              <Play className="w-3.5 h-3.5 me-2" />
+                            )}
+                            {running ? t("promptStudio.test.processing") : t("styles.test.runBoth")}
+                          </Button>
+                          {!reachable && (
+                            <p className="text-xs text-muted-foreground/80 mt-1.5">
+                              {t("promptStudio.test.noModelSelected")}
+                            </p>
+                          )}
+                          {selected && (
+                            <div className="mt-2 flex flex-wrap items-center gap-2">
+                              <Button
+                                onClick={() => void saveAsTestCase()}
+                                disabled={!testText.trim()}
+                                variant="outline"
+                                size="sm"
+                                className="h-7 text-xs"
+                              >
+                                {t("promptStudio.test.saveAsCase")}
+                              </Button>
+                              {notice && (
+                                <p className="text-xs text-muted-foreground/80">{notice}</p>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                        {(results["one-step"] || results["two-step"]) && (
+                          <div className="px-5 py-4 grid gap-3 sm:grid-cols-2">
+                            {RUN_MODES.map((mode) => (
+                              <ModeOutput
+                                key={mode}
+                                title={runModeLabel(mode)}
+                                result={results[mode]}
+                                pending={running && !results[mode]}
+                              />
+                            ))}
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                )}
+              </>
             )}
-          </>
-        )}
+          </div>
+        </div>
       </div>
 
       <ConfirmDialog
@@ -817,44 +904,85 @@ export default function StyleStudio({ className = "" }: { className?: string }) 
 }
 
 function StyleRow({
+  id,
   emoji,
+  builtIn = false,
   name,
   detail,
+  hotkeys,
   selected,
   inUse,
   enabled,
   onToggle,
   onSelect,
+  rowRef,
 }: {
+  id: string;
   emoji: string;
+  /** Plain: drawn with the app's icon, no switch. */
+  builtIn?: boolean;
   name: string;
+  /** How it runs ("Two steps"), or "Cleanup only" for Plain. */
   detail: string;
+  /** The keys that dictate in it: the dictation hotkey where it's in use, its own key. */
+  hotkeys: { label: string; title: string }[];
   selected: boolean;
   inUse: boolean;
   /** Undefined for Plain, which is always on. */
   enabled?: boolean;
   onToggle?: (enabled: boolean) => void;
   onSelect: () => void;
+  rowRef?: (element: HTMLButtonElement | null) => void;
 }) {
   const { t } = useTranslation();
+  const off = enabled === false;
   return (
     <li
+      data-style-row={id}
       className={cn(
         "flex items-center gap-2 rounded-lg border px-3 py-2",
         selected ? "border-primary/50 bg-primary/5" : "border-border/60 dark:border-border-subtle"
       )}
     >
-      <button type="button" onClick={onSelect} className="min-w-0 flex-1 text-start">
-        <span dir="auto" className="block truncate text-xs font-medium text-foreground">
-          {emoji ? `${emoji} ` : ""}
-          {name}
-          {inUse && (
-            <span className="ms-2 text-[10px] font-semibold uppercase tracking-wider px-1.5 py-px rounded-full bg-primary/10 text-primary">
-              {t("styles.list.inUse")}
-            </span>
-          )}
+      <button
+        ref={rowRef}
+        type="button"
+        onClick={onSelect}
+        aria-current={selected ? "true" : undefined}
+        className={cn(
+          "flex min-w-0 flex-1 items-center gap-2.5 rounded-sm text-start outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
+          off && "opacity-60"
+        )}
+      >
+        <span
+          aria-hidden="true"
+          className="flex w-6 shrink-0 items-center justify-center text-base leading-none"
+        >
+          {builtIn ? <Sparkles className="w-4 h-4 text-primary" /> : emoji}
         </span>
-        <span className="block truncate text-[11px] text-muted-foreground">{detail}</span>
+        <span className="min-w-0 flex-1">
+          <span dir="auto" className="block truncate text-xs font-medium text-foreground">
+            {name}
+            {inUse && (
+              <span className="ms-2 text-[10px] font-semibold uppercase tracking-wider px-1.5 py-px rounded-full bg-primary/10 text-primary">
+                {t("styles.list.inUse")}
+              </span>
+            )}
+          </span>
+          <span className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[11px] text-muted-foreground">
+            <span className="truncate">{detail}</span>
+            {hotkeys.map((hotkey) => (
+              <kbd
+                key={`${hotkey.title}:${hotkey.label}`}
+                dir="ltr"
+                title={hotkey.title}
+                className="rounded border border-border/70 bg-muted/40 px-1 font-mono text-[10px] leading-4 text-foreground"
+              >
+                {hotkey.label}
+              </kbd>
+            ))}
+          </span>
+        </span>
       </button>
       {onToggle && enabled !== undefined && (
         <Toggle

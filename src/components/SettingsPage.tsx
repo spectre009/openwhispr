@@ -150,6 +150,9 @@ import { supportsLiveTranscriptionPreview } from "../utils/transcriptionPreview"
 import SettingsPageHeader from "./settings/SettingsPageHeader";
 import GpuDeviceSelector from "./settings/GpuDeviceSelector";
 import AiConnectionsPage from "./settings/AiConnectionsPage";
+import DictationOverview from "./settings/DictationOverview";
+import { HotkeyFeatureLink, HotkeyKbd, HotkeyTable, HotkeyTableRow } from "./settings/HotkeyTable";
+import type { ElsewhereLocation } from "./settings/search/types";
 import {
   SETTINGS_PAGE_IDS,
   SETTINGS_PAGES,
@@ -177,6 +180,8 @@ interface SettingsPageProps {
   page?: SettingsPageId;
   /** A link inside a page (Hotkeys → a style opens Styles). */
   onNavigate?: (page: SettingsPageId, subTab?: string) => void;
+  /** Leaves Settings for an app page (the Dictation overview's Dictionary & glossary step). */
+  onOpenElsewhere?: (location: ElsewhereLocation) => void;
   /** The Workspace tab a destination named. */
   initialSubTab?: string;
   /** Changes with each navigation, so `initialSubTab` re-applies even when it's unchanged. */
@@ -781,6 +786,7 @@ export function AccountAvatar({ image, name }: { image?: string | null; name: st
 export default function SettingsPage({
   page = "appearance",
   onNavigate,
+  onOpenElsewhere,
   initialSubTab,
   subTabRequestId,
 }: SettingsPageProps) {
@@ -3690,7 +3696,12 @@ EOF`,
           </div>
         );
 
-      case "hotkeys":
+      case "hotkeys": {
+        // Hidden under a native shortcut except on Linux, as before; style keys follow it too.
+        const showActivationMode = !isUsingNativeShortcut || getCachedPlatform() === "linux";
+        const dictationModeLabel = showActivationMode
+          ? t(activationMode === "push" ? "common.hold" : "common.tap")
+          : null;
         return (
           <div className="space-y-6">
             {isUsingHyprland && hyprlandConfigStatus && !hyprlandConfigStatus.canWrite && (
@@ -3709,15 +3720,64 @@ EOF`,
                 </AlertDescription>
               </Alert>
             )}
-            {/* Dictation Hotkey */}
-            <div data-setting-id="hotkeys.dictation">
+
+            {/* Activation mode: the dictation hotkey's Hold or Tap, which style hotkeys follow */}
+            {showActivationMode && (
+              <SettingsPanel>
+                <SettingsPanelRow data-setting-id="hotkeys.activationMode">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-medium text-foreground">
+                        {t("settingsPage.general.hotkey.activationMode")}
+                      </p>
+                      <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground/80">
+                        {t("settingsHotkeys.activation.description")}
+                      </p>
+                    </div>
+                    <ActivationModeSelector
+                      value={activationMode}
+                      onChange={setActivationMode}
+                      pushDisabledReason={pushToTalkUnavailableReason ?? undefined}
+                    />
+                  </div>
+                  {/* Denied input access gets the setup box below instead. */}
+                  {pushToTalkUnavailableReason && !linuxInputAccessDenied && (
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      {pushToTalkUnavailableReason}
+                    </p>
+                  )}
+                  {getCachedPlatform() === "linux" &&
+                    (activationMode === "push" || linuxInputAccessDenied) && (
+                      <LinuxPttSetupInfo
+                        isAvailable={!linuxInputAccessDenied && linuxPttAvailable}
+                      />
+                    )}
+                </SettingsPanelRow>
+              </SettingsPanel>
+            )}
+
+            {/* Every hotkey in one table; each row keeps its existing control */}
+            <div>
               <SectionHeader
-                title={t("settingsPage.general.hotkey.title")}
-                description={t("settingsPage.general.hotkey.description")}
+                title={t("settingsHotkeys.table.title")}
+                description={t("settingsHotkeys.table.description")}
                 note={isUsingHyprland && t("settingsPage.general.hotkey.hyprlandUnbindDescription")}
               />
-              <SettingsPanel>
-                <SettingsPanelRow>
+              <HotkeyTable label={t("settingsHotkeys.table.title")}>
+                {/* Dictation Hotkey */}
+                <HotkeyTableRow
+                  data-setting-id="hotkeys.dictation"
+                  rowId="dictation"
+                  action={t("settingsPage.general.hotkey.title")}
+                  description={t("settingsPage.general.hotkey.description")}
+                  how={dictationModeLabel ?? "—"}
+                  actions={
+                    <HotkeyFeatureLink
+                      label={t("settingsNav.parents.dictation")}
+                      onClick={() => onNavigate?.("overview")}
+                    />
+                  }
+                >
                   <HotkeyListInput
                     value={dictationKey}
                     onChange={(list) => registerHotkey(list)}
@@ -3744,46 +3804,26 @@ EOF`,
                       ) : null
                     }
                   />
-                </SettingsPanelRow>
+                </HotkeyTableRow>
 
-                {(!isUsingNativeShortcut || getCachedPlatform() === "linux") && (
-                  <SettingsPanelRow data-setting-id="hotkeys.activationMode">
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="text-xs text-muted-foreground/80">
-                        {t("settingsPage.general.hotkey.activationMode")}
-                      </span>
-                      <ActivationModeSelector
-                        value={activationMode}
-                        onChange={setActivationMode}
-                        pushDisabledReason={pushToTalkUnavailableReason ?? undefined}
+                {/* Style Hotkeys (read-only; set in Styles) */}
+                <StyleHotkeysList onOpenStyle={openStyleInStudio} modeLabel={dictationModeLabel} />
+
+                {/* Voice Agent Hotkey */}
+                {agentAllowedByPolicy && (
+                  <HotkeyTableRow
+                    data-setting-id="hotkeys.assistant"
+                    rowId="assistant"
+                    action={t("settingsPage.general.voiceAgentHotkey.title")}
+                    description={t("settingsPage.general.voiceAgentHotkey.description")}
+                    how={t("common.tap")}
+                    actions={
+                      <HotkeyFeatureLink
+                        label={t(SETTINGS_PAGES.assistant.titleKey)}
+                        onClick={() => onNavigate?.("assistant")}
                       />
-                    </div>
-                    {/* Denied input access gets the setup box below instead. */}
-                    {pushToTalkUnavailableReason && !linuxInputAccessDenied && (
-                      <p className="mt-2 text-xs text-muted-foreground">
-                        {pushToTalkUnavailableReason}
-                      </p>
-                    )}
-                    {getCachedPlatform() === "linux" &&
-                      (activationMode === "push" || linuxInputAccessDenied) && (
-                        <LinuxPttSetupInfo
-                          isAvailable={!linuxInputAccessDenied && linuxPttAvailable}
-                        />
-                      )}
-                  </SettingsPanelRow>
-                )}
-              </SettingsPanel>
-            </div>
-
-            {/* Voice Agent Hotkey */}
-            {agentAllowedByPolicy && (
-              <div data-setting-id="hotkeys.assistant">
-                <SectionHeader
-                  title={t("settingsPage.general.voiceAgentHotkey.title")}
-                  description={t("settingsPage.general.voiceAgentHotkey.description")}
-                />
-                <SettingsPanel>
-                  <SettingsPanelRow>
+                    }
+                  >
                     <HotkeyListInput
                       value={voiceAgentKey}
                       onChange={(list) => commitAgentHotkey(setVoiceAgentKey, list)}
@@ -3792,19 +3832,23 @@ EOF`,
                       disabled={isAgentHotkeyCommitting}
                       maxHotkeys={isUsingNativeShortcut ? 1 : undefined}
                     />
-                  </SettingsPanelRow>
-                </SettingsPanel>
-              </div>
-            )}
+                  </HotkeyTableRow>
+                )}
 
-            {/* Translation Hotkey */}
-            <div data-setting-id="hotkeys.translation">
-              <SectionHeader
-                title={t("settingsPage.general.translationHotkey.title")}
-                description={t("settingsPage.general.translationHotkey.description")}
-              />
-              <SettingsPanel>
-                <SettingsPanelRow>
+                {/* Translation Hotkey */}
+                <HotkeyTableRow
+                  data-setting-id="hotkeys.translation"
+                  rowId="translation"
+                  action={t("settingsPage.general.translationHotkey.title")}
+                  description={t("settingsPage.general.translationHotkey.description")}
+                  how={t("common.tap")}
+                  actions={
+                    <HotkeyFeatureLink
+                      label={t(SETTINGS_PAGES.translation.titleKey)}
+                      onClick={() => onNavigate?.("translation")}
+                    />
+                  }
+                >
                   <HotkeyListInput
                     value={translationKey}
                     onChange={(list) => commitAgentHotkey(setTranslationKey, list)}
@@ -3813,18 +3857,22 @@ EOF`,
                     disabled={isAgentHotkeyCommitting}
                     maxHotkeys={isUsingNativeShortcut ? 1 : undefined}
                   />
-                </SettingsPanelRow>
-              </SettingsPanel>
-            </div>
+                </HotkeyTableRow>
 
-            {/* Meeting Mode Hotkey */}
-            <div data-setting-id="hotkeys.meeting">
-              <SectionHeader
-                title={t("settingsPage.general.meetingHotkey.title")}
-                description={t("settingsPage.general.meetingHotkey.description")}
-              />
-              <SettingsPanel>
-                <SettingsPanelRow>
+                {/* Meeting Mode Hotkey */}
+                <HotkeyTableRow
+                  data-setting-id="hotkeys.meeting"
+                  rowId="meeting"
+                  action={t("settingsPage.general.meetingHotkey.title")}
+                  description={t("settingsPage.general.meetingHotkey.description")}
+                  how={t("common.tap")}
+                  actions={
+                    <HotkeyFeatureLink
+                      label={t(SETTINGS_PAGES.liveRecording.titleKey)}
+                      onClick={() => onNavigate?.("liveRecording")}
+                    />
+                  }
+                >
                   <HotkeyListInput
                     value={meetingKey}
                     onChange={(list) => registerMeetingHotkey(list)}
@@ -3846,56 +3894,57 @@ EOF`,
                     disabled={isMeetingHotkeyRegistering}
                     maxHotkeys={isUsingNativeShortcut ? 1 : undefined}
                   />
-                </SettingsPanelRow>
-                <SettingsPanelRow
-                  data-setting-id="hotkeys.meetingLayout"
-                  className="flex items-center justify-between gap-3 border-t border-border/70 dark:border-white/10"
-                >
-                  <span className="text-xs text-muted-foreground/80">
-                    {t("settingsPage.general.meetingHotkey.layoutLabel")}
-                  </span>
-                  <Select
-                    value={meetingHotkeyLayoutMode}
-                    onValueChange={(value) =>
-                      setMeetingHotkeyLayoutMode(value as "side-panel" | "full-width")
-                    }
+                  <div
+                    data-setting-id="hotkeys.meetingLayout"
+                    className="mt-3 flex flex-wrap items-center justify-between gap-3"
                   >
-                    <SelectTrigger className="h-7 w-36 text-xs rounded-lg px-2.5 [&>svg]:h-3 [&>svg]:w-3">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem
-                        value="full-width"
-                        className="text-xs py-1.5 ps-2.5 pe-7 rounded-md"
-                      >
-                        {t("settingsPage.general.meetingHotkey.layoutFullWidth")}
-                      </SelectItem>
-                      <SelectItem
-                        value="side-panel"
-                        className="text-xs py-1.5 ps-2.5 pe-7 rounded-md"
-                      >
-                        {t("settingsPage.general.meetingHotkey.layoutSidePanel")}
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </SettingsPanelRow>
-              </SettingsPanel>
-            </div>
+                    <span className="text-xs text-muted-foreground/80">
+                      {t("settingsPage.general.meetingHotkey.layoutLabel")}
+                    </span>
+                    <Select
+                      value={meetingHotkeyLayoutMode}
+                      onValueChange={(value) =>
+                        setMeetingHotkeyLayoutMode(value as "side-panel" | "full-width")
+                      }
+                    >
+                      <SelectTrigger className="h-7 w-36 text-xs rounded-lg px-2.5 [&>svg]:h-3 [&>svg]:w-3">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem
+                          value="full-width"
+                          className="text-xs py-1.5 ps-2.5 pe-7 rounded-md"
+                        >
+                          {t("settingsPage.general.meetingHotkey.layoutFullWidth")}
+                        </SelectItem>
+                        <SelectItem
+                          value="side-panel"
+                          className="text-xs py-1.5 ps-2.5 pe-7 rounded-md"
+                        >
+                          {t("settingsPage.general.meetingHotkey.layoutSidePanel")}
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </HotkeyTableRow>
 
-            {/* Style Hotkeys (read-only; set in Style Studio) */}
-            <div data-setting-id="hotkeys.styles">
-              <SectionHeader
-                title={t("settingsPage.general.styleHotkeys.title")}
-                description={t("settingsPage.general.styleHotkeys.description")}
-              />
-              <SettingsPanel>
-                <SettingsPanelRow>
-                  <StyleHotkeysList onOpenStyle={openStyleInStudio} />
-                </SettingsPanelRow>
-              </SettingsPanel>
+                {/* Cancel: Esc while recording (fixed, shown for reference) */}
+                <HotkeyTableRow
+                  data-setting-id="hotkeys.cancel"
+                  rowId="cancel"
+                  action={t("settingsHotkeys.cancel.title")}
+                  description={t("settingsHotkeys.cancel.description")}
+                  how={t("settingsHotkeys.how.whileRecording")}
+                >
+                  <div className="@2xl:pt-0.5">
+                    <HotkeyKbd>Esc</HotkeyKbd>
+                  </div>
+                </HotkeyTableRow>
+              </HotkeyTable>
             </div>
           </div>
         );
+      }
 
       case "speechToText":
       case "llms":
@@ -4657,6 +4706,15 @@ EOF`,
       case "privacyData":
       case "system":
         return renderSectionContent(pageId);
+
+      case "overview":
+        return (
+          <DictationOverview
+            autoLearnCorrections={autoLearnCorrections}
+            onNavigate={onNavigate}
+            onOpenElsewhere={onOpenElsewhere}
+          />
+        );
 
       case "recognition":
         return (

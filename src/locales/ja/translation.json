@@ -1866,6 +1866,10 @@
       "appDescription": "外観、サウンド、通知、起動、ノートファイル、ホットキー。"
     },
     "pages": {
+      "overview": {
+        "title": "概要",
+        "description": "ディクテーションのホットキーを押してからテキストが貼り付けられるまでの流れ。各ステップから設定を開けます。"
+      },
       "recognition": {
         "title": "認識",
         "description": "音声をテキストに変換します：音声認識エンジン、話す言語、音声検出。"
@@ -1906,6 +1910,9 @@
       "connections": {
         "title": "AI 接続とローカルモデル",
         "description": "サインイン、API キー、ダウンロードしたモデルをまとめて管理し、それぞれを使っている機能を確認できます。各機能はモデル設定でここから選びます。"
+      },
+      "hotkeys": {
+        "description": "すべてのグローバルホットキーを 1 つの表にまとめています。スタイルのホットキーも含め、すべての間で競合をチェックします。"
       }
     },
     "elsewhere": {
@@ -1920,6 +1927,70 @@
       "alsoUsedBy": "{{features}} でも使用",
       "noteFormattingInherits": "ノートのフォーマット（継承）",
       "inheritsFromCleanup": "未設定の項目はクリーンアップから継承"
+    }
+  },
+  "settingsOverview": {
+    "pipeline": {
+      "title": "ディクテーションの処理の流れ",
+      "note": "この図は厳密な処理順序ではなく各ステップを説明するものです。辞書の単語はヒントとして認識にも送られ、1 ステップのスタイルはクリーンアップと 1 回のリクエストで実行されます。",
+      "settingState": "{{setting}}: {{state}}",
+      "dictionary": {
+        "counts": "辞書: {{words}} · 用語集: {{rules}} · スニペット: {{snippets}}",
+        "status": "辞書ページを開きます"
+      },
+      "cleanup": {
+        "offStatus": "テキストは認識されたままです。スタイルで書き換えることはできます"
+      },
+      "style": {
+        "value": "{{hotkey}}: {{style}}",
+        "status": "オン: {{total}} 件中 {{on}} 件 · ホットキーあり: {{keys}}"
+      },
+      "personality": {
+        "title": "パーソナリティ",
+        "value": "あなたの話し方と書き方",
+        "status": "予定"
+      }
+    },
+    "last": {
+      "title": "最後のディクテーション",
+      "description": "最新のディクテーションの保存されたステップを並べて表示します。名前は「履歴 › ステップを表示」と同じです。",
+      "none": "まだディクテーションはありません。次のディクテーションがここにステップごとに表示されます。",
+      "historyOff": "ローカル履歴がオフの間、ステップは保存されません。",
+      "openPrivacy": "プライバシーとデータでオンにする",
+      "noCorrections": "修正なし",
+      "pasted": "貼り付け",
+      "total": "合計 {{seconds}} 秒"
+    },
+    "hotkeys": {
+      "all": "すべてのホットキー"
+    }
+  },
+  "settingsHotkeys": {
+    "table": {
+      "title": "すべてのホットキー",
+      "description": "各グローバルホットキーの動作と、その機能の場所。"
+    },
+    "columns": {
+      "action": "操作",
+      "hotkey": "ホットキー",
+      "how": "方式"
+    },
+    "activation": {
+      "description": "ホールド: キーを押している間だけ話します。タップ: 押して開始し、もう一度押して停止します。スタイルのホットキーもこれに従います。"
+    },
+    "how": {
+      "followsDictation": "{{mode}}（ディクテーションと同じ）",
+      "likeDictation": "ディクテーションと同じ",
+      "whileRecording": "録音中"
+    },
+    "styleRow": "スタイル: {{style}}",
+    "styleRowDescription": "このスタイルでディクテーションします",
+    "notSet": "未設定",
+    "styleOff": "スタイルがオフ",
+    "editStyle": "スタイルを編集",
+    "cancel": {
+      "title": "録音をキャンセル",
+      "description": "録音中のディクテーションを停止します。何も貼り付けられません。"
     }
   },
   "settingsLayer": {
@@ -5514,6 +5585,9 @@
       "new": "新しいスタイル",
       "inUse": "使用中",
       "toggle": "{{name}} のオン／オフ"
+    },
+    "detail": {
+      "builtIn": "組み込み"
     },
     "runMode": {
       "twoSteps": "2 ステップ",

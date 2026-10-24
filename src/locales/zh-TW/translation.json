@@ -1866,6 +1866,10 @@
       "appDescription": "外觀、聲音、通知、啟動、筆記檔案與快捷鍵。"
     },
     "pages": {
+      "overview": {
+        "title": "概覽",
+        "description": "從按下語音輸入快捷鍵到貼上文字之間發生了什麼。每個步驟都能開啟其設定。"
+      },
       "recognition": {
         "title": "辨識",
         "description": "將你的語音轉為文字：語音轉文字引擎、你說的語言與語音偵測。"
@@ -1906,6 +1910,9 @@
       "connections": {
         "title": "AI 連線與本機模型",
         "description": "登入、API 金鑰與已下載的模型集中在一處，並顯示各自被哪些功能使用。各功能在模型設定中從這裡選擇。"
+      },
+      "hotkeys": {
+        "description": "所有全域快捷鍵集中在一張表中。所有快捷鍵（包括風格快捷鍵）之間都會檢查衝突。"
       }
     },
     "elsewhere": {
@@ -1920,6 +1927,70 @@
       "alsoUsedBy": "{{features}} 也在使用",
       "noteFormattingInherits": "筆記格式化（繼承）",
       "inheritsFromCleanup": "未設定的欄位繼承自清理"
+    }
+  },
+  "settingsOverview": {
+    "pipeline": {
+      "title": "聽寫的處理流程",
+      "note": "此流程圖說明各個步驟，而非嚴格的執行順序：字典中的詞也會作為提示傳送給辨識，單步風格會與清理合併為一次請求。",
+      "settingState": "{{setting}}：{{state}}",
+      "dictionary": {
+        "counts": "字典：{{words}} · 詞彙表：{{rules}} · 片段：{{snippets}}",
+        "status": "開啟字典頁面"
+      },
+      "cleanup": {
+        "offStatus": "文字維持辨識結果；風格仍可改寫它"
+      },
+      "style": {
+        "value": "{{hotkey}}：{{style}}",
+        "status": "已開啟：{{on}}/{{total}} · 有快捷鍵：{{keys}}"
+      },
+      "personality": {
+        "title": "個性",
+        "value": "你的說話與寫作方式",
+        "status": "規劃中"
+      }
+    },
+    "last": {
+      "title": "最近一次聽寫",
+      "description": "最新一次聽寫儲存的各個步驟並排顯示，名稱與「歷史記錄 › 檢視步驟」一致。",
+      "none": "還沒有聽寫。下一次聽寫會在這裡逐步顯示。",
+      "historyOff": "本機歷史記錄關閉時不會儲存步驟。",
+      "openPrivacy": "在「隱私與資料」中開啟",
+      "noCorrections": "無校正",
+      "pasted": "已貼上",
+      "total": "共 {{seconds}} 秒"
+    },
+    "hotkeys": {
+      "all": "所有快捷鍵"
+    }
+  },
+  "settingsHotkeys": {
+    "table": {
+      "title": "所有快捷鍵",
+      "description": "每個全域快捷鍵的觸發方式及其功能所在位置。"
+    },
+    "columns": {
+      "action": "操作",
+      "hotkey": "快捷鍵",
+      "how": "方式"
+    },
+    "activation": {
+      "description": "按住：按住按鍵時說話。點按：按一下開始，再按一下停止。風格快捷鍵也遵循此模式。"
+    },
+    "how": {
+      "followsDictation": "{{mode}}，與聽寫相同",
+      "likeDictation": "與聽寫相同",
+      "whileRecording": "錄音時"
+    },
+    "styleRow": "風格：{{style}}",
+    "styleRowDescription": "以此風格聽寫",
+    "notSet": "未設定",
+    "styleOff": "風格已關閉",
+    "editStyle": "編輯風格",
+    "cancel": {
+      "title": "取消錄音",
+      "description": "在錄音時停止聽寫；不會貼上任何內容。"
     }
   },
   "settingsLayer": {
@@ -5514,6 +5585,9 @@
       "new": "新增風格",
       "inUse": "使用中",
       "toggle": "開啟或關閉 {{name}}"
+    },
+    "detail": {
+      "builtIn": "內建"
     },
     "runMode": {
       "twoSteps": "兩步",

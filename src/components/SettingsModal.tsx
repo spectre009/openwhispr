@@ -9,6 +9,7 @@ import { useAuth } from "../hooks/useAuth";
 import { useOpenWhisprCloudDisabled } from "../stores/openWhisprCloudStore";
 import {
   SETTINGS_PAGES,
+  isWideSettingsPage,
   resolveSettingsDestination,
   settingsBreadcrumbKeys,
   shownSettingsPage,
@@ -282,6 +283,8 @@ export default function SettingsModal({
         handleNavigate(page);
       }}
       navigationKey={current.navigationId}
+      // Search results keep the reading width; the page's own width comes back with it.
+      wide={!searching && isWideSettingsPage(shownPage)}
       returnFocusRef={returnFocusRef}
       getFallbackFocus={getFallbackFocus}
       navTop={
@@ -345,6 +348,7 @@ export default function SettingsModal({
         <SettingsPage
           page={shownPage}
           onNavigate={handleNavigate}
+          onOpenElsewhere={onOpenElsewhere}
           initialSubTab={current.subTab}
           subTabRequestId={current.navigationId}
         />

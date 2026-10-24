@@ -160,6 +160,7 @@ function llmEditor(
   ];
 }
 
+const OVERVIEW = at("overview");
 const RECOGNITION = at("recognition");
 const CLEANUP = at("cleanup");
 const STYLES = at("styles");
@@ -602,11 +603,26 @@ export const SETTINGS_SEARCH_DESCRIPTORS: readonly SettingDescriptor[] = [
     aliasKeys: ["settingsSearch.aliases.shortcut"],
     value: "hotkey.styles",
   }),
+  row("hotkeys.cancel", HOTKEYS, "settingsHotkeys.cancel.title", {
+    descriptionKey: "settingsHotkeys.cancel.description",
+    aliases: ["cancel", "escape", "esc", "stop recording", "abort", "discard"],
+  }),
 
-  // ── Recognition, Live Recording, File Transcription (the old Speech-to-Text) ──
-  parent("page.dictation", "settingsNav.parents.dictation", "recognition", {
+  // ── Dictation (Overview, Recognition; Live Recording and File Transcription) ──
+  parent("page.dictation", "settingsNav.parents.dictation", "overview", {
     descriptionKey: "settingsNav.parents.dictationDescription",
     aliases: ["dictation", "dictate", "voice typing"],
+  }),
+  page("page.overview", "overview", {
+    aliases: ["overview", "pipeline", "flow", "how dictation works", "steps", "last dictation"],
+  }),
+  row("dictation.overview.pipeline", OVERVIEW, "settingsOverview.pipeline.title", {
+    descriptionKey: "settingsOverview.pipeline.note",
+    aliases: ["pipeline", "flow", "steps", "order", "how it works"],
+  }),
+  row("dictation.overview.lastDictation", OVERVIEW, "settingsOverview.last.title", {
+    descriptionKey: "settingsOverview.last.description",
+    aliases: ["last dictation", "step history", "view steps", "what happened", "recent"],
   }),
   page("page.speechToText.dictation", "recognition", {
     aliases: ["dictation", "stt", "speech to text", "transcription", "asr", "speech recognition"],

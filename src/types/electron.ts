@@ -408,7 +408,13 @@ export interface TranscriptionStepRecord {
    */
   detail: {
     revision?: number | null;
-    rulesFired?: Array<{ ruleId: string | null; from: string | null; to: string | null }>;
+    rulesFired?: Array<{
+      ruleId: string | null;
+      from: string | null;
+      to: string | null;
+      /** Offset of `from` in the speech-to-text text; null when it wasn't recorded. */
+      index?: number | null;
+    }>;
     snippets?: boolean;
     styleId?: string | null;
     runMode?: "two-step" | "one-step" | null;

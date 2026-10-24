@@ -1918,6 +1918,10 @@
       "appDescription": "Apariencia, sonidos, notificaciones, inicio, archivos de notas y atajos."
     },
     "pages": {
+      "overview": {
+        "title": "Resumen",
+        "description": "Qué ocurre entre el atajo de dictado y el texto pegado. Cada paso abre sus ajustes."
+      },
       "recognition": {
         "title": "Reconocimiento",
         "description": "Convierte tu voz en texto: el motor de voz a texto, el idioma que hablas y la detección de voz."
@@ -1958,6 +1962,9 @@
       "connections": {
         "title": "Conexiones de IA y modelos locales",
         "description": "Inicios de sesión, claves API y modelos descargados en un solo lugar, con lo que usa cada uno. Las funciones eligen entre ellos en sus ajustes de modelo."
+      },
+      "hotkeys": {
+        "description": "Todos los atajos globales en una tabla. Los conflictos se comprueban entre todos, incluidos los atajos de estilo."
       }
     },
     "elsewhere": {
@@ -1972,6 +1979,70 @@
       "alsoUsedBy": "También lo usan {{features}}",
       "noteFormattingInherits": "Formato de notas (hereda)",
       "inheritsFromCleanup": "Hereda de Limpieza los campos sin definir"
+    }
+  },
+  "settingsOverview": {
+    "pipeline": {
+      "title": "Cómo se procesa un dictado",
+      "note": "La franja explica los pasos, no su orden exacto: las palabras del diccionario también van a Reconocimiento como pistas, y un estilo de un paso se ejecuta con la limpieza en una sola solicitud.",
+      "settingState": "{{setting}}: {{state}}",
+      "dictionary": {
+        "counts": "Diccionario: {{words}} · Glosario: {{rules}} · Snippets: {{snippets}}",
+        "status": "Abre la página Diccionario"
+      },
+      "cleanup": {
+        "offStatus": "El texto queda tal como se reconoció; un estilo aún puede reescribirlo"
+      },
+      "style": {
+        "value": "{{hotkey}}: {{style}}",
+        "status": "Activados: {{on}} de {{total}} · Con atajo: {{keys}}"
+      },
+      "personality": {
+        "title": "Personalidad",
+        "value": "Cómo hablas y escribes",
+        "status": "Planificado"
+      }
+    },
+    "last": {
+      "title": "Último dictado",
+      "description": "Los pasos guardados del dictado más reciente, uno al lado del otro, con los nombres de Historial › Ver pasos.",
+      "none": "Aún no hay dictados. El próximo aparecerá aquí, paso a paso.",
+      "historyOff": "Los pasos no se guardan mientras el historial local está desactivado.",
+      "openPrivacy": "Actívalo en Privacidad y datos",
+      "noCorrections": "Sin correcciones",
+      "pasted": "Pegado",
+      "total": "{{seconds}} s en total"
+    },
+    "hotkeys": {
+      "all": "Todos los atajos"
+    }
+  },
+  "settingsHotkeys": {
+    "table": {
+      "title": "Todos los atajos",
+      "description": "Cómo se activa cada atajo global y dónde está su función."
+    },
+    "columns": {
+      "action": "Acción",
+      "hotkey": "Atajo",
+      "how": "Cómo"
+    },
+    "activation": {
+      "description": "Mantener: habla mientras la tecla está pulsada. Pulsar: pulsa para empezar y otra vez para parar. Los atajos de estilo lo siguen."
+    },
+    "how": {
+      "followsDictation": "{{mode}}, como el dictado",
+      "likeDictation": "Como el dictado",
+      "whileRecording": "Durante la grabación"
+    },
+    "styleRow": "Estilo: {{style}}",
+    "styleRowDescription": "Dicta con este estilo",
+    "notSet": "Sin definir",
+    "styleOff": "Estilo desactivado",
+    "editStyle": "Editar estilo",
+    "cancel": {
+      "title": "Cancelar grabación",
+      "description": "Detiene un dictado mientras graba; no se pega nada."
     }
   },
   "settingsLayer": {
@@ -5514,6 +5585,9 @@
       "new": "Nuevo estilo",
       "inUse": "En uso",
       "toggle": "Activar o desactivar {{name}}"
+    },
+    "detail": {
+      "builtIn": "Integrado"
     },
     "runMode": {
       "twoSteps": "Dos pasos",

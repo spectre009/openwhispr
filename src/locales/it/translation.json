@@ -1866,6 +1866,10 @@
       "appDescription": "Aspetto, suoni, notifiche, avvio, file delle note e scorciatoie."
     },
     "pages": {
+      "overview": {
+        "title": "Panoramica",
+        "description": "Cosa succede tra la scorciatoia di dettatura e il testo incollato. Ogni passaggio apre le sue impostazioni."
+      },
       "recognition": {
         "title": "Riconoscimento",
         "description": "Trasforma la tua voce in testo: il motore di trascrizione, la lingua che parli e il rilevamento della voce."
@@ -1906,6 +1910,9 @@
       "connections": {
         "title": "Connessioni IA e modelli locali",
         "description": "Accessi, chiavi API e modelli scaricati in un unico posto, con cosa usa ciascuno. Le funzioni li scelgono nelle impostazioni del modello."
+      },
+      "hotkeys": {
+        "description": "Tutte le scorciatoie globali in un'unica tabella. I conflitti vengono controllati tra tutte, scorciatoie di stile comprese."
       }
     },
     "elsewhere": {
@@ -1920,6 +1927,70 @@
       "alsoUsedBy": "Usato anche da {{features}}",
       "noteFormattingInherits": "Formattazione note (eredita)",
       "inheritsFromCleanup": "Eredita da Pulizia i campi non impostati"
+    }
+  },
+  "settingsOverview": {
+    "pipeline": {
+      "title": "Come viene elaborata una dettatura",
+      "note": "La striscia spiega i passaggi, non il loro ordine esatto: le parole del dizionario vanno anche al Riconoscimento come suggerimenti, e uno stile in un passaggio viene eseguito insieme alla Pulizia in un'unica richiesta.",
+      "settingState": "{{setting}}: {{state}}",
+      "dictionary": {
+        "counts": "Dizionario: {{words}} · Glossario: {{rules}} · Snippet: {{snippets}}",
+        "status": "Apre la pagina Dizionario"
+      },
+      "cleanup": {
+        "offStatus": "Il testo resta come riconosciuto; uno stile può comunque riscriverlo"
+      },
+      "style": {
+        "value": "{{hotkey}}: {{style}}",
+        "status": "Attivi: {{on}} su {{total}} · Con scorciatoia: {{keys}}"
+      },
+      "personality": {
+        "title": "Personalità",
+        "value": "Come parli e scrivi",
+        "status": "Pianificato"
+      }
+    },
+    "last": {
+      "title": "Ultima dettatura",
+      "description": "I passaggi salvati della dettatura più recente, affiancati, con i nomi di Cronologia › Mostra passaggi.",
+      "none": "Ancora nessuna dettatura. La prossima apparirà qui, passaggio per passaggio.",
+      "historyOff": "I passaggi non vengono salvati finché la cronologia locale è disattivata.",
+      "openPrivacy": "Attivala in Privacy e dati",
+      "noCorrections": "Nessuna correzione",
+      "pasted": "Incollato",
+      "total": "{{seconds}} s in totale"
+    },
+    "hotkeys": {
+      "all": "Tutte le scorciatoie"
+    }
+  },
+  "settingsHotkeys": {
+    "table": {
+      "title": "Tutte le scorciatoie",
+      "description": "Come si attiva ogni scorciatoia globale e dove si trova la sua funzione."
+    },
+    "columns": {
+      "action": "Azione",
+      "hotkey": "Scorciatoia",
+      "how": "Come"
+    },
+    "activation": {
+      "description": "Tieni premuto: parla finché il tasto è premuto. Tocca: premi per iniziare e di nuovo per fermare. Le scorciatoie di stile seguono questa modalità."
+    },
+    "how": {
+      "followsDictation": "{{mode}}, come la dettatura",
+      "likeDictation": "Come la dettatura",
+      "whileRecording": "Durante la registrazione"
+    },
+    "styleRow": "Stile: {{style}}",
+    "styleRowDescription": "Detta in questo stile",
+    "notSet": "Non impostata",
+    "styleOff": "Stile disattivato",
+    "editStyle": "Modifica stile",
+    "cancel": {
+      "title": "Annulla registrazione",
+      "description": "Interrompe una dettatura durante la registrazione; non viene incollato nulla."
     }
   },
   "settingsLayer": {
@@ -5514,6 +5585,9 @@
       "new": "Nuovo stile",
       "inUse": "In uso",
       "toggle": "Attiva o disattiva {{name}}"
+    },
+    "detail": {
+      "builtIn": "Integrato"
     },
     "runMode": {
       "twoSteps": "Due passaggi",

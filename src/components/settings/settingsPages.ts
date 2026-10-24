@@ -17,6 +17,7 @@ export type SettingsPageId =
   | "account"
   | "plansBilling"
   | "workspace"
+  | "overview"
   | "recognition"
   | "cleanup"
   | "styles"
@@ -49,6 +50,7 @@ export type SettingsIconName =
   | "CreditCard"
   | "Users"
   | "Mic"
+  | "Network"
   | "AudioLines"
   | "Wand2"
   | "Pencil"
@@ -118,6 +120,8 @@ export interface SettingsPageDef {
   /** Preferences blocks the page shows, in order. */
   blocks?: readonly PreferencesBlockId[];
   feature?: SettingsFeature;
+  /** Laid out wider than the reading width (side-by-side blocks, tables). */
+  wide?: boolean;
 }
 
 const cloudOn = (ctx: SettingsPageContext) => !ctx.cloudDisabled;
@@ -141,6 +145,7 @@ export const SETTINGS_PAGES: Readonly<Record<SettingsPageId, SettingsPageDef>> =
     visible: (ctx) => cloudOn(ctx) && ctx.isSignedIn,
     fallback: "account",
   },
+  overview: { ...pageKeys("overview"), icon: "Network", wide: true },
   recognition: {
     ...pageKeys("recognition"),
     icon: "AudioLines",
@@ -156,6 +161,7 @@ export const SETTINGS_PAGES: Readonly<Record<SettingsPageId, SettingsPageDef>> =
     titleKey: "styles.section.title",
     descriptionKey: "styles.section.description",
     icon: "Pencil",
+    wide: true,
   },
   output: {
     ...pageKeys("output"),
@@ -219,7 +225,12 @@ export const SETTINGS_PAGES: Readonly<Record<SettingsPageId, SettingsPageDef>> =
     icon: "FolderOpen",
     blocks: ["noteFiles", "granolaImport"],
   },
-  hotkeys: { ...sectionKeys("hotkeys"), icon: "Keyboard" },
+  hotkeys: {
+    titleKey: "settingsModal.sections.hotkeys.label",
+    descriptionKey: "settingsNav.pages.hotkeys.description",
+    icon: "Keyboard",
+    wide: true,
+  },
   privacyData: { ...sectionKeys("privacyData"), icon: "Shield" },
   system: { ...sectionKeys("system"), icon: "Wrench" },
 };
@@ -271,8 +282,7 @@ export const SETTINGS_NAV: readonly SettingsNavGroupDef[] = [
         id: "dictation",
         titleKey: "settingsNav.parents.dictation",
         icon: "Mic",
-        // Stage 8 puts a Dictation overview first.
-        pages: ["recognition", "cleanup", "styles", "output"],
+        pages: ["overview", "recognition", "cleanup", "styles", "output"],
       },
       { kind: "page", page: "assistant" },
       { kind: "page", page: "translation" },
@@ -416,6 +426,11 @@ export function settingsPageTrail(page: SettingsPageId): {
 export function settingsBreadcrumbKeys(page: SettingsPageId): [string, string] {
   const trail = settingsPageTrail(page);
   return [trail.parentTitleKey ?? trail.groupLabelKey, trail.titleKey];
+}
+
+/** Whether the page lays out wider than the reading width (SettingsLayer's content). */
+export function isWideSettingsPage(page: SettingsPageId): boolean {
+  return SETTINGS_PAGES[page].wide === true;
 }
 
 export function isSettingsPageVisible(page: SettingsPageId, ctx: SettingsPageContext): boolean {

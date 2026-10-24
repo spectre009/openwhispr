@@ -1845,6 +1845,10 @@
       "appDescription": "Aparência, sons, notificações, inicialização, arquivos de notas e atalhos."
     },
     "pages": {
+      "overview": {
+        "title": "Visão geral",
+        "description": "O que acontece entre o atalho de ditado e o texto colado. Cada etapa abre suas configurações."
+      },
       "recognition": {
         "title": "Reconhecimento",
         "description": "Transforma sua voz em texto: o mecanismo de voz para texto, o idioma que você fala e a detecção de voz."
@@ -1885,6 +1889,9 @@
       "connections": {
         "title": "Conexões de IA e modelos locais",
         "description": "Logins, chaves API e modelos baixados em um só lugar, com o que usa cada um. Os recursos escolhem entre eles nas configurações de modelo."
+      },
+      "hotkeys": {
+        "description": "Todos os atalhos globais em uma tabela. Os conflitos são verificados entre todos, incluindo os atalhos de estilo."
       }
     },
     "elsewhere": {
@@ -1899,6 +1906,70 @@
       "alsoUsedBy": "Também usado por {{features}}",
       "noteFormattingInherits": "Formatação de notas (herda)",
       "inheritsFromCleanup": "Herda da Limpeza os campos não definidos"
+    }
+  },
+  "settingsOverview": {
+    "pipeline": {
+      "title": "Como um ditado é processado",
+      "note": "A faixa explica as etapas, não sua ordem exata: as palavras do dicionário também vão para o Reconhecimento como dicas, e um estilo de uma etapa roda junto com a Limpeza em uma única solicitação.",
+      "settingState": "{{setting}}: {{state}}",
+      "dictionary": {
+        "counts": "Dicionário: {{words}} · Glossário: {{rules}} · Snippets: {{snippets}}",
+        "status": "Abre a página Dicionário"
+      },
+      "cleanup": {
+        "offStatus": "O texto fica como foi reconhecido; um estilo ainda pode reescrevê-lo"
+      },
+      "style": {
+        "value": "{{hotkey}}: {{style}}",
+        "status": "Ativados: {{on}} de {{total}} · Com atalho: {{keys}}"
+      },
+      "personality": {
+        "title": "Personalidade",
+        "value": "Como você fala e escreve",
+        "status": "Planejado"
+      }
+    },
+    "last": {
+      "title": "Último ditado",
+      "description": "As etapas salvas do ditado mais recente, lado a lado, com os nomes de Histórico › Ver etapas.",
+      "none": "Nenhum ditado ainda. O próximo aparecerá aqui, etapa por etapa.",
+      "historyOff": "As etapas não são salvas enquanto o histórico local estiver desativado.",
+      "openPrivacy": "Ative em Privacidade e dados",
+      "noCorrections": "Nenhuma correção",
+      "pasted": "Colado",
+      "total": "{{seconds}} s no total"
+    },
+    "hotkeys": {
+      "all": "Todos os atalhos"
+    }
+  },
+  "settingsHotkeys": {
+    "table": {
+      "title": "Todos os atalhos",
+      "description": "Como cada atalho global é acionado e onde fica seu recurso."
+    },
+    "columns": {
+      "action": "Ação",
+      "hotkey": "Atalho",
+      "how": "Como"
+    },
+    "activation": {
+      "description": "Segurar: fale enquanto a tecla estiver pressionada. Toque: pressione para começar e de novo para parar. Os atalhos de estilo seguem esse modo."
+    },
+    "how": {
+      "followsDictation": "{{mode}}, como o ditado",
+      "likeDictation": "Como o ditado",
+      "whileRecording": "Durante a gravação"
+    },
+    "styleRow": "Estilo: {{style}}",
+    "styleRowDescription": "Dita neste estilo",
+    "notSet": "Não definido",
+    "styleOff": "Estilo desativado",
+    "editStyle": "Editar estilo",
+    "cancel": {
+      "title": "Cancelar gravação",
+      "description": "Interrompe um ditado durante a gravação; nada é colado."
     }
   },
   "settingsLayer": {
@@ -5514,6 +5585,9 @@
       "new": "Novo estilo",
       "inUse": "Em uso",
       "toggle": "Ativar ou desativar {{name}}"
+    },
+    "detail": {
+      "builtIn": "Integrado"
     },
     "runMode": {
       "twoSteps": "Duas etapas",

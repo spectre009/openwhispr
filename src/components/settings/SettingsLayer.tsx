@@ -78,6 +78,8 @@ export interface SettingsLayerProps<T extends string> {
   onNavigate: (page: T) => void;
   /** Changes on every navigation; the content scrolls back to the top. */
   navigationKey: number;
+  /** The page lays out wider than the reading width (up to 1240 px instead of 920). */
+  wide?: boolean;
   /** Above the nav (hidden while the nav shows icons only), e.g. account identity. */
   header?: React.ReactNode;
   /** Account-level notice, e.g. an organization-managed policy. */
@@ -134,6 +136,7 @@ export default function SettingsLayer<T extends string>({
   breadcrumb,
   onNavigate,
   navigationKey,
+  wide = false,
   header,
   notice,
   navTop,
@@ -573,7 +576,13 @@ export default function SettingsLayer<T extends string>({
               >
                 <SettingsLayoutProvider value={layout}>
                   <div
-                    className={cn("w-full max-w-[920px]", isCompact ? "p-4" : "px-8 pt-6 pb-16")}
+                    data-settings-content-width={wide ? "wide" : "reading"}
+                    className={cn(
+                      "w-full",
+                      // Reading width; wide pages (side-by-side blocks, tables) opt into more.
+                      wide ? "max-w-[1240px]" : "max-w-[920px]",
+                      isCompact ? "p-4" : "px-8 pt-6 pb-16"
+                    )}
                   >
                     {/* With the nav folded to icons, the search field heads the content. */}
                     {navIconsOnly && navTop && <div className="-mx-2 mb-4">{navTop}</div>}

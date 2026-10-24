@@ -1960,6 +1960,10 @@
       "appDescription": "Darstellung, Töne, Benachrichtigungen, Start, Notizdateien und Hotkeys."
     },
     "pages": {
+      "overview": {
+        "title": "Übersicht",
+        "description": "Was zwischen dem Diktat-Hotkey und dem eingefügten Text passiert. Jeder Schritt öffnet seine Einstellungen."
+      },
       "recognition": {
         "title": "Erkennung",
         "description": "Wandelt Ihre Stimme in Text um: die Transkriptions-Engine, die Sprache, die Sie sprechen, und die Sprachaktivitätserkennung."
@@ -2000,6 +2004,9 @@
       "connections": {
         "title": "KI-Verbindungen & lokale Modelle",
         "description": "Anmeldungen, API-Schlüssel und heruntergeladene Modelle an einem Ort, mit dem, was sie jeweils nutzt. Funktionen wählen daraus in ihren Modelleinstellungen."
+      },
+      "hotkeys": {
+        "description": "Alle globalen Hotkeys in einer Tabelle. Konflikte werden über alle hinweg geprüft, Stil-Hotkeys eingeschlossen."
       }
     },
     "elsewhere": {
@@ -2014,6 +2021,70 @@
       "alsoUsedBy": "Auch genutzt von {{features}}",
       "noteFormattingInherits": "Notizformatierung (erbt)",
       "inheritsFromCleanup": "Übernimmt leere Felder von der Bereinigung"
+    }
+  },
+  "settingsOverview": {
+    "pipeline": {
+      "title": "So wird ein Diktat verarbeitet",
+      "note": "Die Leiste erklärt die Schritte, nicht ihre genaue Reihenfolge: Wörterbuchwörter gehen auch als Hinweise an die Erkennung, und ein einstufiger Stil läuft zusammen mit der Bereinigung in einer Anfrage.",
+      "settingState": "{{setting}}: {{state}}",
+      "dictionary": {
+        "counts": "Wörterbuch: {{words}} · Glossar: {{rules}} · Snippets: {{snippets}}",
+        "status": "Öffnet die Wörterbuch-Seite"
+      },
+      "cleanup": {
+        "offStatus": "Der Text bleibt wie erkannt; ein Stil kann ihn trotzdem umformulieren"
+      },
+      "style": {
+        "value": "{{hotkey}}: {{style}}",
+        "status": "Ein: {{on}} von {{total}} · Mit Hotkey: {{keys}}"
+      },
+      "personality": {
+        "title": "Persönlichkeit",
+        "value": "Wie du sprichst und schreibst",
+        "status": "Geplant"
+      }
+    },
+    "last": {
+      "title": "Letztes Diktat",
+      "description": "Die gespeicherten Schritte des neuesten Diktats nebeneinander, benannt wie in Verlauf › Schritte anzeigen.",
+      "none": "Noch keine Diktate. Dein nächstes erscheint hier, Schritt für Schritt.",
+      "historyOff": "Schritte werden nicht gespeichert, solange der lokale Verlauf aus ist.",
+      "openPrivacy": "In Datenschutz & Daten einschalten",
+      "noCorrections": "Keine Korrekturen",
+      "pasted": "Eingefügt",
+      "total": "{{seconds}} s insgesamt"
+    },
+    "hotkeys": {
+      "all": "Alle Hotkeys"
+    }
+  },
+  "settingsHotkeys": {
+    "table": {
+      "title": "Alle Hotkeys",
+      "description": "Wie jeder globale Hotkey auslöst und wo seine Funktion zu finden ist."
+    },
+    "columns": {
+      "action": "Aktion",
+      "hotkey": "Hotkey",
+      "how": "Wie"
+    },
+    "activation": {
+      "description": "Halten: Sprich, solange die Taste gedrückt ist. Tippen: Zum Starten drücken, zum Stoppen erneut drücken. Stil-Hotkeys folgen diesem Modus."
+    },
+    "how": {
+      "followsDictation": "{{mode}}, wie beim Diktat",
+      "likeDictation": "Wie beim Diktat",
+      "whileRecording": "Während der Aufnahme"
+    },
+    "styleRow": "Stil: {{style}}",
+    "styleRowDescription": "Diktiert in diesem Stil",
+    "notSet": "Nicht festgelegt",
+    "styleOff": "Stil aus",
+    "editStyle": "Stil bearbeiten",
+    "cancel": {
+      "title": "Aufnahme abbrechen",
+      "description": "Beendet ein Diktat während der Aufnahme; nichts wird eingefügt."
     }
   },
   "settingsLayer": {
@@ -5514,6 +5585,9 @@
       "new": "Neuer Stil",
       "inUse": "In Verwendung",
       "toggle": "{{name}} ein- oder ausschalten"
+    },
+    "detail": {
+      "builtIn": "Integriert"
     },
     "runMode": {
       "twoSteps": "Zwei Schritte",
