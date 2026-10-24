@@ -6,15 +6,14 @@ import ApiKeyInput from "./ui/ApiKeyInput";
 import ModelCardList from "./ui/ModelCardList";
 import SearchableModelList, { MODEL_SEARCH_THRESHOLD } from "./ui/SearchableModelList";
 import { buildApiUrl, getModelListBaseCandidates, normalizeBaseUrl } from "../config/constants";
+import {
+  fetchOpenAiCompatibleModels,
+  type OpenAiCompatibleModel,
+} from "../utils/openAiCompatibleModels";
 import { isSecureHttpEndpoint } from "../utils/urlUtils";
 import { GetApiKeyLink } from "./ui/GetApiKeyLink";
 
-interface ModelOption {
-  value: string;
-  label: string;
-  description?: string;
-  ownedBy?: string;
-}
+type ModelOption = OpenAiCompatibleModel;
 
 interface OpenAICompatiblePanelProps {
   baseUrl: string;
@@ -136,47 +135,11 @@ export default function OpenAICompatiblePanel({
           return;
         }
 
-        const headers: Record<string, string> = {};
-        if (effectiveKey) {
-          headers.Authorization = `Bearer ${effectiveKey}`;
-        }
-
-        const fetchModelOptions = async (base: string): Promise<ModelOption[]> => {
-          const response = await fetch(buildApiUrl(base, "/models"), { method: "GET", headers });
-
-          if (!response.ok) {
-            const errorText = await response.text().catch(() => "");
-            const summary = errorText
-              ? `${response.status} ${errorText.slice(0, 200)}`
-              : `${response.status} ${response.statusText}`;
-            throw new Error(summary.trim());
-          }
-
-          const payload = await response.json().catch(() => ({}));
-          const rawModels = Array.isArray(payload?.data)
-            ? payload.data
-            : Array.isArray(payload?.models)
-              ? payload.models
-              : [];
-
-          // Coerce fields defensively: non-conformant endpoints may return
-          // numeric ids or object descriptions, which would crash the render.
-          return (rawModels as Array<Record<string, unknown>>)
-            .map((item) => {
-              const rawValue = item?.id ?? item?.name;
-              if (rawValue === undefined || rawValue === null || rawValue === "") return null;
-              const value = String(rawValue);
-              const ownedBy = typeof item?.owned_by === "string" ? item.owned_by : undefined;
-              const description =
-                typeof item?.description === "string" && item.description
-                  ? item.description
-                  : ownedBy
-                    ? t("reasoning.custom.ownerLabel", { owner: ownedBy })
-                    : undefined;
-              return { value, label: value, description, ownedBy } as ModelOption;
-            })
-            .filter(Boolean) as ModelOption[];
-        };
+        const fetchModelOptions = (base: string): Promise<ModelOption[]> =>
+          fetchOpenAiCompatibleModels(base, {
+            apiKey: effectiveKey,
+            describeOwner: (owner) => t("reasoning.custom.ownerLabel", { owner }),
+          });
 
         // When the entered base yields no models, fall back through sibling
         // bases and adopt the working one so inference targets it too.
