@@ -5716,6 +5716,29 @@
     "more": {
       "title": "Weitere Anbieter ({{count}})"
     },
+    "groups": {
+      "inUse": {
+        "title": "In Verwendung",
+        "hint": "Worauf Ihre Funktionen gerade laufen, die meistgenutzten zuerst."
+      },
+      "saved": {
+        "title": "Gespeichert, nicht verwendet",
+        "hint": "Schlüssel, die Sie hinzugefügt haben und die gerade keine Funktion nutzt. Wählen Sie einen in der Modellauswahl einer Funktion, um ihn zu nutzen."
+      },
+      "add": {
+        "title": "Anbieter hinzufügen ({{count}})"
+      },
+      "start": {
+        "title": "Erste Schritte",
+        "hint": "Verbinden Sie einen dieser Anbieter, um die Bereinigung, den Assistenten und die anderen KI-Funktionen einzuschalten. Jede Funktion wählt ihr Modell dann auf ihrer eigenen Seite."
+      }
+    },
+    "rows": {
+      "manage": "Verwalten",
+      "setUp": "Einrichten",
+      "signIn": "Anmelden",
+      "cloudOff": "Aus · in Datenschutz & Daten ausgeschaltet"
+    },
     "usedBy": {
       "label": "Genutzt von",
       "none": "Von keiner Funktion genutzt",
@@ -5783,8 +5806,8 @@
     },
     "custom": {
       "title": "Benutzerdefinierte Verbindung",
-      "description": "Ihr eigener Endpunkt: eine Azure-OpenAI- oder Foundry-Ressource oder eine beliebige OpenAI-kompatible API. Einmal eingerichtet, mit einem Schlüssel für alle Funktionen, die ihn nutzen.",
       "add": "Benutzerdefinierte Verbindung hinzufügen",
+      "addHint": "Eine Azure-OpenAI- oder Foundry-Ressource oder eine beliebige OpenAI-kompatible API",
       "managed": "Ihre Organisation erlaubt keine benutzerdefinierten Endpunkte.",
       "saveAsRefused": "Kann nicht als Verbindung gespeichert werden.",
       "differentKey": "anderer Schlüssel",

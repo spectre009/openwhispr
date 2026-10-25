@@ -1342,6 +1342,9 @@ export interface SettingsState
   setCustomTranscriptionApiKey: (key: string) => void;
   setCleanupCustomApiKey: (key: string) => void;
 
+  /** True once startup has read the secrets from main (never persisted). */
+  secretsHydrated: boolean;
+
   /** The custom connection on AI Connections (local only), or null. */
   customConnection: CustomConnection | null;
   /** Its key, hydrated from main and shown masked only. Main writes it (custom-connection-* IPCs). */
@@ -1850,6 +1853,7 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   customTranscriptionApiKey: "",
   cleanupCustomApiKey: "",
   customConnectionApiKey: "",
+  secretsHydrated: false,
   customConnection: isBrowser
     ? parseCustomConnection(localStorage.getItem("customConnection"))
     : null,
@@ -3889,6 +3893,7 @@ export async function initializeSettings(): Promise<void> {
       );
     } finally {
       hydratingSecrets = false;
+      useSettingsStore.setState({ secretsHydrated: true });
       await Promise.all([...pendingSecretUpdates].map(refreshApiKey));
       pendingSecretUpdates.clear();
     }

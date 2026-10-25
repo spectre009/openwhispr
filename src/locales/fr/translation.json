@@ -5716,6 +5716,29 @@
     "more": {
       "title": "Plus de fournisseurs ({{count}})"
     },
+    "groups": {
+      "inUse": {
+        "title": "En cours d'utilisation",
+        "hint": "Ce qu'utilisent vos fonctionnalités en ce moment, du plus utilisé au moins utilisé."
+      },
+      "saved": {
+        "title": "Enregistrés, non utilisés",
+        "hint": "Clés que vous avez ajoutées et qu'aucune fonctionnalité n'utilise en ce moment. Choisissez-en une dans le sélecteur de modèle d'une fonctionnalité pour l'utiliser."
+      },
+      "add": {
+        "title": "Ajouter un fournisseur ({{count}})"
+      },
+      "start": {
+        "title": "Pour commencer",
+        "hint": "Connectez l'un de ceux-ci pour activer le Nettoyage, l'assistant et les autres fonctionnalités IA. Chaque fonctionnalité choisit ensuite son modèle sur sa propre page."
+      }
+    },
+    "rows": {
+      "manage": "Gérer",
+      "setUp": "Configurer",
+      "signIn": "Se connecter",
+      "cloudOff": "Désactivé dans Confidentialité & données"
+    },
     "usedBy": {
       "label": "Utilisé par",
       "none": "Utilisé par aucune fonctionnalité",
@@ -5783,8 +5806,8 @@
     },
     "custom": {
       "title": "Connexion personnalisée",
-      "description": "Votre propre point de terminaison : une ressource Azure OpenAI ou Foundry, ou toute API compatible OpenAI. Configurez-le une fois, avec une seule clé, pour toutes les fonctionnalités qui l'utilisent.",
       "add": "Ajouter une connexion personnalisée",
+      "addHint": "Une ressource Azure OpenAI ou Foundry, ou toute API compatible OpenAI",
       "managed": "Votre organisation n'autorise pas les points de terminaison personnalisés.",
       "saveAsRefused": "Impossible de l'enregistrer comme connexion.",
       "differentKey": "clé différente",

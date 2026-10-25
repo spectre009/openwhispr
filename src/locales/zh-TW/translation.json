@@ -5716,6 +5716,29 @@
     "more": {
       "title": "更多供應商（{{count}}）"
     },
+    "groups": {
+      "inUse": {
+        "title": "使用中",
+        "hint": "您的功能目前所用的連線，使用最多的排在前面。"
+      },
+      "saved": {
+        "title": "已儲存，未使用",
+        "hint": "您已加入、但目前沒有功能在用的金鑰。在某功能的模型選擇器中選擇它即可使用。"
+      },
+      "add": {
+        "title": "新增供應商（{{count}}）"
+      },
+      "start": {
+        "title": "開始使用",
+        "hint": "連線其中之一，即可開啟清理、助理和其他 AI 功能。之後每個功能會在各自的頁面上選擇模型。"
+      }
+    },
+    "rows": {
+      "manage": "管理",
+      "setUp": "設定",
+      "signIn": "登入",
+      "cloudOff": "已關閉 · 在「隱私與資料」中關閉"
+    },
     "usedBy": {
       "label": "使用於",
       "none": "沒有功能在使用",
@@ -5783,8 +5806,8 @@
     },
     "custom": {
       "title": "自訂連線",
-      "description": "您自己的端點：Azure OpenAI 或 Foundry 資源，或任何相容 OpenAI 的 API。設定一次，以一組金鑰供所有使用它的功能使用。",
       "add": "新增自訂連線",
+      "addHint": "Azure OpenAI 或 Foundry 資源，或任何相容 OpenAI 的 API",
       "managed": "您的組織不允許使用自訂端點。",
       "saveAsRefused": "無法儲存為連線。",
       "differentKey": "金鑰不同",

@@ -4,11 +4,14 @@ const path = require("node:path");
 const { createRendererServer } = require("../lib/rendererTestHarness");
 
 // Settings › AI Connections & Local Models, rendered for real (SettingsModal →
-// SettingsLayer → SettingsPage) in happy-dom with a stubbed preload: it mounts
-// with OpenWhispr Cloud off and with a managed enterprise snapshot, shows saved
-// keys masked only (also while replacing one), keeps less common providers
-// behind "More providers" until they're connected, and its Used by chips and
-// the feature pages' "Manage keys" links navigate both ways.
+// SettingsLayer → SettingsPage) in happy-dom with a stubbed preload. On a first
+// run it shows the starter cards and "More providers"; once a feature uses a
+// connection it groups them: In use as cards, Saved, not in use as rows, the
+// rest folded under "Add a provider". Groups hold for a visit (a key added or
+// removed moves nothing) and regroup on the next; a search or "Manage keys"
+// link opens the fold only for a folded target. Keys only ever show masked
+// (also while replacing one), Remove asks first naming what uses the key, and
+// the Used by chips and the feature pages' links navigate both ways.
 
 const DOM_GLOBALS = [
   "document",
@@ -53,15 +56,18 @@ const DOM_GLOBALS = [
   "getSelection",
 ];
 
+const AZURE = "https://littlebuddy-foundry-eus2.openai.azure.com";
+
 const SECRETS = {
-  openaiApiKey: "sk-proj-SECRETOPENAI-1111",
-  anthropicApiKey: "sk-ant-SECRETANTHROPIC-2222",
   groqApiKey: "gsk_SECRETGROQ-3333",
-  mistralApiKey: "mistral-SECRETMISTRAL-4444",
-  cortiClientSecret: "corti-SECRETCORTI-5555",
-  cleanupCustomApiKey: "sk-cleanup-SECRETCUSTOM-6666",
-  customTranscriptionApiKey: "stt-SECRETSTT-7777",
+  geminiApiKey: "AIzaSECRETGEMINI-2222",
+  openrouterApiKey: "sk-or-SECRETOPENROUTER-4444",
+  customConnectionApiKey: "lb-SECRETBUDDY-5555",
+  customTranscriptionApiKey: "lb-SECRETBUDDY-5555",
+  chatAgentCustomApiKey: "lb-SECRETBUDDY-5555",
 };
+// Typed into a row in the fold during the test.
+const OPENAI_KEY = "sk-proj-SECRETOPENAI-1111";
 
 let happyWindow;
 
@@ -185,8 +191,8 @@ function managedBedrockConfig() {
 }
 
 test(
-  "AI Connections mounts with Cloud off and a managed setup, and only ever shows keys masked",
-  { timeout: 90000 },
+  "AI Connections groups connections by state, holds them for a visit and only ever shows keys masked",
+  { timeout: 120000 },
   async (t) => {
     globalThis.IS_REACT_ACT_ENVIRONMENT = true;
     const React = require("react");
@@ -200,6 +206,7 @@ test(
     const { SettingsProvider } = await vite.ssrLoadModule("/hooks/useSettings.ts");
     const { ToastProvider } = await vite.ssrLoadModule("/components/ui/Toast.tsx");
     const { useSettingsStore } = await vite.ssrLoadModule("/stores/settingsStore.ts");
+    const { useCopilotStore } = await vite.ssrLoadModule("/stores/copilotStore.ts");
     const { useOpenWhisprCloudStore } = await vite.ssrLoadModule("/stores/openWhisprCloudStore.ts");
     const { useEnterpriseIdentityStore } = await vite.ssrLoadModule(
       "/stores/enterpriseIdentityStore.ts"
@@ -207,6 +214,7 @@ test(
     const { maskApiKey } = await vite.ssrLoadModule("/utils/maskApiKey.ts");
     const { default: reasoningService } = await vite.ssrLoadModule("/services/ReasoningService.ts");
     t.after(() => reasoningService.destroy());
+    happyWindow.HTMLElement.prototype.scrollIntoView = () => {};
 
     const errors = [];
     const originalError = console.error;
@@ -226,7 +234,10 @@ test(
       await React.act(async () => root.unmount());
       host.remove();
     });
-    const render = async (request) => {
+    let request = null;
+    let nextId = 1;
+    const render = async ({ section, open = true } = {}) => {
+      if (section) request = { section, id: nextId++ };
       await React.act(async () => {
         root.render(
           h(
@@ -236,7 +247,7 @@ test(
               SettingsProvider,
               null,
               h(SettingsModal, {
-                open: true,
+                open,
                 request,
                 onRequestClose: () => true,
                 railItems: [],
@@ -252,43 +263,73 @@ test(
       });
       await settle();
     };
-    const act = async (fn) => {
+    const act = async (fn, ms = 30) => {
       await React.act(async () => {
         fn();
-        await settle();
+        await settle(ms);
       });
       await settle();
+    };
+    const type = async (input, text) => {
+      await act(() => {
+        const setter = Object.getOwnPropertyDescriptor(
+          happyWindow.HTMLInputElement.prototype,
+          "value"
+        ).set;
+        setter.call(input, text);
+        input.dispatchEvent(new happyWindow.Event("input", { bubbles: true }));
+      });
     };
     const shown = () =>
       [...doc.querySelectorAll("[data-settings-page-id]")]
         .filter((element) => !element.classList.contains("hidden"))
         .map((element) => element.getAttribute("data-settings-page-id"));
     const page = () => doc.querySelector('[data-settings-page-id="connections"]');
-    const card = (id) => page().querySelector(`[data-setting-id="connections.${id}"]`);
+    const entry = (id) => page().querySelector(`[data-setting-id="connections.${id}"]`);
+    const group = (name) => page().querySelector(`[data-connection-group="${name}"]`);
+    const anchorsIn = (scope) =>
+      scope
+        ? [...scope.querySelectorAll("[data-connection-card], [data-connection-row]")].map(
+            (element) => element.getAttribute("data-setting-id").replace("connections.", "")
+          )
+        : [];
+    const fold = () => page().querySelector('[data-setting-id="connections.more"]');
+    const foldTrigger = () => fold().querySelector("[data-setting-expand]");
+    const inFold = (id) => fold()?.querySelector(`[data-setting-id="connections.${id}"]`) ?? null;
+    const buttonIn = (scope, text) =>
+      [...scope.querySelectorAll("button")].find((button) => button.textContent.trim() === text);
     const noRawSecret = (when) => {
       const html = doc.documentElement.outerHTML;
       const values = [...doc.querySelectorAll("input, textarea")].map((input) => input.value);
-      for (const secret of Object.values(SECRETS)) {
+      for (const secret of [...Object.values(SECRETS), OPENAI_KEY]) {
         assert.ok(!html.includes(secret), `${when}: ${secret} rendered`);
         assert.ok(!values.some((value) => value.includes(secret)), `${when}: ${secret} in a field`);
       }
     };
+    // Main's answers, as the store holds them once loaded.
+    const loaded = () => {
+      useSettingsStore.setState({ secretsHydrated: true });
+      useCopilotStore.setState({
+        loaded: true,
+        status: { configured: true, state: "signedIn", login: "dshafran_microsoft" },
+      });
+    };
 
-    // Cloud off, keys saved (as the store holds them after hydration), Cleanup on OpenAI.
-    await render({ section: "connections", id: 1 });
+    // ── First run: nothing in use ────────────────────────────────────────────
+    await render({ section: "connections" });
     await act(() => {
-      useOpenWhisprCloudStore.setState({ disabled: true });
+      loaded();
+      useCopilotStore.setState({ status: { configured: true, state: "signedOut", login: "" } });
+      useOpenWhisprCloudStore.setState({ disabled: false });
       useSettingsStore.setState({
-        ...SECRETS,
         isSignedIn: false,
-        useCleanupModel: true,
-        cleanupMode: "providers",
-        cleanupProvider: "openai",
-        cleanupModel: "gpt-5-mini",
-        transcriptionMode: "providers",
-        cloudTranscriptionProvider: "groq",
-        cloudTranscriptionModel: "whisper-large-v3-turbo",
-        whisperModel: "base",
+        useCleanupModel: false,
+        transcriptionMode: "local",
+        cloudTranscriptionProvider: "openai",
+        meetingTranscriptionMode: "local",
+        uploadTranscriptionMode: "local",
+        chatAgentMode: "local",
+        dictationAgentMode: "local",
       });
     });
     assert.deepEqual(shown(), ["connections"]);
@@ -296,65 +337,228 @@ test(
       page().querySelector("[data-settings-page-header] h2").textContent,
       "AI Connections & Local Models"
     );
-
-    // Saved keys show masked, with their status.
-    assert.ok(card("openai").textContent.includes(maskApiKey(SECRETS.openaiApiKey)));
-    assert.ok(card("openai").querySelector('[data-connection-status="ok"]'));
-    assert.ok(card("anthropic").textContent.includes(maskApiKey(SECRETS.anthropicApiKey)));
-    assert.ok(card("gemini").querySelector('[data-connection-status="muted"]'), "no Gemini key");
-    noRawSecret("first render");
-
-    // Used by: Cleanup on OpenAI, Recognition on Groq.
-    assert.ok(card("openai").querySelector('[data-usage-feature="cleanup"]'));
-    assert.ok(card("groq").querySelector('[data-usage-feature="recognition"]'));
-
-    // Cloud off: says so, links to Privacy & Data, offers no sign-in.
-    const cloud = card("cloud");
-    assert.ok(cloud.querySelector('[data-connection-status="muted"]'));
-    assert.ok(cloud.textContent.includes("Turned off in Privacy & Data"));
+    assert.ok(group("start").textContent.includes("Get started"));
+    assert.equal(group("inUse"), null);
+    assert.equal(group("saved"), null);
+    assert.deepEqual(anchorsIn(group("start")), [
+      "copilot",
+      "openai",
+      "anthropic",
+      "gemini",
+      "groq",
+      "cloud",
+    ]);
+    assert.equal(foldTrigger().getAttribute("aria-expanded"), "false");
+    assert.ok(foldTrigger().textContent.includes("More providers (7)"));
     assert.ok(
-      [...cloud.querySelectorAll("button")].some((button) =>
-        button.textContent.includes("Privacy & Data")
+      foldTrigger().textContent.includes(
+        "OpenRouter · Mistral · Tinfoil · Corti · xAI · Deepgram · AssemblyAI"
       )
     );
+    assert.ok(entry("custom").querySelector("[data-custom-connection-add]"));
+    assert.ok(entry("custom").textContent.includes("Azure OpenAI or Foundry"));
+
+    // ── The user's setup, on the next visit ──────────────────────────────────
+    // Little Buddy runs Recognition, File Transcription, Chat and the voice
+    // assistant (through Chat); Copilot runs Cleanup; Groq, Gemini and
+    // OpenRouter have keys nothing uses; Cloud is off.
+    await render({ open: false });
+    await act(() => {
+      useOpenWhisprCloudStore.setState({ disabled: true });
+      useCopilotStore.setState({
+        status: { configured: true, state: "signedIn", login: "dshafran_microsoft" },
+      });
+      useSettingsStore.setState({
+        ...SECRETS,
+        customConnection: {
+          name: "Little Buddy",
+          endpoint: AZURE,
+          models: { language: ["gpt-5-mini"], speech: ["gpt-4o-transcribe"] },
+        },
+        useCleanupModel: true,
+        cleanupMode: "providers",
+        cleanupProvider: "copilot",
+        cleanupModel: "claude-haiku-5.5",
+        transcriptionMode: "providers",
+        cloudTranscriptionMode: "byok",
+        cloudTranscriptionProvider: "custom",
+        cloudTranscriptionModel: "gpt-4o-transcribe",
+        cloudTranscriptionBaseUrl: `${AZURE}/`,
+        uploadTranscriptionMode: "providers",
+        uploadCloudTranscriptionProvider: "custom",
+        uploadCloudTranscriptionModel: "gpt-4o-transcribe",
+        uploadCloudTranscriptionBaseUrl: `${AZURE}/openai/deployments/stt/audio/transcriptions?api-version=2025-03-01-preview`,
+        chatAgentMode: "providers",
+        chatAgentProvider: "custom",
+        chatAgentModel: "gpt-5-mini",
+        chatAgentCloudBaseUrl: `${AZURE}/openai/v1`,
+        dictationAgentMode: "openwhispr",
+        whisperModel: "base",
+      });
+    });
+    await render({ open: true });
+    assert.deepEqual(shown(), ["connections"]);
+    assert.equal(group("start"), null, "no longer a first run");
+
+    // In use: full cards, most used first.
+    assert.ok(group("inUse").textContent.includes("In use"));
+    assert.deepEqual(anchorsIn(group("inUse")), ["custom", "copilot"]);
+    const littleBuddy = entry("custom");
+    assert.ok(littleBuddy.hasAttribute("data-connection-card"));
+    assert.ok(littleBuddy.textContent.includes("Little Buddy"));
+    assert.ok(littleBuddy.querySelector('[data-custom-connection-kind="azure"]'));
+    assert.ok(
+      littleBuddy
+        .querySelector("[data-custom-connection-key]")
+        .textContent.includes(maskApiKey(SECRETS.customConnectionApiKey))
+    );
+    assert.ok(entry("copilot").querySelector('[data-usage-feature="cleanup"]'));
+    assert.ok(entry("copilot").textContent.includes("Signed in as @dshafran_microsoft"));
+
+    // Saved, not in use: one row each, masked key, Replace and Remove.
+    assert.ok(group("saved").textContent.includes("Saved, not in use"));
+    assert.deepEqual(anchorsIn(group("saved")), ["gemini", "groq", "openrouter"]);
+    for (const [id, key] of [
+      ["gemini", SECRETS.geminiApiKey],
+      ["groq", SECRETS.groqApiKey],
+      ["openrouter", SECRETS.openrouterApiKey],
+    ]) {
+      const row = entry(id);
+      assert.ok(row.hasAttribute("data-connection-row"), `${id} is a row`);
+      assert.ok(row.textContent.includes(maskApiKey(key)), `${id} shows its key masked`);
+      assert.ok(row.querySelector('button[aria-label="Replace API key"]'), `${id}: Replace`);
+      assert.ok(buttonIn(row, "Remove"), `${id}: Remove`);
+    }
+
+    // The rest, folded: names only until opened.
+    assert.equal(foldTrigger().getAttribute("aria-expanded"), "false");
+    assert.ok(foldTrigger().textContent.includes("Add a provider (9)"));
+    assert.ok(
+      foldTrigger().textContent.includes(
+        "OpenAI · Anthropic · Mistral · Tinfoil · Corti · xAI · Deepgram · AssemblyAI · OpenWhispr Cloud"
+      )
+    );
+    assert.equal(entry("openai"), null, "folded rows aren't rendered");
+    assert.equal(page().querySelector("[data-custom-connection-add]"), null, "there is one");
+    noRawSecret("grouped");
+
+    await act(() => foldTrigger().click());
+    assert.equal(foldTrigger().getAttribute("aria-expanded"), "true");
+    assert.deepEqual(anchorsIn(fold()), [
+      "openai",
+      "anthropic",
+      "mistral",
+      "tinfoil",
+      "corti",
+      "xai",
+      "deepgram",
+      "assemblyai",
+      "cloud",
+    ]);
+    const openaiRow = inFold("openai");
+    assert.ok(openaiRow.textContent.includes("Paste your API key"));
+    assert.ok(openaiRow.querySelector('button[aria-label="Add API key"]'));
+    assert.ok(openaiRow.textContent.includes("Get your API key"));
+    // Corti's three credentials open under its row.
+    const corti = inFold("corti");
+    assert.equal(corti.querySelectorAll("input, [aria-label='Add API key']").length, 0);
+    await act(() => corti.querySelector("[data-connection-toggle]").click());
+    assert.equal(
+      corti.querySelector("[data-connection-toggle]").getAttribute("aria-expanded"),
+      "true"
+    );
+    assert.equal(corti.querySelectorAll('button[aria-label="Add API key"]').length, 3);
+    // Cloud, off: says so and links to Privacy & Data, never a sign-in.
+    const cloud = inFold("cloud");
+    assert.ok(cloud.textContent.includes("Off · Turned off in Privacy & Data"));
+    assert.ok(buttonIn(cloud, "Open Privacy & Data"));
+    assert.equal(cloud.querySelector("[data-connection-toggle]"), null);
     assert.ok(!/sign in/i.test(cloud.textContent), "no sign-in while Cloud is off");
 
-    // A connected less common provider moves up front; the rest wait behind "More".
-    assert.ok(card("mistral"), "Mistral has a key, so it shows");
-    assert.ok(card("corti"), "Corti has a credential, so it shows");
-    assert.equal(card("openrouter"), null, "OpenRouter waits behind More providers");
-    const more = page().querySelector('[data-setting-id="connections.more"] [data-setting-expand]');
-    assert.equal(more.getAttribute("aria-expanded"), "false");
-    await act(() => more.click());
-    assert.ok(card("openrouter"), "expanding shows the rest");
-    assert.ok(card("deepgram"));
-
     // Replace never puts the saved key in the field, and cancelling keeps it.
-    const replace = card("openai").querySelector('button[aria-label="Replace API key"]');
-    assert.ok(replace, "a Replace control");
-    await act(() => replace.click());
-    const field = card("openai").querySelector("input");
+    await act(() => entry("groq").querySelector('button[aria-label="Replace API key"]').click());
+    const field = entry("groq").querySelector("input");
     assert.ok(field, "the replace field opened");
     assert.equal(field.value, "", "starts empty");
     noRawSecret("while replacing");
-    await act(() => card("openai").querySelector('button[aria-label="Cancel editing"]').click());
-    assert.equal(card("openai").querySelector("input"), null);
-    assert.equal(useSettingsStore.getState().openaiApiKey, SECRETS.openaiApiKey, "unchanged");
+    await act(() => entry("groq").querySelector('button[aria-label="Cancel editing"]').click());
+    assert.equal(entry("groq").querySelector("input"), null);
+    assert.equal(useSettingsStore.getState().groqApiKey, SECRETS.groqApiKey, "unchanged");
 
-    // Remove asks first, naming what uses the key; cancelling keeps it.
-    const remove = [...card("openai").querySelectorAll("button")].find(
-      (button) => button.textContent === "Remove"
-    );
-    await act(() => remove.click());
-    const dialog = doc.querySelector('[role="alertdialog"], [role="dialog"]');
+    // Remove asks first; cancelling keeps the key, confirming removes it and
+    // leaves the row where it is for this visit.
+    await act(() => buttonIn(entry("groq"), "Remove").click());
+    let dialog = doc.querySelector('[role="alertdialog"], [role="dialog"]');
     assert.ok(dialog, "a confirmation");
-    assert.ok(dialog.textContent.includes("Cleanup"), "it names the feature using the key");
+    assert.ok(dialog.textContent.includes("Remove Groq?"));
     noRawSecret("in the confirmation");
-    const cancel = [...dialog.querySelectorAll("button")].find((button) =>
-      /cancel/i.test(button.textContent)
+    await act(() => buttonIn(dialog, "Cancel").click());
+    assert.equal(useSettingsStore.getState().groqApiKey, SECRETS.groqApiKey, "kept");
+    await act(() => buttonIn(entry("groq"), "Remove").click());
+    dialog = doc.querySelector('[role="alertdialog"], [role="dialog"]');
+    await act(() => buttonIn(dialog, "Remove").click());
+    assert.equal(useSettingsStore.getState().groqApiKey, "", "removed");
+    assert.deepEqual(anchorsIn(group("saved")), ["gemini", "groq", "openrouter"], "nothing moved");
+    assert.ok(entry("groq").textContent.includes("Paste your API key"));
+
+    // A key added in the fold stays in the fold for this visit.
+    await act(() => inFold("openai").querySelector('button[aria-label="Add API key"]').click());
+    await type(inFold("openai").querySelector("input"), OPENAI_KEY);
+    await act(() => inFold("openai").querySelector('button[aria-label="Save API key"]').click());
+    assert.equal(useSettingsStore.getState().openaiApiKey, OPENAI_KEY);
+    assert.ok(inFold("openai"), "still in the fold");
+    assert.ok(inFold("openai").textContent.includes(maskApiKey(OPENAI_KEY)));
+    assert.ok(buttonIn(inFold("openai"), "Remove"));
+    assert.equal(foldTrigger().getAttribute("aria-expanded"), "true", "the fold stays open");
+    noRawSecret("after adding a key");
+
+    // The next visit (another page, then back) regroups, with the fold closed.
+    await render({ section: "cleanup" });
+    assert.deepEqual(shown(), ["cleanup"]);
+    await render({ section: "connections" });
+    assert.deepEqual(anchorsIn(group("saved")), ["openai", "gemini", "openrouter"]);
+    assert.equal(foldTrigger().getAttribute("aria-expanded"), "false");
+    assert.ok(foldTrigger().textContent.includes("Groq"), "Groq is folded now");
+
+    // ── Search and "Manage keys" land on a folded provider ───────────────────
+    await render({ section: "cleanup" });
+    await render({ section: "connections#connections.deepgram" });
+    await act(() => {}, 150);
+    assert.deepEqual(shown(), ["connections"]);
+    assert.equal(foldTrigger().getAttribute("aria-expanded"), "true", "the fold opened");
+    assert.ok(inFold("deepgram"), "the row shows");
+    assert.ok(inFold("deepgram").hasAttribute("data-search-flash"), "and flashes");
+    await act(() => {}, 100);
+    assert.equal(foldTrigger().getAttribute("aria-expanded"), "true", "and stays open");
+
+    // A target that already shows (In use) leaves the fold closed.
+    await render({ section: "cleanup" });
+    await render({ section: "connections#connections.copilot" });
+    await act(() => {}, 150);
+    assert.equal(foldTrigger().getAttribute("aria-expanded"), "false");
+    assert.ok(entry("copilot").hasAttribute("data-search-flash"));
+
+    // ── A provider key in use: its card, and Remove names who uses it ────────
+    await render({ section: "cleanup" });
+    await act(() =>
+      useSettingsStore.setState({ cleanupProvider: "openai", cleanupModel: "gpt-5-mini" })
     );
-    await act(() => cancel.click());
-    assert.equal(useSettingsStore.getState().openaiApiKey, SECRETS.openaiApiKey, "kept");
+    await render({ section: "connections" });
+    assert.deepEqual(anchorsIn(group("inUse")), ["custom", "openai"]);
+    assert.ok(anchorsIn(group("saved")).includes("copilot"), "signed in, now unused");
+    const openai = entry("openai");
+    assert.ok(openai.hasAttribute("data-connection-card"));
+    assert.ok(openai.querySelector('[data-connection-status="ok"]'));
+    assert.ok(openai.querySelector('[data-usage-feature="cleanup"]'));
+    await act(() => openai.querySelector('button[aria-label="Replace API key"]').click());
+    assert.equal(entry("openai").querySelector("input").value, "", "starts empty");
+    noRawSecret("replacing on a card");
+    await act(() => entry("openai").querySelector('button[aria-label="Cancel editing"]').click());
+    await act(() => buttonIn(entry("openai"), "Remove").click());
+    dialog = doc.querySelector('[role="alertdialog"], [role="dialog"]');
+    assert.ok(dialog.textContent.includes("Cleanup"), "it names the feature using the key");
+    await act(() => buttonIn(dialog, "Cancel").click());
+    assert.equal(useSettingsStore.getState().openaiApiKey, OPENAI_KEY, "kept");
 
     // Local models: what's on disk, what uses it, and the built-in search model.
     const local = page().querySelector('[data-setting-id="connections.localModels"]');
@@ -365,15 +569,17 @@ test(
     assert.ok(page().querySelector('[data-setting-id="connections.keepLoaded"] [role="switch"]'));
 
     // A Used by chip opens the feature's model setting...
-    await act(() => card("openai").querySelector('[data-usage-feature="cleanup"]').click());
+    await act(() => entry("openai").querySelector('[data-usage-feature="cleanup"]').click());
     assert.deepEqual(shown(), ["cleanup"]);
     // ...and the feature's key field links back to the provider's card.
     const manage = [...doc.querySelectorAll('[data-settings-page-id="cleanup"] button')].find(
       (button) => button.textContent.includes("Manage keys in AI Connections")
     );
     assert.ok(manage, "Cleanup's OpenAI key field links to AI Connections");
-    await act(() => manage.click());
+    await act(() => manage.click(), 150);
     assert.deepEqual(shown(), ["connections"]);
+    assert.ok(entry("openai").hasAttribute("data-search-flash"), "landed on the card");
+    assert.equal(foldTrigger().getAttribute("aria-expanded"), "false", "nothing to unfold");
     noRawSecret("after navigating");
 
     // A managed enterprise snapshot: read-only, locked, per feature.
@@ -397,8 +603,9 @@ test(
       managed.textContent.includes("AWS Bedrock") || managed.textContent.includes("Bedrock")
     );
     assert.equal(managed.querySelector("input, button"), null, "nothing to edit");
-    // Cleanup now runs on the managed deployment, not the OpenAI key.
-    assert.equal(card("openai").querySelector('[data-usage-feature="cleanup"]'), null);
+    // Cleanup now runs on the managed deployment, not the OpenAI key; the card stays this visit.
+    assert.equal(entry("openai").querySelector('[data-usage-feature="cleanup"]'), null);
+    assert.ok(entry("openai").hasAttribute("data-connection-card"));
     noRawSecret("managed");
 
     assert.deepEqual(errors, [], "nothing logged an error");

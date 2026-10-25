@@ -32,7 +32,10 @@ export interface RevealSettingOptions {
   anchor: string;
   /** A stable parent to land on while `anchor` doesn't render in the current state. */
   fallbackAnchor?: string;
-  /** Anchors of collapsed blocks to open first (`<details>` or an `aria-expanded` trigger). */
+  /**
+   * Anchors of collapsed blocks (`<details>` or an `aria-expanded` trigger) to
+   * open while the setting doesn't show; a setting already in view opens none.
+   */
   expand?: readonly string[];
   /**
    * The page the setting lives on. Visited pages stay mounted (hidden), so an
@@ -176,12 +179,16 @@ export function revealSetting(options: RevealSettingOptions): Promise<HTMLElemen
     function check() {
       if (done) return;
       if (signal?.aborted) return finish(null);
-      for (const id of expand) {
-        if (expanded.has(id)) continue;
-        const block = findVisibleAnchor(root, id, isVisible, page);
-        if (block && expandBlock(block)) expanded.add(id);
+      let target = findVisibleAnchor(root, anchor, isVisible, page);
+      // A block opens only while it hides the setting: one that already shows stays as it is.
+      if (!target && expand.length > 0) {
+        for (const id of expand) {
+          if (expanded.has(id)) continue;
+          const block = findVisibleAnchor(root, id, isVisible, page);
+          if (block && expandBlock(block)) expanded.add(id);
+        }
+        target = findVisibleAnchor(root, anchor, isVisible, page);
       }
-      const target = findVisibleAnchor(root, anchor, isVisible, page);
       if (target) return finish(target);
       const elapsed = now() - startedAt;
       if (fallbackAnchor) {

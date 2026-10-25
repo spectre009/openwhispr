@@ -937,19 +937,21 @@ export const SETTINGS_SEARCH_DESCRIPTORS: readonly SettingDescriptor[] = [
       aliases: [
         ...new Set(["api key", "key", `${provider.id} key`, ...PROVIDER_ALIASES[provider.id]]),
       ],
-      // Less common providers sit behind "More providers" until they're connected.
-      reveal: provider.common ? undefined : { expand: ["connections.more"] },
+      // Any provider can sit in the folded group ("Add a provider" / "More providers").
+      reveal: { expand: ["connections.more"] },
     })
   ),
   row("connections.copilot", CONNECTIONS, "connections.names.copilot", {
     descriptionKey: "connections.search.copilotDescription",
     groupKey: "connections.sections.providers.title",
     aliases: ["copilot sign in", "github copilot", "github", "sign in", "sign out", "copilot"],
+    reveal: { expand: ["connections.more"] },
   }),
   row("connections.cloud", CONNECTIONS, "connections.names.cloud", {
     descriptionKey: "connections.search.cloudDescription",
     groupKey: "connections.sections.providers.title",
     aliases: ["openwhispr cloud", "cloud", "automatic", "openwhispr account"],
+    reveal: { expand: ["connections.more"] },
   }),
   row("connections.custom", CONNECTIONS, "connections.custom.title", {
     descriptionKey: "connections.custom.search.description",

@@ -5716,6 +5716,29 @@
     "more": {
       "title": "Más proveedores ({{count}})"
     },
+    "groups": {
+      "inUse": {
+        "title": "En uso",
+        "hint": "Lo que usan tus funciones ahora, de más a menos usado."
+      },
+      "saved": {
+        "title": "Guardados, sin usar",
+        "hint": "Claves que has añadido y que ninguna función usa ahora mismo. Elige una en el selector de modelos de una función para usarla."
+      },
+      "add": {
+        "title": "Añadir un proveedor ({{count}})"
+      },
+      "start": {
+        "title": "Primeros pasos",
+        "hint": "Conecta uno de estos para activar Limpieza, el asistente y las demás funciones de IA. Después, cada función elige su modelo en su propia página."
+      }
+    },
+    "rows": {
+      "manage": "Gestionar",
+      "setUp": "Configurar",
+      "signIn": "Iniciar sesión",
+      "cloudOff": "Desactivado en Privacidad y datos"
+    },
     "usedBy": {
       "label": "Usado por",
       "none": "Ninguna función lo usa",
@@ -5783,8 +5806,8 @@
     },
     "custom": {
       "title": "Conexión personalizada",
-      "description": "Tu propio endpoint: un recurso de Azure OpenAI o Foundry, o cualquier API compatible con OpenAI. Configúralo una vez, con una sola clave, para todas las funciones que lo usen.",
       "add": "Añadir conexión personalizada",
+      "addHint": "Un recurso de Azure OpenAI o Foundry, o cualquier API compatible con OpenAI",
       "managed": "Tu organización no permite endpoints personalizados.",
       "saveAsRefused": "No se puede guardar como la conexión.",
       "differentKey": "clave distinta",

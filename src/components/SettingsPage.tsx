@@ -4792,7 +4792,8 @@ EOF`,
         return <NoteFormattingSettings />;
 
       case "connections":
-        return <AiConnectionsPage />;
+        // Its connections regroup once per visit, so it needs to know when it shows.
+        return <AiConnectionsPage showing={page === "connections"} />;
 
       default:
         return <div className="space-y-6">{renderPreferencesBlocks(pageId)}</div>;

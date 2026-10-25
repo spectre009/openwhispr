@@ -3,8 +3,9 @@ const assert = require("node:assert/strict");
 
 // Landing on a setting after a search result: revealSetting waits for an
 // anchor that mounts late (sections and sub-tabs render lazily), opens a
-// collapsed block, falls back to a stable parent when the row isn't rendered
-// in this state, scrolls and flashes exactly once, and never changes a value.
+// collapsed block only while it hides the setting, falls back to a stable
+// parent when the row isn't rendered in this state, scrolls and flashes
+// exactly once, and never changes a value.
 
 let happyWindow;
 
@@ -186,6 +187,57 @@ test("an aria-expanded trigger is clicked once to expand its block", async (t) =
     flashMs: 20,
   });
   assert.equal(element?.getAttribute("data-setting-id"), "block.row");
+  assert.equal(clicks, 1);
+});
+
+test("a block isn't opened while the setting already shows outside it", async (t) => {
+  const { revealSetting } = await load();
+  const { root } = setup(
+    t,
+    `<div data-setting-id="connections.copilot" id="card"></div>
+     <div data-setting-id="connections.more"><button data-setting-expand aria-expanded="false" id="fold">Add a provider</button></div>`
+  );
+  let clicks = 0;
+  root.querySelector("#fold").addEventListener("click", () => clicks++);
+  const element = await revealSetting({
+    root,
+    anchor: "connections.copilot",
+    expand: ["connections.more"],
+    isVisible,
+    flashMs: 20,
+  });
+  assert.equal(element?.id, "card");
+  assert.equal(clicks, 0, "the fold stays closed");
+  assert.equal(root.querySelector("#fold").getAttribute("aria-expanded"), "false");
+});
+
+test("a setting the block hides (not rendered until it opens) opens the block", async (t) => {
+  const { revealSetting } = await load();
+  const { root } = setup(
+    t,
+    `<div data-setting-id="connections.more"><button data-setting-expand aria-expanded="false" id="fold">Add a provider</button></div>`
+  );
+  let clicks = 0;
+  const fold = root.querySelector("#fold");
+  fold.addEventListener("click", () => {
+    clicks++;
+    fold.setAttribute("aria-expanded", "true");
+    // Rows render once the fold is open, as React does a moment later.
+    setTimeout(() => {
+      fold.insertAdjacentHTML(
+        "afterend",
+        `<div><div data-setting-id="connections.openai" id="row"></div></div>`
+      );
+    }, 10);
+  });
+  const element = await revealSetting({
+    root,
+    anchor: "connections.openai",
+    expand: ["connections.more"],
+    isVisible,
+    flashMs: 20,
+  });
+  assert.equal(element?.id, "row");
   assert.equal(clicks, 1);
 });
 

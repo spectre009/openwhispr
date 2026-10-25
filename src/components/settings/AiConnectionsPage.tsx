@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { useShallow } from "zustand/react/shallow";
 import {
@@ -28,7 +28,7 @@ import { LOCAL_MODELS_CHANGED_EVENT, useModelDownload } from "../../hooks/useMod
 import { usePolicySnapshot } from "../../hooks/usePolicy";
 import { useSettingsStore } from "../../stores/settingsStore";
 import { useStyleStore } from "../../stores/styleStore";
-import { useCopilotStore } from "../../stores/copilotStore";
+import { syncCopilotAuthStatus, useCopilotStore } from "../../stores/copilotStore";
 import { useOpenWhisprCloudDisabled } from "../../stores/openWhisprCloudStore";
 import {
   getManagedScopeResolution,
@@ -68,6 +68,14 @@ import GpuDeviceSelector from "./GpuDeviceSelector";
 import { SettingsLink } from "./ManageKeysLink";
 import { useOpenSettingsLink } from "./settingsLink";
 import { useSettingsVisible } from "./useSettingsVisible";
+import { ConnectionRow, RowStatus } from "./ConnectionRow";
+import {
+  NO_VISIT,
+  stepVisit,
+  type ConnectionGroupsInput,
+  type ConnectionId,
+  type ConnectionsVisit,
+} from "./connectionGroups";
 import {
   CONNECTION_PROVIDERS,
   findConnectionProvider,
@@ -89,17 +97,23 @@ import {
   type LocalModelEngine,
   type UsageFeature,
 } from "./connectionUsage";
-import { CustomConnectionGroup, SaveAsConnection } from "./CustomConnectionCard";
+import {
+  AddCustomConnection,
+  CustomConnectionCard,
+  CustomConnectionRow,
+  SaveAsConnection,
+} from "./CustomConnectionCard";
 
 /**
  * Settings › AI Connections & Local Models: every shared credential and
- * sign-in, the custom connection (CustomConnectionCard.tsx), the per-feature
- * custom and self-hosted endpoints, downloaded models, and the enterprise
- * setup, each with where it's used right now (connectionUsage.ts). The
- * language-model pickers on feature pages take no keys and link here instead;
- * speech-to-text pickers keep their key fields, which edit the same store
- * fields through the same setters as this page. Keys only ever show masked,
- * and replacing one never reveals the old one.
+ * sign-in and the custom connection (CustomConnectionCard.tsx), grouped by
+ * whether a feature uses them (connectionGroups.ts), the per-feature custom
+ * and self-hosted endpoints, downloaded models, and the enterprise setup, each
+ * with where it's used right now (connectionUsage.ts). The language-model
+ * pickers on feature pages take no keys and link here instead; speech-to-text
+ * pickers keep their key fields, which edit the same store fields through the
+ * same setters as this page. Keys only ever show masked, and replacing one
+ * never reveals the old one.
  */
 
 type Translate = (key: string, options?: Record<string, unknown>) => string;
@@ -256,12 +270,112 @@ function ConnectionCard({
   );
 }
 
-// ── Cards ────────────────────────────────────────────────────────────────────
+// ── Cards and rows ───────────────────────────────────────────────────────────
+
+/** In use and a first run's starters are cards; the other groups list rows. */
+type ConnectionView = "card" | "row";
 
 interface RemoveRequest {
   provider: ConnectionProviderDef;
   credential: ConnectionCredential;
   clear: () => void;
+}
+
+interface ProviderConnectionProps {
+  provider: ConnectionProviderId;
+  usages: readonly FeatureUsage[];
+  policy: PolicyDecisionSnapshot;
+  onRemove: (request: RemoveRequest) => void;
+  "data-setting-id": string;
+}
+
+function useProviderCredentials(provider: ConnectionProviderDef) {
+  const values = useSettingsStore(
+    useShallow((s) => provider.credentials.map((credential) => s[credential.key] ?? ""))
+  );
+  const setters = useSettingsStore(
+    useShallow((s) => provider.credentials.map((credential) => s[credential.setter]))
+  );
+  return { values, setters };
+}
+
+function RemoveKeyButton({ onClick }: { onClick: () => void }) {
+  const { t } = useTranslation();
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      size="sm"
+      className="h-8 shrink-0 px-2 text-xs text-muted-foreground hover:text-destructive"
+      onClick={onClick}
+    >
+      {t("connections.actions.remove")}
+    </Button>
+  );
+}
+
+/**
+ * A provider's credentials, on its card or opened under its row: a
+ * replace-only field and Remove for each, or (where policy forbids the
+ * provider) the masked values with no editor.
+ */
+function ProviderCredentials({
+  provider,
+  values,
+  setters,
+  allowed,
+  onRemove,
+}: {
+  provider: ConnectionProviderDef;
+  values: readonly string[];
+  setters: ReadonlyArray<(value: string) => void>;
+  allowed: boolean;
+  onRemove: (request: RemoveRequest) => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <div className="space-y-2">
+      {provider.credentials.map((credential, index) => {
+        const value = values[index];
+        const label = credential.labelKey ? t(credential.labelKey) : undefined;
+        return (
+          <div key={credential.key} className="space-y-1">
+            {label && <p className="text-xs font-medium text-foreground">{label}</p>}
+            {allowed ? (
+              <div className="flex items-center gap-1.5">
+                <ApiKeyInput
+                  className="min-w-0 flex-1"
+                  apiKey={value}
+                  setApiKey={setters[index]}
+                  label=""
+                  helpText=""
+                  ariaLabel={`${provider.name}: ${label ?? t("common.apiKey")}`}
+                  replace
+                />
+                {value && (
+                  <RemoveKeyButton
+                    onClick={() =>
+                      onRemove({ provider, credential, clear: () => setters[index]("") })
+                    }
+                  />
+                )}
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                {value ? (
+                  <span dir="ltr" className="font-mono">
+                    {maskApiKey(value)}
+                  </span>
+                ) : (
+                  t("connections.status.noKey")
+                )}
+              </p>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
 }
 
 function ProviderKeyCard({
@@ -270,21 +384,10 @@ function ProviderKeyCard({
   policy,
   onRemove,
   "data-setting-id": settingId,
-}: {
-  provider: ConnectionProviderId;
-  usages: readonly FeatureUsage[];
-  policy: PolicyDecisionSnapshot;
-  onRemove: (request: RemoveRequest) => void;
-  "data-setting-id": string;
-}) {
+}: ProviderConnectionProps) {
   const { t } = useTranslation();
   const provider = findConnectionProvider(providerId) as ConnectionProviderDef;
-  const values = useSettingsStore(
-    useShallow((s) => provider.credentials.map((credential) => s[credential.key] ?? ""))
-  );
-  const setters = useSettingsStore(
-    useShallow((s) => provider.credentials.map((credential) => s[credential.setter]))
-  );
+  const { values, setters } = useProviderCredentials(provider);
   const allowed = providerAllowed(policy, provider);
   const saved = values.some((value) => !!value.trim());
 
@@ -305,181 +408,377 @@ function ProviderKeyCard({
       usages={usagesOfProvider(usages, provider.id)}
       footer={allowed ? <GetApiKeyLink url={provider.keyUrl} /> : undefined}
     >
-      <div className="space-y-2">
-        {provider.credentials.map((credential, index) => {
-          const value = values[index];
-          const label = credential.labelKey ? t(credential.labelKey) : undefined;
-          return (
-            <div key={credential.key} className="space-y-1">
-              {label && <p className="text-xs font-medium text-foreground">{label}</p>}
-              {allowed ? (
-                <div className="flex items-center gap-1.5">
-                  <ApiKeyInput
-                    className="min-w-0 flex-1"
-                    apiKey={value}
-                    setApiKey={setters[index]}
-                    label=""
-                    helpText=""
-                    ariaLabel={`${provider.name}: ${label ?? t("common.apiKey")}`}
-                    replace
-                  />
-                  {value && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 shrink-0 px-2 text-xs text-muted-foreground hover:text-destructive"
-                      onClick={() =>
-                        onRemove({ provider, credential, clear: () => setters[index]("") })
-                      }
-                    >
-                      {t("connections.actions.remove")}
-                    </Button>
-                  )}
-                </div>
-              ) : (
-                <p className="text-xs text-muted-foreground">
-                  {value ? (
-                    <span dir="ltr" className="font-mono">
-                      {maskApiKey(value)}
-                    </span>
-                  ) : (
-                    t("connections.status.noKey")
-                  )}
-                </p>
-              )}
-            </div>
-          );
-        })}
-      </div>
+      <ProviderCredentials
+        provider={provider}
+        values={values}
+        setters={setters}
+        allowed={allowed}
+        onRemove={onRemove}
+      />
     </ConnectionCard>
   );
 }
 
-function CopilotCard({
+/**
+ * A provider on one line: its key field (masked and "Replace" when saved,
+ * "Paste your API key" when not) with Remove or "Get your API key". Corti's
+ * three credentials open under the line instead.
+ */
+function ProviderKeyRow({
+  provider: providerId,
   usages,
   policy,
+  onRemove,
   "data-setting-id": settingId,
-}: {
-  usages: readonly FeatureUsage[];
-  policy: PolicyDecisionSnapshot;
-  "data-setting-id": string;
-}) {
+}: ProviderConnectionProps) {
+  const { t } = useTranslation();
+  const provider = findConnectionProvider(providerId) as ConnectionProviderDef;
+  const { values, setters } = useProviderCredentials(provider);
+  const [open, setOpen] = useState(false);
+  const allowed = providerAllowed(policy, provider);
+  const saved = values.some((value) => !!value.trim());
+  const own = usagesOfProvider(usages, provider.id);
+  const getKey =
+    allowed && !saved ? (
+      <GetApiKeyLink
+        url={provider.keyUrl}
+        className="shrink-0 text-xs text-link underline decoration-link/30 hover:decoration-link/60"
+      />
+    ) : undefined;
+  const line = {
+    "data-setting-id": settingId,
+    icon: <ProviderIcon provider={provider.id} className="h-4 w-4" />,
+    name: provider.name,
+    below: own.length > 0 ? <UsedBy usages={own} /> : undefined,
+  };
+
+  if (provider.credentials.length > 1) {
+    return (
+      <ConnectionRow
+        {...line}
+        actions={getKey}
+        toggleLabel={
+          allowed || saved
+            ? t(saved ? "connections.rows.manage" : "connections.rows.setUp")
+            : undefined
+        }
+        open={open}
+        onToggle={() => setOpen((value) => !value)}
+        body={
+          <ProviderCredentials
+            provider={provider}
+            values={values}
+            setters={setters}
+            allowed={allowed}
+            onRemove={onRemove}
+          />
+        }
+      >
+        {!allowed ? (
+          <RowStatus tone="managed">{t("common.managedByOrg")}</RowStatus>
+        ) : (
+          <RowStatus tone={saved ? "ok" : "muted"}>
+            {t(saved ? "connections.status.keySaved" : "connections.status.notConnected")}
+          </RowStatus>
+        )}
+      </ConnectionRow>
+    );
+  }
+
+  const [credential] = provider.credentials;
+  const [value] = values;
+  if (!allowed) {
+    return (
+      <ConnectionRow {...line}>
+        <RowStatus tone="managed">{t("common.managedByOrg")}</RowStatus>
+        {value && (
+          <span dir="ltr" className="truncate font-mono text-xs text-muted-foreground">
+            {maskApiKey(value)}
+          </span>
+        )}
+      </ConnectionRow>
+    );
+  }
+  return (
+    <ConnectionRow
+      {...line}
+      actions={
+        <>
+          {value && (
+            <RemoveKeyButton
+              onClick={() => onRemove({ provider, credential, clear: () => setters[0]("") })}
+            />
+          )}
+          {getKey}
+        </>
+      }
+    >
+      <ApiKeyInput
+        className="min-w-0 flex-1"
+        apiKey={value}
+        setApiKey={setters[0]}
+        label=""
+        helpText=""
+        ariaLabel={`${provider.name}: ${t("common.apiKey")}`}
+        replace
+      />
+    </ConnectionRow>
+  );
+}
+
+function ProviderConnection({
+  view,
+  ...props
+}: ProviderConnectionProps & { view: ConnectionView }) {
+  return view === "card" ? <ProviderKeyCard {...props} /> : <ProviderKeyRow {...props} />;
+}
+
+interface ConnectionStatus {
+  tone: PillTone;
+  label: string;
+}
+
+/** GitHub Copilot's sign-in as a status, or null until main has answered. */
+function useCopilotConnection(policy: PolicyDecisionSnapshot) {
   const { t } = useTranslation();
   const status = useCopilotStore((state) => state.status);
   const loaded = useCopilotStore((state) => state.loaded);
   const allowed =
     isModeAllowedByPolicy(policy, "llm", "providers") &&
     isProviderAllowedByPolicy(policy, "llm", COPILOT_PROVIDER_ID);
+  const signedIn = loaded && status.state === "signedIn";
 
-  let pill: ReactNode = null;
-  if (!allowed) pill = <StatusPill tone="managed">{t("common.managedByOrg")}</StatusPill>;
-  else if (loaded && status.state === "signedIn") {
-    pill = (
-      <StatusPill tone="ok">
-        {status.login
-          ? t("connections.status.signedInAs", { login: status.login })
-          : t("connections.status.signedIn")}
-      </StatusPill>
-    );
+  let state: ConnectionStatus | null = null;
+  if (!allowed) state = { tone: "managed", label: t("common.managedByOrg") };
+  else if (signedIn) {
+    state = {
+      tone: "ok",
+      label: status.login
+        ? t("connections.status.signedInAs", { login: status.login })
+        : t("connections.status.signedIn"),
+    };
   } else if (loaded && (status.state === "waiting" || status.state === "checking")) {
-    pill = <StatusPill tone="busy">{t("connections.status.signingIn")}</StatusPill>;
+    state = { tone: "busy", label: t("connections.status.signingIn") };
   } else if (loaded) {
-    pill = <StatusPill tone="muted">{t("connections.status.notConnected")}</StatusPill>;
+    state = { tone: "muted", label: t("connections.status.notConnected") };
   }
+  return { allowed, signedIn, state };
+}
 
-  return (
-    <ConnectionCard
-      settingId={settingId}
-      icon={<ProviderIcon provider={COPILOT_PROVIDER_ID} className="h-4 w-4" />}
-      name={t("connections.names.copilot")}
-      pill={pill}
-      usages={usagesOfProvider(usages, COPILOT_PROVIDER_ID)}
-    >
-      {allowed ? (
-        <CopilotSignIn />
-      ) : (
-        <p className="text-xs text-muted-foreground">{t("connections.copilot.managed")}</p>
-      )}
-    </ConnectionCard>
+/** Copilot's card body, and its row's: the sign-in panel, or why it isn't offered. */
+function CopilotBody({ allowed }: { allowed: boolean }) {
+  const { t } = useTranslation();
+  return allowed ? (
+    <CopilotSignIn />
+  ) : (
+    <p className="text-xs text-muted-foreground">{t("connections.copilot.managed")}</p>
   );
 }
 
-function CloudCard({
-  usages,
-  policy,
-  cloudDisabled,
-  "data-setting-id": settingId,
-}: {
+interface SignInConnectionProps {
+  view: ConnectionView;
   usages: readonly FeatureUsage[];
   policy: PolicyDecisionSnapshot;
-  cloudDisabled: boolean;
   "data-setting-id": string;
-}) {
+}
+
+function CopilotConnection({
+  view,
+  usages,
+  policy,
+  "data-setting-id": settingId,
+}: SignInConnectionProps) {
+  const { t } = useTranslation();
+  const { allowed, signedIn, state } = useCopilotConnection(policy);
+  const [open, setOpen] = useState(false);
+  const own = usagesOfProvider(usages, COPILOT_PROVIDER_ID);
+  const icon = <ProviderIcon provider={COPILOT_PROVIDER_ID} className="h-4 w-4" />;
+  const name = t("connections.names.copilot");
+
+  if (view === "card") {
+    return (
+      <ConnectionCard
+        settingId={settingId}
+        icon={icon}
+        name={name}
+        pill={state && <StatusPill tone={state.tone}>{state.label}</StatusPill>}
+        usages={own}
+      >
+        <CopilotBody allowed={allowed} />
+      </ConnectionCard>
+    );
+  }
+  return (
+    <ConnectionRow
+      data-setting-id={settingId}
+      icon={icon}
+      name={name}
+      below={own.length > 0 ? <UsedBy usages={own} /> : undefined}
+      toggleLabel={
+        allowed ? t(signedIn ? "connections.rows.manage" : "connections.rows.signIn") : undefined
+      }
+      open={open}
+      onToggle={() => setOpen((value) => !value)}
+      body={<CopilotBody allowed={allowed} />}
+    >
+      {state && <RowStatus tone={state.tone}>{state.label}</RowStatus>}
+    </ConnectionRow>
+  );
+}
+
+type CloudState = "off" | "managed" | "signedIn" | "signedOut";
+
+/** OpenWhispr Cloud's state: off (Privacy & Data), managed, signed in or out. */
+function useCloudConnection(
+  policy: PolicyDecisionSnapshot,
+  cloudDisabled: boolean
+): { kind: CloudState; state: ConnectionStatus; body: ReactNode } {
   const { t } = useTranslation();
   const isSignedIn = useSettingsStore((s) => s.isSignedIn);
   const allowed =
     isModeAllowedByPolicy(policy, "llm", "openwhispr") ||
     isModeAllowedByPolicy(policy, "transcription", "openwhispr");
 
-  let pill: ReactNode;
-  let body: ReactNode;
   if (cloudDisabled) {
     // Off: nothing here offers a sign-in; the switch lives in Privacy & Data.
-    pill = <StatusPill tone="muted">{t("connections.status.off")}</StatusPill>;
-    body = (
-      <div className="space-y-1.5">
-        <p className="text-xs text-muted-foreground">{t("connections.cloud.off")}</p>
-        <SettingsLink destination="privacyData#privacy.cloud">
-          {t("connections.cloud.openPrivacy")}
-        </SettingsLink>
-      </div>
-    );
-  } else if (!allowed) {
-    pill = <StatusPill tone="managed">{t("common.managedByOrg")}</StatusPill>;
-    body = <p className="text-xs text-muted-foreground">{t("connections.cloud.managed")}</p>;
-  } else if (isSignedIn) {
-    pill = <StatusPill tone="ok">{t("connections.status.signedIn")}</StatusPill>;
-    body = <p className="text-xs text-muted-foreground">{t("connections.cloud.automatic")}</p>;
-  } else {
-    pill = <StatusPill tone="muted">{t("connections.status.notSignedIn")}</StatusPill>;
-    body = (
+    return {
+      kind: "off",
+      state: { tone: "muted", label: t("connections.status.off") },
+      body: (
+        <div className="space-y-1.5">
+          <p className="text-xs text-muted-foreground">{t("connections.cloud.off")}</p>
+          <SettingsLink destination="privacyData#privacy.cloud">
+            {t("connections.cloud.openPrivacy")}
+          </SettingsLink>
+        </div>
+      ),
+    };
+  }
+  if (!allowed) {
+    return {
+      kind: "managed",
+      state: { tone: "managed", label: t("common.managedByOrg") },
+      body: <p className="text-xs text-muted-foreground">{t("connections.cloud.managed")}</p>,
+    };
+  }
+  if (isSignedIn) {
+    return {
+      kind: "signedIn",
+      state: { tone: "ok", label: t("connections.status.signedIn") },
+      body: <p className="text-xs text-muted-foreground">{t("connections.cloud.automatic")}</p>,
+    };
+  }
+  return {
+    kind: "signedOut",
+    state: { tone: "muted", label: t("connections.status.notSignedIn") },
+    body: (
       <div className="space-y-1.5">
         <p className="text-xs text-muted-foreground">{t("connections.cloud.signedOut")}</p>
         <SettingsLink destination="account#account.signIn">
           {t("connections.cloud.signIn")}
         </SettingsLink>
       </div>
+    ),
+  };
+}
+
+function CloudConnection({
+  view,
+  usages,
+  policy,
+  cloudDisabled,
+  "data-setting-id": settingId,
+}: SignInConnectionProps & { cloudDisabled: boolean }) {
+  const { t } = useTranslation();
+  const { kind, state, body } = useCloudConnection(policy, cloudDisabled);
+  const [open, setOpen] = useState(false);
+  const own = usagesOfProvider(usages, "cloud");
+  const icon = <Cloud className="h-4 w-4 text-foreground/80" />;
+  const name = t("connections.names.cloud");
+
+  if (view === "card") {
+    return (
+      <ConnectionCard
+        settingId={settingId}
+        icon={icon}
+        name={name}
+        pill={<StatusPill tone={state.tone}>{state.label}</StatusPill>}
+        usages={own}
+      >
+        {body}
+      </ConnectionCard>
     );
   }
-
+  const expandable = kind === "signedIn" || kind === "signedOut";
   return (
-    <ConnectionCard
-      settingId={settingId}
-      icon={<Cloud className="h-4 w-4 text-foreground/80" />}
-      name={t("connections.names.cloud")}
-      pill={pill}
-      usages={usagesOfProvider(usages, "cloud")}
+    <ConnectionRow
+      data-setting-id={settingId}
+      icon={icon}
+      name={name}
+      below={own.length > 0 ? <UsedBy usages={own} /> : undefined}
+      actions={
+        kind === "off" ? (
+          <SettingsLink destination="privacyData#privacy.cloud" className="shrink-0">
+            {t("connections.cloud.openPrivacy")}
+          </SettingsLink>
+        ) : undefined
+      }
+      toggleLabel={
+        expandable
+          ? t(kind === "signedIn" ? "connections.rows.manage" : "connections.rows.signIn")
+          : undefined
+      }
+      open={open}
+      onToggle={() => setOpen((value) => !value)}
+      body={body}
     >
-      {body}
-    </ConnectionCard>
+      <RowStatus tone={state.tone}>
+        {kind === "off" ? t("connections.rows.cloudOff") : state.label}
+      </RowStatus>
+    </ConnectionRow>
   );
 }
 
 // ── Connections ──────────────────────────────────────────────────────────────
 
+const STARTER_PROVIDERS = CONNECTION_PROVIDERS.filter((provider) => provider.common).map(
+  (provider) => provider.id
+);
+
+function GroupHeading({ title, count, hint }: { title: string; count?: number; hint: string }) {
+  return (
+    <div>
+      <h4 className="flex items-baseline gap-2 text-xs font-medium text-foreground">
+        {title}
+        {count !== undefined && (
+          <span className="font-normal tabular-nums text-muted-foreground/80">{count}</span>
+        )}
+      </h4>
+      <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground/80">{hint}</p>
+    </div>
+  );
+}
+
+/**
+ * Connections, grouped by state (connectionGroups.ts): In use as cards, Saved,
+ * not in use as rows, the rest folded; a first run shows the starter cards
+ * instead. Groups hold for a visit (`visiting`: the page showing while Settings
+ * is open), so a key added or removed leaves its card or row where it is.
+ */
 function ConnectionsSection({
   usages,
   policy,
   cloudDisabled,
   connection,
   connectionUses,
+  visiting,
 }: {
   usages: readonly FeatureUsage[];
   policy: PolicyDecisionSnapshot;
   cloudDisabled: boolean;
   connection: CustomConnection | null;
   connectionUses: readonly ConnectionUse[];
+  visiting: boolean;
 }) {
   const { t } = useTranslation();
   const { isCompact } = useSettingsLayout();
@@ -487,7 +786,19 @@ function ConnectionsSection({
   const secrets = useSettingsStore(
     useShallow((s) => CONNECTION_PROVIDERS.map((provider) => hasSavedCredential(provider, s)))
   );
+  const secretsHydrated = useSettingsStore((s) => s.secretsHydrated);
+  const isSignedIn = useSettingsStore((s) => s.isSignedIn);
+  const copilotLoaded = useCopilotStore((state) => state.loaded);
+  const copilotSignedIn = useCopilotStore(
+    (state) => state.loaded && state.status.state === "signedIn"
+  );
   const [moreOpen, setMoreOpen] = useState(false);
+  const [visit, setVisit] = useState<ConnectionsVisit>(NO_VISIT);
+
+  // Copilot's row may stay closed, so its sign-in panel can't be what loads the status.
+  useEffect(() => {
+    void syncCopilotAuthStatus();
+  }, []);
 
   const requestRemove = useCallback(
     ({ provider, credential, clear }: RemoveRequest) => {
@@ -514,117 +825,244 @@ function ConnectionsSection({
     [showConfirmDialog, t, usages]
   );
 
-  // A less common provider moves up front once it has a key or a use, and
-  // stays there for the visit, so removing its key doesn't hide the card.
-  const inUseNow = CONNECTION_PROVIDERS.filter(
-    (provider, index) =>
-      !provider.common && (!!secrets[index] || usagesOfProvider(usages, provider.id).length > 0)
-  ).map((provider) => provider.id);
-  const inUseKey = inUseNow.join(",");
-  const [sticky, setSticky] = useState<ReadonlySet<string>>(() => new Set(inUseNow));
-  useEffect(() => {
-    if (!inUseKey) return;
-    setSticky((previous) => {
-      const ids = inUseKey.split(",");
-      return ids.every((id) => previous.has(id)) ? previous : new Set([...previous, ...ids]);
-    });
-  }, [inUseKey]);
+  const activeUses = (provider: string) =>
+    usagesOfProvider(usages, provider).filter(isActiveUsage).length;
+  const input: ConnectionGroupsInput = {
+    connections: {
+      copilot: { activeUses: activeUses(COPILOT_PROVIDER_ID), saved: copilotSignedIn },
+      ...Object.fromEntries(
+        CONNECTION_PROVIDERS.map((provider, index) => [
+          provider.id,
+          { activeUses: activeUses(provider.id), saved: secrets[index] },
+        ])
+      ),
+      cloud: { activeUses: activeUses("cloud"), saved: !cloudDisabled && isSignedIn },
+      ...(connection && {
+        custom: {
+          activeUses: connectionUses.filter((use) => isActiveUsage(use.usage)).length,
+          saved: true,
+        },
+      }),
+    },
+    cloudOff: cloudDisabled,
+    common: STARTER_PROVIDERS,
+  };
+  // A visit starts in render, not an effect: a search reveal opening the fold
+  // right after must not be undone by a late reset.
+  const step = stepVisit(visit, {
+    active: visiting,
+    ready: secretsHydrated && copilotLoaded,
+    input,
+  });
+  if (step.visit !== visit) {
+    setVisit(step.visit);
+    if (step.started) setMoreOpen(false);
+  }
+  const groups = step.groups;
 
   const shared = { usages, policy, onRemove: requestRemove };
-  // Literal anchors: each card is a search target and a "Manage keys" destination.
-  const cards: Record<ConnectionProviderId, ReactNode> = {
-    openai: <ProviderKeyCard {...shared} provider="openai" data-setting-id="connections.openai" />,
-    anthropic: (
-      <ProviderKeyCard {...shared} provider="anthropic" data-setting-id="connections.anthropic" />
+  // Literal anchors: each card or row is a search target and a "Manage keys" destination.
+  const views: Record<Exclude<ConnectionId, "custom">, (view: ConnectionView) => ReactNode> = {
+    copilot: (view) => (
+      <CopilotConnection
+        view={view}
+        usages={usages}
+        policy={policy}
+        data-setting-id="connections.copilot"
+      />
     ),
-    gemini: <ProviderKeyCard {...shared} provider="gemini" data-setting-id="connections.gemini" />,
-    groq: <ProviderKeyCard {...shared} provider="groq" data-setting-id="connections.groq" />,
-    openrouter: (
-      <ProviderKeyCard {...shared} provider="openrouter" data-setting-id="connections.openrouter" />
+    openai: (view) => (
+      <ProviderConnection
+        {...shared}
+        view={view}
+        provider="openai"
+        data-setting-id="connections.openai"
+      />
     ),
-    mistral: (
-      <ProviderKeyCard {...shared} provider="mistral" data-setting-id="connections.mistral" />
+    anthropic: (view) => (
+      <ProviderConnection
+        {...shared}
+        view={view}
+        provider="anthropic"
+        data-setting-id="connections.anthropic"
+      />
     ),
-    tinfoil: (
-      <ProviderKeyCard {...shared} provider="tinfoil" data-setting-id="connections.tinfoil" />
+    gemini: (view) => (
+      <ProviderConnection
+        {...shared}
+        view={view}
+        provider="gemini"
+        data-setting-id="connections.gemini"
+      />
     ),
-    corti: <ProviderKeyCard {...shared} provider="corti" data-setting-id="connections.corti" />,
-    xai: <ProviderKeyCard {...shared} provider="xai" data-setting-id="connections.xai" />,
-    deepgram: (
-      <ProviderKeyCard {...shared} provider="deepgram" data-setting-id="connections.deepgram" />
+    groq: (view) => (
+      <ProviderConnection
+        {...shared}
+        view={view}
+        provider="groq"
+        data-setting-id="connections.groq"
+      />
     ),
-    assemblyai: (
-      <ProviderKeyCard {...shared} provider="assemblyai" data-setting-id="connections.assemblyai" />
+    openrouter: (view) => (
+      <ProviderConnection
+        {...shared}
+        view={view}
+        provider="openrouter"
+        data-setting-id="connections.openrouter"
+      />
+    ),
+    mistral: (view) => (
+      <ProviderConnection
+        {...shared}
+        view={view}
+        provider="mistral"
+        data-setting-id="connections.mistral"
+      />
+    ),
+    tinfoil: (view) => (
+      <ProviderConnection
+        {...shared}
+        view={view}
+        provider="tinfoil"
+        data-setting-id="connections.tinfoil"
+      />
+    ),
+    corti: (view) => (
+      <ProviderConnection
+        {...shared}
+        view={view}
+        provider="corti"
+        data-setting-id="connections.corti"
+      />
+    ),
+    xai: (view) => (
+      <ProviderConnection
+        {...shared}
+        view={view}
+        provider="xai"
+        data-setting-id="connections.xai"
+      />
+    ),
+    deepgram: (view) => (
+      <ProviderConnection
+        {...shared}
+        view={view}
+        provider="deepgram"
+        data-setting-id="connections.deepgram"
+      />
+    ),
+    assemblyai: (view) => (
+      <ProviderConnection
+        {...shared}
+        view={view}
+        provider="assemblyai"
+        data-setting-id="connections.assemblyai"
+      />
+    ),
+    cloud: (view) => (
+      <CloudConnection
+        view={view}
+        usages={usages}
+        policy={policy}
+        cloudDisabled={cloudDisabled}
+        data-setting-id="connections.cloud"
+      />
     ),
   };
-  const upFront = CONNECTION_PROVIDERS.filter(
-    (provider) => provider.common || sticky.has(provider.id) || inUseNow.includes(provider.id)
-  );
-  const more = CONNECTION_PROVIDERS.filter((provider) => !upFront.includes(provider));
+  const render = (id: ConnectionId, view: ConnectionView) => {
+    let element: ReactNode = null;
+    if (id !== "custom") element = views[id](view);
+    else if (connection) {
+      const props = { connection, uses: connectionUses, usages, policy };
+      element =
+        view === "card" ? <CustomConnectionCard {...props} /> : <CustomConnectionRow {...props} />;
+    }
+    return <Fragment key={id}>{element}</Fragment>;
+  };
+  const nameOf = (id: ConnectionId) =>
+    id === "copilot" || id === "cloud"
+      ? t(`connections.names.${id}`)
+      : id === "custom"
+        ? (connection?.name ?? "")
+        : (findConnectionProvider(id)?.name ?? id);
+
   const grid = cn("grid gap-3", !isCompact && "grid-cols-2");
+  const folded = groups.layout === "grouped" ? groups.add : groups.fold;
+  const fold = folded.length > 0 && (
+    <div data-setting-id="connections.more" className="space-y-3">
+      <button
+        type="button"
+        data-setting-expand=""
+        aria-expanded={moreOpen}
+        onClick={() => setMoreOpen((open) => !open)}
+        className="flex w-full items-center gap-2 rounded-md px-1 py-1 text-start text-xs text-muted-foreground hover:text-foreground"
+      >
+        <ChevronDown
+          aria-hidden="true"
+          className={cn(
+            "h-3.5 w-3.5 shrink-0 transition-transform",
+            !moreOpen && "-rotate-90 rtl:rotate-90"
+          )}
+        />
+        <span className="shrink-0 font-medium text-foreground">
+          {groups.layout === "grouped"
+            ? t("connections.groups.add.title", { count: folded.length })
+            : t("connections.more.title", { count: folded.length })}
+        </span>
+        {!moreOpen && <span className="min-w-0 truncate">{folded.map(nameOf).join(" · ")}</span>}
+      </button>
+      {moreOpen && <SettingsPanel>{folded.map((id) => render(id, "row"))}</SettingsPanel>}
+    </div>
+  );
+  // While there's none: "Add custom connection" (or, under a policy, why not).
+  const addCustom = !connection && <AddCustomConnection usages={usages} policy={policy} />;
 
   return (
-    <div data-setting-id="connections.providers" className="space-y-3">
+    <div data-setting-id="connections.providers" className="space-y-4">
       <SectionHeader
         title={t("connections.sections.providers.title")}
         description={t("connections.sections.providers.description")}
       />
-      <div className={grid}>
-        <CopilotCard usages={usages} policy={policy} data-setting-id="connections.copilot" />
-        {upFront.map((provider) => (
-          <div key={provider.id} className="contents">
-            {cards[provider.id]}
-          </div>
-        ))}
-        <CloudCard
-          usages={usages}
-          policy={policy}
-          cloudDisabled={cloudDisabled}
-          data-setting-id="connections.cloud"
-        />
-      </div>
-      {more.length > 0 && (
-        <div data-setting-id="connections.more" className="space-y-3">
-          <button
-            type="button"
-            data-setting-expand=""
-            aria-expanded={moreOpen}
-            onClick={() => setMoreOpen((open) => !open)}
-            className="flex w-full items-center gap-2 rounded-md px-1 py-1 text-start text-xs text-muted-foreground hover:text-foreground"
-          >
-            <ChevronDown
-              aria-hidden="true"
-              className={cn(
-                "h-3.5 w-3.5 shrink-0 transition-transform",
-                !moreOpen && "-rotate-90 rtl:rotate-90"
-              )}
-            />
-            <span className="font-medium text-foreground">
-              {t("connections.more.title", { count: more.length })}
-            </span>
-            {!moreOpen && (
-              <span className="min-w-0 truncate">
-                {more.map((provider) => provider.name).join(" · ")}
-              </span>
-            )}
-          </button>
-          {moreOpen && (
-            <div className={grid}>
-              {more.map((provider) => (
-                <div key={provider.id} className="contents">
-                  {cards[provider.id]}
-                </div>
-              ))}
+      {groups.layout === "grouped" ? (
+        <>
+          {groups.inUse.length > 0 && (
+            <div data-connection-group="inUse" className="space-y-2.5">
+              <GroupHeading
+                title={t("connections.groups.inUse.title")}
+                count={groups.inUse.length}
+                hint={t("connections.groups.inUse.hint")}
+              />
+              <div className={grid}>{groups.inUse.map((id) => render(id, "card"))}</div>
             </div>
           )}
-        </div>
+          {groups.saved.length > 0 && (
+            <div data-connection-group="saved" className="space-y-2.5">
+              <GroupHeading
+                title={t("connections.groups.saved.title")}
+                count={groups.saved.length}
+                hint={t("connections.groups.saved.hint")}
+              />
+              <SettingsPanel>{groups.saved.map((id) => render(id, "row"))}</SettingsPanel>
+            </div>
+          )}
+          {fold}
+          {addCustom}
+        </>
+      ) : (
+        <>
+          <div data-connection-group="start" className="space-y-2.5">
+            <GroupHeading
+              title={t("connections.groups.start.title")}
+              hint={t("connections.groups.start.hint")}
+            />
+            <div className={grid}>
+              {groups.cards.filter((id) => id !== "custom").map((id) => render(id, "card"))}
+            </div>
+          </div>
+          {fold}
+          {groups.cards.includes("custom") ? render("custom", "card") : addCustom}
+        </>
       )}
-      <CustomConnectionGroup
-        connection={connection}
-        uses={connectionUses}
-        usages={usages}
-        policy={policy}
-      />
       <ConfirmDialog
         open={confirmDialog.open}
         onOpenChange={(open) => !open && hideConfirmDialog()}
@@ -1258,9 +1696,15 @@ function EnterpriseSection({ usages }: { usages: readonly FeatureUsage[] }) {
 
 // ── Page ─────────────────────────────────────────────────────────────────────
 
-export default function AiConnectionsPage() {
+export default function AiConnectionsPage({
+  showing = true,
+}: {
+  /** The page is the one Settings shows (it stays mounted, hidden, once visited). */
+  showing?: boolean;
+}) {
   const policy = usePolicySnapshot();
   const cloudDisabled = useOpenWhisprCloudDisabled();
+  const settingsVisible = useSettingsVisible();
   const settings = useSettingsStore((s) => s);
   const stylesInUse = useStyleStore((state) => selectableStyles(state.library).length > 0);
   // Managed enterprise routes resolve from this store (selectResolvedLLMConfig reads it).
@@ -1279,6 +1723,7 @@ export default function AiConnectionsPage() {
         cloudDisabled={cloudDisabled}
         connection={customConnection}
         connectionUses={connectionUses}
+        visiting={showing && settingsVisible}
       />
       <EndpointsSection
         usages={usages}

@@ -2,9 +2,10 @@ import type { SettingsState } from "../../stores/settingsStore";
 
 /**
  * The shared API-key providers Settings › AI Connections & Local Models shows
- * as cards: one key per provider, read by every feature that picks it (the
- * per-feature custom and self-hosted endpoints are listed separately, never
- * here). React-free, so search, the usage module and tests read it too.
+ * as cards or rows (connectionGroups.ts): one key per provider, read by every
+ * feature that picks it (the per-feature custom and self-hosted endpoints are
+ * listed separately, never here). React-free, so search, the usage module and
+ * tests read it too.
  */
 
 export type ConnectionProviderId =
@@ -69,7 +70,7 @@ export interface ConnectionProviderDef {
   id: ConnectionProviderId;
   /** Brand name, never translated. */
   name: string;
-  /** Shown up front; the rest sit behind "More providers" unless connected or used. */
+  /** A first-run starter card; the rest sit behind "More providers" until one is saved. */
   common: boolean;
   /** Whether policy's language-model and speech-to-text BYOK lists can name it. */
   llm: boolean;
@@ -215,12 +216,12 @@ export function findConnectionProvider(id: string | undefined): ConnectionProvid
   return id ? BY_ID.get(id) : undefined;
 }
 
-/** A provider card's search anchor and destination id ("connections.openai"). */
+/** A connection's search anchor and destination id, on its card or row ("connections.openai"). */
 export function connectionAnchor(id: ConnectionProviderId | "copilot" | "cloud"): string {
   return `connections.${id}`;
 }
 
-/** The page destination that opens a provider's card ("connections#connections.openai"). */
+/** The page destination that opens a connection's card or row ("connections#connections.openai"). */
 export function connectionDestination(id: ConnectionProviderId | "copilot" | "cloud"): string {
   return `connections#${connectionAnchor(id)}`;
 }

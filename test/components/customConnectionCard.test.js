@@ -5,14 +5,15 @@ const { createRendererServer } = require("../lib/rendererTestHarness");
 const { installSettingsDom, captureConsole, settle } = require("../lib/settingsDomHarness");
 
 // The custom connection on AI Connections, rendered in the real Settings
-// (happy-dom, stubbed preload standing in for main): with none, the group
+// (happy-dom, stubbed preload standing in for main): with none, Connections
 // offers "Add custom connection" and the Recognition row "Save as connection"
-// (an Azure operation URL says why it can't); saved, the card shows the masked
-// key and "Used by"; a feature holding another key shows "different key ·
-// Update"; Remove is refused while a feature uses it; Replace key names and
-// updates every user; Check connection reports a rejected key and remembers
-// deployments; Edit endpoint moves every user along; unused, it's removed; and
-// a policy allowing no custom endpoint leaves only a note.
+// (an Azure operation URL says why it can't); saved and in use, its card under
+// In use shows the masked key and "Used by"; a feature holding another key
+// shows "different key · Update"; Remove is refused while a feature uses it;
+// Replace key names and updates every user; Check connection reports a
+// rejected key and remembers deployments; Edit endpoint moves every user
+// along; unused, it's a row whose "Manage" opens the same content, and it's
+// removed; and a policy allowing no custom endpoint leaves only a note.
 
 const AZURE = "https://littlebuddy-foundry-eus2.openai.azure.com";
 const STT_KEY = "stt-SECRETKEY-7777";
@@ -96,7 +97,9 @@ test(
     };
     const calls = (name) => dom.calls.filter(([called]) => called === name).map(([, args]) => args);
     const page = () => doc.querySelector('[data-settings-page-id="connections"]');
+    // The connection's one anchor: its card, its row, "Add custom connection" or the policy note.
     const group = () => page().querySelector('[data-setting-id="connections.custom"]');
+    // The card's content: on the card, or under the row once "Manage" opens it.
     const card = () => group().querySelector("[data-custom-connection]");
     const endpoints = () => page().querySelector('[data-setting-id="connections.endpoints"]');
     const dialog = (selector) => doc.querySelector(selector);
@@ -211,8 +214,17 @@ test(
     assert.equal(win.localStorage.getItem("customConnection"), JSON.stringify(saved));
     assert.equal(dialog("[data-custom-connection-dialog]"), null, "the dialog closed");
 
-    // ── The card ─────────────────────────────────────────────────────────────
+    // ── The card: in use, so under In use ────────────────────────────────────
     assert.ok(card(), "the card");
+    assert.ok(group().hasAttribute("data-connection-card"));
+    assert.equal(
+      page().querySelector(
+        '[data-connection-group="inUse"] [data-setting-id="connections.custom"]'
+      ),
+      group(),
+      "among the connections in use"
+    );
+    assert.equal(group().querySelector("[data-custom-connection-add]"), null);
     assert.ok(card().textContent.includes("Little Buddy"));
     assert.ok(card().querySelector('[data-custom-connection-kind="azure"]'));
     assert.ok(card().textContent.includes("littlebuddy-foundry-eus2.openai.azure.com"));
@@ -350,7 +362,25 @@ test(
         chatAgentProvider: "openai",
       })
     );
+    // Saved during this visit, it follows its live group: a row under Saved, not in use.
+    assert.ok(group().hasAttribute("data-connection-row"), "a row now");
+    assert.equal(
+      page().querySelector(
+        '[data-connection-group="saved"] [data-setting-id="connections.custom"]'
+      ),
+      group()
+    );
+    assert.ok(group().textContent.includes("Little Buddy"));
+    assert.ok(group().querySelector('[data-custom-connection-kind="azure"]'));
+    assert.ok(group().textContent.includes("littlebuddy-westus.openai.azure.com"));
+    assert.equal(card(), null, "closed");
+    const toggle = group().querySelector("[data-connection-toggle]");
+    assert.equal(toggle.textContent.trim(), "Manage");
+    await act(() => toggle.click());
+    assert.equal(toggle.getAttribute("aria-expanded"), "true");
+    assert.ok(card(), "Manage opens the card's content under the row");
     assert.deepEqual(usedBy(), []);
+    noRawSecret("in the row");
     await openMenu();
     await act(() => doc.querySelector("[data-custom-connection-remove]").click());
     const confirm = [...doc.querySelectorAll('[role="dialog"], [role="alertdialog"]')].find(

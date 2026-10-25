@@ -5716,6 +5716,29 @@
     "more": {
       "title": "Mais provedores ({{count}})"
     },
+    "groups": {
+      "inUse": {
+        "title": "Em uso",
+        "hint": "O que seus recursos usam agora, do mais usado ao menos usado."
+      },
+      "saved": {
+        "title": "Salvos, sem uso",
+        "hint": "Chaves que você adicionou e que nenhum recurso usa agora. Escolha uma no seletor de modelos de um recurso para usá-la."
+      },
+      "add": {
+        "title": "Adicionar um provedor ({{count}})"
+      },
+      "start": {
+        "title": "Primeiros passos",
+        "hint": "Conecte um destes para ativar a Limpeza, o assistente e os outros recursos de IA. Depois, cada recurso escolhe o modelo na própria página."
+      }
+    },
+    "rows": {
+      "manage": "Gerenciar",
+      "setUp": "Configurar",
+      "signIn": "Entrar",
+      "cloudOff": "Desativado em Privacidade e dados"
+    },
     "usedBy": {
       "label": "Usado por",
       "none": "Nenhum recurso usa",
@@ -5783,8 +5806,8 @@
     },
     "custom": {
       "title": "Conexão personalizada",
-      "description": "Seu próprio endpoint: um recurso do Azure OpenAI ou Foundry, ou qualquer API compatível com OpenAI. Configure uma vez, com uma só chave, para todos os recursos que o usam.",
       "add": "Adicionar conexão personalizada",
+      "addHint": "Um recurso do Azure OpenAI ou Foundry, ou qualquer API compatível com OpenAI",
       "managed": "Sua organização não permite endpoints personalizados.",
       "saveAsRefused": "Não pode ser salvo como a conexão.",
       "differentKey": "chave diferente",

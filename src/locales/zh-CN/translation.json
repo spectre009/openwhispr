@@ -5716,6 +5716,29 @@
     "more": {
       "title": "更多提供商（{{count}}）"
     },
+    "groups": {
+      "inUse": {
+        "title": "使用中",
+        "hint": "您的功能当前所用的连接，使用最多的排在前面。"
+      },
+      "saved": {
+        "title": "已保存，未使用",
+        "hint": "您已添加、但目前没有功能在用的密钥。在某功能的模型选择器中选择它即可使用。"
+      },
+      "add": {
+        "title": "添加提供商（{{count}}）"
+      },
+      "start": {
+        "title": "开始使用",
+        "hint": "连接其中之一，即可开启清理、助手和其他 AI 功能。之后每个功能在各自的页面上选择模型。"
+      }
+    },
+    "rows": {
+      "manage": "管理",
+      "setUp": "设置",
+      "signIn": "登录",
+      "cloudOff": "已关闭 · 在“隐私与数据”中关闭"
+    },
     "usedBy": {
       "label": "用于",
       "none": "没有功能在使用",
@@ -5783,8 +5806,8 @@
     },
     "custom": {
       "title": "自定义连接",
-      "description": "您自己的端点：Azure OpenAI 或 Foundry 资源，或任何兼容 OpenAI 的 API。设置一次，用一个密钥供所有使用它的功能使用。",
       "add": "添加自定义连接",
+      "addHint": "Azure OpenAI 或 Foundry 资源，或任何兼容 OpenAI 的 API",
       "managed": "您的组织不允许使用自定义端点。",
       "saveAsRefused": "无法保存为连接。",
       "differentKey": "密钥不同",

@@ -5716,6 +5716,29 @@
     "more": {
       "title": "More providers ({{count}})"
     },
+    "groups": {
+      "inUse": {
+        "title": "In use",
+        "hint": "What your features run on now, most used first."
+      },
+      "saved": {
+        "title": "Saved, not in use",
+        "hint": "Keys you've added that no feature uses right now. Pick one in a feature's model picker to use it."
+      },
+      "add": {
+        "title": "Add a provider ({{count}})"
+      },
+      "start": {
+        "title": "Get started",
+        "hint": "Connect one of these to turn on Cleanup, the assistant and the other AI features. Each feature then picks its model on its own page."
+      }
+    },
+    "rows": {
+      "manage": "Manage",
+      "setUp": "Set up",
+      "signIn": "Sign in",
+      "cloudOff": "Off · Turned off in Privacy & Data"
+    },
     "usedBy": {
       "label": "Used by",
       "none": "Not used by any feature",
@@ -5783,8 +5806,8 @@
     },
     "custom": {
       "title": "Custom connection",
-      "description": "Your own endpoint: an Azure OpenAI or Foundry resource, or any OpenAI-compatible API. Set it up once, with one key, for every feature that uses it.",
       "add": "Add custom connection",
+      "addHint": "An Azure OpenAI or Foundry resource, or any OpenAI-compatible API",
       "managed": "Your organization doesn't allow custom endpoints.",
       "saveAsRefused": "Can't be saved as the connection.",
       "differentKey": "different key",

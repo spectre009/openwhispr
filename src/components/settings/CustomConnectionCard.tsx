@@ -57,6 +57,7 @@ import {
 import { maskApiKey } from "../../utils/maskApiKey";
 import type { CustomConnectionCheckResult } from "../../types/electron";
 import { useOpenSettingsLink } from "./settingsLink";
+import { ConnectionRow } from "./ConnectionRow";
 import {
   USAGE_FEATURE_TITLE_KEYS,
   isActiveUsage,
@@ -67,10 +68,12 @@ import {
 
 /**
  * The custom connection on Settings › AI Connections (config/customConnection.js):
- * one Azure OpenAI or OpenAI-compatible endpoint with one key. "Used by" is
- * derived from the features' own URL fields; main copies the key into the slots
- * those features read and compares them (booleans only). The key shows masked,
- * and only a field the user types into ever holds one.
+ * one Azure OpenAI or OpenAI-compatible endpoint with one key, shown as a card
+ * while in use (or on a first run), a row while saved but unused, and as "Add
+ * custom connection" while there is none. "Used by" is derived from the
+ * features' own URL fields; main copies the key into the slots those features
+ * read and compares them (booleans only). The key shows masked, and only a
+ * field the user types into ever holds one.
  */
 
 type Translate = (key: string, options?: Record<string, unknown>) => string;
@@ -313,18 +316,25 @@ function MetaRow({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
-// ── The card ─────────────────────────────────────────────────────────────────
+// ── The panel: a card's content, and a row's body ────────────────────────────
 
-function ConnectionCard({
+/**
+ * The connection's controls and details: on its card under the name, kind and
+ * host (`header="full"`), or opened under its row, whose line already shows
+ * those (`header="actions"`: Check connection and the ⋯ menu only).
+ */
+function ConnectionPanel({
   connection,
   uses,
+  usages,
   allowed,
-  onEdit,
+  header,
 }: {
   connection: CustomConnection;
   uses: readonly ConnectionUse[];
+  usages: readonly FeatureUsage[];
   allowed: boolean;
-  onEdit: (focus: "name" | "endpoint") => void;
+  header: "full" | "actions";
 }) {
   const { t } = useTranslation();
   const openSettings = useOpenSettingsLink();
@@ -337,6 +347,7 @@ function ConnectionCard({
   const [result, setResult] = useState<CustomConnectionCheckResult | null>(null);
   const [replaceOpen, setReplaceOpen] = useState(false);
   const [removeState, setRemoveState] = useState<"inUse" | "confirm" | null>(null);
+  const [editing, setEditing] = useState<"name" | "endpoint" | null>(null);
   const [error, setError] = useState("");
   const active = uses.filter((use) => isActiveUsage(use.usage));
   const models = mergeConnectionModels(
@@ -384,86 +395,87 @@ function ConnectionCard({
     }
   };
 
+  const actions = (
+    <>
+      {allowed && (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-7 shrink-0 px-2.5 text-xs"
+          disabled={checking || !validated.ok}
+          onClick={() => void check()}
+          data-custom-connection-check=""
+        >
+          <Zap className="h-3 w-3" />
+          {t(checking ? "connections.custom.actions.checking" : "connections.custom.actions.check")}
+        </Button>
+      )}
+      <DropdownMenu modal={false}>
+        <DropdownMenuTrigger
+          className="shrink-0 rounded-md p-1 text-muted-foreground outline-none hover:bg-foreground/5 hover:text-foreground focus-visible:ring-1 focus-visible:ring-primary/30"
+          aria-label={t("connections.custom.actions.more", { name: connection.name })}
+          data-custom-connection-menu=""
+        >
+          <MoreHorizontal className="h-4 w-4" />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="text-xs">
+          {allowed && (
+            <>
+              <DropdownMenuItem onSelect={() => setEditing("name")}>
+                <Pencil className="me-1.5 h-3.5 w-3.5" />
+                {t("connections.custom.actions.rename")}
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => setEditing("endpoint")}>
+                <Wrench className="me-1.5 h-3.5 w-3.5" />
+                {t("connections.custom.actions.editEndpoint")}
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => setReplaceOpen(true)}>
+                <KeyRound className="me-1.5 h-3.5 w-3.5" />
+                {t("connections.custom.actions.replaceKey")}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+            </>
+          )}
+          <DropdownMenuItem
+            className="text-destructive"
+            data-custom-connection-remove=""
+            onSelect={() => setRemoveState(active.length > 0 ? "inUse" : "confirm")}
+          >
+            <Trash2 className="me-1.5 h-3.5 w-3.5" />
+            {t("connections.custom.actions.remove")}
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </>
+  );
+
   return (
-    <div
-      data-custom-connection=""
-      className="flex min-w-0 flex-col gap-3 rounded-lg border border-border/70 bg-card/50 p-3.5 dark:border-border-subtle/70 dark:bg-surface-2/50"
-    >
-      <div className="flex min-w-0 items-start gap-2.5">
-        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-border/60 bg-background text-primary dark:border-white/10 dark:bg-surface-1">
-          <Link className="h-4 w-4" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex min-w-0 flex-wrap items-center gap-2">
-            <p className="min-w-0 truncate text-sm font-medium text-foreground" dir="auto">
-              {connection.name}
-            </p>
-            <KindBadge kind={validated.kind} />
-            {!allowed && (
-              <span className="inline-flex items-center rounded-full border border-primary/25 bg-primary/8 px-2 py-0.5 text-[11px] leading-4 text-primary">
-                {t("common.managedByOrg")}
-              </span>
-            )}
+    <div data-custom-connection="" className="flex min-w-0 flex-col gap-3">
+      {header === "full" ? (
+        <div className="flex min-w-0 items-start gap-2.5">
+          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-border/60 bg-background text-primary dark:border-white/10 dark:bg-surface-1">
+            <Link className="h-4 w-4" />
           </div>
-          <p className="mt-0.5 truncate text-xs text-muted-foreground">
-            <bdi dir="ltr" className="font-mono">
-              {endpointHost(connection.endpoint)}
-            </bdi>
-          </p>
+          <div className="min-w-0 flex-1">
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
+              <p className="min-w-0 truncate text-sm font-medium text-foreground" dir="auto">
+                {connection.name}
+              </p>
+              <KindBadge kind={validated.kind} />
+              {!allowed && <ManagedBadge />}
+            </div>
+            <p className="mt-0.5 truncate text-xs text-muted-foreground">
+              <bdi dir="ltr" className="font-mono">
+                {endpointHost(connection.endpoint)}
+              </bdi>
+            </p>
+          </div>
+          {actions}
         </div>
-        {allowed && (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-7 shrink-0 px-2.5 text-xs"
-            disabled={checking || !validated.ok}
-            onClick={() => void check()}
-            data-custom-connection-check=""
-          >
-            <Zap className="h-3 w-3" />
-            {t(
-              checking ? "connections.custom.actions.checking" : "connections.custom.actions.check"
-            )}
-          </Button>
-        )}
-        <DropdownMenu modal={false}>
-          <DropdownMenuTrigger
-            className="shrink-0 rounded-md p-1 text-muted-foreground outline-none hover:bg-foreground/5 hover:text-foreground focus-visible:ring-1 focus-visible:ring-primary/30"
-            aria-label={t("connections.custom.actions.more", { name: connection.name })}
-            data-custom-connection-menu=""
-          >
-            <MoreHorizontal className="h-4 w-4" />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="text-xs">
-            {allowed && (
-              <>
-                <DropdownMenuItem onSelect={() => onEdit("name")}>
-                  <Pencil className="me-1.5 h-3.5 w-3.5" />
-                  {t("connections.custom.actions.rename")}
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => onEdit("endpoint")}>
-                  <Wrench className="me-1.5 h-3.5 w-3.5" />
-                  {t("connections.custom.actions.editEndpoint")}
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => setReplaceOpen(true)}>
-                  <KeyRound className="me-1.5 h-3.5 w-3.5" />
-                  {t("connections.custom.actions.replaceKey")}
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-              </>
-            )}
-            <DropdownMenuItem
-              className="text-destructive"
-              data-custom-connection-remove=""
-              onSelect={() => setRemoveState(active.length > 0 ? "inUse" : "confirm")}
-            >
-              <Trash2 className="me-1.5 h-3.5 w-3.5" />
-              {t("connections.custom.actions.remove")}
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
+      ) : (
+        <div className="flex min-w-0 items-center justify-end gap-2.5">{actions}</div>
+      )}
 
       <div className="space-y-2">
         <MetaRow label={t("connections.custom.fields.key")}>
@@ -620,7 +632,24 @@ function ConnectionCard({
         cancelText={t("common.cancel")}
         onConfirm={() => void remove()}
       />
+      {editing && (
+        <ConnectionDialog
+          mode={{ kind: "edit", focus: editing }}
+          connection={connection}
+          usages={usages}
+          onClose={() => setEditing(null)}
+        />
+      )}
     </div>
+  );
+}
+
+function ManagedBadge() {
+  const { t } = useTranslation();
+  return (
+    <span className="inline-flex items-center rounded-full border border-primary/25 bg-primary/8 px-2 py-0.5 text-[11px] leading-4 text-primary">
+      {t("common.managedByOrg")}
+    </span>
   );
 }
 
@@ -1031,64 +1060,122 @@ function ConnectionDialog({
 
 // ── Exports ──────────────────────────────────────────────────────────────────
 
+interface CustomConnectionProps {
+  connection: CustomConnection;
+  uses: readonly ConnectionUse[];
+  usages: readonly FeatureUsage[];
+  policy: PolicyDecisionSnapshot;
+}
+
+/** The connection's card (In use, or a first run's), under Connections. */
+export function CustomConnectionCard({ connection, uses, usages, policy }: CustomConnectionProps) {
+  return (
+    <div
+      data-setting-id="connections.custom"
+      data-connection-card=""
+      className="min-w-0 rounded-lg border border-border/70 bg-card/50 p-3.5 dark:border-border-subtle/70 dark:bg-surface-2/50"
+    >
+      <ConnectionPanel
+        connection={connection}
+        uses={uses}
+        usages={usages}
+        allowed={isCustomConnectionAllowed(policy)}
+        header="full"
+      />
+    </div>
+  );
+}
+
 /**
- * "Custom connection" under Connections: the card, or "Add custom connection"
- * while there is none. Always rendered (its search anchor); where policy allows
- * no custom endpoint it says so and offers nothing to set up.
+ * The connection on one line (Saved, not in use): name, kind and host, and
+ * "Manage", which opens the card's content under it. Its uses (all off) show
+ * as dimmed chips while it's closed; open, the content lists them.
  */
-export function CustomConnectionGroup({
-  connection,
-  uses,
+export function CustomConnectionRow({ connection, uses, usages, policy }: CustomConnectionProps) {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
+  const allowed = isCustomConnectionAllowed(policy);
+  return (
+    <ConnectionRow
+      data-setting-id="connections.custom"
+      icon={<Link className="h-4 w-4 text-primary" />}
+      name={connection.name}
+      nameDir="auto"
+      toggleLabel={t("connections.rows.manage")}
+      open={open}
+      onToggle={() => setOpen((value) => !value)}
+      body={
+        <ConnectionPanel
+          connection={connection}
+          uses={uses}
+          usages={usages}
+          allowed={allowed}
+          header="actions"
+        />
+      }
+      below={
+        !open && uses.length > 0 ? (
+          <div className="flex flex-wrap items-center gap-1.5 text-xs" data-connection-used-by="">
+            <span className="text-muted-foreground">{t("connections.usedBy.label")}</span>
+            {uses.map((use) => (
+              <UseChip key={use.feature} use={use} mismatch={false} onUpdate={() => {}} />
+            ))}
+          </div>
+        ) : undefined
+      }
+    >
+      <KindBadge kind={validateEndpoint(connection.endpoint).kind} />
+      {!allowed && <ManagedBadge />}
+      <span className="min-w-0 truncate text-xs text-muted-foreground">
+        <bdi dir="ltr" className="font-mono">
+          {endpointHost(connection.endpoint)}
+        </bdi>
+      </span>
+    </ConnectionRow>
+  );
+}
+
+/**
+ * "Add custom connection" while there is none, or, where policy allows no
+ * custom endpoint, a note saying so (either way the `connections.custom` anchor).
+ */
+export function AddCustomConnection({
   usages,
   policy,
 }: {
-  connection: CustomConnection | null;
-  uses: readonly ConnectionUse[];
   usages: readonly FeatureUsage[];
   policy: PolicyDecisionSnapshot;
 }) {
   const { t } = useTranslation();
-  const allowed = isCustomConnectionAllowed(policy);
-  const [dialog, setDialog] = useState<DialogMode | null>(null);
+  const [adding, setAdding] = useState(false);
 
-  return (
-    <div data-setting-id="connections.custom" className="space-y-2.5 pt-2">
-      <div>
-        <h3 className="text-xs font-semibold tracking-tight text-foreground">
-          {t("connections.custom.title")}
-        </h3>
-        <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground/80">
-          {t("connections.custom.description")}
-        </p>
-      </div>
-      {connection ? (
-        <ConnectionCard
-          connection={connection}
-          uses={uses}
-          allowed={allowed}
-          onEdit={(focus) => setDialog({ kind: "edit", focus })}
-        />
-      ) : allowed ? (
-        <button
-          type="button"
-          data-custom-connection-add=""
-          onClick={() => setDialog({ kind: "add" })}
-          className="flex w-full items-center gap-2.5 rounded-lg border border-dashed border-border/70 px-3.5 py-3 text-start text-xs text-muted-foreground transition-colors hover:border-primary/50 hover:text-foreground dark:border-white/15"
-        >
-          <Plus className="h-4 w-4 shrink-0" />
-          <span className="font-medium">{t("connections.custom.add")}</span>
-        </button>
-      ) : (
+  if (!isCustomConnectionAllowed(policy)) {
+    return (
+      <div data-setting-id="connections.custom">
         <p className="text-xs text-muted-foreground" data-custom-connection-managed="">
           {t("connections.custom.managed")}
         </p>
-      )}
-      {dialog && (
+      </div>
+    );
+  }
+  return (
+    <div data-setting-id="connections.custom">
+      <button
+        type="button"
+        data-custom-connection-add=""
+        onClick={() => setAdding(true)}
+        className="flex w-full flex-wrap items-center gap-x-2.5 gap-y-0.5 rounded-lg border border-dashed border-border/70 px-3.5 py-3 text-start text-xs text-muted-foreground transition-colors hover:border-primary/50 hover:text-foreground dark:border-white/15"
+      >
+        <Plus className="h-4 w-4 shrink-0" />
+        <span className="font-medium">{t("connections.custom.add")}</span>
+        <span className="min-w-0 text-muted-foreground/80">{t("connections.custom.addHint")}</span>
+      </button>
+      {adding && (
         <ConnectionDialog
-          mode={dialog}
-          connection={connection}
+          mode={{ kind: "add" }}
+          connection={null}
           usages={usages}
-          onClose={() => setDialog(null)}
+          onClose={() => setAdding(false)}
         />
       )}
     </div>
