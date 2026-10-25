@@ -3180,6 +3180,20 @@
           "rebuildNote": "Run sudo nixos-rebuild switch, then log out and back in so the group change and the /dev/uinput rule take effect. Replace <you> with your username."
         }
       },
+      "build": {
+        "title": "This build",
+        "version": "Version",
+        "built": "Built",
+        "commit": "From commit",
+        "runningSince": "Running since",
+        "installedAt": "Installed at",
+        "engine": "Engine",
+        "runningFromSource": "Running from source",
+        "uncommittedChanges": "uncommitted changes",
+        "withRelative": "{{time}} ({{relative}})",
+        "copyLabel": "Copy build info",
+        "copyDescription": "Version, build time, commit and folder as plain text for a bug report. Your user name is left out of paths."
+      },
       "updates": {
         "automaticUpdates": "Automatic updates",
         "automaticUpdatesDescription": "Download and install updates in the background",
@@ -3232,6 +3246,7 @@
         "selfBuilt": "Updates are disabled for self-built builds",
         "newVersion": "A newer version is available",
         "newVersionAvailable": "New version available",
+        "notAvailable": "Not available",
         "restarting": "Restarting...",
         "title": "Updates",
         "versionPlaceholder": "—",

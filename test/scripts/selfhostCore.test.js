@@ -318,3 +318,100 @@ test("arguments: command, flags in camelCase, --cdp port, positionals", () => {
   });
   assert.equal(core.parseArgs([]).command, "status");
 });
+
+// ship's check of the installed build-info.json (scripts/afterPack.js stamps it)
+const SHIPPED = "a".repeat(40);
+const stamp = (overrides = {}) => ({
+  builtAt: "2026-10-25T07:45:12.345Z",
+  commit: SHIPPED,
+  dirty: false,
+  source: "selfhost",
+  version: "1.10.3",
+  ...overrides,
+});
+const NO_LOG = { exists: false, showsSha: false };
+
+test("ship check: the installed build-info.json is this ship's, so the commit is confirmed", () => {
+  const result = core.shippedCommitCheck({
+    sha: SHIPPED,
+    installed: stamp(),
+    built: stamp(),
+    log: NO_LOG,
+  });
+  assert.deepEqual(result, { problems: [], notes: [], confirmed: true });
+});
+
+test("ship check: an installed build-info.json naming another commit fails", () => {
+  const other = "b".repeat(40);
+  const result = core.shippedCommitCheck({
+    sha: SHIPPED,
+    installed: stamp({ commit: other }),
+    built: stamp(),
+    log: { exists: true, showsSha: false },
+  });
+  assert.equal(result.confirmed, false);
+  assert.match(result.problems[0], new RegExp(`names commit ${other}, expected ${SHIPPED}`));
+  assert.match(result.problems[1], /System Info line does not show the shipped commit/);
+});
+
+test("ship check: an unreadable installed build-info.json reads as an unknown commit", () => {
+  const unknown = { builtAt: null, commit: null, dirty: null, source: null, version: null };
+  const result = core.shippedCommitCheck({
+    sha: SHIPPED,
+    installed: unknown,
+    built: stamp(),
+    log: NO_LOG,
+  });
+  assert.match(result.problems[0], /names commit unknown/);
+});
+
+test("ship check: the same commit from another packaging (older build time) fails", () => {
+  const result = core.shippedCommitCheck({
+    sha: SHIPPED,
+    installed: stamp({ builtAt: "2026-10-24T01:00:00.000Z" }),
+    built: stamp(),
+    log: NO_LOG,
+  });
+  assert.equal(result.confirmed, false);
+  assert.match(result.problems[0], /built at 2026-10-24T01:00:00\.000Z, not by this ship/);
+});
+
+test("ship check: this ship's package had build-info.json but the install has none", () => {
+  const result = core.shippedCommitCheck({
+    sha: SHIPPED,
+    installed: null,
+    built: stamp(),
+    log: { exists: true, showsSha: true },
+  });
+  assert.equal(result.confirmed, false);
+  assert.match(result.problems[0], /no build-info\.json, though this ship's package has one/);
+});
+
+test("ship check: a commit from before the stamp is checked by the log, as before", () => {
+  const before = { sha: SHIPPED, installed: null, built: null };
+  const shown = core.shippedCommitCheck({ ...before, log: { exists: true, showsSha: true } });
+  assert.deepEqual(shown.problems, []);
+  assert.match(shown.notes[0], /predates build-info\.json/);
+
+  const notShown = core.shippedCommitCheck({ ...before, log: { exists: true, showsSha: false } });
+  assert.deepEqual(notShown.problems, [
+    "the new log's System Info line does not show the shipped commit",
+  ]);
+
+  const noLog = core.shippedCommitCheck({ ...before, log: NO_LOG });
+  assert.deepEqual(noLog.problems, []);
+  assert.match(noLog.notes[1], /no new log file/);
+});
+
+test("ship check: with the commit confirmed, a log without System Info is only a note", () => {
+  // Problems-only logging writes a log file without the info-level System Info line
+  const result = core.shippedCommitCheck({
+    sha: SHIPPED,
+    installed: stamp(),
+    built: stamp(),
+    log: { exists: true, showsSha: false },
+  });
+  assert.deepEqual(result.problems, []);
+  assert.equal(result.confirmed, true);
+  assert.match(result.notes[0], /does not show the shipped commit \(build-info\.json does\)/);
+});

@@ -12,6 +12,8 @@
 //    on distros that restrict unprivileged user namespaces).
 // 3. Fails the build if required binaries (ffmpeg-static, ps-list vendor exe,
 //    onnx worker script) are missing from app.asar.unpacked/.
+// 4. Stamps build-info.json next to app.asar: when and from which commit this
+//    package was made (System › This build, selfhost.js ship's check).
 
 const fs = require("fs");
 const path = require("path");
@@ -22,6 +24,7 @@ const {
   WINDOWS_ONNXRUNTIME_PRIVATE_NAME,
   WINDOWS_ONNXRUNTIME_UPSTREAM_NAME,
 } = require("./download-sherpa-onnx");
+const { BUILD_INFO_FILE, gitEnv } = require("../src/helpers/buildInfo");
 
 // ---------------------------------------------------------------------------
 // macOS resource binary signing
@@ -342,17 +345,78 @@ function verifyUnpackedBinaries(context) {
 }
 
 // ---------------------------------------------------------------------------
+// Build info stamp
+// ---------------------------------------------------------------------------
+
+// git's stdout in `cwd`, or null without git, outside a repo, or on a timeout:
+// a missing git never fails the packaging.
+function gitOutput(args, cwd) {
+  try {
+    return execFileSync("git", args, {
+      cwd,
+      env: gitEnv(),
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+      timeout: 15000,
+      windowsHide: true,
+      maxBuffer: 64 * 1024 * 1024,
+    });
+  } catch {
+    return null;
+  }
+}
+
+// From the folder being packaged (selfhost.js ship packages its own checkout),
+// never the process's cwd. `source` follows the selfBuilt marker that
+// electron-builder.local-win.json adds through extraMetadata.
+function collectBuildInfo(context, { now = new Date(), git = gitOutput } = {}) {
+  const { packager } = context;
+  const projectDir = packager.projectDir ?? packager.info?.projectDir;
+  const head = git(["rev-parse", "HEAD"], projectDir)?.trim() ?? "";
+  const commit = /^[0-9a-f]{40}$/.test(head) ? head : null;
+  const status = commit ? git(["status", "--porcelain", "--untracked-files=no"], projectDir) : null;
+  const metadata = packager.info?.metadata ?? {};
+  const selfBuilt =
+    metadata.selfBuilt === true || packager.config?.extraMetadata?.selfBuilt === true;
+  return {
+    builtAt: now.toISOString(),
+    commit,
+    dirty: status === null ? null : status.trim().length > 0,
+    source: selfBuilt ? "selfhost" : "npm",
+    version: packager.appInfo?.version ?? metadata.version ?? null,
+  };
+}
+
+function writeBuildInfo(context, info) {
+  const file = path.join(resolveResourcesDir(context), BUILD_INFO_FILE);
+  fs.writeFileSync(file, `${JSON.stringify(info, null, 2)}\n`);
+  const commit = info.commit ? info.commit.slice(0, 8) : "unknown commit";
+  console.log(
+    `  afterPack: wrote ${BUILD_INFO_FILE} (${commit}${info.dirty ? ", uncommitted changes" : ""}, ${info.source})`
+  );
+  return file;
+}
+
+// ---------------------------------------------------------------------------
 // Main hook
 // ---------------------------------------------------------------------------
+
+// One stamp per packaging run: a universal macOS build packs x64 and arm64
+// separately and refuses to merge files that differ between them.
+let runBuildInfo = null;
 
 exports.default = async function (context) {
   stripOnnxruntimeBinaries(context);
   wrapLinuxBinary(context);
   verifyMeetingAecHelper(context);
   verifyUnpackedBinaries(context);
+  runBuildInfo = runBuildInfo ?? collectBuildInfo(context);
+  writeBuildInfo(context, runBuildInfo);
   registerMacResourceBinariesForSigning(context);
 };
 
 exports.verifyWindowsOnnxRuntimePrivatized = verifyWindowsOnnxRuntimePrivatized;
 exports.verifyWindowsKeyListener = verifyWindowsKeyListener;
 exports.verifyCopilotRuntime = verifyCopilotRuntime;
+exports.collectBuildInfo = collectBuildInfo;
+exports.writeBuildInfo = writeBuildInfo;

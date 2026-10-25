@@ -52,6 +52,7 @@ const {
 const { createNoteAttendeesLookup, searchContacts } = require("./connectors/contactSearch");
 const { registerCopilotIpc } = require("./copilot/copilotIpc");
 const { registerCustomConnectionIpc } = require("./customConnectionIpc");
+const { getBuildInfo } = require("./buildInfo");
 // The renderer's ModelRegistry is not main-loadable; the raw registry data is
 // packaged, and the route resolver only needs {id, baseUrl} per provider.
 const transcriptionProviderBaseUrls = () =>
@@ -11397,6 +11398,8 @@ class IPCHandlers {
     ipcMain.handle("get-app-version", async () => {
       return this.updateManager.getAppVersion();
     });
+
+    ipcMain.handle("get-build-info", () => getBuildInfo());
 
     ipcMain.handle("get-post-migration-state", () => ({
       justMigrated: postMigrationDetector.isReturningFromOldBundle(),

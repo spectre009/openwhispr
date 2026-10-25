@@ -2886,6 +2886,20 @@
           "rebuildNote": "运行 sudo nixos-rebuild switch，然后注销并重新登录，使组变更和 /dev/uinput 规则生效。将 <you> 替换为您的用户名。"
         }
       },
+      "build": {
+        "title": "当前构建",
+        "version": "版本",
+        "built": "构建时间",
+        "commit": "来源提交",
+        "runningSince": "运行开始于",
+        "installedAt": "安装位置",
+        "engine": "引擎",
+        "runningFromSource": "从源码运行",
+        "uncommittedChanges": "有未提交的更改",
+        "withRelative": "{{time}}（{{relative}}）",
+        "copyLabel": "复制构建信息",
+        "copyDescription": "以纯文本复制版本、构建时间、提交和文件夹，便于提交问题报告。路径中不含你的用户名。"
+      },
       "updates": {
         "automaticUpdates": "自动更新",
         "automaticUpdatesDescription": "在后台下载并安装更新",
@@ -2938,6 +2952,7 @@
         "selfBuilt": "自行构建的版本已禁用更新",
         "newVersion": "有更新的版本可用",
         "newVersionAvailable": "有新版本可用",
+        "notAvailable": "不可用",
         "restarting": "正在重启...",
         "title": "更新",
         "versionPlaceholder": "—",

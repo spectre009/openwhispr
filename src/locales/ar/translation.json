@@ -4581,6 +4581,20 @@
           "rebuildNote": "قم بتشغيل sudo nixos-rebuild switch، ثم قم بتسجيل الخروج وتسجيل الدخول مرة أخرى حتى يسري تغيير المجموعة وقاعدة /dev/uinput. استبدل <you> باسم المستخدم الخاص بك."
         }
       },
+      "build": {
+        "title": "هذا البناء",
+        "version": "الإصدار",
+        "built": "تاريخ البناء",
+        "commit": "من الإيداع",
+        "runningSince": "يعمل منذ",
+        "installedAt": "مثبّت في",
+        "engine": "المحرك",
+        "runningFromSource": "يعمل من الشيفرة المصدرية",
+        "uncommittedChanges": "تغييرات غير مودعة",
+        "withRelative": "{{time}} ({{relative}})",
+        "copyLabel": "نسخ معلومات البناء",
+        "copyDescription": "الإصدار ووقت البناء والإيداع والمجلد كنص عادي لتقرير خطأ. يُحذف اسم المستخدم من المسارات."
+      },
       "updates": {
         "automaticUpdates": "التحديثات التلقائية",
         "automaticUpdatesDescription": "تنزيل التحديثات وتثبيتها في الخلفية",
@@ -4633,6 +4647,7 @@
         "selfBuilt": "التحديثات معطّلة في الإصدارات المبنية ذاتيًا",
         "newVersion": "يتوفر إصدار أحدث",
         "newVersionAvailable": "يتوفر إصدار جديد",
+        "notAvailable": "غير متاح",
         "restarting": "جاري إعادة التشغيل...",
         "title": "التحديثات",
         "versionPlaceholder": "—",

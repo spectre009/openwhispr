@@ -2886,6 +2886,20 @@
           "rebuildNote": "執行 sudo nixos-rebuild switch，然後登出並重新登入，使群組變更與 /dev/uinput 規則生效。將 <you> 替換為你的使用者名稱。"
         }
       },
+      "build": {
+        "title": "目前建置",
+        "version": "版本",
+        "built": "建置時間",
+        "commit": "來源提交",
+        "runningSince": "執行開始於",
+        "installedAt": "安裝位置",
+        "engine": "引擎",
+        "runningFromSource": "從原始碼執行",
+        "uncommittedChanges": "有未提交的變更",
+        "withRelative": "{{time}}（{{relative}}）",
+        "copyLabel": "複製建置資訊",
+        "copyDescription": "以純文字複製版本、建置時間、提交與資料夾，方便回報問題。路徑中不含你的使用者名稱。"
+      },
       "updates": {
         "automaticUpdates": "自動更新",
         "automaticUpdatesDescription": "在背景下載並安裝更新",
@@ -2938,6 +2952,7 @@
         "selfBuilt": "自行建置的版本已停用更新",
         "newVersion": "有更新的版本可用",
         "newVersionAvailable": "有新版本可用",
+        "notAvailable": "無法使用",
         "restarting": "重新啟動中...",
         "title": "更新",
         "versionPlaceholder": "—",

@@ -2865,6 +2865,20 @@
           "rebuildNote": "Execute sudo nixos-rebuild switch, depois termine a sessão e volte a entrar para que a alteração de grupo e a regra /dev/uinput entrem em vigor. Substitua <you> pelo seu nome de utilizador."
         }
       },
+      "build": {
+        "title": "Esta compilação",
+        "version": "Versão",
+        "built": "Compilada",
+        "commit": "Do commit",
+        "runningSince": "Em execução desde",
+        "installedAt": "Instalada em",
+        "engine": "Motor",
+        "runningFromSource": "Executando a partir do código-fonte",
+        "uncommittedChanges": "alterações não confirmadas",
+        "withRelative": "{{time}} ({{relative}})",
+        "copyLabel": "Copiar informações da compilação",
+        "copyDescription": "Versão, hora da compilação, commit e pasta em texto para um relatório de erro. O nome de usuário é removido dos caminhos."
+      },
       "updates": {
         "automaticUpdates": "Atualizações automáticas",
         "automaticUpdatesDescription": "Baixar e instalar atualizações em segundo plano",
@@ -2917,6 +2931,7 @@
         "selfBuilt": "As atualizações estão desativadas em compilações próprias",
         "newVersion": "Uma versão mais recente está disponível",
         "newVersionAvailable": "Nova versão disponível",
+        "notAvailable": "Indisponível",
         "restarting": "Reiniciando...",
         "title": "Atualizações",
         "versionPlaceholder": "—",

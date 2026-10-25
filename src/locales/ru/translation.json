@@ -2892,6 +2892,20 @@
           "rebuildNote": "Выполните sudo nixos-rebuild switch, затем выйдите из системы и войдите снова, чтобы изменение группы и правило /dev/uinput вступили в силу. Замените <you> на ваше имя пользователя."
         }
       },
+      "build": {
+        "title": "Эта сборка",
+        "version": "Версия",
+        "built": "Собрана",
+        "commit": "Из коммита",
+        "runningSince": "Работает с",
+        "installedAt": "Установлена в",
+        "engine": "Движок",
+        "runningFromSource": "Запущена из исходников",
+        "uncommittedChanges": "незакоммиченные изменения",
+        "withRelative": "{{time}} ({{relative}})",
+        "copyLabel": "Скопировать сведения о сборке",
+        "copyDescription": "Версия, время сборки, коммит и папка в виде текста для отчёта об ошибке. Имя пользователя в путях скрыто."
+      },
       "updates": {
         "automaticUpdates": "Автоматические обновления",
         "automaticUpdatesDescription": "Загружать и устанавливать обновления в фоновом режиме",
@@ -2944,6 +2958,7 @@
         "selfBuilt": "Обновления отключены для самостоятельно собранных версий",
         "newVersion": "Доступна новая версия",
         "newVersionAvailable": "Доступна новая версия",
+        "notAvailable": "Недоступно",
         "restarting": "Перезапуск...",
         "title": "Обновления",
         "versionPlaceholder": "—",

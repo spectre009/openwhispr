@@ -150,6 +150,7 @@ import { supportsLiveTranscriptionPreview } from "../utils/transcriptionPreview"
 import SettingsPageHeader from "./settings/SettingsPageHeader";
 import GpuDeviceSelector from "./settings/GpuDeviceSelector";
 import AiConnectionsPage from "./settings/AiConnectionsPage";
+import BuildInfoPanel from "./settings/BuildInfoPanel";
 import DictationOverview from "./settings/DictationOverview";
 import { HotkeyFeatureLink, HotkeyKbd, HotkeyTable, HotkeyTableRow } from "./settings/HotkeyTable";
 import type { ElsewhereLocation } from "./settings/search/types";
@@ -4435,63 +4436,41 @@ EOF`,
       case "system":
         return (
           <div className="space-y-6">
+            <BuildInfoPanel
+              showing={page === "system"}
+              fallbackVersion={currentVersion}
+              updateAvailable={isUpdateAvailable}
+              updatesSupported={updateStatus.isSupported}
+            />
+
             {/* Software Updates */}
-            <div>
+            <div className="border-t border-border/70 pt-6">
               <SectionHeader title={t("settingsPage.general.updates.title")} />
               <SettingsPanel>
-                <SettingsPanelRow data-setting-id="system.updates.version">
-                  <SettingsRow
-                    label={t("settingsPage.general.updates.currentVersion")}
-                    description={
-                      updateStatus.isDevelopment
-                        ? t("settingsPage.general.updates.devMode")
-                        : updateStatus.isSelfBuilt
-                          ? t("settingsPage.general.updates.selfBuilt")
-                          : !updateStatus.isSupported
-                            ? t("settingsPage.general.updates.managedByPackageManager")
-                            : isUpdateAvailable
-                              ? t("settingsPage.general.updates.newVersionAvailable")
-                              : t("settingsPage.general.updates.latestVersion")
-                    }
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <span
-                        dir="ltr"
-                        className="text-xs tabular-nums text-muted-foreground font-mono"
-                      >
-                        {currentVersion || t("settingsPage.general.updates.versionPlaceholder")}
-                        {updateStatus.selfBuiltCommit
-                          ? ` (${updateStatus.selfBuiltCommit.slice(0, 7)})`
-                          : ""}
-                      </span>
-                      {updateStatus.isDevelopment ? (
-                        <Badge variant="warning">
-                          {t("settingsPage.general.updates.badges.dev")}
-                        </Badge>
-                      ) : updateStatus.isSelfBuilt ? (
-                        <Badge variant="outline">
-                          {t("settingsPage.general.updates.badges.selfBuilt")}
-                        </Badge>
-                      ) : isUpdateAvailable ? (
-                        <Badge variant="success">
-                          {t("settingsPage.general.updates.badges.update")}
-                        </Badge>
-                      ) : (
-                        <Badge variant="outline">
-                          {t("settingsPage.general.updates.badges.latest")}
-                        </Badge>
-                      )}
-                    </div>
-                  </SettingsRow>
-                </SettingsPanelRow>
-
-                {updateStatus.isSupported && (
+                {updateStatus.isSupported ? (
                   <SettingsPanelRow data-setting-id="system.updates.auto">
                     <SettingsRow
                       label={t("settingsPage.general.updates.automaticUpdates")}
                       description={t("settingsPage.general.updates.automaticUpdatesDescription")}
                     >
                       <Toggle checked={autoUpdatesEnabled} onChange={setAutoUpdatesEnabled} />
+                    </SettingsRow>
+                  </SettingsPanelRow>
+                ) : (
+                  <SettingsPanelRow data-setting-id="system.updates.auto">
+                    <SettingsRow
+                      label={t("settingsPage.general.updates.automaticUpdates")}
+                      description={
+                        updateStatus.isDevelopment
+                          ? t("settingsPage.general.updates.devMode")
+                          : updateStatus.isSelfBuilt
+                            ? t("settingsPage.general.updates.selfBuilt")
+                            : t("settingsPage.general.updates.managedByPackageManager")
+                      }
+                    >
+                      <Badge variant="outline">
+                        {t("settingsPage.general.updates.notAvailable")}
+                      </Badge>
                     </SettingsRow>
                   </SettingsPanelRow>
                 )}

@@ -222,6 +222,46 @@ function renderRollbackSteps({ release, snapshots, paths }) {
   return lines.join("\n");
 }
 
+// Did the installer put this ship's build in place? `installed` is the installed
+// app's build-info.json and `built` the one this ship's packaging stamped (each
+// parsed, null when absent). The installed file must name the shipped commit
+// and, when this ship's package had one, be that very file (same build time). A
+// commit from before the stamp existed has neither; the new log's System Info
+// line is then the only commit check. Otherwise the log is a secondary signal:
+// it's written only while file logging keeps info lines.
+function shippedCommitCheck({ sha, installed, built, log }) {
+  const problems = [];
+  const notes = [];
+  let confirmed = false;
+  if (installed) {
+    if (installed.commit !== sha) {
+      problems.push(
+        `the installed build-info.json names commit ${installed.commit ?? "unknown"}, expected ${sha}`
+      );
+    } else if (built && installed.builtAt !== built.builtAt) {
+      problems.push(
+        `the installed build-info.json was built at ${installed.builtAt ?? "an unknown time"}, not by this ship (${built.builtAt ?? "unknown"})`
+      );
+    } else {
+      confirmed = true;
+    }
+  } else if (built) {
+    problems.push("the installed app has no build-info.json, though this ship's package has one");
+  } else {
+    notes.push("this commit predates build-info.json, so only the log can confirm the commit");
+  }
+
+  if (!log.showsSha) {
+    const missing = "the new log's System Info line does not show the shipped commit";
+    if (log.exists && confirmed) notes.push(`${missing} (build-info.json does)`);
+    else if (log.exists) problems.push(missing);
+    else if (!confirmed) {
+      notes.push("no new log file (file logging is off), so the System Info check was skipped");
+    }
+  }
+  return { problems, notes, confirmed };
+}
+
 function parseArgs(argv) {
   const [command = "status", ...rest] = argv;
   const options = { positional: [] };
@@ -265,5 +305,6 @@ module.exports = {
   describeWriter,
   renderGuardRefusal,
   renderRollbackSteps,
+  shippedCommitCheck,
   parseArgs,
 };

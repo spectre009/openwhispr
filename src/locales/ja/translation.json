@@ -2886,6 +2886,20 @@
           "rebuildNote": "sudo nixos-rebuild switchを実行し、グループの変更と/dev/uinputのルールを反映させるためにログアウト後に再ログインしてください。<you>はあなたのユーザー名に置き換えてください。"
         }
       },
+      "build": {
+        "title": "このビルド",
+        "version": "バージョン",
+        "built": "ビルド日時",
+        "commit": "コミット",
+        "runningSince": "起動時刻",
+        "installedAt": "インストール先",
+        "engine": "エンジン",
+        "runningFromSource": "ソースから実行中",
+        "uncommittedChanges": "未コミットの変更あり",
+        "withRelative": "{{time}}（{{relative}}）",
+        "copyLabel": "ビルド情報をコピー",
+        "copyDescription": "バージョン、ビルド日時、コミット、フォルダーを不具合報告用のテキストとしてコピーします。パスからユーザー名は除かれます。"
+      },
       "updates": {
         "automaticUpdates": "自動アップデート",
         "automaticUpdatesDescription": "アップデートをバックグラウンドでダウンロードしてインストールします",
@@ -2938,6 +2952,7 @@
         "selfBuilt": "自己ビルド版では更新が無効です",
         "newVersion": "新しいバージョンがあります",
         "newVersionAvailable": "新しいバージョンが利用可能",
+        "notAvailable": "利用不可",
         "restarting": "再起動中...",
         "title": "アップデート",
         "versionPlaceholder": "—",

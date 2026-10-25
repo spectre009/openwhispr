@@ -18,9 +18,12 @@
  * with its own node_modules and resources/bin, so the working tree and a running
  * Dev mode are never touched until the short install window. Every ship backs up
  * the data folder and archives its installer; rollback is manual (`status` prints
- * the steps). A data guard refuses to run code on data that different code has
- * migrated; an uncommitted Dev run counts as the commit its data code was later
- * committed as. Decisions live in scripts/selfhost/core.js.
+ * the steps). After installing, `ship` checks that the installed build-info.json
+ * (stamped by scripts/afterPack.js) names the shipped commit and is this build's;
+ * the new log's System Info line is a secondary check. A data guard refuses to
+ * run code on data that different code has migrated; an uncommitted Dev run
+ * counts as the commit its data code was later committed as. Decisions live in
+ * scripts/selfhost/core.js.
  */
 
 const { spawn, spawnSync } = require("child_process");
@@ -28,6 +31,7 @@ const fs = require("fs");
 const os = require("os");
 const path = require("path");
 const core = require("./selfhost/core");
+const { BUILD_INFO_FILE, parseBuildInfo } = require("../src/helpers/buildInfo");
 
 const REPO = path.resolve(__dirname, "..");
 const LOCALAPPDATA = process.env.LOCALAPPDATA || path.join(os.homedir(), "AppData", "Local");
@@ -407,6 +411,19 @@ function readInstalledPackage() {
   return JSON.parse(asar.extractFile(asarPath, "package.json").toString("utf8"));
 }
 
+// build-info.json in a packaged app's resources folder (scripts/afterPack.js
+// stamps it): null when absent, every field null when unreadable.
+function readBuildInfo(resourcesDir) {
+  const file = path.join(resourcesDir, BUILD_INFO_FILE);
+  if (!fs.existsSync(file)) return null;
+  const unknown = { builtAt: null, commit: null, dirty: null, source: null, version: null };
+  try {
+    return parseBuildInfo(fs.readFileSync(file, "utf8")) || unknown;
+  } catch {
+    return unknown;
+  }
+}
+
 function installedTarget() {
   const pkg = readInstalledPackage();
   if (!pkg) throw new Error(`no installed app at ${INSTALL_DIR}`);
@@ -782,6 +799,20 @@ function buildInstaller(sha, logs) {
   return installers[0];
 }
 
+// The stamp this ship's packaging wrote into dist\win-unpacked (or an arch's
+// win-*-unpacked); null when the shipped commit predates it.
+function readBuiltBuildInfo() {
+  const distDir = path.join(BUILD_DIR, "dist");
+  const unpacked = fs.existsSync(distDir)
+    ? fs.readdirSync(distDir).filter((name) => /^win(-[a-z0-9]+)?-unpacked$/i.test(name))
+    : [];
+  for (const name of unpacked) {
+    const stamp = readBuildInfo(path.join(distDir, name, "resources"));
+    if (stamp) return stamp;
+  }
+  return null;
+}
+
 function robocopy(from, to) {
   const result = spawnSync(
     "robocopy.exe",
@@ -839,7 +870,9 @@ function newestLog(after) {
   return files[0] || null;
 }
 
-async function verifyStable(sha, startedAt) {
+// The installed build-info.json is the primary check that the shipped commit is
+// what got installed (core.shippedCommitCheck); `built` is this ship's stamp.
+async function verifyStable(sha, startedAt, built) {
   const problems = [];
   const pkg = readInstalledPackage();
   if (pkg?.selfBuiltCommit !== sha || pkg?.selfBuilt !== true) {
@@ -847,22 +880,29 @@ async function verifyStable(sha, startedAt) {
       `installed app.asar has selfBuiltCommit ${pkg?.selfBuiltCommit}, expected ${sha}`
     );
   }
+  const installed = readBuildInfo(path.join(INSTALL_DIR, "resources"));
   await confirmAlive("Stable", (c) => c.stableMains).catch((error) => problems.push(error.message));
 
-  let logChecked = false;
+  let logShowsSha = false;
   const deadline = Date.now() + 20000;
   while (Date.now() < deadline) {
     const file = newestLog(startedAt);
     if (file && fs.readFileSync(file, "utf8").includes(sha)) {
-      logChecked = true;
+      logShowsSha = true;
       break;
     }
     await sleep(1000);
   }
-  if (!logChecked) {
-    if (newestLog(startedAt))
-      problems.push("the new log's System Info line does not show the shipped commit");
-    else warn("no new log file (file logging is off), so the System Info check was skipped");
+  const commitCheck = core.shippedCommitCheck({
+    sha,
+    installed,
+    built,
+    log: { exists: Boolean(newestLog(startedAt)), showsSha: logShowsSha },
+  });
+  problems.push(...commitCheck.problems);
+  commitCheck.notes.forEach((note) => warn(note));
+  if (commitCheck.confirmed) {
+    log(`installed ${BUILD_INFO_FILE}: ${sha.slice(0, 8)}, built ${installed.builtAt}`);
   }
 
   const listenerDeadline = Date.now() + 20000;
@@ -957,6 +997,12 @@ async function commandShip(options) {
   runGate(options, logs.gate);
   ensureSqliteForElectron(BUILD_DIR, logs.setup);
   const installer = buildInstaller(sha, logs);
+  const builtInfo = readBuiltBuildInfo();
+  if (builtInfo) {
+    log(
+      `stamped ${BUILD_INFO_FILE}: ${builtInfo.commit?.slice(0, 8) ?? "unknown commit"}, built ${builtInfo.builtAt}`
+    );
+  }
   if (helpers.wiped) {
     const notCompiled = core.helpersNotCompiled(fs.readFileSync(logs.prebuild, "utf8"));
     if (notCompiled.length) {
@@ -997,7 +1043,7 @@ async function commandShip(options) {
   ensureLoginEntry();
   const launchedAt = Date.now();
   startStableProcess();
-  const problems = await verifyStable(sha, launchedAt);
+  const problems = await verifyStable(sha, launchedAt, builtInfo);
   recordWriter(target);
 
   const next = readState();

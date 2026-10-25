@@ -1434,6 +1434,36 @@ export interface AppVersionResult {
   version: string;
 }
 
+/**
+ * `source`: a selfhost Dev or `npm run dev` run from the working tree;
+ * `selfhost-stable`: a packaged self-built install; `release`: an official package.
+ */
+export type BuildChannel = "source" | "selfhost-stable" | "release";
+
+/** System › This build (`get-build-info`). Null fields are unknown. */
+export interface BuildInfoResult {
+  version: string;
+  /** UTC ISO time the package was made; null when running from source or not stamped. */
+  builtAt: string | null;
+  /** Full SHA: the packaged commit, or the working tree's HEAD when running from source. */
+  commit: string | null;
+  /** Tracked files had uncommitted changes when it was packaged (or now, from source). */
+  dirty: boolean | null;
+  /** Who packaged it: `selfhost` (selfhost.js ship) or `npm` (any other packaging). */
+  source: "selfhost" | "npm" | null;
+  /** The commit's subject line; read only when running from source. */
+  commitSubject: string | null;
+  channel: BuildChannel;
+  /** When the main process started (UTC ISO), not when a window loaded. */
+  startedAt: string;
+  uptimeSec: number;
+  /** The executable's path, with the user profile prefix as %USERPROFILE% (~ elsewhere). */
+  exePath: string | null;
+  electron: string | null;
+  chrome: string | null;
+  node: string | null;
+}
+
 export interface WhisperDownloadProgressData {
   type: "progress" | "installing" | "complete" | "error";
   model: string;
@@ -2708,6 +2738,7 @@ declare global {
       downloadUpdate: () => Promise<UpdateResult>;
       installUpdate: () => Promise<UpdateResult>;
       getAppVersion: () => Promise<AppVersionResult>;
+      getBuildInfo: () => Promise<BuildInfoResult>;
       getPostMigrationState: () => Promise<{ justMigrated: boolean }>;
       getOAuthProtocolRegistered: () => Promise<boolean>;
       getOAuthProtocol: () => Promise<string>;
