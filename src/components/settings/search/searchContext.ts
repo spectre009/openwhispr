@@ -266,6 +266,8 @@ export function buildSettingsSearchContext(
   if (translationKey) values["hotkey.translation"] = translationKey;
   const meetingKey = hotkeyValue(settings.meetingKey);
   if (meetingKey) values["hotkey.meeting"] = meetingKey;
+  const reviewKey = hotkeyValue(settings.reviewKey);
+  if (reviewKey) values["hotkey.review"] = reviewKey;
   const styleKeys = input.styleBindings.map((binding) => {
     const style = findStyle(input.styleLibrary, binding.styleId);
     return { label: formatHotkeyLabel(binding.hotkey), name: style?.name ?? "" };

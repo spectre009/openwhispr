@@ -913,6 +913,8 @@ export default function SettingsPage({
   const setVoiceAgentKey = useSettingsStore((s) => s.setVoiceAgentKey);
   const translationKey = useSettingsStore((s) => s.translationKey);
   const setTranslationKey = useSettingsStore((s) => s.setTranslationKey);
+  const reviewKey = useSettingsStore((s) => s.reviewKey);
+  const setReviewKey = useSettingsStore((s) => s.setReviewKey);
   // Style hotkeys (Stage 4) share the dictation slot: every hotkey field checks
   // against them by name.
   const styleLibrary = useStyleStore((s) => s.library);
@@ -1117,6 +1119,23 @@ export default function SettingsPage({
       registerFn: meetingRegisterFn,
     });
 
+  // "Review last dictation": registered by main like the meeting hotkey.
+  const reviewRegisterFn = useCallback(async (hotkey: string) => {
+    const result = await window.electronAPI?.registerReviewHotkey?.(hotkey);
+    return result ?? { success: false };
+  }, []);
+
+  const { registerHotkey: registerReviewHotkey, isRegistering: isReviewHotkeyRegistering } =
+    useHotkeyRegistration({
+      onSuccess: (registeredHotkey) => {
+        setReviewKey(registeredHotkey);
+      },
+      showSuccessToast: false,
+      showErrorToast: true,
+      showAlert: showAlertDialog,
+      registerFn: reviewRegisterFn,
+    });
+
   // Agent hotkey setters resolve to false when main-process registration fails;
   // surface it and return the result so HotkeyListInput rolls the row back.
   const [isAgentHotkeyCommitting, setIsAgentHotkeyCommitting] = useState(false);
@@ -1152,11 +1171,12 @@ export default function SettingsPage({
           "settingsPage.general.meetingHotkey.title": meetingKey,
           "settingsPage.general.voiceAgentHotkey.title": voiceAgentKey,
           "settingsPage.general.translationHotkey.title": translationKey,
+          "settingsPage.general.reviewHotkey.title": reviewKey,
         },
         t,
         styleKeyConflicts
       ),
-    [meetingKey, voiceAgentKey, translationKey, styleKeyConflicts, t]
+    [meetingKey, voiceAgentKey, translationKey, reviewKey, styleKeyConflicts, t]
   );
 
   const validateMeetingHotkey = useCallback(
@@ -1167,11 +1187,12 @@ export default function SettingsPage({
           "settingsPage.general.hotkey.title": dictationKey,
           "settingsPage.general.voiceAgentHotkey.title": voiceAgentKey,
           "settingsPage.general.translationHotkey.title": translationKey,
+          "settingsPage.general.reviewHotkey.title": reviewKey,
         },
         t,
         styleKeyConflicts
       ),
-    [dictationKey, voiceAgentKey, translationKey, styleKeyConflicts, t]
+    [dictationKey, voiceAgentKey, translationKey, reviewKey, styleKeyConflicts, t]
   );
 
   const validateVoiceAgentHotkey = useCallback(
@@ -1182,11 +1203,12 @@ export default function SettingsPage({
           "settingsPage.general.hotkey.title": dictationKey,
           "settingsPage.general.meetingHotkey.title": meetingKey,
           "settingsPage.general.translationHotkey.title": translationKey,
+          "settingsPage.general.reviewHotkey.title": reviewKey,
         },
         t,
         styleKeyConflicts
       ),
-    [dictationKey, meetingKey, translationKey, styleKeyConflicts, t]
+    [dictationKey, meetingKey, translationKey, reviewKey, styleKeyConflicts, t]
   );
 
   const validateTranslationHotkey = useCallback(
@@ -1197,11 +1219,28 @@ export default function SettingsPage({
           "settingsPage.general.hotkey.title": dictationKey,
           "settingsPage.general.meetingHotkey.title": meetingKey,
           "settingsPage.general.voiceAgentHotkey.title": voiceAgentKey,
+          "settingsPage.general.reviewHotkey.title": reviewKey,
         },
         t,
         styleKeyConflicts
       ),
-    [dictationKey, meetingKey, voiceAgentKey, styleKeyConflicts, t]
+    [dictationKey, meetingKey, voiceAgentKey, reviewKey, styleKeyConflicts, t]
+  );
+
+  const validateReviewHotkey = useCallback(
+    (hotkey: string) =>
+      validateHotkeyForSlot(
+        hotkey,
+        {
+          "settingsPage.general.hotkey.title": dictationKey,
+          "settingsPage.general.meetingHotkey.title": meetingKey,
+          "settingsPage.general.voiceAgentHotkey.title": voiceAgentKey,
+          "settingsPage.general.translationHotkey.title": translationKey,
+        },
+        t,
+        styleKeyConflicts
+      ),
+    [dictationKey, meetingKey, voiceAgentKey, translationKey, styleKeyConflicts, t]
   );
 
   // The Hotkeys page's style list opens Styles at that style.
@@ -3855,6 +3894,43 @@ EOF`,
                     onClear={() => commitAgentHotkey(setTranslationKey, "")}
                     validate={validateTranslationHotkey}
                     disabled={isAgentHotkeyCommitting}
+                    maxHotkeys={isUsingNativeShortcut ? 1 : undefined}
+                  />
+                </HotkeyTableRow>
+
+                {/* Review Last Dictation Hotkey (no default) */}
+                <HotkeyTableRow
+                  data-setting-id="hotkeys.review"
+                  rowId="review"
+                  action={t("settingsPage.general.reviewHotkey.title")}
+                  description={t("settingsPage.general.reviewHotkey.description")}
+                  how={t("common.tap")}
+                  actions={
+                    <HotkeyFeatureLink
+                      label={t("sidebar.history")}
+                      onClick={() => onOpenElsewhere?.({ view: "history" })}
+                    />
+                  }
+                >
+                  <HotkeyListInput
+                    value={reviewKey}
+                    onChange={(list) => registerReviewHotkey(list)}
+                    onClear={async (): Promise<boolean> => {
+                      const result = await window.electronAPI?.registerReviewHotkey?.("");
+                      if (!result?.success) {
+                        showAlertDialog({
+                          title: t("hooks.hotkeyRegistration.titles.notRegistered"),
+                          description:
+                            result?.message ||
+                            t("hooks.hotkeyRegistration.errors.couldNotRegister"),
+                        });
+                        return false;
+                      }
+                      setReviewKey("");
+                      return true;
+                    }}
+                    validate={validateReviewHotkey}
+                    disabled={isReviewHotkeyRegistering}
                     maxHotkeys={isUsingNativeShortcut ? 1 : undefined}
                   />
                 </HotkeyTableRow>

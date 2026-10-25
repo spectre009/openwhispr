@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObje
 import { useTranslation } from "react-i18next";
 import { useShallow } from "zustand/react/shallow";
 import { cn } from "../lib/utils";
+import { ConfirmDialog } from "../ui/dialog";
 import ThemedEmptyIllustration from "../ui/ThemedEmptyIllustration";
 import DictationHotkeyHint from "../ui/DictationHotkeyHint";
 import historyEmptyLight from "../../assets/empty-states/home-history-light.svg";
@@ -9,20 +10,29 @@ import historyEmptyDark from "../../assets/empty-states/home-history-dark.svg";
 import { useSettingsStore } from "../../stores/settingsStore";
 import { usePolicyStore } from "../../stores/policyStore";
 import { effectiveLocalHistoryEnabled } from "../../stores/policyRules";
+import { useDialogs } from "../../hooks/useDialogs";
+import { X } from "../icons";
 import HistoryList from "./HistoryList";
 import HistoryDetail from "./HistoryDetail";
 import { useHistoryList } from "./useHistoryList";
+import type { ReviewConfirm } from "./useHistoryReview";
 import {
+  applyHistoryReview,
   clearHistorySearch,
+  dropHistoryReviewRequest,
+  isReviewDraftChanged,
   selectHistoryItem,
   setHistoryDetailOpen,
+  setHistoryNotice,
   useHistoryViewStore,
 } from "./historyViewStore";
 
 // The History view: every dictation, searchable and filterable, beside the
 // selected one in full. Below NARROW_PX the list fills the view and the
 // detail opens over it with a Back button. The row actions are Home's own
-// (ControlPanel's copy, delete, retry and show-in-folder).
+// (ControlPanel's copy, delete, retry and show-in-folder). "Review last
+// dictation" arrives here as a pending request: it opens that dictation with
+// its review, asking first when the shown one has unsaved review changes.
 
 const NARROW_PX = 900;
 const SEARCH_DELAY_MS = 250;
@@ -76,7 +86,17 @@ export default function HistoryBrowser({
   onOpenSettings,
 }: HistoryBrowserProps) {
   const { t } = useTranslation();
-  const { query, filter, app, selectedId, detailOpen, openRequest } = useHistoryViewStore(
+  const {
+    query,
+    filter,
+    app,
+    selectedId,
+    detailOpen,
+    openRequest,
+    pendingReview,
+    notice,
+    holdSelection,
+  } = useHistoryViewStore(
     useShallow((state) => ({
       query: state.query,
       filter: state.filter,
@@ -84,6 +104,9 @@ export default function HistoryBrowser({
       selectedId: state.selectedId,
       detailOpen: state.detailOpen,
       openRequest: state.openRequest,
+      pendingReview: state.pendingReview,
+      notice: state.notice,
+      holdSelection: state.holdSelection,
     }))
   );
   const trimmed = query.trim();
@@ -94,6 +117,7 @@ export default function HistoryBrowser({
     failed: filter === "failed",
     cleanupChanged: filter === "cleanupChanged",
     app,
+    flagged: filter === "flagged",
   });
   const { rows, refreshRow } = list;
   const criteriaActive = !!searched || filter !== "all" || !!app;
@@ -104,10 +128,51 @@ export default function HistoryBrowser({
   // Bumped when main reports the shown row changed, or a retry finished.
   const [revision, setRevision] = useState(0);
 
-  // Side by side, a row is always shown once there are rows.
+  const { confirmDialog, showConfirmDialog, hideConfirmDialog } = useDialogs();
+  const confirm = useCallback(
+    (options: ReviewConfirm) =>
+      showConfirmDialog({
+        title: options.title,
+        description: options.description,
+        confirmText: options.confirmText,
+        cancelText: options.cancelText ?? t("common.cancel"),
+        variant: options.destructive ? "destructive" : "default",
+        onConfirm: options.onConfirm,
+      }),
+    [showConfirmDialog, t]
+  );
+
+  // Side by side, a row is always shown once there are rows (unless the review
+  // hotkey found none: then nothing is, until one is picked).
   useEffect(() => {
-    if (!narrow && selectedId === null && rows.length > 0) selectHistoryItem(rows[0].id);
-  }, [narrow, selectedId, rows]);
+    if (!narrow && selectedId === null && !holdSelection && rows.length > 0) {
+      selectHistoryItem(rows[0].id);
+    }
+  }, [narrow, selectedId, holdSelection, rows]);
+
+  // "Review last dictation": open it, unless the shown dictation's review has
+  // unsaved changes. Then ask; the draft is kept either way.
+  useEffect(() => {
+    if (!pendingReview) return;
+    const { drafts, selectedId: shown } = useHistoryViewStore.getState();
+    const unsaved =
+      shown !== null &&
+      shown !== pendingReview.id &&
+      Object.values(drafts).some((draft) => draft.id === shown && isReviewDraftChanged(draft));
+    if (!unsaved) {
+      applyHistoryReview(pendingReview);
+      return;
+    }
+    const request = pendingReview;
+    dropHistoryReviewRequest();
+    confirm({
+      title: t("historyView.review.confirmSwitch.title"),
+      description: t("historyView.review.confirmSwitch.description"),
+      confirmText: t("historyView.review.confirmSwitch.confirm"),
+      cancelText: t("historyView.review.confirmSwitch.stay"),
+      onConfirm: () => applyHistoryReview(request),
+    });
+  }, [pendingReview, confirm, t]);
 
   const rowsRef = useRef(rows);
   useLayoutEffect(() => {
@@ -159,10 +224,44 @@ export default function HistoryBrowser({
 
   const openPrivacy = useCallback(() => onOpenSettings(PRIVACY_HISTORY_SETTING), [onOpenSettings]);
 
+  const confirmation = (
+    <ConfirmDialog
+      open={confirmDialog.open}
+      onOpenChange={(open) => {
+        if (!open) hideConfirmDialog();
+      }}
+      title={confirmDialog.title}
+      description={confirmDialog.description}
+      confirmText={confirmDialog.confirmText}
+      cancelText={confirmDialog.cancelText}
+      onConfirm={confirmDialog.onConfirm}
+      variant={confirmDialog.variant}
+    />
+  );
+  const noticeBar =
+    notice === "lastNotFound" ? (
+      <div
+        role="status"
+        className="flex shrink-0 items-center gap-2 border-b border-warning/30 bg-warning/8 px-3.5 py-2 text-[12.5px] text-foreground"
+      >
+        <span className="min-w-0 flex-1">{t("historyView.review.lastNotFound")}</span>
+        <button
+          type="button"
+          onClick={() => setHistoryNotice(null)}
+          aria-label={t("common.dismiss")}
+          className="grid size-5 place-items-center rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground"
+        >
+          <X size={12} />
+        </button>
+      </div>
+    ) : null;
+
   // No dictations at all: Home's empty state, across the whole view.
   if (list.status === "ready" && rows.length === 0 && !criteriaActive) {
     return (
-      <div ref={containerRef} className="flex h-full min-h-0">
+      <div ref={containerRef} data-history-view className="flex h-full min-h-0 flex-col">
+        {noticeBar}
+        {confirmation}
         <div className="flex flex-1 flex-col items-center px-6 pt-16 text-center">
           <ThemedEmptyIllustration
             light={historyEmptyLight}
@@ -215,47 +314,56 @@ export default function HistoryBrowser({
         onDelete={onDelete}
         onRetry={retry}
         onShowAudioInFolder={onShowAudioInFolder}
+        historyOn={historyOn}
+        onOpenPrivacy={openPrivacy}
+        confirm={confirm}
       />
     ) : null;
   const listCovered = narrow && showDetail;
 
   return (
-    <div ref={containerRef} className="relative flex h-full min-h-0">
-      <div
-        inert={listCovered}
-        aria-hidden={listCovered || undefined}
-        className={cn(
-          "flex min-h-0 flex-col",
-          narrow ? "w-full" : "w-[380px] shrink-0 border-e border-border/70 dark:border-white/10"
-        )}
-      >
-        <HistoryList
-          list={list}
-          selectedId={selectedId}
-          onSelect={(id, open) => selectHistoryItem(id, { open })}
-          narrow={narrow}
-          revealRequest={openRequest}
-          criteriaKey={`${searched}\u0000${filter}\u0000${app ?? ""}`}
-          criteriaActive={criteriaActive}
-          onClearCriteria={clearHistorySearch}
-          historyOn={historyOn}
-          onOpenPrivacy={openPrivacy}
-        />
-      </div>
-      {narrow ? (
-        showDetail && (
-          <div className="absolute inset-0 z-20 flex min-h-0 flex-col bg-background">{detail}</div>
-        )
-      ) : (
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-          {detail ??
-            (list.status !== "loading" && (
-              <div className="flex flex-1 items-center justify-center p-6 text-sm text-muted-foreground">
-                {t("historyView.detail.empty")}
-              </div>
-            ))}
+    <div ref={containerRef} data-history-view className="flex h-full min-h-0 flex-col">
+      {noticeBar}
+      {confirmation}
+      <div className="relative flex min-h-0 flex-1">
+        <div
+          inert={listCovered}
+          aria-hidden={listCovered || undefined}
+          className={cn(
+            "flex min-h-0 flex-col",
+            narrow ? "w-full" : "w-[380px] shrink-0 border-e border-border/70 dark:border-white/10"
+          )}
+        >
+          <HistoryList
+            list={list}
+            selectedId={selectedId}
+            onSelect={(id, open) => selectHistoryItem(id, { open })}
+            narrow={narrow}
+            revealRequest={openRequest}
+            criteriaKey={`${searched}\u0000${filter}\u0000${app ?? ""}`}
+            criteriaActive={criteriaActive}
+            onClearCriteria={clearHistorySearch}
+            historyOn={historyOn}
+            onOpenPrivacy={openPrivacy}
+          />
         </div>
-      )}
+        {narrow ? (
+          showDetail && (
+            <div className="absolute inset-0 z-20 flex min-h-0 flex-col bg-background">
+              {detail}
+            </div>
+          )
+        ) : (
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+            {detail ??
+              (list.status !== "loading" && (
+                <div className="flex flex-1 items-center justify-center p-6 text-sm text-muted-foreground">
+                  {t("historyView.detail.empty")}
+                </div>
+              ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

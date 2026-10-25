@@ -2,11 +2,13 @@
 // App filter offers, and one dictation by id. Main decides what the renderer
 // sees: rows are device-wide, as Home lists them, while everything taken from
 // step history (the target app, which steps changed the text, "Cleanup changed
-// it", the steps themselves) is the current owner's only, as history-get-steps.
+// it", the steps themselves) and from reviews (a row's rating, the Flagged
+// filter, the review itself) is the current owner's only, as history-get-steps.
 // List rows carry a short preview, never the full texts. Dictated text never
 // reaches a log: callers log reasons and counts only.
 
 const { stepChanges } = require("../utils/stepChanges.js");
+const { ownerTag } = require("./dictationFeedback");
 
 const DEFAULT_LIMIT = 50;
 const MAX_LIMIT = 100;
@@ -61,6 +63,7 @@ function normalizeListRequest(request) {
     failed: filters.failed === true,
     cleanupChanged: filters.cleanupChanged === true,
     app,
+    flagged: filters.flagged === true,
   };
 }
 
@@ -97,6 +100,7 @@ function listRow(row, steps) {
     hasAudio: row.has_audio === 1,
     audioDurationMs: row.audio_duration_ms ?? null,
     routeKind: row.route_kind ?? null,
+    rating: row.rating === "good" || row.rating === "bad" ? row.rating : null,
     ...summarizeSteps(steps),
   };
 }
@@ -121,8 +125,9 @@ function itemFromRow(row) {
 /**
  * - db: the DatabaseManager
  * - stepHistory: createStepHistory's service (its owner, and getSteps)
+ * - feedback: createDictationFeedback's service (the owner's review of a row)
  */
-function createHistoryBrowser({ db, stepHistory }) {
+function createHistoryBrowser({ db, stepHistory, feedback = null }) {
   return {
     /** history-list: a page of rows, and the cursor of the next one (null at the end). */
     list(request) {
@@ -155,13 +160,28 @@ function createHistoryBrowser({ db, stepHistory }) {
       return { success: true, apps: db.getHistoryApps(stepHistory.currentOwner()) };
     },
 
-    /** history-get-item: the full row, with the owner's steps as history-get-steps reads them. */
+    /**
+     * history-get-item: the full row, with the owner's steps as history-get-steps
+     * reads them, the revision a review of it is of, the owner as an opaque tag
+     * (drafts are kept per owner) and the owner's review of it.
+     */
     getItem(id) {
       if (!Number.isInteger(id) || id <= 0) return { success: false, code: "NOT_FOUND" };
       const row = db.getHistoryItem(id);
       if (!row) return { success: false, code: "NOT_FOUND" };
+      const owner = stepHistory.currentOwner();
       const { status, route, context, steps } = stepHistory.getSteps(id);
-      return { success: true, item: itemFromRow(row), status, route, context, steps };
+      return {
+        success: true,
+        item: itemFromRow(row),
+        status,
+        route,
+        context,
+        steps,
+        revision: db.getHistoryRevision(id, owner),
+        owner: owner ? ownerTag(owner) : null,
+        feedback: feedback ? feedback.get(id).feedback : null,
+      };
     },
   };
 }

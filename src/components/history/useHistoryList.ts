@@ -13,6 +13,7 @@ export interface HistoryListParams {
   failed: boolean;
   cleanupChanged: boolean;
   app: string | null;
+  flagged: boolean;
 }
 
 export interface HistoryListState {
@@ -59,14 +60,19 @@ function fetchPage(params: HistoryListParams, cursor: HistoryCursor | null, limi
     cursor,
     limit,
     query: params.query,
-    filters: { failed: params.failed, cleanupChanged: params.cleanupChanged, app: params.app },
+    filters: {
+      failed: params.failed,
+      cleanupChanged: params.cleanupChanged,
+      app: params.app,
+      flagged: params.flagged,
+    },
   });
 }
 
-export function useHistoryList({ query, failed, cleanupChanged, app }: HistoryListParams) {
+export function useHistoryList({ query, failed, cleanupChanged, app, flagged }: HistoryListParams) {
   const [state, setState] = useState<HistoryListState>(INITIAL);
   const latest = useRef(state);
-  const params = useRef<HistoryListParams>({ query, failed, cleanupChanged, app });
+  const params = useRef<HistoryListParams>({ query, failed, cleanupChanged, app, flagged });
   // Bumped by every new search or filter: answers to an older one are dropped.
   const generation = useRef(0);
   const loadingMore = useRef(false);
@@ -97,9 +103,9 @@ export function useHistoryList({ query, failed, cleanupChanged, app }: HistoryLi
   }, []);
 
   useEffect(() => {
-    params.current = { query, failed, cleanupChanged, app };
+    params.current = { query, failed, cleanupChanged, app, flagged };
     load();
-  }, [query, failed, cleanupChanged, app, load]);
+  }, [query, failed, cleanupChanged, app, flagged, load]);
 
   const loadMore = useCallback((retry = false) => {
     const { nextCursor, status, moreFailed } = latest.current;
@@ -193,6 +199,8 @@ export function useHistoryList({ query, failed, cleanupChanged, app }: HistoryLi
       }),
       api?.onTranscriptionDeleted?.(({ id }) => remove(id)),
       api?.onTranscriptionsCleared?.(() => load()),
+      // A review saved or deleted: the row's rating (and the Flagged filter's answer).
+      api?.onHistoryFeedbackChanged?.(({ id }) => refreshRow(id)),
     ];
     return () => {
       if (timer) clearTimeout(timer);

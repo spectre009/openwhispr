@@ -39,12 +39,22 @@ import type {
 } from "../../types/electron";
 import HistoryAudioPlayer from "./HistoryAudioPlayer";
 import HistoryDiffText from "./HistoryDiffText";
+import {
+  HotkeyReviewBanner,
+  ReviewButtons,
+  ReviewForm,
+  ReviewNotice,
+  SavedReview,
+} from "./HistoryReview";
 import { setHistoryTextView, useHistoryViewStore } from "./historyViewStore";
+import { useHistoryReview, type ReviewConfirm } from "./useHistoryReview";
 
 // One dictation in full, read by id (history-get-item): the final text and its
 // actions, the kept audio, then what each saved step did to the text, each
 // compared with the text it received. A dictation from before step history
 // shows what was heard against the final output, never which step changed it.
+// Its review (👍 / 👎, What went wrong?) follows the steps, or comes before
+// them when the review hotkey opened it.
 
 type LoadedItem = Extract<HistoryItemResult, { success: true }>;
 type LoadState =
@@ -405,6 +415,11 @@ interface HistoryDetailProps {
   onDelete: (id: number) => void;
   onRetry: (id: number, routeKind: string | null) => Promise<void>;
   onShowAudioInFolder: (id: number) => void;
+  /** Local history is on, so a review can be kept. */
+  historyOn: boolean;
+  onOpenPrivacy: () => void;
+  /** Asks first, in the view's confirm dialog. */
+  confirm: (options: ReviewConfirm) => void;
 }
 
 export default function HistoryDetail({
@@ -415,13 +430,15 @@ export default function HistoryDetail({
   onDelete,
   onRetry,
   onShowAudioInFolder,
+  historyOn,
+  onOpenPrivacy,
+  confirm,
 }: HistoryDetailProps) {
   const { t } = useTranslation();
-  const locale = useUiLocale();
-  const addToTestSet = useAddToTestSet();
-  const styleLibrary = useStyleStore((state) => state.library);
   const [load, setLoad] = useState<LoadState>({ status: "loading" });
   const [retrying, setRetrying] = useState(false);
+  // Bumped when a review finds the dictation changed under it.
+  const [reloads, setReloads] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -446,7 +463,9 @@ export default function HistoryDetail({
     return () => {
       cancelled = true;
     };
-  }, [id, revision]);
+  }, [id, revision, reloads]);
+
+  const reload = useCallback(() => setReloads((n) => n + 1), []);
 
   const retry = useCallback(
     async (routeKind: string | null) => {
@@ -489,7 +508,53 @@ export default function HistoryDetail({
     );
   }
 
-  const { result } = load;
+  return (
+    <LoadedDetail
+      result={load.result}
+      back={back}
+      retrying={retrying}
+      onRetry={retry}
+      onCopy={onCopy}
+      onDelete={onDelete}
+      onShowAudioInFolder={onShowAudioInFolder}
+      historyOn={historyOn}
+      onOpenPrivacy={onOpenPrivacy}
+      confirm={confirm}
+      reload={reload}
+    />
+  );
+}
+
+function LoadedDetail({
+  result,
+  back,
+  retrying,
+  onRetry,
+  onCopy,
+  onDelete,
+  onShowAudioInFolder,
+  historyOn,
+  onOpenPrivacy,
+  confirm,
+  reload,
+}: {
+  result: LoadedItem;
+  back: ReactNode;
+  retrying: boolean;
+  onRetry: (routeKind: string | null) => Promise<void>;
+  onCopy: (text: string) => void;
+  onDelete: (id: number) => void;
+  onShowAudioInFolder: (id: number) => void;
+  historyOn: boolean;
+  onOpenPrivacy: () => void;
+  confirm: (options: ReviewConfirm) => void;
+  reload: () => void;
+}) {
+  const { t } = useTranslation();
+  const locale = useUiLocale();
+  const addToTestSet = useAddToTestSet();
+  const styleLibrary = useStyleStore((state) => state.library);
+  const review = useHistoryReview({ result, reload, confirm });
   const { item } = result;
   const captured = result.status === "captured" && result.steps.length > 0;
   const app = captured ? (result.context?.targetApp ?? null) : null;
@@ -512,12 +577,21 @@ export default function HistoryDetail({
       : t("controlPanel.history.steps.deletedStyle")
     : null;
   const canPin = completed && !!item.rawText?.trim();
+  // Opened by the review hotkey, the review comes before the steps; otherwise after them.
+  const reviewSection = (
+    <>
+      <ReviewNotice review={review} />
+      <ReviewForm review={review} historyOn={historyOn} onOpenPrivacy={onOpenPrivacy} />
+      <SavedReview review={review} />
+    </>
+  );
 
   return (
     <div className="flex h-full min-h-0 flex-col">
       {back}
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="mx-auto w-full max-w-3xl px-6 pt-5 pb-12">
+          {review.hotkey && <HotkeyReviewBanner />}
           <div className="flex flex-wrap items-start gap-x-4 gap-y-3">
             <div className="min-w-0 flex-[1_1_18rem]">
               {failed ? (
@@ -566,8 +640,8 @@ export default function HistoryDetail({
                 {styleLabel && <span dir="auto">{styleLabel}</span>}
               </p>
             </div>
-            {/* Stage 2's rating buttons go first in this row. */}
             <div className="flex flex-wrap items-center gap-1.5">
+              <ReviewButtons review={review} />
               {completed && item.text && (
                 <Button variant="outline" size="sm" onClick={() => onCopy(item.text)}>
                   <Copy size={13} />
@@ -579,7 +653,7 @@ export default function HistoryDetail({
                   variant="outline"
                   size="sm"
                   disabled={retrying}
-                  onClick={() => void retry(item.routeKind)}
+                  onClick={() => void onRetry(item.routeKind)}
                 >
                   {retrying ? (
                     <Loader2 size={13} className="animate-spin" />
@@ -652,11 +726,15 @@ export default function HistoryDetail({
             </div>
           )}
 
+          {review.hotkey && reviewSection}
+
           {captured ? (
             <StepsSection result={result} app={app} styleLibrary={styleLibrary} />
           ) : (
             completed && <WithoutSteps item={item} otherOwner={result.status === "otherOwner"} />
           )}
+
+          {!review.hotkey && reviewSection}
         </div>
       </div>
     </div>

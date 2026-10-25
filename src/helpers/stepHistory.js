@@ -432,6 +432,7 @@ module.exports = {
   ACCOUNT_OWNER_PREFIX,
   EXPORT_FORMAT,
   SIGNED_OUT_OWNER,
+  STEP_KINDS,
   TRACE_VERSION,
   createStepHistory,
   createStepRunRegistry,

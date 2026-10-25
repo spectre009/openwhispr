@@ -64,6 +64,7 @@
     },
     "openControlPanel": "Open Control Panel",
     "hideControlPanel": "Hide Control Panel",
+    "reviewLastDictation": "Review last dictation",
     "quit": "Quit OpenWhispr",
     "tooltip": "OpenWhispr - Voice Dictation",
     "recordingTooltip": "OpenWhispr · Recording {{elapsed}}"
@@ -814,6 +815,7 @@
     "filters": {
       "label": "Filter dictations",
       "all": "All",
+      "flagged": "Flagged",
       "failed": "Failed",
       "cleanupChanged": "Cleanup changed it",
       "app": "App",
@@ -894,6 +896,68 @@
       "heardHint": "raw transcript",
       "sameAsHeard": "same as heard",
       "whoChanged": "which step changed it wasn't recorded"
+    },
+    "review": {
+      "label": "Your review",
+      "rateGood": "Mark as good",
+      "rateBad": "Mark as bad",
+      "ratedGood": "Marked good",
+      "ratedBad": "Marked bad",
+      "title": "What went wrong?",
+      "privacy": "Saved on this computer only, with this version of the dictation; never synced or exported.",
+      "stageQuestion": "Which step do you think got it wrong?",
+      "stageHint": "Optional. The first one that did; the steps after it only had its text.",
+      "stages": {
+        "delivery": "Delivery",
+        "unsure": "Not sure"
+      },
+      "expectedQuestion": "What should it have said?",
+      "expectedHint": "Optional. Starts as the final output; fix the words.",
+      "noteLabel": "Note",
+      "notePlaceholder": "Note (optional)",
+      "save": "Save",
+      "saveAndClose": "Save & close",
+      "saveError": "Couldn't save your review.",
+      "historyOff": "Reviews are kept only while local history is on.",
+      "draftDropped": "This dictation changed, so your unsaved review of it was discarded.",
+      "stale": "This dictation changed since you opened the review, so it was reloaded and your review wasn't saved.",
+      "saved": {
+        "good": "You marked this dictation as good.",
+        "bad": "You flagged this dictation.",
+        "stage": "Step you think got it wrong:",
+        "expected": "It should have said:",
+        "note": "Note:"
+      },
+      "edit": "Edit",
+      "delete": "Delete review",
+      "confirmGood": {
+        "title": "Mark it as good?",
+        "description": "The step, correction and note of your review are removed.",
+        "confirm": "Mark as good"
+      },
+      "confirmDiscard": {
+        "title": "Discard your review?",
+        "description": "What you wrote about this dictation hasn't been saved.",
+        "confirm": "Discard",
+        "keep": "Keep editing"
+      },
+      "confirmDelete": {
+        "title": "Delete this review?",
+        "description": "The step, correction and note you saved are removed.",
+        "confirm": "Delete review"
+      },
+      "confirmSwitch": {
+        "title": "Open your last dictation?",
+        "description": "Your unsaved review of this dictation is kept, so you can come back to it.",
+        "confirm": "Open last dictation",
+        "stay": "Stay here"
+      },
+      "hotkey": {
+        "banner": "Your last dictation, opened to review it. Nothing is saved until you save.",
+        "escape": "closes without saving"
+      },
+      "lastNotFound": "Couldn't find your last dictation's details.",
+      "busy": "Finish this dictation first"
     }
   },
   "reasoning": {
@@ -3109,6 +3173,10 @@
       "translationHotkey": {
         "title": "Translation Hotkey",
         "description": "Dictate in any language — the pasted text comes out translated"
+      },
+      "reviewHotkey": {
+        "title": "Review Last Dictation Hotkey",
+        "description": "Opens History on your last dictation, ready to rate it"
       },
       "styleHotkeys": {
         "title": "Style Hotkeys",

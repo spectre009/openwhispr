@@ -1,7 +1,7 @@
 // Routes the Windows and Linux native key listeners' presses (one hook process
 // per watched key, see windowsKeyManager.js) to the slot that owns the key.
-// Dictation drives push-to-talk and needs the overlay window; meeting drives
-// other windows (matching their globalShortcut callbacks and macOS).
+// Dictation drives push-to-talk and needs the overlay window; meeting and
+// review drive other windows (matching their globalShortcut callbacks and macOS).
 //
 // A style key (Stage 4) is an extra key on the dictation slot: its press goes
 // down the dictation path in the user's activation mode and names its style,
@@ -28,6 +28,8 @@ function createNativeHotkeyDispatch({ hotkeyManager, windowManager, isLiveWindow
       windowManager.sendToggleTranslation();
     } else if (hotkeyManager.slotHasHotkey("meeting", key)) {
       windowManager.startManualMeeting({ activate: false });
+    } else if (hotkeyManager.slotHasHotkey("review", key)) {
+      void windowManager.reviewLastDictation();
     }
   };
 

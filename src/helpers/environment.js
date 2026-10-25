@@ -47,6 +47,8 @@ const PERSISTED_KEYS = [
   "VOICE_AGENT_KEY",
   "TRANSLATION_KEY",
   "MEETING_KEY",
+  // "Review last dictation" (History view): a tap slot, no default.
+  "REVIEW_KEY",
   "ACTIVATION_MODE",
   "FLOATING_ICON_AUTO_HIDE",
   "PANEL_START_POSITION",
@@ -474,6 +476,16 @@ class EnvironmentManager {
 
   saveMeetingKey(key) {
     const result = this._saveKey("MEETING_KEY", key);
+    this.saveAllKeysToEnvFile().catch(() => {});
+    return result;
+  }
+
+  getReviewKey() {
+    return this._getKey("REVIEW_KEY");
+  }
+
+  saveReviewKey(key) {
+    const result = this._saveKey("REVIEW_KEY", key);
     this.saveAllKeysToEnvFile().catch(() => {});
     return result;
   }

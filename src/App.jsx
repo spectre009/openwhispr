@@ -483,6 +483,13 @@ export default function App() {
 
   const closeCommandMenu = useCallback(() => setIsCommandMenuOpen(false), []);
 
+  // "Review last dictation" pressed while a dictation is still being made or
+  // pasted: main leaves it alone and the pill says why nothing opened.
+  useEffect(
+    () => window.electronAPI?.onReviewDictationBusy?.(() => refuse("historyView.review.busy")),
+    [refuse]
+  );
+
   useTrayQuickActions({
     agentAllowed,
     policyResolved,

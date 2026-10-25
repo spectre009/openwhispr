@@ -153,6 +153,8 @@ const {
 } = require("./retentionSettings");
 const { createStepHistory, ownerKeyFor } = require("./stepHistory");
 const { createHistoryBrowser } = require("./historyBrowser");
+const { createDictationFeedback } = require("./dictationFeedback");
+const { createDictationReview } = require("./dictationReview");
 const { createPromptTestCases } = require("./promptTestCases");
 const { registerStyleHotkeyIpc } = require("./styleHotkeys");
 const { createLocalRequestYield } = require("./localRequestYield");
@@ -714,24 +716,47 @@ class IPCHandlers {
         this._retentionSettings?.dataRetentionEnabled === true,
       logger: debugLogger,
     });
-    // The History view's paged reads: steps, and all that's derived from
-    // them, for step history's current owner only.
+    // Durable local history for the current owner, as the retention sync last
+    // reported it: the test set's cases and dictation reviews both follow it.
+    const historyPolicy = () => ({
+      synced: this._retentionSettingsSynced === true,
+      enabled: this._retentionSettings?.dataRetentionEnabled === true,
+      forcedOff: this._retentionSettings?.localHistoryForcedOff === true,
+      resolved: this._retentionSettings?.localHistoryPolicyResolved === true,
+    });
+    // Reviews of dictations (History view): the same owner as step history,
+    // saved only while local history is durable for it.
+    this.dictationFeedback = createDictationFeedback({
+      db: this.databaseManager,
+      getOwner: () => this.stepHistory.currentOwner(),
+      getPolicy: historyPolicy,
+      onChange: (change) => broadcastToWindows("history-feedback-changed", change),
+      logger: debugLogger,
+    });
+    // The History view's paged reads: steps, reviews and all that's derived
+    // from them, for step history's current owner only.
     this.historyBrowser = createHistoryBrowser({
       db: this.databaseManager,
       stepHistory: this.stepHistory,
+      feedback: this.dictationFeedback,
     });
+    // "Review last dictation" (its hotkey and the tray): the window manager
+    // runs it; this resolves the dictation it opens.
+    if (this.windowManager) {
+      this.windowManager.dictationReview = createDictationReview({
+        windowManager: this.windowManager,
+        db: this.databaseManager,
+        getOwner: () => this.stepHistory.currentOwner(),
+        logger: debugLogger,
+      });
+    }
     // Prompt Studio's test cases: the same owner and the same retention sync
     // as step history. Durable only while local history is on, its managed
     // policy settled, and no organization forces it off.
     this.promptTestCases = createPromptTestCases({
       db: this.databaseManager,
       getOwner: () => this.stepHistory.currentOwner(),
-      getPolicy: () => ({
-        synced: this._retentionSettingsSynced === true,
-        enabled: this._retentionSettings?.dataRetentionEnabled === true,
-        forcedOff: this._retentionSettings?.localHistoryForcedOff === true,
-        resolved: this._retentionSettings?.localHistoryPolicyResolved === true,
-      }),
+      getPolicy: historyPolicy,
       onChange: (change) => broadcastToWindows("prompt-test-cases-changed", change),
       logger: debugLogger,
     });
@@ -1944,6 +1969,55 @@ class IPCHandlers {
         code: "FAILED",
       })
     );
+
+    // Reviews of dictations: main decides the owner, the revision and whether
+    // they may be kept; the renderer names the row. Never the text in a log.
+    ipcMain.handle("history-feedback-get", (_event, id) =>
+      historyRead("Failed to read a dictation review", () => this.dictationFeedback.get(id), {
+        success: false,
+        code: "FAILED",
+        feedback: null,
+      })
+    );
+    ipcMain.handle("history-feedback-save", (_event, input) =>
+      historyRead("Failed to save a dictation review", () => this.dictationFeedback.save(input), {
+        success: false,
+        code: "FAILED",
+      })
+    );
+    ipcMain.handle("history-feedback-delete", (_event, id) =>
+      historyRead("Failed to delete a dictation review", () => this.dictationFeedback.remove(id), {
+        success: false,
+        code: "FAILED",
+      })
+    );
+
+    // "Review last dictation": the request waits until the control panel asks.
+    const fromControlPanel = (event) => {
+      const panel = this.windowManager.controlPanelWindow;
+      return Boolean(panel && !panel.isDestroyed() && event.sender === panel.webContents);
+    };
+    ipcMain.handle("get-pending-review-request", (event) =>
+      fromControlPanel(event) ? this.windowManager.consumePendingReviewRequest() : null
+    );
+    // Save & close, and Esc in a review the hotkey opened: back to the tray.
+    ipcMain.handle("hide-control-panel", (event) => {
+      if (fromControlPanel(event)) this.windowManager.hideControlPanelToTray();
+    });
+    // The dictation window still pasting or saving a finished dictation, which
+    // main's lifecycle (idle by then) doesn't see. Reset when that renderer
+    // goes away (windowManager._registerDictationLifecycleReset).
+    ipcMain.on("dictation-delivery-state", (event, delivering) => {
+      const dictationWindow = this.windowManager.mainWindow;
+      if (
+        !dictationWindow ||
+        dictationWindow.isDestroyed() ||
+        event.sender !== dictationWindow.webContents
+      ) {
+        return;
+      }
+      this.windowManager.setDictationDeliveryState(delivering === true);
+    });
 
     ipcMain.handle("history-export-dictations", async (event) => {
       const { dialog } = require("electron");

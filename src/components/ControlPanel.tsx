@@ -92,7 +92,7 @@ import { getGlossarySnapshot } from "../stores/glossaryStore";
 import { resolveStyleForRetry } from "../stores/styleStore";
 import { styleIdFromRouteKind } from "../config/styles/library";
 import { OPEN_HISTORY_ITEM_EVENT } from "../utils/openHistoryItem";
-import { requestHistoryItem } from "./history/historyViewStore";
+import { requestHistoryItem, requestHistoryReview } from "./history/historyViewStore";
 import { getAgentName } from "../utils/agentName";
 import HistoryView from "./HistoryView";
 import BackgroundActionToastListener from "./notes/BackgroundActionToastListener";
@@ -376,6 +376,21 @@ export default function ControlPanel({ initialSettingsSection }: ControlPanelPro
     };
     window.addEventListener(OPEN_HISTORY_ITEM_EVENT, openHistoryItem);
     return () => window.removeEventListener(OPEN_HISTORY_ITEM_EVENT, openHistoryItem);
+  }, [closeSettings]);
+
+  // "Review last dictation" (its hotkey or the tray): main holds the request
+  // until this window asks for it, so one that arrives while the panel loads
+  // isn't lost. Settings closes first (its own guard may refuse), then the
+  // History view opens the dictation with its review.
+  useEffect(() => {
+    const drain = async () => {
+      const request = await window.electronAPI?.getPendingReviewRequest?.();
+      if (!request || !closeSettings()) return;
+      requestHistoryReview(request);
+      setActiveView("history");
+    };
+    void drain();
+    return window.electronAPI?.onReviewDictationPending?.(() => void drain());
   }, [closeSettings]);
 
   useEffect(() => {

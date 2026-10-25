@@ -64,6 +64,7 @@
     },
     "openControlPanel": "Ouvrir le panneau de contrôle",
     "hideControlPanel": "Masquer le panneau de contrôle",
+    "reviewLastDictation": "Noter la dernière dictée",
     "quit": "Quitter OpenWhispr",
     "tooltip": "OpenWhispr - Dictée vocale",
     "recordingTooltip": "OpenWhispr · Enregistrement {{elapsed}}"
@@ -814,6 +815,7 @@
     "filters": {
       "label": "Filtrer les dictées",
       "all": "Toutes",
+      "flagged": "Signalées",
       "failed": "Échouées",
       "cleanupChanged": "Modifiées par la correction",
       "app": "App",
@@ -894,6 +896,68 @@
       "heardHint": "transcription brute",
       "sameAsHeard": "identique à ce qui a été entendu",
       "whoChanged": "l'étape qui l'a modifié n'a pas été enregistrée"
+    },
+    "review": {
+      "label": "Votre avis",
+      "rateGood": "Marquer comme bonne",
+      "rateBad": "Marquer comme mauvaise",
+      "ratedGood": "Marquée comme bonne",
+      "ratedBad": "Marquée comme mauvaise",
+      "title": "Qu'est-ce qui n'a pas marché ?",
+      "privacy": "Enregistré sur cet ordinateur uniquement, avec cette version de la dictée ; jamais synchronisé ni exporté.",
+      "stageQuestion": "Selon vous, quelle étape s'est trompée ?",
+      "stageHint": "Facultatif. La première qui s'est trompée ; les étapes suivantes n'avaient que son texte.",
+      "stages": {
+        "delivery": "Collage",
+        "unsure": "Je ne sais pas"
+      },
+      "expectedQuestion": "Qu'aurait-elle dû dire ?",
+      "expectedHint": "Facultatif. Part du résultat final ; corrigez les mots.",
+      "noteLabel": "Note",
+      "notePlaceholder": "Note (facultatif)",
+      "save": "Enregistrer",
+      "saveAndClose": "Enregistrer et fermer",
+      "saveError": "Impossible d'enregistrer votre avis.",
+      "historyOff": "Les avis ne sont conservés que lorsque l'historique local est activé.",
+      "draftDropped": "Cette dictée a changé, votre avis non enregistré a donc été abandonné.",
+      "stale": "Cette dictée a changé depuis l'ouverture de votre avis : elle a été rechargée et votre avis n'a pas été enregistré.",
+      "saved": {
+        "good": "Vous avez marqué cette dictée comme bonne.",
+        "bad": "Vous avez signalé cette dictée.",
+        "stage": "Étape qui s'est trompée selon vous :",
+        "expected": "Elle aurait dû dire :",
+        "note": "Note :"
+      },
+      "edit": "Modifier",
+      "delete": "Supprimer l'avis",
+      "confirmGood": {
+        "title": "La marquer comme bonne ?",
+        "description": "L'étape, la correction et la note de votre avis sont supprimées.",
+        "confirm": "Marquer comme bonne"
+      },
+      "confirmDiscard": {
+        "title": "Abandonner votre avis ?",
+        "description": "Ce que vous avez écrit sur cette dictée n'a pas été enregistré.",
+        "confirm": "Abandonner",
+        "keep": "Continuer à modifier"
+      },
+      "confirmDelete": {
+        "title": "Supprimer cet avis ?",
+        "description": "L'étape, la correction et la note enregistrées sont supprimées.",
+        "confirm": "Supprimer l'avis"
+      },
+      "confirmSwitch": {
+        "title": "Ouvrir votre dernière dictée ?",
+        "description": "Votre avis non enregistré sur cette dictée est conservé ; vous pourrez y revenir.",
+        "confirm": "Ouvrir la dernière dictée",
+        "stay": "Rester ici"
+      },
+      "hotkey": {
+        "banner": "Votre dernière dictée, ouverte pour la noter. Rien n'est enregistré tant que vous n'enregistrez pas.",
+        "escape": "ferme sans enregistrer"
+      },
+      "lastNotFound": "Impossible de trouver les détails de votre dernière dictée.",
+      "busy": "Terminez d'abord cette dictée"
     }
   },
   "reasoning": {
@@ -3109,6 +3173,10 @@
       "translationHotkey": {
         "title": "Raccourci de Traduction",
         "description": "Dictez dans n'importe quelle langue : le texte collé ressort traduit"
+      },
+      "reviewHotkey": {
+        "title": "Raccourci pour noter la dernière dictée",
+        "description": "Ouvre l'historique sur votre dernière dictée, prête à être notée"
       },
       "styleHotkeys": {
         "title": "Raccourcis de style",

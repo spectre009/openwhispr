@@ -25,12 +25,13 @@ export default function StyleHotkeyField({ style }: { style: DictationStyle }) {
   const { library, hotkeys } = useStyleStore(
     useShallow((s) => ({ library: s.library, hotkeys: s.hotkeys }))
   );
-  const { dictationKey, voiceAgentKey, translationKey, meetingKey } = useSettingsStore(
+  const { dictationKey, voiceAgentKey, translationKey, meetingKey, reviewKey } = useSettingsStore(
     useShallow((s) => ({
       dictationKey: s.dictationKey,
       voiceAgentKey: s.voiceAgentKey,
       translationKey: s.translationKey,
       meetingKey: s.meetingKey,
+      reviewKey: s.reviewKey,
     }))
   );
   const [saving, setSaving] = useState(false);
@@ -51,6 +52,7 @@ export default function StyleHotkeyField({ style }: { style: DictationStyle }) {
         "settingsPage.general.voiceAgentHotkey.title": voiceAgentKey,
         "settingsPage.general.translationHotkey.title": translationKey,
         "settingsPage.general.meetingHotkey.title": meetingKey,
+        "settingsPage.general.reviewHotkey.title": reviewKey,
       },
       t,
       styleHotkeyConflicts(hotkeys.bindings, library, t, style.id)

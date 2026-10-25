@@ -64,6 +64,7 @@
     },
     "openControlPanel": "Kontrollzentrum öffnen",
     "hideControlPanel": "Kontrollzentrum ausblenden",
+    "reviewLastDictation": "Letztes Diktat bewerten",
     "quit": "OpenWhispr beenden",
     "tooltip": "OpenWhispr – Sprachdiktat",
     "recordingTooltip": "OpenWhispr · Aufnahme {{elapsed}}"
@@ -814,6 +815,7 @@
     "filters": {
       "label": "Diktate filtern",
       "all": "Alle",
+      "flagged": "Markiert",
       "failed": "Fehlgeschlagen",
       "cleanupChanged": "Von der Bereinigung geändert",
       "app": "App",
@@ -894,6 +896,68 @@
       "heardHint": "Rohtranskript",
       "sameAsHeard": "wie erkannt",
       "whoChanged": "welcher Schritt es geändert hat, wurde nicht erfasst"
+    },
+    "review": {
+      "label": "Deine Bewertung",
+      "rateGood": "Als gut markieren",
+      "rateBad": "Als schlecht markieren",
+      "ratedGood": "Als gut markiert",
+      "ratedBad": "Als schlecht markiert",
+      "title": "Was ist schiefgelaufen?",
+      "privacy": "Nur auf diesem Computer gespeichert, mit dieser Version des Diktats; nie synchronisiert oder exportiert.",
+      "stageQuestion": "Welcher Schritt hat es deiner Meinung nach falsch gemacht?",
+      "stageHint": "Optional. Der erste, der es falsch gemacht hat; die Schritte danach hatten nur seinen Text.",
+      "stages": {
+        "delivery": "Einfügen",
+        "unsure": "Nicht sicher"
+      },
+      "expectedQuestion": "Was hätte dort stehen sollen?",
+      "expectedHint": "Optional. Beginnt mit dem Endergebnis; korrigiere die Wörter.",
+      "noteLabel": "Notiz",
+      "notePlaceholder": "Notiz (optional)",
+      "save": "Speichern",
+      "saveAndClose": "Speichern und schließen",
+      "saveError": "Deine Bewertung konnte nicht gespeichert werden.",
+      "historyOff": "Bewertungen werden nur gespeichert, solange der lokale Verlauf an ist.",
+      "draftDropped": "Dieses Diktat hat sich geändert, daher wurde deine nicht gespeicherte Bewertung verworfen.",
+      "stale": "Dieses Diktat hat sich geändert, seit du die Bewertung geöffnet hast. Es wurde neu geladen, und deine Bewertung wurde nicht gespeichert.",
+      "saved": {
+        "good": "Du hast dieses Diktat als gut markiert.",
+        "bad": "Du hast dieses Diktat als schlecht markiert.",
+        "stage": "Schritt, der es deiner Meinung nach falsch gemacht hat:",
+        "expected": "Dort hätte stehen sollen:",
+        "note": "Notiz:"
+      },
+      "edit": "Bearbeiten",
+      "delete": "Bewertung löschen",
+      "confirmGood": {
+        "title": "Als gut markieren?",
+        "description": "Schritt, Korrektur und Notiz deiner Bewertung werden entfernt.",
+        "confirm": "Als gut markieren"
+      },
+      "confirmDiscard": {
+        "title": "Bewertung verwerfen?",
+        "description": "Was du zu diesem Diktat geschrieben hast, ist nicht gespeichert.",
+        "confirm": "Verwerfen",
+        "keep": "Weiter bearbeiten"
+      },
+      "confirmDelete": {
+        "title": "Diese Bewertung löschen?",
+        "description": "Der gespeicherte Schritt, die Korrektur und die Notiz werden entfernt.",
+        "confirm": "Bewertung löschen"
+      },
+      "confirmSwitch": {
+        "title": "Dein letztes Diktat öffnen?",
+        "description": "Deine nicht gespeicherte Bewertung dieses Diktats bleibt erhalten, sodass du zurückkehren kannst.",
+        "confirm": "Letztes Diktat öffnen",
+        "stay": "Hierbleiben"
+      },
+      "hotkey": {
+        "banner": "Dein letztes Diktat, zum Bewerten geöffnet. Nichts wird gespeichert, bevor du speicherst.",
+        "escape": "schließt ohne Speichern"
+      },
+      "lastNotFound": "Die Details deines letzten Diktats wurden nicht gefunden.",
+      "busy": "Beende zuerst dieses Diktat"
     }
   },
   "reasoning": {
@@ -3109,6 +3173,10 @@
       "translationHotkey": {
         "title": "Übersetzungs-Hotkey",
         "description": "Diktiere in beliebiger Sprache — der eingefügte Text kommt übersetzt heraus"
+      },
+      "reviewHotkey": {
+        "title": "Hotkey zum Bewerten des letzten Diktats",
+        "description": "Öffnet den Verlauf bei deinem letzten Diktat, bereit zum Bewerten"
       },
       "styleHotkeys": {
         "title": "Stil-Hotkeys",

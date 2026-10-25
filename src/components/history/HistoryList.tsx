@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import type { KeyboardEvent } from "react";
+import type { KeyboardEvent, ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { cn } from "../lib/utils";
@@ -14,7 +14,7 @@ import {
 } from "../ui/dropdown-menu";
 import { BIDI_VALUE_TOKEN, BidiInterpolatedText } from "../ui/BidiInterpolatedText";
 import { stepKindLabel } from "../ui/transcriptionStepLabels";
-import { ChevronDown, Loader2, Search, X } from "../icons";
+import { ChevronDown, Loader2, Search, ThumbsDown, ThumbsUp, X } from "../icons";
 import { formatDateGroup, normalizeDbDate } from "../../utils/dateFormatting";
 import { useUiLocale } from "../../hooks/useUiLocale";
 import type { HistoryListRow, HistoryStepChange, HistoryStepMark } from "../../types/electron";
@@ -90,6 +90,27 @@ function Mark({ mark }: { mark: HistoryStepMark }) {
   );
 }
 
+function Rating({ rating }: { rating: HistoryListRow["rating"] }) {
+  const { t } = useTranslation();
+  if (!rating) return null;
+  const label = t(
+    rating === "good" ? "historyView.review.ratedGood" : "historyView.review.ratedBad"
+  );
+  const Icon = rating === "good" ? ThumbsUp : ThumbsDown;
+  return (
+    <span
+      title={label}
+      aria-label={label}
+      className={cn(
+        "me-0.5 grid h-4 w-4 place-items-center",
+        rating === "good" ? "text-success" : "text-destructive"
+      )}
+    >
+      <Icon size={12} />
+    </span>
+  );
+}
+
 function Row({
   row,
   selected,
@@ -128,6 +149,7 @@ function Row({
           </span>
         )}
         <span className="ms-auto flex shrink-0 items-center gap-0.5">
+          <Rating rating={row.rating ?? null} />
           {failed ? (
             <span
               title={failedLabel}
@@ -269,7 +291,7 @@ function FilterChips() {
   const { t } = useTranslation();
   const filter = useHistoryViewStore((state) => state.filter);
   const app = useHistoryViewStore((state) => state.app);
-  const chip = (value: HistoryKindFilter, label: string) => {
+  const chip = (value: HistoryKindFilter, label: string, icon?: ReactNode) => {
     const active = filter === value && (value !== "all" || !app);
     return (
       <button
@@ -278,6 +300,7 @@ function FilterChips() {
         onClick={() => setHistoryFilter(value)}
         className={chipClass(active)}
       >
+        {icon}
         {label}
       </button>
     );
@@ -289,6 +312,7 @@ function FilterChips() {
       className="flex flex-wrap items-center gap-1.5"
     >
       {chip("all", t("historyView.filters.all"))}
+      {chip("flagged", t("historyView.filters.flagged"), <ThumbsDown size={11} />)}
       {chip("failed", t("historyView.filters.failed"))}
       {chip("cleanupChanged", t("historyView.filters.cleanupChanged"))}
       <AppFilter />

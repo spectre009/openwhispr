@@ -64,6 +64,7 @@
     },
     "openControlPanel": "打开控制面板",
     "hideControlPanel": "隐藏控制面板",
+    "reviewLastDictation": "评价上一条听写",
     "quit": "退出 OpenWhispr",
     "tooltip": "OpenWhispr - 语音听写",
     "recordingTooltip": "OpenWhispr · 正在录音 {{elapsed}}"
@@ -814,6 +815,7 @@
     "filters": {
       "label": "筛选听写",
       "all": "全部",
+      "flagged": "已标记",
       "failed": "失败",
       "cleanupChanged": "被文本整理修改",
       "app": "应用",
@@ -894,6 +896,68 @@
       "heardHint": "原始转录",
       "sameAsHeard": "与识别结果相同",
       "whoChanged": "未记录是哪个步骤修改的"
+    },
+    "review": {
+      "label": "你的评价",
+      "rateGood": "标记为好",
+      "rateBad": "标记为差",
+      "ratedGood": "已标记为好",
+      "ratedBad": "已标记为差",
+      "title": "哪里出了问题？",
+      "privacy": "仅保存在这台电脑上，并与这一版听写对应；从不同步或导出。",
+      "stageQuestion": "你认为是哪个步骤出错了？",
+      "stageHint": "可选。选第一个出错的步骤；之后的步骤只拿到了它的文本。",
+      "stages": {
+        "delivery": "粘贴",
+        "unsure": "不确定"
+      },
+      "expectedQuestion": "它应该是什么？",
+      "expectedHint": "可选。初始为最终输出；改正其中的词语。",
+      "noteLabel": "备注",
+      "notePlaceholder": "备注（可选）",
+      "save": "保存",
+      "saveAndClose": "保存并关闭",
+      "saveError": "无法保存你的评价。",
+      "historyOff": "只有在本地历史记录开启时才会保留评价。",
+      "draftDropped": "这条听写已更改，因此未保存的评价已被丢弃。",
+      "stale": "自你打开评价后这条听写已更改，因此已重新加载，你的评价未保存。",
+      "saved": {
+        "good": "你将这条听写标记为好。",
+        "bad": "你将这条听写标记为差。",
+        "stage": "你认为出错的步骤：",
+        "expected": "应该是：",
+        "note": "备注："
+      },
+      "edit": "编辑",
+      "delete": "删除评价",
+      "confirmGood": {
+        "title": "标记为好？",
+        "description": "你的评价中的步骤、更正和备注将被移除。",
+        "confirm": "标记为好"
+      },
+      "confirmDiscard": {
+        "title": "放弃你的评价？",
+        "description": "你为这条听写写的内容尚未保存。",
+        "confirm": "放弃",
+        "keep": "继续编辑"
+      },
+      "confirmDelete": {
+        "title": "删除这条评价？",
+        "description": "已保存的步骤、更正和备注将被移除。",
+        "confirm": "删除评价"
+      },
+      "confirmSwitch": {
+        "title": "打开你的上一条听写？",
+        "description": "你对这条听写未保存的评价会保留，你可以稍后回来。",
+        "confirm": "打开上一条听写",
+        "stay": "留在这里"
+      },
+      "hotkey": {
+        "banner": "已打开你的上一条听写以便评价。在你保存之前，什么都不会保存。",
+        "escape": "不保存并关闭"
+      },
+      "lastNotFound": "找不到你上一条听写的详细信息。",
+      "busy": "请先完成这条听写"
     }
   },
   "reasoning": {
@@ -2815,6 +2879,10 @@
       "translationHotkey": {
         "title": "翻译快捷键",
         "description": "用任何语言听写——粘贴的文本会自动翻译"
+      },
+      "reviewHotkey": {
+        "title": "评价上一条听写快捷键",
+        "description": "在历史记录中打开你的上一条听写，以便评价"
       },
       "styleHotkeys": {
         "title": "风格快捷键",

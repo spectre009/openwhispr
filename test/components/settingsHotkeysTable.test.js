@@ -166,6 +166,7 @@ test(
       "hotkeys.dictation",
       "hotkeys.meeting",
       "hotkeys.meetingLayout",
+      "hotkeys.review",
       "hotkeys.styles",
       "hotkeys.translation",
     ]);
@@ -187,6 +188,7 @@ test(
       "style:starter-email",
       "assistant",
       "translation",
+      "review",
       "meeting",
       "cancel",
     ]);
@@ -197,7 +199,7 @@ test(
       activation.compareDocumentPosition(table) & dom.window.Node.DOCUMENT_POSITION_FOLLOWING
     );
     // Rows keep today's controls: the editable hotkey fields, and the meeting layout select.
-    for (const id of ["dictation", "assistant", "translation", "meeting"]) {
+    for (const id of ["dictation", "assistant", "translation", "review", "meeting"]) {
       assert.ok(
         s
           .row(id)
@@ -211,6 +213,10 @@ test(
     assert.match(s.row("assistant").textContent, /Tap/);
     assert.match(s.row("cancel").textContent, /Esc/);
     assert.match(s.row("cancel").textContent, /While recording/);
+    // Review last dictation: a tap slot with no default key, linking to History.
+    assert.match(s.row("review").textContent, /Review Last Dictation Hotkey/);
+    assert.match(s.row("review").textContent, /Tap/);
+    assert.match(s.row("review").textContent, /History/);
 
     // Style rows: the key, a refusal's reason and the common-shortcut warning, as before.
     const teams = s.row("style:starter-teams");

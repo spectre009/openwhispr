@@ -31,6 +31,7 @@ const {
   glossaryRuleFromRow,
 } = require("./glossaryRules");
 const { ownerKeyFor } = require("./stepHistory");
+const { historyRevision } = require("./dictationFeedback");
 
 // Server-enforced trigger cap (openwhispr-api); enforced here so one oversized
 // trigger can't 400 the whole sync batch.
@@ -223,6 +224,14 @@ const HISTORY_CLEANUP_CHANGED = `EXISTS (
     )
     AND p.output IS NOT c.output
 )`;
+// The owner's verdict on a row ("good", "bad"), and "flagged": they marked it bad.
+const HISTORY_RATING = `(
+  SELECT f.verdict FROM dictation_feedback f WHERE f.transcription_id = t.id AND f.owner = ?
+)`;
+const HISTORY_FLAGGED = `EXISTS (
+  SELECT 1 FROM dictation_feedback f
+  WHERE f.transcription_id = t.id AND f.owner = ? AND f.verdict = 'bad'
+)`;
 
 // A LIKE pattern matching `text` anywhere, its own wildcards taken literally.
 function historyLikePattern(text) {
@@ -234,6 +243,7 @@ class DatabaseManager {
     this.db = null;
     this.activeAccountId = null;
     this.stepHistoryReady = false;
+    this.dictationFeedbackReady = false;
     this.promptTestCasesReady = false;
     this.initDatabase();
   }
@@ -1562,6 +1572,14 @@ class DatabaseManager {
         debugLogger.error("Step history unavailable", { error: error.message }, "database");
       }
       try {
+        this._initDictationFeedback();
+      } catch (error) {
+        // Reviews are an aid too: without their table nothing can be rated,
+        // and the history database still opens.
+        this.dictationFeedbackReady = false;
+        debugLogger.error("Dictation reviews unavailable", { error: error.message }, "database");
+      }
+      try {
         this._initPromptTestCases();
       } catch (error) {
         // The test set is a prompt-editing aid: without its table, cases are
@@ -1569,7 +1587,7 @@ class DatabaseManager {
         this.promptTestCasesReady = false;
         debugLogger.error("Prompt test cases unavailable", { error: error.message }, "database");
       }
-      // Step history's ON DELETE CASCADE needs foreign keys. better-sqlite3
+      // Step history's and reviews' ON DELETE CASCADE need foreign keys. better-sqlite3
       // turns them on by default and the folders rebuild above restores them,
       // but say so once more after every migration rather than rely on both.
       this.db.pragma("foreign_keys = ON");
@@ -2249,9 +2267,10 @@ class DatabaseManager {
       );
       const clearedThrough = new Date().toISOString();
       const clearAll = this.db.transaction(() => {
-        // Every dictation goes, so every step goes: tombstoned rows keep no
-        // steps, and the hard-deleted ones would cascade anyway.
+        // Every dictation goes, so every step and review goes: tombstoned rows
+        // keep none, and the hard-deleted ones would cascade anyway.
         this._deleteTranscriptionSteps("1 = 1");
+        this._deleteDictationFeedback("1 = 1");
         const cleared = tombstone.run().changes + hardDelete.run().changes;
         updateDeviceClearState.run(clearedThrough);
         // The account-wide cutoff is what erases rows this device no longer
@@ -2319,15 +2338,14 @@ class DatabaseManager {
       );
       let analyticsPurged = 0;
       this.db.transaction(() => {
-        // A tombstone keeps the row, so its steps go explicitly, with the mark.
-        // Hard-deleted rows take theirs through ON DELETE CASCADE.
-        this._deleteTranscriptionSteps(
-          `transcription_id IN (
+        // A tombstone keeps the row, so its steps and reviews go explicitly,
+        // with the mark. Hard-deleted rows take theirs through ON DELETE CASCADE.
+        const tombstoned = `transcription_id IN (
              SELECT id FROM transcriptions
              WHERE cloud_id IS NOT NULL AND deleted_at IS NULL AND created_at < ?
-           )`,
-          cutoff
-        );
+           )`;
+        this._deleteTranscriptionSteps(tombstoned, cutoff);
+        this._deleteDictationFeedback(tombstoned, cutoff);
         tombstone.run(cutoff);
         hardDelete.run(cutoff);
         analyticsPurged =
@@ -2354,16 +2372,17 @@ class DatabaseManager {
         .get(id);
       if (!row || row.deleted_at) return { success: false, id };
       if (!row.cloud_id) {
-        // Physical delete: ON DELETE CASCADE removes the steps with the row.
+        // Physical delete: ON DELETE CASCADE removes the steps and reviews with the row.
         const result = this.db.prepare("DELETE FROM transcriptions WHERE id = ?").run(id);
         return { success: result.changes > 0, id };
       }
-      // A synced row is only marked, so its steps are deleted with the mark.
+      // A synced row is only marked, so its steps and reviews are deleted with the mark.
       const tombstone = this.db.prepare(
         "UPDATE transcriptions SET deleted_at = datetime('now'), sync_status = 'pending' WHERE id = ? AND deleted_at IS NULL"
       );
       const result = this.db.transaction(() => {
         this._deleteTranscriptionSteps("transcription_id = ?", id);
+        this._deleteDictationFeedback("transcription_id = ?", id);
         return tombstone.run(id);
       })();
       return { success: result.changes > 0, id };
@@ -2390,7 +2409,8 @@ class DatabaseManager {
   /**
    * Rewrites a row's text. `options.steps` (a retry's validated trace, or
    * null) replaces the row's steps in the same transaction. Without it, steps
-   * that no longer describe the text (it changed) are removed.
+   * that no longer describe the text (it changed) are removed. Either way the
+   * version reviewed is gone, so the row's reviews go too.
    */
   updateTranscriptionText(id, text, rawText, options = {}) {
     try {
@@ -2406,7 +2426,10 @@ class DatabaseManager {
           this._invalidateAnalyticsHistoryFromTranscription(id);
         }
         stmt.run(text, rawText, id);
-        if (replacesSteps || changed) this._deleteTranscriptionSteps("transcription_id = ?", id);
+        if (replacesSteps || changed) {
+          this._deleteTranscriptionSteps("transcription_id = ?", id);
+          this._deleteDictationFeedback("transcription_id = ?", id);
+        }
         if (replacesSteps && options.steps && existing && !existing.deleted_at) {
           this._writeTranscriptionSteps(id, options.steps);
         }
@@ -2430,6 +2453,11 @@ class DatabaseManager {
           this._invalidateAnalyticsHistoryFromTranscription(id);
         }
         stmt.run(status, errorMessage, errorCode, id);
+        // A review is of one status of the row (a failed one re-transcribed
+        // isn't the dictation that was reviewed).
+        if (existing && existing.status !== status) {
+          this._deleteDictationFeedback("transcription_id = ?", id);
+        }
       })();
       return { success: true };
     } catch (error) {
@@ -2540,6 +2568,157 @@ class DatabaseManager {
     if (!this.stepHistoryReady) return 0;
     return this.db.prepare(`DELETE FROM transcription_steps WHERE ${whereSql}`).run(...params)
       .changes;
+  }
+
+  // Reviews of dictations (see helpers/dictationFeedback.js): one per owner
+  // and row, of one revision of it. Local only, like steps, and they leave
+  // the same way: a physical delete cascades, and every tombstone, text
+  // rewrite, step replacement and account deletion deletes them explicitly in
+  // its own transaction.
+  _initDictationFeedback() {
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS dictation_feedback (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        transcription_id INTEGER NOT NULL
+          REFERENCES transcriptions(id) ON DELETE CASCADE,
+        owner TEXT NOT NULL,
+        revision TEXT NOT NULL,
+        verdict TEXT NOT NULL CHECK (verdict IN ('good', 'bad')),
+        stage_kind TEXT,
+        stage_seq INTEGER,
+        expected_text TEXT,
+        note TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        UNIQUE (owner, transcription_id)
+      );
+      CREATE INDEX IF NOT EXISTS idx_dictation_feedback_transcription
+        ON dictation_feedback(transcription_id);
+    `);
+    this.dictationFeedbackReady = true;
+  }
+
+  // Inside a caller's transaction; a no-op without the table.
+  _deleteDictationFeedback(whereSql, ...params) {
+    if (!this.dictationFeedbackReady) return 0;
+    return this.db.prepare(`DELETE FROM dictation_feedback WHERE ${whereSql}`).run(...params)
+      .changes;
+  }
+
+  // The owner's steps of one row (id, seq, kind), in order.
+  _ownerStepRefs(id, owner) {
+    if (!owner || !this.stepHistoryReady) return [];
+    return this.db
+      .prepare(
+        "SELECT id, seq, kind FROM transcription_steps WHERE transcription_id = ? AND owner = ? ORDER BY seq"
+      )
+      .all(id, owner);
+  }
+
+  /** The revision a review of this row is of for this owner, or null once it's gone. */
+  getHistoryRevision(id, owner) {
+    if (!this.db) throw new Error("Database not initialized");
+    const row = this.db
+      .prepare(
+        "SELECT text, raw_text, status FROM transcriptions WHERE id = ? AND deleted_at IS NULL"
+      )
+      .get(id);
+    if (!row) return null;
+    const stepIds = this._ownerStepRefs(id, owner).map((step) => step.id);
+    return historyRevision(row, stepIds);
+  }
+
+  getDictationFeedback(id, owner) {
+    if (!this.db) throw new Error("Database not initialized");
+    if (!owner || !this.dictationFeedbackReady) return null;
+    return (
+      this.db
+        .prepare(
+          `SELECT f.* FROM dictation_feedback f
+           JOIN transcriptions t ON t.id = f.transcription_id
+           WHERE f.transcription_id = ? AND f.owner = ? AND t.deleted_at IS NULL`
+        )
+        .get(id, owner) || null
+    );
+  }
+
+  /**
+   * Saves one owner's review of a listed row, in one transaction with the
+   * checks that make it valid: the row is still there, it is the revision the
+   * review was written against, and a blamed step is one of the owner's steps
+   * of that row. A correction equal to the final text is no correction.
+   * Returns `{ status: "saved", row }`, or "notFound", "stale", "invalidStage".
+   */
+  saveDictationFeedback({
+    transcriptionId,
+    owner,
+    revision,
+    verdict,
+    stageKind = null,
+    stageSeq = null,
+    expectedText = null,
+    note = null,
+    now,
+  }) {
+    if (!this.db) throw new Error("Database not initialized");
+    if (!this.dictationFeedbackReady) throw new Error("Dictation reviews unavailable");
+    return this.db.transaction(() => {
+      const row = this.db
+        .prepare(
+          `SELECT text, raw_text, status FROM transcriptions
+           WHERE id = ? AND deleted_at IS NULL AND status IN ('completed', 'failed')`
+        )
+        .get(transcriptionId);
+      if (!row) return { status: "notFound" };
+      const steps = this._ownerStepRefs(transcriptionId, owner);
+      const stepIds = steps.map((step) => step.id);
+      if (historyRevision(row, stepIds) !== revision) return { status: "stale" };
+      if (
+        stageSeq !== null &&
+        !steps.some((step) => step.seq === stageSeq && step.kind === stageKind)
+      ) {
+        return { status: "invalidStage" };
+      }
+      const correction = expectedText !== null && expectedText !== row.text ? expectedText : null;
+      this.db
+        .prepare(
+          `INSERT INTO dictation_feedback (
+             transcription_id, owner, revision, verdict, stage_kind, stage_seq,
+             expected_text, note, created_at, updated_at
+           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           ON CONFLICT (owner, transcription_id) DO UPDATE SET
+             revision = excluded.revision,
+             verdict = excluded.verdict,
+             stage_kind = excluded.stage_kind,
+             stage_seq = excluded.stage_seq,
+             expected_text = excluded.expected_text,
+             note = excluded.note,
+             updated_at = excluded.updated_at`
+        )
+        .run(
+          transcriptionId,
+          owner,
+          revision,
+          verdict,
+          stageKind,
+          stageSeq,
+          correction,
+          note,
+          now,
+          now
+        );
+      return { status: "saved", row: this.getDictationFeedback(transcriptionId, owner) };
+    })();
+  }
+
+  deleteDictationFeedback(id, owner) {
+    if (!this.db) throw new Error("Database not initialized");
+    if (!owner || !this.dictationFeedbackReady) return false;
+    return (
+      this.db
+        .prepare("DELETE FROM dictation_feedback WHERE transcription_id = ? AND owner = ?")
+        .run(id, owner).changes > 0
+    );
   }
 
   // Inside a caller's transaction, as a savepoint: a step that fails to write
@@ -2694,6 +2873,7 @@ class DatabaseManager {
     failed = false,
     cleanupChanged = false,
     app = null,
+    flagged = false,
   } = {}) {
     if (!this.db) throw new Error("Database not initialized");
     const where = [HISTORY_ROW_FILTER];
@@ -2728,18 +2908,56 @@ class DatabaseManager {
         where.push("0");
       }
     }
+    // The owner's own rating, and the rows they marked bad.
+    const feedbackReadable = Boolean(owner) && this.dictationFeedbackReady;
+    if (flagged) {
+      if (feedbackReadable) {
+        where.push(HISTORY_FLAGGED);
+        params.push(owner);
+      } else {
+        where.push("0");
+      }
+    }
+    const rating = feedbackReadable ? HISTORY_RATING : "NULL";
     params.push(limit);
     return this.db
       .prepare(
         `SELECT t.id, t.timestamp, ${HISTORY_SORT_KEY} AS sort_key, t.status, t.error_code,
                 substr(COALESCE(NULLIF(t.text, ''), t.raw_text), 1, ${HISTORY_PREVIEW_CHARS}) AS preview,
-                t.has_audio, t.audio_duration_ms, t.route_kind
+                t.has_audio, t.audio_duration_ms, t.route_kind, ${rating} AS rating
          FROM transcriptions t
          WHERE ${where.join(" AND ")}
          ORDER BY sort_key DESC, t.id DESC
          LIMIT ?`
       )
-      .all(...params);
+      .all(...(feedbackReadable ? [owner] : []), ...params);
+  }
+
+  /**
+   * What "Review last dictation" opens: the newest listed row (in the History
+   * view's order) with this owner's steps whose trace wasn't the assistant's.
+   * Failed dictations count; discarded and deleted ones don't. Null if none.
+   */
+  getLastReviewableDictation(owner) {
+    if (!this.db) throw new Error("Database not initialized");
+    if (!owner || !this.stepHistoryReady) return null;
+    const row = this.db
+      .prepare(
+        `SELECT t.id
+         FROM transcription_steps s
+         JOIN transcriptions t ON t.id = s.transcription_id
+         WHERE s.owner = ?
+           AND s.seq = (
+             SELECT MIN(q.seq) FROM transcription_steps q
+             WHERE q.transcription_id = s.transcription_id AND q.owner = s.owner
+           )
+           AND COALESCE(s.route, '') <> 'agent'
+           AND ${HISTORY_ROW_FILTER}
+         ORDER BY ${HISTORY_SORT_KEY} DESC, t.id DESC
+         LIMIT 1`
+      )
+      .get(owner);
+    return row ? row.id : null;
   }
 
   /** The owner's steps for a page of rows, in one query, without prompts. */
@@ -4304,6 +4522,8 @@ class DatabaseManager {
       // The account's step history. The dictations themselves are device-wide
       // and stay; the signed-out namespace and other accounts keep theirs.
       this._deleteTranscriptionSteps("owner = ?", ownerKeyFor(accountId));
+      // Its reviews: corrections and notes nobody else may inherit.
+      this._deleteDictationFeedback("owner = ?", ownerKeyFor(accountId));
       // The account's test cases, the same way: copies of its dictations that
       // nobody else may inherit.
       if (this.promptTestCasesReady) {
@@ -8385,6 +8605,13 @@ class DatabaseManager {
         // Steps describe this device's text; a cloud copy that differs makes them stale.
         if (existing && (existing.text !== text || existing.raw_text !== rawText)) {
           this._deleteTranscriptionSteps("transcription_id = ?", existing.id);
+        }
+        // A review is of this device's version of the row, status included.
+        if (
+          existing &&
+          (existing.text !== text || existing.raw_text !== rawText || existing.status !== status)
+        ) {
+          this._deleteDictationFeedback("transcription_id = ?", existing.id);
         }
         stmt.run(
           cloudTranscription.client_transcription_id,

@@ -64,6 +64,7 @@
     },
     "openControlPanel": "Abrir painel de controle",
     "hideControlPanel": "Ocultar painel de controle",
+    "reviewLastDictation": "Avaliar o último ditado",
     "quit": "Sair do OpenWhispr",
     "tooltip": "OpenWhispr - Ditado por voz",
     "recordingTooltip": "OpenWhispr · Gravando {{elapsed}}"
@@ -793,6 +794,7 @@
     "filters": {
       "label": "Filtrar ditados",
       "all": "Todos",
+      "flagged": "Sinalizados",
       "failed": "Com falha",
       "cleanupChanged": "Alterados pela limpeza",
       "app": "App",
@@ -873,6 +875,68 @@
       "heardHint": "transcrição bruta",
       "sameAsHeard": "igual ao ouvido",
       "whoChanged": "não foi registrado qual etapa o alterou"
+    },
+    "review": {
+      "label": "Sua avaliação",
+      "rateGood": "Marcar como bom",
+      "rateBad": "Marcar como ruim",
+      "ratedGood": "Marcado como bom",
+      "ratedBad": "Marcado como ruim",
+      "title": "O que deu errado?",
+      "privacy": "Salvo apenas neste computador, com esta versão do ditado; nunca sincronizado nem exportado.",
+      "stageQuestion": "Qual etapa você acha que errou?",
+      "stageHint": "Opcional. A primeira que errou; as etapas seguintes só tinham o texto dela.",
+      "stages": {
+        "delivery": "Colagem",
+        "unsure": "Não sei"
+      },
+      "expectedQuestion": "O que deveria ter saído?",
+      "expectedHint": "Opcional. Começa com o resultado final; corrija as palavras.",
+      "noteLabel": "Nota",
+      "notePlaceholder": "Nota (opcional)",
+      "save": "Salvar",
+      "saveAndClose": "Salvar e fechar",
+      "saveError": "Não foi possível salvar sua avaliação.",
+      "historyOff": "As avaliações só são mantidas enquanto o histórico local estiver ativado.",
+      "draftDropped": "Este ditado mudou, então sua avaliação não salva foi descartada.",
+      "stale": "Este ditado mudou desde que você abriu a avaliação, então ele foi recarregado e sua avaliação não foi salva.",
+      "saved": {
+        "good": "Você marcou este ditado como bom.",
+        "bad": "Você sinalizou este ditado.",
+        "stage": "Etapa que você acha que errou:",
+        "expected": "Deveria ter saído:",
+        "note": "Nota:"
+      },
+      "edit": "Editar",
+      "delete": "Excluir avaliação",
+      "confirmGood": {
+        "title": "Marcar como bom?",
+        "description": "A etapa, a correção e a nota da sua avaliação são removidas.",
+        "confirm": "Marcar como bom"
+      },
+      "confirmDiscard": {
+        "title": "Descartar sua avaliação?",
+        "description": "O que você escreveu sobre este ditado não foi salvo.",
+        "confirm": "Descartar",
+        "keep": "Continuar editando"
+      },
+      "confirmDelete": {
+        "title": "Excluir esta avaliação?",
+        "description": "A etapa, a correção e a nota salvas são removidas.",
+        "confirm": "Excluir avaliação"
+      },
+      "confirmSwitch": {
+        "title": "Abrir seu último ditado?",
+        "description": "Sua avaliação não salva deste ditado é mantida, para você voltar a ela.",
+        "confirm": "Abrir último ditado",
+        "stay": "Ficar aqui"
+      },
+      "hotkey": {
+        "banner": "Seu último ditado, aberto para avaliação. Nada é salvo até você salvar.",
+        "escape": "fecha sem salvar"
+      },
+      "lastNotFound": "Não foi possível encontrar os detalhes do seu último ditado.",
+      "busy": "Termine este ditado primeiro"
     }
   },
   "reasoning": {
@@ -2794,6 +2858,10 @@
       "translationHotkey": {
         "title": "Atalho de Tradução",
         "description": "Dite em qualquer idioma: o texto colado sai traduzido"
+      },
+      "reviewHotkey": {
+        "title": "Atalho para avaliar o último ditado",
+        "description": "Abre o histórico no seu último ditado, pronto para avaliar"
       },
       "styleHotkeys": {
         "title": "Atalhos de estilo",

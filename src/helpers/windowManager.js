@@ -169,6 +169,12 @@ class WindowManager {
     this._pendingMeetingNoteNavigation = null;
     this._pendingNoteNavigation = null;
     this._pendingSettingsSection = null;
+    // "Review last dictation": the request the control panel picks up, the
+    // service that resolves it (set by IPCHandlers), and whether the dictation
+    // window is still pasting or saving a finished dictation.
+    this._pendingReviewRequest = null;
+    this.dictationReview = null;
+    this._dictationDelivering = false;
     this._recordingIndicatorSettings = normalizeRecordingIndicatorSettings(null);
     this._recordingStartedAt = null;
     this._recordingReminderTimer = null;
@@ -1109,6 +1115,43 @@ class WindowManager {
     }
   }
 
+  // "Review last dictation", from its hotkey and the tray. Like every hotkey
+  // slot it does nothing during onboarding or while a hotkey is being captured
+  // ("review" is never a demo kind).
+  async reviewLastDictation() {
+    if (this.hotkeyManager.isInListeningMode() || !this._isOnboardingInputAllowed("review")) {
+      return;
+    }
+    try {
+      await this.dictationReview?.run();
+    } catch (error) {
+      debugLogger.error("Failed to open the review", { error: error.message }, "history");
+    }
+  }
+
+  // The pill says why the review didn't open; the dictation is left alone.
+  notifyReviewBusy() {
+    const win = this.mainWindow;
+    if (!win || win.isDestroyed()) return;
+    win.webContents.send("review-dictation-busy");
+  }
+
+  // The control panel asks for the request once its renderer is ready
+  // (get-pending-review-request); one created here hears it on mount.
+  async queueReviewRequest(request) {
+    this._pendingReviewRequest = request;
+    const existed = Boolean(this.controlPanelWindow && !this.controlPanelWindow.isDestroyed());
+    await this.createControlPanelWindow();
+    if (!existed) this.showControlPanel();
+    this.sendToControlPanel("review-dictation-pending");
+  }
+
+  consumePendingReviewRequest() {
+    const request = this._pendingReviewRequest;
+    this._pendingReviewRequest = null;
+    return request;
+  }
+
   // Visibility is part of "available": a ready pill that is merely hidden
   // (onboarding took the screen, a panel close hid it) cannot show a
   // recording, so counting it as a live surface would let dictation start
@@ -1227,6 +1270,17 @@ class WindowManager {
     return this._dictationLifecycleState !== DICTATION_LIFECYCLE.IDLE;
   }
 
+  // The lifecycle goes idle before the paste and the save that follow it, so
+  // the dictation window reports those separately (dictation-delivery-state).
+  setDictationDeliveryState(delivering) {
+    this._dictationDelivering = delivering === true;
+  }
+
+  /** A dictation is being made or still delivered: the review action waits for it. */
+  isDictationBusy() {
+    return this.isDictationActive() || this._dictationDelivering;
+  }
+
   // Prompt Studio's test set gives way to a dictation, so the control panel
   // follows the lifecycle. A panel still loading asks for it once it mounts.
   _sendDictationLifecycleToControlPanel() {
@@ -1321,6 +1375,8 @@ class WindowManager {
   }
 
   _resetDictationLifecycle(reason, detail) {
+    // A renderer that went away mid-paste can't report the end of it either.
+    this._dictationDelivering = false;
     if (this._dictationLifecycleState === DICTATION_LIFECYCLE.IDLE) return;
     debugLogger.info(
       "[WindowManager] Dictation renderer went away; resetting its lifecycle",

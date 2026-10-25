@@ -64,6 +64,7 @@
     },
     "openControlPanel": "Abrir panel de control",
     "hideControlPanel": "Ocultar panel de control",
+    "reviewLastDictation": "Valorar el último dictado",
     "quit": "Salir de OpenWhispr",
     "tooltip": "OpenWhispr - Dictado por voz",
     "recordingTooltip": "OpenWhispr · Grabando {{elapsed}}"
@@ -814,6 +815,7 @@
     "filters": {
       "label": "Filtrar dictados",
       "all": "Todos",
+      "flagged": "Marcados",
       "failed": "Fallidos",
       "cleanupChanged": "La corrección lo cambió",
       "app": "App",
@@ -894,6 +896,68 @@
       "heardHint": "transcripción sin procesar",
       "sameAsHeard": "igual que lo oído",
       "whoChanged": "no se registró qué paso lo cambió"
+    },
+    "review": {
+      "label": "Tu valoración",
+      "rateGood": "Marcar como bueno",
+      "rateBad": "Marcar como malo",
+      "ratedGood": "Marcado como bueno",
+      "ratedBad": "Marcado como malo",
+      "title": "¿Qué salió mal?",
+      "privacy": "Se guarda solo en este equipo, con esta versión del dictado; nunca se sincroniza ni se exporta.",
+      "stageQuestion": "¿Qué paso crees que lo hizo mal?",
+      "stageHint": "Opcional. El primero que falló; los pasos siguientes solo tenían su texto.",
+      "stages": {
+        "delivery": "Pegado",
+        "unsure": "No estoy seguro"
+      },
+      "expectedQuestion": "¿Qué debería haber dicho?",
+      "expectedHint": "Opcional. Empieza con el resultado final; corrige las palabras.",
+      "noteLabel": "Nota",
+      "notePlaceholder": "Nota (opcional)",
+      "save": "Guardar",
+      "saveAndClose": "Guardar y cerrar",
+      "saveError": "No se pudo guardar tu valoración.",
+      "historyOff": "Las valoraciones solo se guardan mientras el historial local está activado.",
+      "draftDropped": "Este dictado cambió, así que se descartó tu valoración sin guardar.",
+      "stale": "Este dictado cambió desde que abriste la valoración, así que se volvió a cargar y tu valoración no se guardó.",
+      "saved": {
+        "good": "Marcaste este dictado como bueno.",
+        "bad": "Marcaste este dictado como malo.",
+        "stage": "Paso que crees que falló:",
+        "expected": "Debería haber dicho:",
+        "note": "Nota:"
+      },
+      "edit": "Editar",
+      "delete": "Eliminar valoración",
+      "confirmGood": {
+        "title": "¿Marcarlo como bueno?",
+        "description": "Se eliminan el paso, la corrección y la nota de tu valoración.",
+        "confirm": "Marcar como bueno"
+      },
+      "confirmDiscard": {
+        "title": "¿Descartar tu valoración?",
+        "description": "Lo que escribiste sobre este dictado no se ha guardado.",
+        "confirm": "Descartar",
+        "keep": "Seguir editando"
+      },
+      "confirmDelete": {
+        "title": "¿Eliminar esta valoración?",
+        "description": "Se eliminan el paso, la corrección y la nota que guardaste.",
+        "confirm": "Eliminar valoración"
+      },
+      "confirmSwitch": {
+        "title": "¿Abrir tu último dictado?",
+        "description": "Tu valoración sin guardar de este dictado se conserva, para que puedas volver a ella.",
+        "confirm": "Abrir último dictado",
+        "stay": "Quedarme aquí"
+      },
+      "hotkey": {
+        "banner": "Tu último dictado, abierto para valorarlo. No se guarda nada hasta que guardes.",
+        "escape": "cierra sin guardar"
+      },
+      "lastNotFound": "No se encontraron los detalles de tu último dictado.",
+      "busy": "Termina primero este dictado"
     }
   },
   "reasoning": {
@@ -2867,6 +2931,10 @@
       "translationHotkey": {
         "title": "Atajo de Traducción",
         "description": "Dicta en cualquier idioma: el texto pegado sale traducido"
+      },
+      "reviewHotkey": {
+        "title": "Atajo para valorar el último dictado",
+        "description": "Abre el historial en tu último dictado, listo para valorarlo"
       },
       "styleHotkeys": {
         "title": "Atajos de estilo",

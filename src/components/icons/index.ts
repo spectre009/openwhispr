@@ -20,6 +20,8 @@ export {
   SquareSlash,
   Strikethrough,
   Table,
+  ThumbsDown,
+  ThumbsUp,
 } from "./primitives";
 
 export const AlertCircle = createIcon("alert-circle", Nucleo.CircleWarningOutline24);

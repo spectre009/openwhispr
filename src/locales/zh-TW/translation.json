@@ -64,6 +64,7 @@
     },
     "openControlPanel": "開啟控制面板",
     "hideControlPanel": "隱藏控制面板",
+    "reviewLastDictation": "評價上一則聽寫",
     "quit": "結束 OpenWhispr",
     "tooltip": "OpenWhispr - 語音輸入",
     "recordingTooltip": "OpenWhispr · 正在錄音 {{elapsed}}"
@@ -814,6 +815,7 @@
     "filters": {
       "label": "篩選聽寫",
       "all": "全部",
+      "flagged": "已標記",
       "failed": "失敗",
       "cleanupChanged": "被文字整理修改",
       "app": "應用程式",
@@ -894,6 +896,68 @@
       "heardHint": "原始轉錄",
       "sameAsHeard": "與辨識結果相同",
       "whoChanged": "未記錄是哪個步驟修改的"
+    },
+    "review": {
+      "label": "你的評價",
+      "rateGood": "標記為好",
+      "rateBad": "標記為差",
+      "ratedGood": "已標記為好",
+      "ratedBad": "已標記為差",
+      "title": "哪裡出了問題？",
+      "privacy": "只儲存在這台電腦上，並對應這一版聽寫；從不同步或匯出。",
+      "stageQuestion": "你認為是哪個步驟出錯了？",
+      "stageHint": "選填。選第一個出錯的步驟；之後的步驟只拿到它的文字。",
+      "stages": {
+        "delivery": "貼上",
+        "unsure": "不確定"
+      },
+      "expectedQuestion": "它應該是什麼？",
+      "expectedHint": "選填。一開始是最終輸出；修正其中的字詞。",
+      "noteLabel": "備註",
+      "notePlaceholder": "備註（選填）",
+      "save": "儲存",
+      "saveAndClose": "儲存並關閉",
+      "saveError": "無法儲存你的評價。",
+      "historyOff": "只有在本機歷史記錄開啟時才會保留評價。",
+      "draftDropped": "這則聽寫已變更，因此未儲存的評價已被捨棄。",
+      "stale": "自你開啟評價後這則聽寫已變更，因此已重新載入，你的評價未儲存。",
+      "saved": {
+        "good": "你將這則聽寫標記為好。",
+        "bad": "你將這則聽寫標記為差。",
+        "stage": "你認為出錯的步驟：",
+        "expected": "應該是：",
+        "note": "備註："
+      },
+      "edit": "編輯",
+      "delete": "刪除評價",
+      "confirmGood": {
+        "title": "標記為好？",
+        "description": "你的評價中的步驟、更正和備註將被移除。",
+        "confirm": "標記為好"
+      },
+      "confirmDiscard": {
+        "title": "捨棄你的評價？",
+        "description": "你為這則聽寫寫的內容尚未儲存。",
+        "confirm": "捨棄",
+        "keep": "繼續編輯"
+      },
+      "confirmDelete": {
+        "title": "刪除這則評價？",
+        "description": "已儲存的步驟、更正和備註將被移除。",
+        "confirm": "刪除評價"
+      },
+      "confirmSwitch": {
+        "title": "開啟你的上一則聽寫？",
+        "description": "你對這則聽寫未儲存的評價會保留，你可以稍後回來。",
+        "confirm": "開啟上一則聽寫",
+        "stay": "留在這裡"
+      },
+      "hotkey": {
+        "banner": "已開啟你的上一則聽寫以便評價。在你儲存之前，什麼都不會儲存。",
+        "escape": "不儲存並關閉"
+      },
+      "lastNotFound": "找不到你上一則聽寫的詳細資訊。",
+      "busy": "請先完成這則聽寫"
     }
   },
   "reasoning": {
@@ -2815,6 +2879,10 @@
       "translationHotkey": {
         "title": "翻譯快捷鍵",
         "description": "用任何語言聽寫——貼上的文字會自動翻譯"
+      },
+      "reviewHotkey": {
+        "title": "評價上一則聽寫快捷鍵",
+        "description": "在歷史記錄中開啟你的上一則聽寫，以便評價"
       },
       "styleHotkeys": {
         "title": "風格快捷鍵",

@@ -215,6 +215,24 @@ contextBridge.exposeInMainWorld("electronAPI", {
   listHistory: (request) => ipcRenderer.invoke("history-list", request),
   getHistoryApps: () => ipcRenderer.invoke("history-apps"),
   getHistoryItem: (id) => ipcRenderer.invoke("history-get-item", id),
+  // Reviews of dictations: main owns the owner, the revision and the policy.
+  getHistoryFeedback: (id) => ipcRenderer.invoke("history-feedback-get", id),
+  saveHistoryFeedback: (input) => ipcRenderer.invoke("history-feedback-save", input),
+  deleteHistoryFeedback: (id) => ipcRenderer.invoke("history-feedback-delete", id),
+  onHistoryFeedbackChanged: registerListener(
+    "history-feedback-changed",
+    (callback) => (_event, change) => callback(change)
+  ),
+  // "Review last dictation": the request main holds for the control panel.
+  getPendingReviewRequest: () => ipcRenderer.invoke("get-pending-review-request"),
+  onReviewDictationPending: registerListener(
+    "review-dictation-pending",
+    (callback) => () => callback()
+  ),
+  onReviewDictationBusy: registerListener("review-dictation-busy", (callback) => () => callback()),
+  hideControlPanel: () => ipcRenderer.invoke("hide-control-panel"),
+  dictationDeliveryStateChanged: (delivering) =>
+    ipcRenderer.send("dictation-delivery-state", delivering),
   // Prompt test cases: main owns ownership, the history policy and pinned text.
   listTestCases: () => ipcRenderer.invoke("test-cases-list"),
   pinHistoryTestCase: (transcriptionId) =>
@@ -1154,6 +1172,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
   notifyActivationModeChanged: (mode) => ipcRenderer.send("activation-mode-changed", mode),
   notifyHotkeyChanged: (hotkey) => ipcRenderer.send("hotkey-changed", hotkey),
   registerMeetingHotkey: (hotkey) => ipcRenderer.invoke("register-meeting-hotkey", hotkey),
+  registerReviewHotkey: (hotkey) => ipcRenderer.invoke("register-review-hotkey", hotkey),
 
   // Floating icon auto-hide
   notifyFloatingIconAutoHideChanged: (enabled) =>

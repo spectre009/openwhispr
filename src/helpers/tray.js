@@ -18,6 +18,57 @@ const WINDOWS_PRODUCTION_TRAY_GUID = "9afd9bd5-53da-42ef-8334-6e2b494c66fe";
 const MACOS_TRAY_GUID = "eb809902-04b5-5b08-b12a-f81d6f27e185";
 const MACOS_TRAY_POSITION_KEY = `NSStatusItem Preferred Position ${MACOS_TRAY_GUID}`;
 
+const ACCELERATOR_MODIFIERS = new Set([
+  "commandorcontrol",
+  "cmdorctrl",
+  "command",
+  "cmd",
+  "control",
+  "ctrl",
+  "alt",
+  "option",
+  "altgr",
+  "shift",
+  "super",
+  "meta",
+]);
+const ACCELERATOR_KEY =
+  /^([A-Za-z0-9]|F([1-9]|1[0-9]|2[0-4])|Space|Tab|Backspace|Delete|Insert|Return|Enter|Up|Down|Left|Right|Home|End|PageUp|PageDown|Escape|Esc|PrintScreen|Plus|[`\-=[\];',./\\])$/;
+
+/**
+ * Whether a hotkey reads as a menu accelerator: modifiers and one ordinary
+ * key. Modifier-only keys, Globe, mouse buttons and side-specific modifiers
+ * (which only the native listeners watch) aren't.
+ */
+function isMenuAccelerator(hotkey) {
+  if (typeof hotkey !== "string" || !hotkey) return false;
+  const parts = hotkey.split("+");
+  const key = parts.pop();
+  return (
+    ACCELERATOR_KEY.test(key) &&
+    parts.every((part) => ACCELERATOR_MODIFIERS.has(part.toLowerCase()))
+  );
+}
+
+const MENU_KEY_NAMES = { Control: "Ctrl", Ctrl: "Ctrl", Command: "Cmd", Cmd: "Cmd", GLOBE: "Fn" };
+
+/** A hotkey Electron can't show as an accelerator, written out for the menu label. */
+function hotkeyMenuLabel(hotkey, platform = process.platform) {
+  const superName = platform === "darwin" ? "Cmd" : platform === "win32" ? "Win" : "Super";
+  return hotkey
+    .split("+")
+    .map((part) => {
+      const match = /^(Right|Left)?(.+)$/.exec(part);
+      if (!match) return part;
+      const [, side, name] = match;
+      const shown = ["Super", "Meta", "Win"].includes(name)
+        ? superName
+        : (MENU_KEY_NAMES[name] ?? name);
+      return side ? `${side} ${shown}` : shown;
+    })
+    .join("+");
+}
+
 class TrayManager {
   constructor() {
     this.tray = null;
@@ -322,6 +373,7 @@ class TrayManager {
           void this.toggleControlPanelFromTray();
         },
       },
+      this._reviewMenuItem(),
       { type: "separator" },
       {
         label: i18nMain.t("tray.quit"),
@@ -331,6 +383,21 @@ class TrayManager {
         },
       },
     ];
+  }
+
+  // "Review last dictation", the review hotkey's action, with that hotkey
+  // beside it when one is set: as the menu's accelerator text when Electron
+  // can show it (never registered: the hotkey manager owns the key), in the
+  // label otherwise.
+  _reviewMenuItem() {
+    const label = i18nMain.t("tray.reviewLastDictation");
+    const hotkey = this.windowManager?.hotkeyManager?.getSlotHotkey?.("review") || null;
+    const item = { label, click: () => void this.windowManager?.reviewLastDictation?.() };
+    if (!hotkey) return item;
+    if (isMenuAccelerator(hotkey)) {
+      return { ...item, accelerator: hotkey, registerAccelerator: false };
+    }
+    return { ...item, label: `${label} (${hotkeyMenuLabel(hotkey)})` };
   }
 
   updateTrayMenu() {

@@ -64,6 +64,7 @@
     },
     "openControlPanel": "Apri pannello di controllo",
     "hideControlPanel": "Nascondi pannello di controllo",
+    "reviewLastDictation": "Valuta l'ultima dettatura",
     "quit": "Esci da OpenWhispr",
     "tooltip": "OpenWhispr - Dettatura vocale",
     "recordingTooltip": "OpenWhispr · Registrazione {{elapsed}}"
@@ -814,6 +815,7 @@
     "filters": {
       "label": "Filtra le dettature",
       "all": "Tutte",
+      "flagged": "Segnalate",
       "failed": "Non riuscite",
       "cleanupChanged": "Modificate dalla correzione",
       "app": "App",
@@ -894,6 +896,68 @@
       "heardHint": "trascrizione grezza",
       "sameAsHeard": "uguale a ciò che è stato sentito",
       "whoChanged": "non è stato registrato quale passaggio l'ha modificato"
+    },
+    "review": {
+      "label": "La tua valutazione",
+      "rateGood": "Segna come buona",
+      "rateBad": "Segna come sbagliata",
+      "ratedGood": "Segnata come buona",
+      "ratedBad": "Segnata come sbagliata",
+      "title": "Cosa è andato storto?",
+      "privacy": "Salvata solo su questo computer, con questa versione della dettatura; mai sincronizzata né esportata.",
+      "stageQuestion": "Quale passaggio pensi abbia sbagliato?",
+      "stageHint": "Facoltativo. Il primo che ha sbagliato; i passaggi successivi avevano solo il suo testo.",
+      "stages": {
+        "delivery": "Incolla",
+        "unsure": "Non so"
+      },
+      "expectedQuestion": "Cosa avrebbe dovuto dire?",
+      "expectedHint": "Facoltativo. Parte dal risultato finale; correggi le parole.",
+      "noteLabel": "Nota",
+      "notePlaceholder": "Nota (facoltativa)",
+      "save": "Salva",
+      "saveAndClose": "Salva e chiudi",
+      "saveError": "Impossibile salvare la tua valutazione.",
+      "historyOff": "Le valutazioni vengono conservate solo finché la cronologia locale è attiva.",
+      "draftDropped": "Questa dettatura è cambiata, quindi la tua valutazione non salvata è stata scartata.",
+      "stale": "Questa dettatura è cambiata da quando hai aperto la valutazione: è stata ricaricata e la tua valutazione non è stata salvata.",
+      "saved": {
+        "good": "Hai segnato questa dettatura come buona.",
+        "bad": "Hai segnalato questa dettatura.",
+        "stage": "Passaggio che secondo te ha sbagliato:",
+        "expected": "Avrebbe dovuto dire:",
+        "note": "Nota:"
+      },
+      "edit": "Modifica",
+      "delete": "Elimina valutazione",
+      "confirmGood": {
+        "title": "Segnarla come buona?",
+        "description": "Il passaggio, la correzione e la nota della tua valutazione vengono rimossi.",
+        "confirm": "Segna come buona"
+      },
+      "confirmDiscard": {
+        "title": "Scartare la tua valutazione?",
+        "description": "Quello che hai scritto su questa dettatura non è stato salvato.",
+        "confirm": "Scarta",
+        "keep": "Continua a modificare"
+      },
+      "confirmDelete": {
+        "title": "Eliminare questa valutazione?",
+        "description": "Il passaggio, la correzione e la nota salvati vengono rimossi.",
+        "confirm": "Elimina valutazione"
+      },
+      "confirmSwitch": {
+        "title": "Aprire la tua ultima dettatura?",
+        "description": "La tua valutazione non salvata di questa dettatura resta, così puoi tornarci.",
+        "confirm": "Apri l'ultima dettatura",
+        "stay": "Resta qui"
+      },
+      "hotkey": {
+        "banner": "La tua ultima dettatura, aperta per valutarla. Non viene salvato nulla finché non salvi.",
+        "escape": "chiude senza salvare"
+      },
+      "lastNotFound": "Impossibile trovare i dettagli della tua ultima dettatura.",
+      "busy": "Prima termina questa dettatura"
     }
   },
   "reasoning": {
@@ -2815,6 +2879,10 @@
       "translationHotkey": {
         "title": "Hotkey Traduzione",
         "description": "Detta in qualsiasi lingua: il testo incollato esce tradotto"
+      },
+      "reviewHotkey": {
+        "title": "Scorciatoia per valutare l'ultima dettatura",
+        "description": "Apre la cronologia sulla tua ultima dettatura, pronta da valutare"
       },
       "styleHotkeys": {
         "title": "Scorciatoie di stile",

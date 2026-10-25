@@ -477,6 +477,8 @@ export interface HistoryListFilters {
   cleanupChanged?: boolean;
   /** The app the current owner's trace was sent to. */
   app?: string | null;
+  /** The current owner marked it bad. */
+  flagged?: boolean;
 }
 
 export interface HistoryListRequest {
@@ -500,6 +502,8 @@ export interface HistoryListRow {
   /** From the current owner's steps; null without them. */
   app: string | null;
   marks: HistoryStepMark[] | null;
+  /** The current owner's review of it, if any. */
+  rating: HistoryVerdict | null;
 }
 
 export interface HistoryListResult {
@@ -540,8 +544,69 @@ export type HistoryItemResult =
       route?: string | null;
       context?: TranscriptionStepsResult["context"];
       steps: TranscriptionStepRecord[];
+      /** The version of the row a review is of; saving needs the one the form opened on. */
+      revision: string | null;
+      /** The current owner, as an opaque tag (drafts are kept per owner); null when unknown. */
+      owner: string | null;
+      /** The current owner's review of this version of it. */
+      feedback: HistoryFeedback | null;
     }
   | { success: false; code: "NOT_FOUND" | "FAILED" };
+
+export type HistoryVerdict = "good" | "bad";
+
+/**
+ * The step a review blames: one of the row's recorded steps (its kind and
+ * seq), the paste ("delivery", no seq) or "unsure".
+ */
+export interface HistoryReviewStage {
+  kind: string;
+  seq: number | null;
+}
+
+/** The current owner's review of one dictation, local only. */
+export interface HistoryFeedback {
+  revision: string;
+  verdict: HistoryVerdict;
+  stage: HistoryReviewStage | null;
+  /** What it should have said; null when not corrected. */
+  expectedText: string | null;
+  note: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface HistoryFeedbackSaveRequest {
+  id: number;
+  revision: string;
+  verdict: HistoryVerdict;
+  stage: HistoryReviewStage | null;
+  expectedText: string | null;
+  note: string | null;
+}
+
+export type HistoryFeedbackSaveResult =
+  | { success: true; feedback: HistoryFeedback }
+  | {
+      success: false;
+      code:
+        | "OWNER_UNKNOWN"
+        | "INVALID"
+        | "INVALID_STAGE"
+        | "TOO_LONG"
+        | "HISTORY_OFF"
+        | "UNAVAILABLE"
+        | "NOT_FOUND"
+        | "STALE"
+        | "FAILED";
+      reason?: string;
+    };
+
+/** "Review last dictation": open History on this dictation (null: none was found). */
+export interface HistoryReviewRequest {
+  requestId: number;
+  id: number | null;
+}
 
 /**
  * A style case's structure checks: how many bullet lines and numbered items
@@ -1962,6 +2027,24 @@ declare global {
       listHistory?: (request: HistoryListRequest) => Promise<HistoryListResult>;
       getHistoryApps?: () => Promise<HistoryAppsResult>;
       getHistoryItem?: (id: number) => Promise<HistoryItemResult>;
+      getHistoryFeedback?: (
+        id: number
+      ) => Promise<{ success: boolean; feedback: HistoryFeedback | null; code?: string }>;
+      saveHistoryFeedback?: (
+        input: HistoryFeedbackSaveRequest
+      ) => Promise<HistoryFeedbackSaveResult>;
+      deleteHistoryFeedback?: (
+        id: number
+      ) => Promise<{ success: boolean; removed?: boolean; code?: string }>;
+      onHistoryFeedbackChanged?: (callback: (change: { id: number }) => void) => () => void;
+      getPendingReviewRequest?: () => Promise<HistoryReviewRequest | null>;
+      onReviewDictationPending?: (callback: () => void) => () => void;
+      /** The dictation window: the review hotkey was pressed during a dictation. */
+      onReviewDictationBusy?: (callback: () => void) => () => void;
+      /** Hides the control panel to the tray. */
+      hideControlPanel?: () => Promise<void>;
+      /** The dictation window: a finished dictation is still being pasted or saved. */
+      dictationDeliveryStateChanged?: (delivering: boolean) => void;
       // Prompt test cases (main-owned, owner-scoped, local-only)
       listTestCases?: () => Promise<PromptTestCaseList>;
       pinHistoryTestCase?: (transcriptionId: number) => Promise<PromptTestCaseWriteResult>;
@@ -2949,6 +3032,7 @@ declare global {
       notifyActivationModeChanged?: (mode: "tap" | "push") => void;
       notifyHotkeyChanged?: (hotkey: string) => void;
       registerMeetingHotkey?: (hotkey: string) => Promise<{ success: boolean; message?: string }>;
+      registerReviewHotkey?: (hotkey: string) => Promise<{ success: boolean; message?: string }>;
       notifyFloatingIconAutoHideChanged?: (enabled: boolean) => void;
       onFloatingIconAutoHideChanged?: (callback: (enabled: boolean) => void) => () => void;
       notifyStartMinimizedChanged?: (enabled: boolean) => void;

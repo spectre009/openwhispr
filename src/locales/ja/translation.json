@@ -64,6 +64,7 @@
     },
     "openControlPanel": "コントロールパネルを開く",
     "hideControlPanel": "コントロールパネルを非表示",
+    "reviewLastDictation": "最後のディクテーションを評価",
     "quit": "OpenWhispr を終了",
     "tooltip": "OpenWhispr - 音声ディクテーション",
     "recordingTooltip": "OpenWhispr · 録音中 {{elapsed}}"
@@ -814,6 +815,7 @@
     "filters": {
       "label": "ディクテーションを絞り込む",
       "all": "すべて",
+      "flagged": "フラグ付き",
       "failed": "失敗",
       "cleanupChanged": "クリーンアップで変更",
       "app": "アプリ",
@@ -894,6 +896,68 @@
       "heardHint": "生の文字起こし",
       "sameAsHeard": "聞き取りと同じ",
       "whoChanged": "どのステップで変更されたかは記録されていません"
+    },
+    "review": {
+      "label": "あなたの評価",
+      "rateGood": "良いとしてマーク",
+      "rateBad": "悪いとしてマーク",
+      "ratedGood": "良いとしてマーク済み",
+      "ratedBad": "悪いとしてマーク済み",
+      "title": "何がうまくいきませんでしたか？",
+      "privacy": "このコンピューターにのみ、このバージョンのディクテーションと一緒に保存されます。同期やエクスポートはされません。",
+      "stageQuestion": "どのステップが間違えたと思いますか？",
+      "stageHint": "任意。最初に間違えたステップを選びます。その後のステップはそのテキストを受け取っただけです。",
+      "stages": {
+        "delivery": "貼り付け",
+        "unsure": "わからない"
+      },
+      "expectedQuestion": "本来はどうなるべきでしたか？",
+      "expectedHint": "任意。最終出力から始まります。語句を修正してください。",
+      "noteLabel": "メモ",
+      "notePlaceholder": "メモ（任意）",
+      "save": "保存",
+      "saveAndClose": "保存して閉じる",
+      "saveError": "評価を保存できませんでした。",
+      "historyOff": "評価はローカル履歴がオンの間だけ保存されます。",
+      "draftDropped": "このディクテーションが変更されたため、保存していない評価は破棄されました。",
+      "stale": "評価を開いた後にこのディクテーションが変更されたため、再読み込みしました。評価は保存されていません。",
+      "saved": {
+        "good": "このディクテーションを良いとしてマークしました。",
+        "bad": "このディクテーションを悪いとしてマークしました。",
+        "stage": "間違えたと思うステップ：",
+        "expected": "本来の内容：",
+        "note": "メモ："
+      },
+      "edit": "編集",
+      "delete": "評価を削除",
+      "confirmGood": {
+        "title": "良いとしてマークしますか？",
+        "description": "評価のステップ、修正、メモは削除されます。",
+        "confirm": "良いとしてマーク"
+      },
+      "confirmDiscard": {
+        "title": "評価を破棄しますか？",
+        "description": "このディクテーションについて書いた内容は保存されていません。",
+        "confirm": "破棄",
+        "keep": "編集を続ける"
+      },
+      "confirmDelete": {
+        "title": "この評価を削除しますか？",
+        "description": "保存したステップ、修正、メモは削除されます。",
+        "confirm": "評価を削除"
+      },
+      "confirmSwitch": {
+        "title": "最後のディクテーションを開きますか？",
+        "description": "このディクテーションの保存していない評価は残るので、後で戻れます。",
+        "confirm": "最後のディクテーションを開く",
+        "stay": "ここにとどまる"
+      },
+      "hotkey": {
+        "banner": "評価のために最後のディクテーションを開きました。保存するまで何も保存されません。",
+        "escape": "保存せずに閉じる"
+      },
+      "lastNotFound": "最後のディクテーションの詳細が見つかりませんでした。",
+      "busy": "先にこのディクテーションを終えてください"
     }
   },
   "reasoning": {
@@ -2815,6 +2879,10 @@
       "translationHotkey": {
         "title": "翻訳ホットキー",
         "description": "どの言語で話しても、貼り付けられるテキストは翻訳済みになります"
+      },
+      "reviewHotkey": {
+        "title": "最後のディクテーションを評価するホットキー",
+        "description": "履歴で最後のディクテーションを開き、すぐに評価できるようにします"
       },
       "styleHotkeys": {
         "title": "スタイルのホットキー",

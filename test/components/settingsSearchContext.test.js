@@ -112,6 +112,7 @@ test("values name what each feature runs on, and never a secret", async (t) => {
     dictationKey: "F8",
     voiceAgentKey: "",
     translationKey: "Control+Alt+T",
+    reviewKey: "Control+Shift+F9",
     theme: "dark",
     activationMode: "push",
   });
@@ -128,6 +129,7 @@ test("values name what each feature runs on, and never a secret", async (t) => {
   assert.equal(ctx.values["hotkey.dictation"].display, "F8");
   assert.equal(ctx.values["hotkey.assistant"], undefined, "an unset hotkey has no value");
   assert.ok(ctx.values["hotkey.translation"].display.includes("T"));
+  assert.deepEqual(ctx.values["hotkey.review"].terms, ["Control+Shift+F9"]);
   assert.equal(ctx.values["hotkey.styles"].display, "Email: F9");
   assert.deepEqual(ctx.values.theme, {
     display: "t:settingsPage.general.appearance.dark",

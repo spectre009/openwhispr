@@ -19,13 +19,20 @@ test("a request is trimmed, clamped and whitelisted", () => {
     failed: false,
     cleanupChanged: false,
     app: null,
+    flagged: false,
   });
   assert.deepEqual(
     normalizeListRequest({
       cursor: { timestamp: "2026-10-22 10:00:00", id: 7, extra: true },
       limit: 250.7,
       query: "  100%_sure  ",
-      filters: { failed: true, cleanupChanged: "yes", app: "  Code.exe ", flagged: true },
+      filters: {
+        failed: true,
+        cleanupChanged: "yes",
+        app: "  Code.exe ",
+        flagged: true,
+        rated: true,
+      },
     }),
     {
       cursor: { timestamp: "2026-10-22 10:00:00", id: 7 },
@@ -34,8 +41,10 @@ test("a request is trimmed, clamped and whitelisted", () => {
       failed: true,
       cleanupChanged: false,
       app: "Code.exe",
+      flagged: true,
     }
   );
+  assert.equal(normalizeListRequest({ filters: { flagged: "yes" } }).flagged, false);
   assert.equal(normalizeListRequest({ limit: -3 }).limit, 1);
   assert.equal(normalizeListRequest({ limit: "20" }).limit, 50);
   assert.equal(normalizeListRequest({ query: 42 }).query, "");
@@ -127,4 +136,57 @@ test("the list asks for one extra row, reads steps for the page's ids under the 
     ]
   );
   assert.deepEqual(result.nextCursor, { timestamp: "2026-10-22 10:00:01", id: 2 });
+});
+
+test("a row carries the owner's rating; an item its revision, owner tag and review", () => {
+  const row = (id, rating) => ({
+    id,
+    sort_key: `2026-10-22 10:00:0${id}`,
+    timestamp: `2026-10-22 10:00:0${id}`,
+    status: "completed",
+    has_audio: 0,
+    rating,
+  });
+  const reads = [];
+  const db = {
+    getHistoryPage: () => [row(3, "bad"), row(2, "good"), row(1, null)],
+    getHistoryStepRows: () => [],
+    getHistoryItem: (id) => ({
+      id,
+      status: "completed",
+      text: "Hi.",
+      raw_text: "hi",
+      has_audio: 0,
+    }),
+    getHistoryRevision: (id, owner) => {
+      reads.push(["revision", id, owner]);
+      return `rev-${id}`;
+    },
+  };
+  let owner = "account:a";
+  const stepHistory = {
+    currentOwner: () => owner,
+    getSteps: () => ({ status: "none", steps: [] }),
+  };
+  const feedback = {
+    get: (id) => ({ success: true, feedback: owner ? { verdict: "bad", id } : null }),
+  };
+  const browser = createHistoryBrowser({ db, stepHistory, feedback });
+
+  assert.deepEqual(
+    browser.list({}).rows.map((listed) => listed.rating),
+    ["bad", "good", null]
+  );
+
+  const item = browser.getItem(3);
+  assert.equal(item.revision, "rev-3");
+  assert.deepEqual(reads, [["revision", 3, "account:a"]]);
+  assert.match(item.owner, /^[0-9a-f]{16}$/);
+  assert.ok(!item.owner.includes("account"), "the owner is opaque");
+  assert.deepEqual(item.feedback, { verdict: "bad", id: 3 });
+
+  owner = null;
+  const unknown = browser.getItem(3);
+  assert.equal(unknown.owner, null);
+  assert.equal(unknown.feedback, null);
 });

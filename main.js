@@ -1447,6 +1447,23 @@ async function startApp() {
     hotkeyManager.notifyRestoreFailures(savedMeetingKey, result);
   }
 
+  // "Review last dictation" (no default key): opens History on the last
+  // dictation to rate it. Tap only, so autorepeat is gated like the others.
+  const isReviewPress = createHotkeyRepeatGate();
+  const reviewHotkeyCallback = () => {
+    if (!isReviewPress()) return;
+    void windowManager.reviewLastDictation();
+  };
+
+  const savedReviewKey = environmentManager.getReviewKey?.() || "";
+  if (savedReviewKey) {
+    const result = await hotkeyManager.registerSlot("review", savedReviewKey, reviewHotkeyCallback);
+    if (!result.success) {
+      debugLogger.warn("Failed to restore review hotkey", { hotkey: savedReviewKey }, "hotkey");
+    }
+    hotkeyManager.notifyRestoreFailures(savedReviewKey, result);
+  }
+
   // Style hotkeys (Stage 4) registered with the dictation slot above; register
   // any its backend settled on later, and report every one that isn't live.
   await windowManager.styleHotkeys.finishBoot().catch((error) => {
@@ -1471,6 +1488,28 @@ async function startApp() {
       windowManager.reconcileNativeKeyListeners();
       return { success: true };
     }
+  });
+
+  // The tray item shows the review hotkey, so its menu is rebuilt on a change.
+  ipcMain.handle("register-review-hotkey", async (_event, hotkey) => {
+    if (hotkey) {
+      const result = await hotkeyManager.registerSlot("review", hotkey, reviewHotkeyCallback, {
+        atomic: true,
+      });
+      windowManager.reconcileNativeKeyListeners();
+      if (result.success) {
+        environmentManager.saveReviewKey(hotkey);
+        trayManager?.updateTrayMenu();
+        return { success: true };
+      }
+      return { success: false, message: result.error };
+    }
+    const removed = await hotkeyManager.unregisterSlot("review");
+    if (removed === false) return { success: false };
+    environmentManager.saveReviewKey("");
+    windowManager.reconcileNativeKeyListeners();
+    trayManager?.updateTrayMenu();
+    return { success: true };
   });
 
   // Phase 2: Initialize remaining managers after windows are visible

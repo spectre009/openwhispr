@@ -189,6 +189,7 @@ test("a list row is light: a preview cut in SQL, the raw text when there's no fi
     hasAudio: false,
     audioDurationMs: null,
     routeKind: "style:email",
+    rating: null,
     app: null,
     marks: null,
   });

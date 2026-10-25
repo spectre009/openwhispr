@@ -377,7 +377,7 @@ test(
       cursor: null,
       limit: 50,
       query: "",
-      filters: { failed: false, cleanupChanged: false, app: null },
+      filters: { failed: false, cleanupChanged: false, app: null, flagged: false },
     });
     assert.equal(options().length, 3);
     assert.equal(selected().id, "history-row-103");
@@ -457,7 +457,12 @@ test(
     // A filter goes to main too.
     pages = [[ROWS[2]]];
     await act(() => button("Failed").click(), 300);
-    assert.deepEqual(requests.at(-1).filters, { failed: true, cleanupChanged: false, app: null });
+    assert.deepEqual(requests.at(-1).filters, {
+      failed: true,
+      cleanupChanged: false,
+      app: null,
+      flagged: false,
+    });
     assert.equal(options().length, 1);
 
     // "Open in History" for a row the list doesn't show: the detail shows it,
@@ -486,7 +491,12 @@ test(
 
     // All: no filter again.
     await act(() => button("All").click(), 300);
-    assert.deepEqual(requests.at(-1).filters, { failed: false, cleanupChanged: false, app: null });
+    assert.deepEqual(requests.at(-1).filters, {
+      failed: false,
+      cleanupChanged: false,
+      app: null,
+      flagged: false,
+    });
 
     // Item reads go by id only; dictated text never reaches the console.
     for (const [name, args] of dom.calls) {

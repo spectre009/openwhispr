@@ -37,6 +37,7 @@ export type SettingsSearchValueKey =
   | "hotkey.assistant"
   | "hotkey.translation"
   | "hotkey.meeting"
+  | "hotkey.review"
   | "hotkey.styles"
   | "stt.dictation"
   | "stt.noteRecording"
@@ -91,9 +92,9 @@ export interface SettingsSearchContext {
   interpolation: Record<string, string | number>;
 }
 
-/** An app page outside Settings that search finds. */
+/** An app page outside Settings that search finds, or a Settings link opens. */
 export interface ElsewhereLocation {
-  view: "dictionary" | "integrations";
+  view: "dictionary" | "integrations" | "history";
   integrationsSection?: IntegrationsSection;
 }
 

@@ -104,6 +104,8 @@ export {
   SquareSlash,
   Strikethrough,
   Table,
+  ThumbsDown,
+  ThumbsUp,
 } from "./primitives";
 
 ${exportLines.join("\n")}

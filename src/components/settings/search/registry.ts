@@ -587,6 +587,12 @@ export const SETTINGS_SEARCH_DESCRIPTORS: readonly SettingDescriptor[] = [
     aliasKeys: ["settingsSearch.aliases.shortcut"],
     value: "hotkey.translation",
   }),
+  row("hotkeys.review", HOTKEYS, "settingsPage.general.reviewHotkey.title", {
+    descriptionKey: "settingsPage.general.reviewHotkey.description",
+    aliases: ["shortcut", "hotkey", "review", "rate", "feedback", "last dictation", "history"],
+    aliasKeys: ["settingsSearch.aliases.shortcut"],
+    value: "hotkey.review",
+  }),
   row("hotkeys.meeting", HOTKEYS, "settingsPage.general.meetingHotkey.title", {
     descriptionKey: "settingsPage.general.meetingHotkey.description",
     aliases: ["shortcut", "hotkey", "meeting", "record meeting", "note recording"],

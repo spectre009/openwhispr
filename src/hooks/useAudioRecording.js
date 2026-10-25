@@ -48,6 +48,19 @@ const SELECTION_EDIT_DETAIL_KEY_BY_CODE = {
 const COMPANION_AUDIO_LEVEL_INTERVAL_MS = 80;
 const START_CUE_LOG_WAIT_MS = 2000;
 
+// Pastes and saves of finished dictations still in flight. Main's lifecycle is
+// idle by then, so it hears when the count leaves and returns to zero
+// (dictation-delivery-state): the review hotkey waits for the dictation it
+// would open. Main resets it if this renderer goes away.
+function countDelivery(ref, delta) {
+  const before = ref.current;
+  ref.current = Math.max(0, before + delta);
+  if (before === 0 && ref.current > 0) window.electronAPI?.dictationDeliveryStateChanged?.(true);
+  else if (before > 0 && ref.current === 0) {
+    window.electronAPI?.dictationDeliveryStateChanged?.(false);
+  }
+}
+
 export const useAudioRecording = (toast, options = {}) => {
   const { t } = useTranslation();
   const [isRecording, setIsRecording] = useState(false);
@@ -82,6 +95,7 @@ export const useAudioRecording = (toast, options = {}) => {
   const dictationErrorGenerationRef = useRef(0);
   const wasRecordingRef = useRef(false);
   const pastesInFlightRef = useRef(0);
+  const deliveriesInFlightRef = useRef(0);
   const wasMicUnavailableRef = useRef(false);
   const demoKindRef = useRef("dictation");
   const onDemoEventRef = useRef(options.onDemoEvent);
@@ -813,6 +827,7 @@ export const useAudioRecording = (toast, options = {}) => {
           const isStreaming = result.source?.includes("streaming");
           const { autoPasteEnabled, keepTranscriptionInClipboard } = getSettings();
 
+          countDelivery(deliveriesInFlightRef, 1);
           const persistencePromise = audioManagerRef.current
             .saveTranscription(result.text, result.rawText ?? result.text, {
               clientTranscriptionId: result.clientTranscriptionId,
@@ -853,7 +868,8 @@ export const useAudioRecording = (toast, options = {}) => {
                 );
                 return false;
               }
-            );
+            )
+            .finally(() => countDelivery(deliveriesInFlightRef, -1));
 
           const keepInClipboard = async (delivery) => {
             try {
@@ -879,11 +895,13 @@ export const useAudioRecording = (toast, options = {}) => {
 
           const whilePasting = async (attempt) => {
             pastesInFlightRef.current += 1;
+            countDelivery(deliveriesInFlightRef, 1);
             setIsPasting(true);
             try {
               return await attempt();
             } finally {
               pastesInFlightRef.current -= 1;
+              countDelivery(deliveriesInFlightRef, -1);
               if (pastesInFlightRef.current === 0) setIsPasting(false);
             }
           };
