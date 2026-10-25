@@ -73,7 +73,9 @@ const EXPECTED_SHARED_FIELD_DIRECTIONS = {
   "src/components/EnterpriseProviderConfig.tsx": ["ltr", "ltr", "ltr", "ltr", "ltr", "ltr"],
   "src/components/ForgotPasswordView.tsx": ["ltr"],
   // Canonical form and spellings are words in any script; the app is an exe name.
-  "src/components/GlossaryView.tsx": ["auto", "auto", "ltr"],
+  "src/components/GlossaryRuleDialog.tsx": ["auto", "auto", "ltr"],
+  // A dictionary word and a test case's checks, from a review: dictated words in any script.
+  "src/components/history/HistoryFixes.tsx": ["auto", "auto"],
   // A review's correction and note: dictated words in any script.
   "src/components/history/HistoryReview.tsx": ["auto", "auto"],
   "src/components/InviteTeammateDialog.tsx": ["ltr"],

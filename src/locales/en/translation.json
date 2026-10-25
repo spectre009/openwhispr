@@ -958,6 +958,73 @@
       },
       "lastNotFound": "Couldn't find your last dictation's details.",
       "busy": "Finish this dictation first"
+    },
+    "fixes": {
+      "recognition": {
+        "title": "Speech-to-text may have heard it wrong",
+        "description": "Select the words it got wrong in a step below, then add a glossary correction or a dictionary word. You'll see the correction and where it applies before it's saved; corrections apply in every app unless you limit them."
+      },
+      "glossary": {
+        "title": "A glossary correction may have changed it",
+        "description": "Edit a correction that fired, or select the words it got wrong in a step below to add one.",
+        "titleNoRules": "The glossary may have missed it",
+        "noRules": "No glossary correction fired on this dictation. Select the words it got wrong in a step below to add one."
+      },
+      "fired": "Fired on this dictation:",
+      "cleanup": {
+        "title": "Cleanup may have changed what you said",
+        "description": "Add it to the test set to check your next prompt against it. The case shows the input, the final output and your correction side by side."
+      },
+      "style": {
+        "title": "The style may have gone too far",
+        "description": "Add it to the test set to check the style's next edit against it. The case shows the input, the final output and your correction side by side."
+      },
+      "delivery": {
+        "title": "The text may not have arrived right",
+        "description": "OpenWhispr knows what it sent and to which app, not what the app did with it."
+      },
+      "literal": "Checks are literal, so the case catches the problem only through the words you choose.",
+      "actions": {
+        "glossary": "Glossary correction from selection…",
+        "dictionary": "Dictionary word…",
+        "selectFirst": "Select the words in a step below first",
+        "editRule": "Edit rule",
+        "addToTestSet": "Add to the test set…",
+        "openPromptStudio": "Open Prompt Studio",
+        "editStyle": "Edit style",
+        "copyAgain": "Copy text again"
+      },
+      "selection": {
+        "label": "Fix the selected words",
+        "glossary": "Glossary correction…",
+        "dictionary": "Dictionary word…"
+      },
+      "flagged": "You flagged this step",
+      "flaggedGoTo": "Go to {{step}}, the step you flagged",
+      "glossaryExisting": "A correction already has the spelling “{{spelling}}”, so it's opened here instead.",
+      "dictionary": {
+        "title": "Add to your dictionary",
+        "description": "Dictionary words help speech-to-text write names and terms the way you spell them.",
+        "label": "Word or phrase",
+        "sync": "Dictionary words sync with your account, like the rest of your dictionary.",
+        "exists": "It's already in your dictionary.",
+        "added": "Added to your dictionary"
+      },
+      "testCase": {
+        "descriptionNew": "Pick the checks this case makes. They're saved only when you save them.",
+        "descriptionExisting": "This dictation was already a test case, so it's opened with its checks. Suggestions from your correction are added unchecked.",
+        "target": "Test set: {{target}}",
+        "correction": "Your correction",
+        "suggested": "Suggested checks",
+        "none": "Your correction doesn't change any words, so there are no checks to suggest.",
+        "addCheck": "Add a check",
+        "checkLabel": "Check text",
+        "useCheck": "Use this check",
+        "removeCheck": "Remove this check",
+        "save": "Save checks",
+        "saved": "Checks saved",
+        "saveError": "Couldn't save the checks."
+      }
     }
   },
   "reasoning": {

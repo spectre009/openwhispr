@@ -958,6 +958,73 @@
       },
       "lastNotFound": "Die Details deines letzten Diktats wurden nicht gefunden.",
       "busy": "Beende zuerst dieses Diktat"
+    },
+    "fixes": {
+      "recognition": {
+        "title": "Die Spracherkennung hat es vielleicht falsch verstanden",
+        "description": "Markiere unten in einem Schritt die falschen Wörter und füge dann eine Glossar-Korrektur oder ein Wörterbuchwort hinzu. Du siehst die Korrektur und wo sie gilt, bevor sie gespeichert wird; Korrekturen gelten in jeder App, solange du sie nicht einschränkst."
+      },
+      "glossary": {
+        "title": "Vielleicht hat eine Glossar-Korrektur es geändert",
+        "description": "Bearbeite eine angewendete Korrektur, oder markiere unten in einem Schritt die falschen Wörter, um eine hinzuzufügen.",
+        "titleNoRules": "Vielleicht hat das Glossar es übersehen",
+        "noRules": "Bei diesem Diktat wurde keine Glossar-Korrektur angewendet. Markiere unten in einem Schritt die falschen Wörter, um eine hinzuzufügen."
+      },
+      "fired": "Bei diesem Diktat angewendet:",
+      "cleanup": {
+        "title": "Die Textbereinigung hat vielleicht verändert, was du gesagt hast",
+        "description": "Füge es zum Testset hinzu, um deinen nächsten Prompt daran zu prüfen. Der Fall zeigt die Eingabe, das Endergebnis und deine Korrektur nebeneinander."
+      },
+      "style": {
+        "title": "Der Stil ist vielleicht zu weit gegangen",
+        "description": "Füge es zum Testset hinzu, um die nächste Bearbeitung des Stils daran zu prüfen. Der Fall zeigt die Eingabe, das Endergebnis und deine Korrektur nebeneinander."
+      },
+      "delivery": {
+        "title": "Der Text ist vielleicht nicht richtig angekommen",
+        "description": "OpenWhispr weiß, was es an welche App gesendet hat, aber nicht, was die App damit gemacht hat."
+      },
+      "literal": "Prüfungen sind wörtlich: Der Fall erkennt das Problem nur über die Wörter, die du auswählst.",
+      "actions": {
+        "glossary": "Glossar-Korrektur aus Auswahl…",
+        "dictionary": "Wörterbuchwort…",
+        "selectFirst": "Markiere zuerst die Wörter in einem Schritt unten",
+        "editRule": "Korrektur bearbeiten",
+        "addToTestSet": "Zum Testset hinzufügen…",
+        "openPromptStudio": "Prompt-Studio öffnen",
+        "editStyle": "Stil bearbeiten",
+        "copyAgain": "Text erneut kopieren"
+      },
+      "selection": {
+        "label": "Markierte Wörter korrigieren",
+        "glossary": "Glossar-Korrektur…",
+        "dictionary": "Wörterbuchwort…"
+      },
+      "flagged": "Von dir markierter Schritt",
+      "flaggedGoTo": "Zu {{step}}, dem von dir markierten Schritt",
+      "glossaryExisting": "Eine Korrektur hat die Schreibweise „{{spelling}}“ bereits, daher wird sie stattdessen geöffnet.",
+      "dictionary": {
+        "title": "Zum Wörterbuch hinzufügen",
+        "description": "Wörterbuchwörter helfen der Spracherkennung, Namen und Begriffe so zu schreiben, wie du sie schreibst.",
+        "label": "Wort oder Ausdruck",
+        "sync": "Wörterbuchwörter werden wie der Rest deines Wörterbuchs mit deinem Konto synchronisiert.",
+        "exists": "Das steht bereits in deinem Wörterbuch.",
+        "added": "Zum Wörterbuch hinzugefügt"
+      },
+      "testCase": {
+        "descriptionNew": "Wähle die Prüfungen für diesen Fall. Sie werden erst gespeichert, wenn du sie speicherst.",
+        "descriptionExisting": "Dieses Diktat war bereits ein Testfall, daher wird es mit seinen Prüfungen geöffnet. Vorschläge aus deiner Korrektur werden ohne Haken hinzugefügt.",
+        "target": "Testset: {{target}}",
+        "correction": "Deine Korrektur",
+        "suggested": "Vorgeschlagene Prüfungen",
+        "none": "Deine Korrektur ändert keine Wörter, daher gibt es keine Prüfungen vorzuschlagen.",
+        "addCheck": "Prüfung hinzufügen",
+        "checkLabel": "Prüftext",
+        "useCheck": "Diese Prüfung verwenden",
+        "removeCheck": "Diese Prüfung entfernen",
+        "save": "Prüfungen speichern",
+        "saved": "Prüfungen gespeichert",
+        "saveError": "Die Prüfungen konnten nicht gespeichert werden."
+      }
     }
   },
   "reasoning": {

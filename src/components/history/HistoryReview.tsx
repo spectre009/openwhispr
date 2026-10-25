@@ -86,10 +86,13 @@ export function ReviewForm({
   review,
   historyOn,
   onOpenPrivacy,
+  fixes,
 }: {
   review: HistoryReviewController;
   historyOn: boolean;
   onOpenPrivacy: () => void;
+  /** Suggestions to fix the chosen step, under the chips. */
+  fixes?: ReactNode;
 }) {
   const { t } = useTranslation();
   const { draft } = review;
@@ -148,7 +151,7 @@ export function ReviewForm({
           );
         })}
       </div>
-      {/* Stage 3: suggestions to fix the chosen step go here. */}
+      {fixes}
 
       <label htmlFor="history-review-expected" className="mt-4 block text-xs text-muted-foreground">
         {t("historyView.review.expectedQuestion")}{" "}
@@ -195,7 +198,14 @@ export function ReviewForm({
 }
 
 /** A review saved for this version of the dictation, with Edit and Delete review. */
-export function SavedReview({ review }: { review: HistoryReviewController }) {
+export function SavedReview({
+  review,
+  fixes,
+}: {
+  review: HistoryReviewController;
+  /** A 👎 review's suggestions to fix the step it names. */
+  fixes?: ReactNode;
+}) {
   const { t } = useTranslation();
   const { feedback, draft } = review;
   if (!feedback || draft) return null;
@@ -256,6 +266,7 @@ export function SavedReview({ review }: { review: HistoryReviewController }) {
           </span>
         </p>
       )}
+      {bad && fixes}
       {review.error === "failed" && (
         <p role="alert" className="mt-2 text-xs text-destructive">
           {t("historyView.review.saveError")}

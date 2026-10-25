@@ -316,6 +316,7 @@ export default function HistoryBrowser({
         onShowAudioInFolder={onShowAudioInFolder}
         historyOn={historyOn}
         onOpenPrivacy={openPrivacy}
+        onOpenSettings={onOpenSettings}
         confirm={confirm}
       />
     ) : null;

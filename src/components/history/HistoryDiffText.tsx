@@ -6,6 +6,8 @@ import { diffText, type TextDiffPart } from "../../utils/textDiff";
 // A step's text with what changed from the text it received: insertions
 // highlighted, deletions struck, a word that only changed case underlined.
 // Added or removed line breaks show as ↵, since whitespace alone is invisible.
+// What isn't the step's own text (deletions, ↵ marks, the too-long note) is
+// marked so a selection reads only the step's text (HistoryFixes).
 
 const LINE_BREAK_MARK = "↵";
 
@@ -15,7 +17,9 @@ function withBreakMarks(text: string, removed: boolean, label: string) {
   return text.split(/(\n)/).map((segment, index) =>
     segment === "\n" ? (
       <span key={index}>
-        <span aria-label={label}>{LINE_BREAK_MARK}</span>
+        <span data-diff-mark aria-label={label}>
+          {LINE_BREAK_MARK}
+        </span>
         {removed ? null : "\n"}
       </span>
     ) : (
@@ -69,7 +73,7 @@ export default function HistoryDiffText({
         <p dir="auto" className="whitespace-pre-wrap wrap-break-word">
           {after}
         </p>
-        <p className="mt-1.5 text-[11px] italic text-muted-foreground">
+        <p data-diff-mark className="mt-1.5 text-[11px] italic text-muted-foreground">
           {t("historyView.steps.tooLong")}
         </p>
       </div>

@@ -958,6 +958,73 @@
       },
       "lastNotFound": "找不到你上一則聽寫的詳細資訊。",
       "busy": "請先完成這則聽寫"
+    },
+    "fixes": {
+      "recognition": {
+        "title": "語音轉文字可能聽錯了",
+        "description": "在下方某個步驟中選取辨識錯誤的詞語，然後新增詞彙表更正或字典詞語。儲存前你會看到更正內容及其適用範圍；除非你加以限制，更正會在所有應用程式中生效。"
+      },
+      "glossary": {
+        "title": "可能是詞彙表更正改動了它",
+        "description": "編輯已生效的更正，或在下方某個步驟中選取錯誤的詞語來新增更正。",
+        "titleNoRules": "詞彙表可能漏掉了它",
+        "noRules": "這次聽寫沒有生效的詞彙表更正。在下方某個步驟中選取錯誤的詞語來新增一條。"
+      },
+      "fired": "在這次聽寫中生效：",
+      "cleanup": {
+        "title": "文字整理可能改動了你說的話",
+        "description": "將它加入測試集，用它檢驗你的下一個提示詞。案例會並排顯示輸入、最終輸出和你的更正。"
+      },
+      "style": {
+        "title": "風格可能改得過頭了",
+        "description": "將它加入測試集，用它檢驗該風格的下一次修改。案例會並排顯示輸入、最終輸出和你的更正。"
+      },
+      "delivery": {
+        "title": "文字可能沒有正確送達",
+        "description": "OpenWhispr 知道它傳送了什麼、傳送到哪個應用程式，但不知道應用程式如何處理。"
+      },
+      "literal": "檢查是逐字進行的，因此案例只能透過你選擇的詞語發現問題。",
+      "actions": {
+        "glossary": "從選取內容新增詞彙表更正…",
+        "dictionary": "字典詞語…",
+        "selectFirst": "請先在下方某個步驟中選取詞語",
+        "editRule": "編輯更正",
+        "addToTestSet": "加入測試集…",
+        "openPromptStudio": "開啟提示詞工作室",
+        "editStyle": "編輯風格",
+        "copyAgain": "再次複製文字"
+      },
+      "selection": {
+        "label": "更正選取的詞語",
+        "glossary": "詞彙表更正…",
+        "dictionary": "字典詞語…"
+      },
+      "flagged": "你標記的步驟",
+      "flaggedGoTo": "跳到{{step}}（你標記的步驟）",
+      "glossaryExisting": "已有更正包含寫法「{{spelling}}」，因此改為開啟該更正。",
+      "dictionary": {
+        "title": "加入你的字典",
+        "description": "字典詞語可協助語音轉文字依照你的寫法寫出名稱和術語。",
+        "label": "詞語或片語",
+        "sync": "字典詞語會像字典的其他內容一樣與你的帳戶同步。",
+        "exists": "它已在你的字典中。",
+        "added": "已加入你的字典"
+      },
+      "testCase": {
+        "descriptionNew": "選擇這個案例要做的檢查。只有在你儲存時才會儲存。",
+        "descriptionExisting": "這次聽寫已經是測試案例，因此會連同其檢查一起開啟。來自你的更正的建議會以未勾選狀態加入。",
+        "target": "測試集：{{target}}",
+        "correction": "你的更正",
+        "suggested": "建議的檢查",
+        "none": "你的更正沒有改動任何詞語，因此沒有可建議的檢查。",
+        "addCheck": "新增檢查",
+        "checkLabel": "檢查文字",
+        "useCheck": "使用此檢查",
+        "removeCheck": "移除此檢查",
+        "save": "儲存檢查",
+        "saved": "檢查已儲存",
+        "saveError": "無法儲存檢查。"
+      }
     }
   },
   "reasoning": {

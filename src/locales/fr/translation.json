@@ -958,6 +958,73 @@
       },
       "lastNotFound": "Impossible de trouver les détails de votre dernière dictée.",
       "busy": "Terminez d'abord cette dictée"
+    },
+    "fixes": {
+      "recognition": {
+        "title": "La reconnaissance vocale a peut-être mal entendu",
+        "description": "Sélectionnez les mots mal reconnus dans une étape ci-dessous, puis ajoutez une correction du glossaire ou un mot du dictionnaire. Vous verrez la correction et où elle s'applique avant qu'elle soit enregistrée ; les corrections s'appliquent dans toutes les applications, sauf si vous les limitez."
+      },
+      "glossary": {
+        "title": "Une correction du glossaire l'a peut-être modifié",
+        "description": "Modifiez une correction appliquée, ou sélectionnez les mots erronés dans une étape ci-dessous pour en ajouter une.",
+        "titleNoRules": "Le glossaire l'a peut-être manqué",
+        "noRules": "Aucune correction du glossaire ne s'est appliquée à cette dictée. Sélectionnez les mots erronés dans une étape ci-dessous pour en ajouter une."
+      },
+      "fired": "Appliquées à cette dictée :",
+      "cleanup": {
+        "title": "La correction a peut-être modifié ce que vous avez dit",
+        "description": "Ajoutez-la au jeu de tests pour y vérifier votre prochain prompt. Le cas montre l'entrée, le résultat final et votre correction côte à côte."
+      },
+      "style": {
+        "title": "Le style est peut-être allé trop loin",
+        "description": "Ajoutez-la au jeu de tests pour y vérifier la prochaine modification du style. Le cas montre l'entrée, le résultat final et votre correction côte à côte."
+      },
+      "delivery": {
+        "title": "Le texte n'est peut-être pas arrivé correctement",
+        "description": "OpenWhispr sait ce qu'il a envoyé et à quelle application, pas ce que l'application en a fait."
+      },
+      "literal": "Les vérifications sont littérales : le cas ne détecte le problème qu'à travers les mots que vous choisissez.",
+      "actions": {
+        "glossary": "Correction du glossaire depuis la sélection…",
+        "dictionary": "Mot du dictionnaire…",
+        "selectFirst": "Sélectionnez d'abord les mots dans une étape ci-dessous",
+        "editRule": "Modifier la correction",
+        "addToTestSet": "Ajouter au jeu de tests…",
+        "openPromptStudio": "Ouvrir le Studio de prompts",
+        "editStyle": "Modifier le style",
+        "copyAgain": "Copier à nouveau le texte"
+      },
+      "selection": {
+        "label": "Corriger les mots sélectionnés",
+        "glossary": "Correction du glossaire…",
+        "dictionary": "Mot du dictionnaire…"
+      },
+      "flagged": "Étape que vous avez signalée",
+      "flaggedGoTo": "Aller à {{step}}, l'étape que vous avez signalée",
+      "glossaryExisting": "Une correction contient déjà l'orthographe « {{spelling}} », elle est donc ouverte à la place.",
+      "dictionary": {
+        "title": "Ajouter à votre dictionnaire",
+        "description": "Les mots du dictionnaire aident la reconnaissance vocale à écrire les noms et les termes comme vous les écrivez.",
+        "label": "Mot ou expression",
+        "sync": "Les mots du dictionnaire se synchronisent avec votre compte, comme le reste de votre dictionnaire.",
+        "exists": "Il est déjà dans votre dictionnaire.",
+        "added": "Ajouté à votre dictionnaire"
+      },
+      "testCase": {
+        "descriptionNew": "Choisissez les vérifications de ce cas. Elles ne sont enregistrées que lorsque vous les enregistrez.",
+        "descriptionExisting": "Cette dictée était déjà un cas de test : elle s'ouvre avec ses vérifications. Les suggestions tirées de votre correction sont ajoutées non cochées.",
+        "target": "Jeu de tests : {{target}}",
+        "correction": "Votre correction",
+        "suggested": "Vérifications suggérées",
+        "none": "Votre correction ne change aucun mot, il n'y a donc aucune vérification à suggérer.",
+        "addCheck": "Ajouter une vérification",
+        "checkLabel": "Texte de la vérification",
+        "useCheck": "Utiliser cette vérification",
+        "removeCheck": "Supprimer cette vérification",
+        "save": "Enregistrer les vérifications",
+        "saved": "Vérifications enregistrées",
+        "saveError": "Impossible d'enregistrer les vérifications."
+      }
     }
   },
   "reasoning": {

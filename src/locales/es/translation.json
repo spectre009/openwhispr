@@ -958,6 +958,73 @@
       },
       "lastNotFound": "No se encontraron los detalles de tu último dictado.",
       "busy": "Termina primero este dictado"
+    },
+    "fixes": {
+      "recognition": {
+        "title": "Puede que la conversión de voz a texto lo entendiera mal",
+        "description": "Selecciona las palabras que entendió mal en un paso de abajo y añade una corrección del glosario o una palabra del diccionario. Verás la corrección y dónde se aplica antes de guardarla; las correcciones se aplican en todas las apps salvo que las limites."
+      },
+      "glossary": {
+        "title": "Puede que una corrección del glosario lo cambiara",
+        "description": "Edita una corrección que se aplicó, o selecciona las palabras incorrectas en un paso de abajo para añadir una.",
+        "titleNoRules": "Puede que al glosario se le escapara",
+        "noRules": "No se aplicó ninguna corrección del glosario en este dictado. Selecciona las palabras incorrectas en un paso de abajo para añadir una."
+      },
+      "fired": "Aplicadas en este dictado:",
+      "cleanup": {
+        "title": "Puede que la corrección cambiara lo que dijiste",
+        "description": "Añádelo al conjunto de pruebas para comprobar tu próximo prompt con él. El caso muestra la entrada, el resultado final y tu corrección uno al lado del otro."
+      },
+      "style": {
+        "title": "Puede que el estilo se excediera",
+        "description": "Añádelo al conjunto de pruebas para comprobar con él la próxima edición del estilo. El caso muestra la entrada, el resultado final y tu corrección uno al lado del otro."
+      },
+      "delivery": {
+        "title": "Puede que el texto no llegara bien",
+        "description": "OpenWhispr sabe qué envió y a qué app, pero no qué hizo la app con ello."
+      },
+      "literal": "Las comprobaciones son literales: el caso detecta el problema solo a través de las palabras que elijas.",
+      "actions": {
+        "glossary": "Corrección del glosario desde la selección…",
+        "dictionary": "Palabra del diccionario…",
+        "selectFirst": "Primero selecciona las palabras en un paso de abajo",
+        "editRule": "Editar corrección",
+        "addToTestSet": "Añadir al conjunto de pruebas…",
+        "openPromptStudio": "Abrir el Estudio de prompts",
+        "editStyle": "Editar estilo",
+        "copyAgain": "Copiar el texto de nuevo"
+      },
+      "selection": {
+        "label": "Corregir las palabras seleccionadas",
+        "glossary": "Corrección del glosario…",
+        "dictionary": "Palabra del diccionario…"
+      },
+      "flagged": "Paso que marcaste",
+      "flaggedGoTo": "Ir a {{step}}, el paso que marcaste",
+      "glossaryExisting": "Una corrección ya tiene la grafía “{{spelling}}”, así que se abre esa en su lugar.",
+      "dictionary": {
+        "title": "Añadir a tu diccionario",
+        "description": "Las palabras del diccionario ayudan a la conversión de voz a texto a escribir nombres y términos como tú los escribes.",
+        "label": "Palabra o frase",
+        "sync": "Las palabras del diccionario se sincronizan con tu cuenta, como el resto de tu diccionario.",
+        "exists": "Ya está en tu diccionario.",
+        "added": "Añadida a tu diccionario"
+      },
+      "testCase": {
+        "descriptionNew": "Elige las comprobaciones de este caso. Solo se guardan cuando las guardas.",
+        "descriptionExisting": "Este dictado ya era un caso de prueba, así que se abre con sus comprobaciones. Las sugerencias de tu corrección se añaden sin marcar.",
+        "target": "Conjunto de pruebas: {{target}}",
+        "correction": "Tu corrección",
+        "suggested": "Comprobaciones sugeridas",
+        "none": "Tu corrección no cambia ninguna palabra, así que no hay comprobaciones que sugerir.",
+        "addCheck": "Añadir una comprobación",
+        "checkLabel": "Texto de la comprobación",
+        "useCheck": "Usar esta comprobación",
+        "removeCheck": "Quitar esta comprobación",
+        "save": "Guardar comprobaciones",
+        "saved": "Comprobaciones guardadas",
+        "saveError": "No se pudieron guardar las comprobaciones."
+      }
     }
   },
   "reasoning": {

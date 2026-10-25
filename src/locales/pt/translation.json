@@ -937,6 +937,73 @@
       },
       "lastNotFound": "Não foi possível encontrar os detalhes do seu último ditado.",
       "busy": "Termine este ditado primeiro"
+    },
+    "fixes": {
+      "recognition": {
+        "title": "A voz para texto pode ter ouvido errado",
+        "description": "Selecione as palavras erradas em uma etapa abaixo e adicione uma correção do glossário ou uma palavra do dicionário. Você verá a correção e onde ela se aplica antes de salvar; as correções valem em todos os apps, a menos que você as limite."
+      },
+      "glossary": {
+        "title": "Uma correção do glossário pode ter mudado isso",
+        "description": "Edite uma correção aplicada ou selecione as palavras erradas em uma etapa abaixo para adicionar uma.",
+        "titleNoRules": "O glossário pode ter deixado passar",
+        "noRules": "Nenhuma correção do glossário foi aplicada neste ditado. Selecione as palavras erradas em uma etapa abaixo para adicionar uma."
+      },
+      "fired": "Aplicadas neste ditado:",
+      "cleanup": {
+        "title": "A limpeza pode ter mudado o que você disse",
+        "description": "Adicione ao conjunto de testes para verificar seu próximo prompt com ele. O caso mostra a entrada, o resultado final e sua correção lado a lado."
+      },
+      "style": {
+        "title": "O estilo pode ter ido longe demais",
+        "description": "Adicione ao conjunto de testes para verificar com ele a próxima edição do estilo. O caso mostra a entrada, o resultado final e sua correção lado a lado."
+      },
+      "delivery": {
+        "title": "O texto pode não ter chegado direito",
+        "description": "O OpenWhispr sabe o que enviou e para qual app, não o que o app fez com isso."
+      },
+      "literal": "As verificações são literais: o caso só detecta o problema pelas palavras que você escolher.",
+      "actions": {
+        "glossary": "Correção do glossário a partir da seleção…",
+        "dictionary": "Palavra do dicionário…",
+        "selectFirst": "Primeiro selecione as palavras em uma etapa abaixo",
+        "editRule": "Editar correção",
+        "addToTestSet": "Adicionar ao conjunto de testes…",
+        "openPromptStudio": "Abrir o Estúdio de prompts",
+        "editStyle": "Editar estilo",
+        "copyAgain": "Copiar o texto de novo"
+      },
+      "selection": {
+        "label": "Corrigir as palavras selecionadas",
+        "glossary": "Correção do glossário…",
+        "dictionary": "Palavra do dicionário…"
+      },
+      "flagged": "Etapa que você marcou",
+      "flaggedGoTo": "Ir para {{step}}, a etapa que você marcou",
+      "glossaryExisting": "Uma correção já tem a grafia “{{spelling}}”, então ela é aberta no lugar.",
+      "dictionary": {
+        "title": "Adicionar ao seu dicionário",
+        "description": "As palavras do dicionário ajudam a voz para texto a escrever nomes e termos do jeito que você escreve.",
+        "label": "Palavra ou frase",
+        "sync": "As palavras do dicionário são sincronizadas com sua conta, como o resto do seu dicionário.",
+        "exists": "Já está no seu dicionário.",
+        "added": "Adicionada ao seu dicionário"
+      },
+      "testCase": {
+        "descriptionNew": "Escolha as verificações deste caso. Elas só são salvas quando você as salva.",
+        "descriptionExisting": "Este ditado já era um caso de teste, então ele abre com suas verificações. As sugestões da sua correção são adicionadas desmarcadas.",
+        "target": "Conjunto de testes: {{target}}",
+        "correction": "Sua correção",
+        "suggested": "Verificações sugeridas",
+        "none": "Sua correção não muda nenhuma palavra, então não há verificações a sugerir.",
+        "addCheck": "Adicionar uma verificação",
+        "checkLabel": "Texto da verificação",
+        "useCheck": "Usar esta verificação",
+        "removeCheck": "Remover esta verificação",
+        "save": "Salvar verificações",
+        "saved": "Verificações salvas",
+        "saveError": "Não foi possível salvar as verificações."
+      }
     }
   },
   "reasoning": {

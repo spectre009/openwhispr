@@ -958,6 +958,73 @@
       },
       "lastNotFound": "找不到你上一条听写的详细信息。",
       "busy": "请先完成这条听写"
+    },
+    "fixes": {
+      "recognition": {
+        "title": "语音转文字可能听错了",
+        "description": "在下方某个步骤中选中识别错的词语，然后添加术语表更正或词典词语。保存前你会看到更正内容及其适用范围；除非你加以限制，更正会在所有应用中生效。"
+      },
+      "glossary": {
+        "title": "可能是术语表更正改动了它",
+        "description": "编辑已生效的更正，或在下方某个步骤中选中错误的词语来添加更正。",
+        "titleNoRules": "术语表可能漏掉了它",
+        "noRules": "这次听写没有生效的术语表更正。在下方某个步骤中选中错误的词语来添加一条。"
+      },
+      "fired": "在这次听写中生效：",
+      "cleanup": {
+        "title": "文本整理可能改动了你说的话",
+        "description": "将它添加到测试集，用它检验你的下一个提示词。用例会并排显示输入、最终输出和你的更正。"
+      },
+      "style": {
+        "title": "风格可能改得过头了",
+        "description": "将它添加到测试集，用它检验该风格的下一次修改。用例会并排显示输入、最终输出和你的更正。"
+      },
+      "delivery": {
+        "title": "文本可能没有正确送达",
+        "description": "OpenWhispr 知道它发送了什么、发送到哪个应用，但不知道应用如何处理。"
+      },
+      "literal": "检查是逐字进行的，因此用例只能通过你选择的词语发现问题。",
+      "actions": {
+        "glossary": "从所选内容添加术语表更正…",
+        "dictionary": "词典词语…",
+        "selectFirst": "请先在下方某个步骤中选中词语",
+        "editRule": "编辑更正",
+        "addToTestSet": "添加到测试集…",
+        "openPromptStudio": "打开提示词工作室",
+        "editStyle": "编辑风格",
+        "copyAgain": "再次复制文本"
+      },
+      "selection": {
+        "label": "更正所选词语",
+        "glossary": "术语表更正…",
+        "dictionary": "词典词语…"
+      },
+      "flagged": "你标记的步骤",
+      "flaggedGoTo": "跳到{{step}}（你标记的步骤）",
+      "glossaryExisting": "已有更正包含写法“{{spelling}}”，因此改为打开该更正。",
+      "dictionary": {
+        "title": "添加到你的词典",
+        "description": "词典词语可帮助语音转文字按你的写法写出名称和术语。",
+        "label": "词语或短语",
+        "sync": "词典词语会像词典的其他内容一样与你的账户同步。",
+        "exists": "它已在你的词典中。",
+        "added": "已添加到你的词典"
+      },
+      "testCase": {
+        "descriptionNew": "选择这个用例要做的检查。只有在你保存时才会保存。",
+        "descriptionExisting": "这次听写已经是测试用例，因此会连同其检查一起打开。来自你的更正的建议会以未勾选状态添加。",
+        "target": "测试集：{{target}}",
+        "correction": "你的更正",
+        "suggested": "建议的检查",
+        "none": "你的更正没有改动任何词语，因此没有可建议的检查。",
+        "addCheck": "添加检查",
+        "checkLabel": "检查文本",
+        "useCheck": "使用此检查",
+        "removeCheck": "移除此检查",
+        "save": "保存检查",
+        "saved": "检查已保存",
+        "saveError": "无法保存检查。"
+      }
     }
   },
   "reasoning": {

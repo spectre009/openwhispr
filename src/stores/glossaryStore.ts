@@ -80,3 +80,14 @@ export async function deleteGlossaryRule(id: string): Promise<GlossarySaveResult
   if (result?.success && result.snapshot) applySnapshot(result.snapshot);
   return result;
 }
+
+/** A stored rule as the rule editor's input (GlossaryRuleDialog). */
+export function glossaryRuleInput(rule: GlossaryRule): GlossaryRuleInput {
+  return {
+    id: rule.id,
+    canonical: rule.canonical,
+    spellings: rule.spellings.map((s) => ({ ...s })),
+    apps: [...rule.apps],
+    enabled: rule.enabled,
+  };
+}
