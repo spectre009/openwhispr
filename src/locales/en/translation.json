@@ -805,6 +805,97 @@
       "action": "Open Settings"
     }
   },
+  "historyView": {
+    "search": {
+      "placeholder": "Search what you said or the final text",
+      "label": "Search dictations",
+      "clear": "Clear search"
+    },
+    "filters": {
+      "label": "Filter dictations",
+      "all": "All",
+      "failed": "Failed",
+      "cleanupChanged": "Cleanup changed it",
+      "app": "App",
+      "appSelected": "App: {{app}}",
+      "anyApp": "Any app",
+      "noApps": "No apps recorded yet"
+    },
+    "list": {
+      "label": "Dictations",
+      "noText": "No text",
+      "loadingMore": "Loading more…",
+      "moreFailed": "Couldn't load more."
+    },
+    "marks": {
+      "changed": "{{step}} changed the text",
+      "same": "{{step}} made no change",
+      "failed": "{{step}} failed",
+      "fallback": "{{step}} kept the previous text",
+      "skipped": "{{step}} was skipped",
+      "letters": {
+        "glossary": "G",
+        "cleanup": "C",
+        "translation": "T",
+        "agent": "A",
+        "style": "S",
+        "finalize": "F",
+        "snippets": "Sn"
+      }
+    },
+    "empty": {
+      "noDictations": "No dictations yet",
+      "noResults": "No dictations match",
+      "noResultsDescription": "Try other words, or clear the search and filters.",
+      "clearFilters": "Clear search and filters"
+    },
+    "historyOff": {
+      "title": "Local history is off",
+      "message": "New dictations aren't saved here while local history is off.",
+      "link": "Open Privacy & Data"
+    },
+    "detail": {
+      "back": "Back to the list",
+      "empty": "Select a dictation to see what each step did.",
+      "notFound": "This dictation is no longer in your history.",
+      "loadError": "Couldn't load this dictation.",
+      "appNotRecorded": "app not recorded",
+      "inApp": "in {{app}}",
+      "audioLength": "{{duration}} of audio",
+      "failedRetry": "The audio was kept, so you can re-transcribe it.",
+      "failedNoAudio": "The audio wasn't kept, so it can't be re-transcribed."
+    },
+    "audio": {
+      "play": "Play the recording",
+      "pause": "Pause",
+      "position": "Playback position"
+    },
+    "steps": {
+      "title": "Steps",
+      "goTo": "Go to {{step}}",
+      "changed": "changed",
+      "same": "no change",
+      "final": "Final output",
+      "sentTo": "sent to {{app}}",
+      "sentToUnknown": "sent to an app that wasn't recorded",
+      "viewLabel": "Show",
+      "viewChanges": "Changes",
+      "viewText": "Text",
+      "noCorrections": "No corrections",
+      "failedNote": "This step failed, so the text from before it went on.",
+      "fallbackNote": "This step returned no text, so the text from before it went on.",
+      "skippedNote": "This step didn't run, so the text went on unchanged.",
+      "caseWas": "was “{{text}}”",
+      "lineBreak": "line break",
+      "tooLong": "Too long to compare word by word, so the text is shown as it is.",
+      "withoutStepsTitle": "What was heard",
+      "notRecorded": "Step details weren't recorded for this dictation.",
+      "heard": "Heard",
+      "heardHint": "raw transcript",
+      "sameAsHeard": "same as heard",
+      "whoChanged": "which step changed it wasn't recorded"
+    }
+  },
   "reasoning": {
     "mode": {
       "cloud": "Cloud",
@@ -3430,6 +3521,7 @@
   },
   "sidebar": {
     "home": "Home",
+    "history": "History",
     "insights": "Insights",
     "notes": "Notes",
     "upload": "Upload",

@@ -453,6 +453,96 @@ export interface ExportDictationsResult {
   code?: "OWNER_UNKNOWN" | "ACCOUNT_CHANGED" | "EXPORT_FAILED";
 }
 
+/** What a saved step did to the text it received (utils/stepChanges.js). */
+export type HistoryStepChange = "changed" | "same" | "failed" | "skipped" | "fallback";
+
+/** One step after speech-to-text, as a History list row marks it. */
+export interface HistoryStepMark {
+  kind: string;
+  /** Null when there was nothing to compare it with. */
+  change: HistoryStepChange | null;
+  /** A finalize step that expanded snippets. */
+  snippets?: boolean;
+}
+
+/** Where the next History page starts: the last row's sort timestamp and id. */
+export interface HistoryCursor {
+  timestamp: string;
+  id: number;
+}
+
+export interface HistoryListFilters {
+  failed?: boolean;
+  /** The current owner's Cleanup step changed the text. */
+  cleanupChanged?: boolean;
+  /** The app the current owner's trace was sent to. */
+  app?: string | null;
+}
+
+export interface HistoryListRequest {
+  cursor?: HistoryCursor | null;
+  /** 1–100, 50 by default. */
+  limit?: number;
+  query?: string;
+  filters?: HistoryListFilters;
+}
+
+/** A History list row: lightweight, the text cut to a preview. */
+export interface HistoryListRow {
+  id: number;
+  timestamp: string | null;
+  status: "completed" | "failed";
+  errorCode: string | null;
+  preview: string | null;
+  hasAudio: boolean;
+  audioDurationMs: number | null;
+  routeKind: string | null;
+  /** From the current owner's steps; null without them. */
+  app: string | null;
+  marks: HistoryStepMark[] | null;
+}
+
+export interface HistoryListResult {
+  success: boolean;
+  rows: HistoryListRow[];
+  nextCursor: HistoryCursor | null;
+  code?: "INVALID_CURSOR" | "FAILED";
+}
+
+export interface HistoryAppsResult {
+  success: boolean;
+  /** Most used first. */
+  apps: string[];
+}
+
+/** One dictation, in full, for the History detail. */
+export interface HistoryItem {
+  id: number;
+  timestamp: string | null;
+  status: TranscriptionStatus;
+  text: string;
+  rawText: string | null;
+  errorCode: string | null;
+  errorMessage: string | null;
+  hasAudio: boolean;
+  audioDurationMs: number | null;
+  routeKind: string | null;
+  provider: string | null;
+  model: string | null;
+}
+
+export type HistoryItemResult =
+  | {
+      success: true;
+      item: HistoryItem;
+      /** As history-get-steps: the current owner's steps, or why there are none. */
+      status: TranscriptionStepsResult["status"];
+      route?: string | null;
+      context?: TranscriptionStepsResult["context"];
+      steps: TranscriptionStepRecord[];
+    }
+  | { success: false; code: "NOT_FOUND" | "FAILED" };
+
 /**
  * A style case's structure checks: how many bullet lines and numbered items
  * the output may have. Null: not checked.
@@ -1869,6 +1959,9 @@ declare global {
       beginStepHistoryRun?: () => Promise<{ runId: string | null }>;
       getTranscriptionSteps?: (id: number) => Promise<TranscriptionStepsResult>;
       exportDictations?: () => Promise<ExportDictationsResult>;
+      listHistory?: (request: HistoryListRequest) => Promise<HistoryListResult>;
+      getHistoryApps?: () => Promise<HistoryAppsResult>;
+      getHistoryItem?: (id: number) => Promise<HistoryItemResult>;
       // Prompt test cases (main-owned, owner-scoped, local-only)
       listTestCases?: () => Promise<PromptTestCaseList>;
       pinHistoryTestCase?: (transcriptionId: number) => Promise<PromptTestCaseWriteResult>;

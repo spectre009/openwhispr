@@ -192,6 +192,43 @@ function contactSource(provider, accountEmail = null) {
   return accountEmail ? `${provider}:${accountEmail}` : provider;
 }
 
+// The History view lists what Home lists by default: completed and failed
+// dictations, neither discarded nor deleted.
+const HISTORY_ROW_FILTER = "t.deleted_at IS NULL AND t.status IN ('completed', 'failed')";
+// Timestamps are stored as "YYYY-MM-DD HH:MM:SS" or "YYYY-MM-DD HH:MM:SS.SSSZ",
+// which sort correctly as text. Pages are ordered and the cursor compared with
+// this one expression, so a NULL can't strand a row between pages.
+const HISTORY_SORT_KEY = "COALESCE(t.timestamp, '')";
+const HISTORY_PREVIEW_CHARS = 240;
+// The target app of a row's trace, for one owner: every step of a trace
+// carries the same context, so the first one answers.
+const HISTORY_TRACE_APP = `(
+  SELECT CASE WHEN json_valid(s.context) THEN json_extract(s.context, '$.targetApp') END
+  FROM transcription_steps s
+  WHERE s.transcription_id = t.id AND s.owner = ?
+  ORDER BY s.seq LIMIT 1
+)`;
+// The owner's cleanup step changed the text it received: the output of the last
+// earlier step that left text behind (utils/stepChanges.js, the same rule).
+const HISTORY_CLEANUP_CHANGED = `EXISTS (
+  SELECT 1 FROM transcription_steps c
+  JOIN transcription_steps p
+    ON p.transcription_id = c.transcription_id AND p.owner = c.owner
+  WHERE c.transcription_id = t.id AND c.owner = ?
+    AND c.kind = 'cleanup' AND c.outcome = 'ok' AND c.output IS NOT NULL
+    AND p.seq = (
+      SELECT MAX(q.seq) FROM transcription_steps q
+      WHERE q.transcription_id = c.transcription_id AND q.owner = c.owner
+        AND q.seq < c.seq AND q.outcome IN ('ok', 'skipped') AND q.output IS NOT NULL
+    )
+    AND p.output IS NOT c.output
+)`;
+
+// A LIKE pattern matching `text` anywhere, its own wildcards taken literally.
+function historyLikePattern(text) {
+  return `%${text.replace(/[\\%_]/g, (char) => `\\${char}`)}%`;
+}
+
 class DatabaseManager {
   constructor() {
     this.db = null;
@@ -2628,6 +2665,126 @@ class DatabaseManager {
       )
       .all(owner);
     return { dictations, steps, prompts };
+  }
+
+  // ─── History view ──────────────────────────────────────────────────────
+  // Reads for the History view (helpers/historyBrowser.js). Rows are
+  // device-wide, as Home lists them; anything read from steps (the app, the
+  // "Cleanup changed it" and App filters, the steps behind the marks) is
+  // scoped to the owner passed in, and to nothing without one.
+
+  // Search folds case in JS: SQLite's own LIKE folds ASCII only.
+  _ensureHistoryFold() {
+    if (this._historyFoldDb === this.db) return;
+    this.db.function("history_fold", { deterministic: true }, (value) =>
+      typeof value === "string" ? value.toLowerCase() : value
+    );
+    this._historyFoldDb = this.db;
+  }
+
+  /**
+   * One page, newest first: rows before `cursor` ({ timestamp, id }), at most
+   * `limit`. Lightweight columns only: the text is cut to a preview here.
+   */
+  getHistoryPage({
+    owner = null,
+    cursor = null,
+    limit = 50,
+    query = "",
+    failed = false,
+    cleanupChanged = false,
+    app = null,
+  } = {}) {
+    if (!this.db) throw new Error("Database not initialized");
+    const where = [HISTORY_ROW_FILTER];
+    const params = [];
+    if (cursor) {
+      where.push(`(${HISTORY_SORT_KEY} < ? OR (${HISTORY_SORT_KEY} = ? AND t.id < ?))`);
+      params.push(cursor.timestamp, cursor.timestamp, cursor.id);
+    }
+    if (query) {
+      this._ensureHistoryFold();
+      const pattern = historyLikePattern(query.toLowerCase());
+      where.push(
+        "(history_fold(t.text) LIKE ? ESCAPE '\\' OR history_fold(t.raw_text) LIKE ? ESCAPE '\\')"
+      );
+      params.push(pattern, pattern);
+    }
+    if (failed) where.push("t.status = 'failed'");
+    const stepsReadable = Boolean(owner) && this.stepHistoryReady;
+    if (cleanupChanged) {
+      if (stepsReadable) {
+        where.push(HISTORY_CLEANUP_CHANGED);
+        params.push(owner);
+      } else {
+        where.push("0");
+      }
+    }
+    if (app) {
+      if (stepsReadable) {
+        where.push(`${HISTORY_TRACE_APP} = ?`);
+        params.push(owner, app);
+      } else {
+        where.push("0");
+      }
+    }
+    params.push(limit);
+    return this.db
+      .prepare(
+        `SELECT t.id, t.timestamp, ${HISTORY_SORT_KEY} AS sort_key, t.status, t.error_code,
+                substr(COALESCE(NULLIF(t.text, ''), t.raw_text), 1, ${HISTORY_PREVIEW_CHARS}) AS preview,
+                t.has_audio, t.audio_duration_ms, t.route_kind
+         FROM transcriptions t
+         WHERE ${where.join(" AND ")}
+         ORDER BY sort_key DESC, t.id DESC
+         LIMIT ?`
+      )
+      .all(...params);
+  }
+
+  /** The owner's steps for a page of rows, in one query, without prompts. */
+  getHistoryStepRows(ids, owner) {
+    if (!this.db) throw new Error("Database not initialized");
+    if (!owner || !this.stepHistoryReady || !Array.isArray(ids) || ids.length === 0) return [];
+    return this.db
+      .prepare(
+        `SELECT transcription_id, seq, kind, outcome, output, detail, context
+         FROM transcription_steps
+         WHERE owner = ? AND transcription_id IN (${ids.map(() => "?").join(", ")})
+         ORDER BY transcription_id, seq`
+      )
+      .all(owner, ...ids);
+  }
+
+  /** The apps the owner's listed dictations were sent to, most used first. */
+  getHistoryApps(owner) {
+    if (!this.db) throw new Error("Database not initialized");
+    if (!owner || !this.stepHistoryReady) return [];
+    return this.db
+      .prepare(
+        `SELECT app, COUNT(*) AS uses
+         FROM (SELECT ${HISTORY_TRACE_APP} AS app FROM transcriptions t WHERE ${HISTORY_ROW_FILTER})
+         WHERE typeof(app) = 'text' AND app <> ''
+         GROUP BY app
+         ORDER BY uses DESC, app ASC`
+      )
+      .all(owner)
+      .map((row) => row.app);
+  }
+
+  /** One row for the History view's detail, or null when it's gone. */
+  getHistoryItem(id) {
+    if (!this.db) throw new Error("Database not initialized");
+    return (
+      this.db
+        .prepare(
+          `SELECT id, timestamp, status, text, raw_text, error_code, error_message, has_audio,
+                  audio_duration_ms, route_kind, provider, model
+           FROM transcriptions
+           WHERE id = ? AND deleted_at IS NULL`
+        )
+        .get(id) || null
+    );
   }
 
   // ─── Prompt test cases ─────────────────────────────────────────────────

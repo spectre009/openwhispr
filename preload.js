@@ -211,6 +211,10 @@ contextBridge.exposeInMainWorld("electronAPI", {
   beginStepHistoryRun: () => ipcRenderer.invoke("step-history-begin-run"),
   getTranscriptionSteps: (id) => ipcRenderer.invoke("history-get-steps", id),
   exportDictations: () => ipcRenderer.invoke("history-export-dictations"),
+  // The History view: a page of rows, the App filter's apps, one row by id.
+  listHistory: (request) => ipcRenderer.invoke("history-list", request),
+  getHistoryApps: () => ipcRenderer.invoke("history-apps"),
+  getHistoryItem: (id) => ipcRenderer.invoke("history-get-item", id),
   // Prompt test cases: main owns ownership, the history policy and pinned text.
   listTestCases: () => ipcRenderer.invoke("test-cases-list"),
   pinHistoryTestCase: (transcriptionId) =>

@@ -805,6 +805,97 @@
       "action": "設定を開く"
     }
   },
+  "historyView": {
+    "search": {
+      "placeholder": "話した内容や最終テキストを検索",
+      "label": "ディクテーションを検索",
+      "clear": "検索をクリア"
+    },
+    "filters": {
+      "label": "ディクテーションを絞り込む",
+      "all": "すべて",
+      "failed": "失敗",
+      "cleanupChanged": "クリーンアップで変更",
+      "app": "アプリ",
+      "appSelected": "アプリ: {{app}}",
+      "anyApp": "すべてのアプリ",
+      "noApps": "まだ記録されたアプリはありません"
+    },
+    "list": {
+      "label": "ディクテーション",
+      "noText": "テキストなし",
+      "loadingMore": "さらに読み込み中…",
+      "moreFailed": "これ以上読み込めませんでした。"
+    },
+    "marks": {
+      "changed": "{{step}}: テキストを変更",
+      "same": "{{step}}: 変更なし",
+      "failed": "{{step}}: 失敗",
+      "fallback": "{{step}}: 前のテキストを保持",
+      "skipped": "{{step}}: スキップ",
+      "letters": {
+        "glossary": "用",
+        "cleanup": "ク",
+        "translation": "翻",
+        "agent": "ア",
+        "style": "ス",
+        "finalize": "仕",
+        "snippets": "スニ"
+      }
+    },
+    "empty": {
+      "noDictations": "まだディクテーションはありません",
+      "noResults": "一致するディクテーションはありません",
+      "noResultsDescription": "別の言葉を試すか、検索とフィルターをクリアしてください。",
+      "clearFilters": "検索とフィルターをクリア"
+    },
+    "historyOff": {
+      "title": "ローカル履歴はオフです",
+      "message": "ローカル履歴がオフの間、新しいディクテーションはここに保存されません。",
+      "link": "プライバシーとデータを開く"
+    },
+    "detail": {
+      "back": "一覧に戻る",
+      "empty": "ディクテーションを選ぶと、各ステップの処理内容が表示されます。",
+      "notFound": "このディクテーションは履歴にもうありません。",
+      "loadError": "このディクテーションを読み込めませんでした。",
+      "appNotRecorded": "アプリは記録されていません",
+      "inApp": "{{app}} で",
+      "audioLength": "音声 {{duration}}",
+      "failedRetry": "音声が保存されているので、再文字起こしできます。",
+      "failedNoAudio": "音声が保存されていないため、再文字起こしできません。"
+    },
+    "audio": {
+      "play": "録音を再生",
+      "pause": "一時停止",
+      "position": "再生位置"
+    },
+    "steps": {
+      "title": "ステップ",
+      "goTo": "{{step}} へ移動",
+      "changed": "変更あり",
+      "same": "変更なし",
+      "final": "最終出力",
+      "sentTo": "{{app}} に送信",
+      "sentToUnknown": "記録されていないアプリに送信",
+      "viewLabel": "表示",
+      "viewChanges": "変更点",
+      "viewText": "テキスト",
+      "noCorrections": "修正なし",
+      "failedNote": "このステップは失敗したため、前のテキストがそのまま渡されました。",
+      "fallbackNote": "このステップはテキストを返さなかったため、前のテキストがそのまま渡されました。",
+      "skippedNote": "このステップは実行されなかったため、テキストは変更されずに渡されました。",
+      "caseWas": "変更前: 「{{text}}」",
+      "lineBreak": "改行",
+      "tooLong": "長すぎて単語ごとに比較できないため、テキストをそのまま表示しています。",
+      "withoutStepsTitle": "聞き取った内容",
+      "notRecorded": "このディクテーションのステップ詳細は記録されていません。",
+      "heard": "聞き取り",
+      "heardHint": "生の文字起こし",
+      "sameAsHeard": "聞き取りと同じ",
+      "whoChanged": "どのステップで変更されたかは記録されていません"
+    }
+  },
   "reasoning": {
     "mode": {
       "cloud": "クラウド",
@@ -4276,6 +4367,7 @@
   "sidebar": {
     "insights": "統計",
     "home": "ホーム",
+    "history": "履歴",
     "notes": "ノート",
     "upload": "アップロード",
     "dictionary": "辞書",

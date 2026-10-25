@@ -805,6 +805,97 @@
       "action": "Ouvrir les Réglages"
     }
   },
+  "historyView": {
+    "search": {
+      "placeholder": "Cherchez ce que vous avez dit ou le texte final",
+      "label": "Rechercher dans les dictées",
+      "clear": "Effacer la recherche"
+    },
+    "filters": {
+      "label": "Filtrer les dictées",
+      "all": "Toutes",
+      "failed": "Échouées",
+      "cleanupChanged": "Modifiées par la correction",
+      "app": "App",
+      "appSelected": "App : {{app}}",
+      "anyApp": "Toutes les apps",
+      "noApps": "Aucune app enregistrée pour l'instant"
+    },
+    "list": {
+      "label": "Dictées",
+      "noText": "Aucun texte",
+      "loadingMore": "Chargement…",
+      "moreFailed": "Impossible d'en charger plus."
+    },
+    "marks": {
+      "changed": "{{step}} : texte modifié",
+      "same": "{{step}} : aucun changement",
+      "failed": "{{step}} : échec",
+      "fallback": "{{step}} : texte précédent conservé",
+      "skipped": "{{step}} : étape ignorée",
+      "letters": {
+        "glossary": "G",
+        "cleanup": "C",
+        "translation": "T",
+        "agent": "A",
+        "style": "S",
+        "finalize": "F",
+        "snippets": "Sn"
+      }
+    },
+    "empty": {
+      "noDictations": "Aucune dictée pour l'instant",
+      "noResults": "Aucune dictée ne correspond",
+      "noResultsDescription": "Essayez d'autres mots, ou effacez la recherche et les filtres.",
+      "clearFilters": "Effacer la recherche et les filtres"
+    },
+    "historyOff": {
+      "title": "L'historique local est désactivé",
+      "message": "Les nouvelles dictées ne sont pas enregistrées ici tant que l'historique local est désactivé.",
+      "link": "Ouvrir Confidentialité & données"
+    },
+    "detail": {
+      "back": "Retour à la liste",
+      "empty": "Sélectionnez une dictée pour voir ce qu'a fait chaque étape.",
+      "notFound": "Cette dictée n'est plus dans votre historique.",
+      "loadError": "Impossible de charger cette dictée.",
+      "appNotRecorded": "app non enregistrée",
+      "inApp": "dans {{app}}",
+      "audioLength": "{{duration}} d'audio",
+      "failedRetry": "L'audio a été conservé, vous pouvez donc la retranscrire.",
+      "failedNoAudio": "L'audio n'a pas été conservé, elle ne peut donc pas être retranscrite."
+    },
+    "audio": {
+      "play": "Écouter l'enregistrement",
+      "pause": "Pause",
+      "position": "Position de lecture"
+    },
+    "steps": {
+      "title": "Étapes",
+      "goTo": "Aller à {{step}}",
+      "changed": "modifié",
+      "same": "inchangé",
+      "final": "Résultat final",
+      "sentTo": "envoyé à {{app}}",
+      "sentToUnknown": "envoyé à une app non enregistrée",
+      "viewLabel": "Afficher",
+      "viewChanges": "Modifications",
+      "viewText": "Texte",
+      "noCorrections": "Aucune correction",
+      "failedNote": "Cette étape a échoué : le texte d'avant a été transmis.",
+      "fallbackNote": "Cette étape n'a renvoyé aucun texte : le texte d'avant a été transmis.",
+      "skippedNote": "Cette étape n'a pas été exécutée : le texte a été transmis tel quel.",
+      "caseWas": "avant : « {{text}} »",
+      "lineBreak": "saut de ligne",
+      "tooLong": "Trop long pour être comparé mot à mot : le texte est affiché tel quel.",
+      "withoutStepsTitle": "Ce qui a été entendu",
+      "notRecorded": "Le détail des étapes n'a pas été enregistré pour cette dictée.",
+      "heard": "Entendu",
+      "heardHint": "transcription brute",
+      "sameAsHeard": "identique à ce qui a été entendu",
+      "whoChanged": "l'étape qui l'a modifié n'a pas été enregistrée"
+    }
+  },
   "reasoning": {
     "mode": {
       "cloud": "Cloud",
@@ -3557,6 +3648,7 @@
   "sidebar": {
     "insights": "Statistiques",
     "home": "Accueil",
+    "history": "Historique",
     "notes": "Notes",
     "upload": "Importer",
     "dictionary": "Dictionnaire",

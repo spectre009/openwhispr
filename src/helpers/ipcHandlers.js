@@ -152,6 +152,7 @@ const {
   createRetentionSettingsHandler,
 } = require("./retentionSettings");
 const { createStepHistory, ownerKeyFor } = require("./stepHistory");
+const { createHistoryBrowser } = require("./historyBrowser");
 const { createPromptTestCases } = require("./promptTestCases");
 const { registerStyleHotkeyIpc } = require("./styleHotkeys");
 const { createLocalRequestYield } = require("./localRequestYield");
@@ -712,6 +713,12 @@ class IPCHandlers {
         this._retentionSettingsSynced === true &&
         this._retentionSettings?.dataRetentionEnabled === true,
       logger: debugLogger,
+    });
+    // The History view's paged reads: steps, and all that's derived from
+    // them, for step history's current owner only.
+    this.historyBrowser = createHistoryBrowser({
+      db: this.databaseManager,
+      stepHistory: this.stepHistory,
     });
     // Prompt Studio's test cases: the same owner and the same retention sync
     // as step history. Durable only while local history is on, its managed
@@ -1906,6 +1913,37 @@ class IPCHandlers {
         return { success: false, status: "none", steps: [] };
       }
     });
+
+    // The History view: main pages, searches and filters, and reads steps
+    // only for their current owner. Errors log their message, never a query.
+    const historyRead = (label, run, failure) => {
+      try {
+        return run();
+      } catch (error) {
+        debugLogger.error(label, { error: error.message }, "database");
+        return failure;
+      }
+    };
+    ipcMain.handle("history-list", (_event, request) =>
+      historyRead("Failed to list history", () => this.historyBrowser.list(request), {
+        success: false,
+        code: "FAILED",
+        rows: [],
+        nextCursor: null,
+      })
+    );
+    ipcMain.handle("history-apps", () =>
+      historyRead("Failed to list history apps", () => this.historyBrowser.apps(), {
+        success: false,
+        apps: [],
+      })
+    );
+    ipcMain.handle("history-get-item", (_event, id) =>
+      historyRead("Failed to read a history item", () => this.historyBrowser.getItem(id), {
+        success: false,
+        code: "FAILED",
+      })
+    );
 
     ipcMain.handle("history-export-dictations", async (event) => {
       const { dialog } = require("electron");

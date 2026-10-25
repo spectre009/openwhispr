@@ -723,6 +723,97 @@
       "action": "فتح الإعدادات"
     }
   },
+  "historyView": {
+    "search": {
+      "placeholder": "ابحث فيما قلته أو في النص النهائي",
+      "label": "البحث في الإملاءات",
+      "clear": "مسح البحث"
+    },
+    "filters": {
+      "label": "تصفية الإملاءات",
+      "all": "الكل",
+      "failed": "الفاشلة",
+      "cleanupChanged": "غيّرها التنظيف",
+      "app": "التطبيق",
+      "appSelected": "التطبيق: {{app}}",
+      "anyApp": "أي تطبيق",
+      "noApps": "لم يُسجَّل أي تطبيق بعد"
+    },
+    "list": {
+      "label": "الإملاءات",
+      "noText": "لا يوجد نص",
+      "loadingMore": "جارٍ تحميل المزيد…",
+      "moreFailed": "تعذّر تحميل المزيد."
+    },
+    "marks": {
+      "changed": "{{step}}: تغيّر النص",
+      "same": "{{step}}: بلا تغيير",
+      "failed": "{{step}}: فشل",
+      "fallback": "{{step}}: أُبقي على النص السابق",
+      "skipped": "{{step}}: تم التخطي",
+      "letters": {
+        "glossary": "م",
+        "cleanup": "ت",
+        "translation": "تر",
+        "agent": "مس",
+        "style": "أ",
+        "finalize": "ل",
+        "snippets": "مق"
+      }
+    },
+    "empty": {
+      "noDictations": "لا توجد إملاءات بعد",
+      "noResults": "لا توجد إملاءات مطابقة",
+      "noResultsDescription": "جرّب كلمات أخرى، أو امسح البحث وعوامل التصفية.",
+      "clearFilters": "مسح البحث وعوامل التصفية"
+    },
+    "historyOff": {
+      "title": "السجل المحلي متوقف",
+      "message": "لا تُحفظ الإملاءات الجديدة هنا ما دام السجل المحلي متوقفًا.",
+      "link": "فتح الخصوصية والبيانات"
+    },
+    "detail": {
+      "back": "العودة إلى القائمة",
+      "empty": "اختر إملاءً لترى ما فعلته كل خطوة.",
+      "notFound": "لم يعد هذا الإملاء في سجلك.",
+      "loadError": "تعذّر تحميل هذا الإملاء.",
+      "appNotRecorded": "لم يُسجَّل التطبيق",
+      "inApp": "في {{app}}",
+      "audioLength": "{{duration}} من الصوت",
+      "failedRetry": "احتُفظ بالصوت، لذا يمكنك إعادة تفريغه.",
+      "failedNoAudio": "لم يُحتفظ بالصوت، لذا لا يمكن إعادة تفريغه."
+    },
+    "audio": {
+      "play": "تشغيل التسجيل",
+      "pause": "إيقاف مؤقت",
+      "position": "موضع التشغيل"
+    },
+    "steps": {
+      "title": "الخطوات",
+      "goTo": "الانتقال إلى {{step}}",
+      "changed": "تغيّر",
+      "same": "بلا تغيير",
+      "final": "الناتج النهائي",
+      "sentTo": "أُرسل إلى {{app}}",
+      "sentToUnknown": "أُرسل إلى تطبيق لم يُسجَّل",
+      "viewLabel": "عرض",
+      "viewChanges": "التغييرات",
+      "viewText": "النص",
+      "noCorrections": "لا تصحيحات",
+      "failedNote": "فشلت هذه الخطوة، لذا انتقل النص الذي قبلها.",
+      "fallbackNote": "لم تُرجع هذه الخطوة أي نص، لذا انتقل النص الذي قبلها.",
+      "skippedNote": "لم تُنفَّذ هذه الخطوة، لذا انتقل النص دون تغيير.",
+      "caseWas": "كان «{{text}}»",
+      "lineBreak": "سطر جديد",
+      "tooLong": "النص أطول من أن يُقارن كلمةً كلمة، لذا يُعرض كما هو.",
+      "withoutStepsTitle": "ما سُمع والناتج النهائي",
+      "notRecorded": "لم تُسجَّل تفاصيل الخطوات لهذا الإملاء.",
+      "heard": "ما سُمع",
+      "heardHint": "النص المفرَّغ الخام",
+      "sameAsHeard": "مطابق لما سُمع",
+      "whoChanged": "لم يُسجَّل أي خطوة غيّرته"
+    }
+  },
   "integrations": {
     "title": "التكاملات (Integrations)",
     "googleCalendar": {
@@ -5200,6 +5291,7 @@
   },
   "sidebar": {
     "home": "الرئيسية",
+    "history": "السجل",
     "notes": "الملاحظات",
     "upload": "رفع",
     "dictionary": "القاموس",

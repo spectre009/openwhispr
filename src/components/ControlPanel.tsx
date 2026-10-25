@@ -92,6 +92,7 @@ import { getGlossarySnapshot } from "../stores/glossaryStore";
 import { resolveStyleForRetry } from "../stores/styleStore";
 import { styleIdFromRouteKind } from "../config/styles/library";
 import { OPEN_HISTORY_ITEM_EVENT } from "../utils/openHistoryItem";
+import { requestHistoryItem } from "./history/historyViewStore";
 import { getAgentName } from "../utils/agentName";
 import HistoryView from "./HistoryView";
 import BackgroundActionToastListener from "./notes/BackgroundActionToastListener";
@@ -115,6 +116,7 @@ const SettingsModal = React.lazy(() => import("./SettingsModal"));
 const ReferralModal = React.lazy(() => import("./ReferralModal"));
 const InviteTeammateDialog = React.lazy(() => import("./InviteTeammateDialog"));
 const PersonalNotesView = React.lazy(() => import("./notes/PersonalNotesView"));
+const HistoryBrowser = React.lazy(() => import("./history/HistoryBrowser"));
 const InsightsView = React.lazy(() => import("./InsightsView"));
 const DictionaryView = React.lazy(() => import("./DictionaryView"));
 const UploadAudioView = React.lazy(() => import("./notes/UploadAudioView"));
@@ -361,24 +363,16 @@ export default function ControlPanel({ initialSettingsSection }: ControlPanelPro
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [toggleSettings]);
 
-  // Prompt Studio's test set → "Open in History" on a pinned case: leave
-  // Settings, show History and bring the row into view while it's listed.
+  // "Open in History" (a Home row, Dictation › Overview's last dictation, a
+  // test case pinned from History): leave Settings and show that dictation in
+  // the History view, looked up by id whatever the list shows.
   useEffect(() => {
     const openHistoryItem = (event: Event) => {
       const id = (event as CustomEvent<{ id?: unknown }>).detail?.id;
       if (!Number.isInteger(id)) return;
       if (!closeSettings()) return;
-      setActiveView("home");
-      let attempts = 0;
-      const reveal = () => {
-        const row = document.querySelector(`[data-transcription-id="${id}"]`);
-        if (row) {
-          row.scrollIntoView({ block: "center", behavior: "smooth" });
-          return;
-        }
-        if (++attempts < 20) requestAnimationFrame(reveal);
-      };
-      requestAnimationFrame(reveal);
+      requestHistoryItem(id as number);
+      setActiveView("history");
     };
     window.addEventListener(OPEN_HISTORY_ITEM_EVENT, openHistoryItem);
     return () => window.removeEventListener(OPEN_HISTORY_ITEM_EVENT, openHistoryItem);
@@ -1025,23 +1019,30 @@ export default function ControlPanel({ initialSettingsSection }: ControlPanelPro
   );
 
   // A styled dictation whose style was deleted since can still be retried, as
-  // Plain, once the user says so.
+  // Plain, once the user says so. The History view names the row's route
+  // itself, since its row may be far below the ones Home has loaded, and hears
+  // when the retry is done (`onSettled`), confirmed or not.
   const retryFromHistory = useCallback(
-    async (id: number, options?: { isRecover?: boolean }) => {
+    async (
+      id: number,
+      options?: { isRecover?: boolean; routeKind?: string | null; onSettled?: () => void }
+    ) => {
+      const { routeKind, onSettled, ...retryOptions } = options ?? {};
       const row = history.find((item) => item.id === id);
-      const styleId = styleIdFromRouteKind(row?.route_kind);
+      const styleId = styleIdFromRouteKind(routeKind !== undefined ? routeKind : row?.route_kind);
       if (styleId && !resolveStyleForRetry(styleId)) {
         showConfirmDialog({
           title: t("controlPanel.history.styleDeleted.title"),
           description: t("controlPanel.history.styleDeleted.description"),
           confirmText: t("controlPanel.history.styleDeleted.retryPlain"),
           onConfirm: () => {
-            void retryTranscription(id, { ...options, plainStyle: true });
+            void retryTranscription(id, { ...retryOptions, plainStyle: true }).finally(onSettled);
           },
         });
         return;
       }
-      await retryTranscription(id, options);
+      await retryTranscription(id, retryOptions);
+      onSettled?.();
     },
     [history, retryTranscription, showConfirmDialog, t]
   );
@@ -1427,6 +1428,18 @@ export default function ControlPanel({ initialSettingsSection }: ControlPanelPro
                     setActiveView("integrations");
                   }}
                 />
+              )}
+              {activeView === "history" && (
+                <Suspense fallback={null}>
+                  <HistoryBrowser
+                    hotkey={hotkey}
+                    onCopy={copyToClipboard}
+                    onDelete={deleteTranscription}
+                    onRetry={retryFromHistory}
+                    onShowAudioInFolder={showAudioInFolder}
+                    onOpenSettings={openSettings}
+                  />
+                </Suspense>
               )}
               {activeView === "insights" && (
                 <Suspense fallback={null}>

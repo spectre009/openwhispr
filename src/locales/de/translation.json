@@ -805,6 +805,97 @@
       "action": "Einstellungen öffnen"
     }
   },
+  "historyView": {
+    "search": {
+      "placeholder": "Suche in dem, was du gesagt hast, oder im Endtext",
+      "label": "Diktate durchsuchen",
+      "clear": "Suche löschen"
+    },
+    "filters": {
+      "label": "Diktate filtern",
+      "all": "Alle",
+      "failed": "Fehlgeschlagen",
+      "cleanupChanged": "Von der Bereinigung geändert",
+      "app": "App",
+      "appSelected": "App: {{app}}",
+      "anyApp": "Alle Apps",
+      "noApps": "Noch keine Apps erfasst"
+    },
+    "list": {
+      "label": "Diktate",
+      "noText": "Kein Text",
+      "loadingMore": "Mehr wird geladen …",
+      "moreFailed": "Weitere konnten nicht geladen werden."
+    },
+    "marks": {
+      "changed": "{{step}}: Text geändert",
+      "same": "{{step}}: keine Änderung",
+      "failed": "{{step}}: fehlgeschlagen",
+      "fallback": "{{step}}: vorheriger Text beibehalten",
+      "skipped": "{{step}}: übersprungen",
+      "letters": {
+        "glossary": "G",
+        "cleanup": "B",
+        "translation": "Ü",
+        "agent": "A",
+        "style": "S",
+        "finalize": "L",
+        "snippets": "Sn"
+      }
+    },
+    "empty": {
+      "noDictations": "Noch keine Diktate",
+      "noResults": "Keine passenden Diktate",
+      "noResultsDescription": "Versuche andere Wörter oder lösche Suche und Filter.",
+      "clearFilters": "Suche und Filter löschen"
+    },
+    "historyOff": {
+      "title": "Der lokale Verlauf ist aus",
+      "message": "Neue Diktate werden hier nicht gespeichert, solange der lokale Verlauf aus ist.",
+      "link": "Datenschutz & Daten öffnen"
+    },
+    "detail": {
+      "back": "Zurück zur Liste",
+      "empty": "Wähle ein Diktat, um zu sehen, was jeder Schritt getan hat.",
+      "notFound": "Dieses Diktat ist nicht mehr in deinem Verlauf.",
+      "loadError": "Dieses Diktat konnte nicht geladen werden.",
+      "appNotRecorded": "App nicht erfasst",
+      "inApp": "in {{app}}",
+      "audioLength": "{{duration}} Audio",
+      "failedRetry": "Die Aufnahme wurde behalten, du kannst sie also erneut transkribieren.",
+      "failedNoAudio": "Die Aufnahme wurde nicht behalten und kann daher nicht erneut transkribiert werden."
+    },
+    "audio": {
+      "play": "Aufnahme abspielen",
+      "pause": "Pause",
+      "position": "Wiedergabeposition"
+    },
+    "steps": {
+      "title": "Schritte",
+      "goTo": "Zu {{step}}",
+      "changed": "geändert",
+      "same": "keine Änderung",
+      "final": "Endergebnis",
+      "sentTo": "gesendet an {{app}}",
+      "sentToUnknown": "gesendet an eine nicht erfasste App",
+      "viewLabel": "Anzeigen",
+      "viewChanges": "Änderungen",
+      "viewText": "Text",
+      "noCorrections": "Keine Korrekturen",
+      "failedNote": "Dieser Schritt ist fehlgeschlagen, daher ging der Text von davor weiter.",
+      "fallbackNote": "Dieser Schritt hat keinen Text geliefert, daher ging der Text von davor weiter.",
+      "skippedNote": "Dieser Schritt lief nicht, daher ging der Text unverändert weiter.",
+      "caseWas": "vorher: „{{text}}“",
+      "lineBreak": "Zeilenumbruch",
+      "tooLong": "Zu lang für einen Wort-für-Wort-Vergleich, daher wird der Text unverändert angezeigt.",
+      "withoutStepsTitle": "Was erkannt wurde",
+      "notRecorded": "Für dieses Diktat wurden keine Schrittdetails erfasst.",
+      "heard": "Erkannt",
+      "heardHint": "Rohtranskript",
+      "sameAsHeard": "wie erkannt",
+      "whoChanged": "welcher Schritt es geändert hat, wurde nicht erfasst"
+    }
+  },
   "reasoning": {
     "mode": {
       "cloud": "Cloud",
@@ -3557,6 +3648,7 @@
   "sidebar": {
     "insights": "Statistiken",
     "home": "Startseite",
+    "history": "Verlauf",
     "notes": "Notizen",
     "upload": "Hochladen",
     "dictionary": "Wörterbuch",

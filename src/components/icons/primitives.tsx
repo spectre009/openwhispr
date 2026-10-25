@@ -176,6 +176,14 @@ const TableMark = glyph(
   </>
 );
 
+// Nucleo's media-pause, to pair with the vendored media-play.
+const PauseMark = glyph(
+  <>
+    <rect x="6" y="4" width="4" height="16" rx="1" />
+    <rect x="14" y="4" width="4" height="16" rx="1" />
+  </>
+);
+
 export const Circle = createIcon("circle", CircleMark);
 export const Square = createIcon("square", SquareMark);
 export const SquareSlash = createIcon("square-slash", SquareSlashMark);
@@ -188,6 +196,7 @@ export const List = createIcon("list", ListMark);
 export const ListChecks = createIcon("list-checks", ListChecksMark);
 export const ListEnd = createIcon("list-end", ListEndMark);
 export const ListOrdered = createIcon("list-ordered", ListOrderedMark);
+export const Pause = createIcon("pause", PauseMark);
 export const Quote = createIcon("quote", QuoteMark);
 export const Strikethrough = createIcon("strikethrough", StrikethroughMark);
 export const Table = createIcon("table", TableMark);

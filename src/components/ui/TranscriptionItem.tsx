@@ -20,10 +20,10 @@ import {
   MoreVertical,
   ListOrdered,
   TestTube,
+  Clock,
 } from "../icons";
 import TranscriptionSteps from "./TranscriptionSteps";
-import { useToast } from "./useToast";
-import { pinHistoryTestCase, storageNoticeKey } from "../../stores/promptTestSetStore";
+import { showInFolderLabelKey, useAddToTestSet } from "./historyActions";
 import { useStyleStore } from "../../stores/styleStore";
 import { findStyle, styleIdFromRouteKind } from "../../config/styles/library";
 import type {
@@ -31,19 +31,11 @@ import type {
   TranscriptionErrorCode,
 } from "../../types/electron";
 import { cn } from "../lib/utils";
-import { getCachedPlatform } from "../../utils/platform";
 import { formatMmSs } from "../../utils/formatDuration";
-
-const platform = getCachedPlatform();
+import { requestOpenHistoryItem } from "../../utils/openHistoryItem";
 
 const ACTION_BUTTON_CLASS =
   "h-7 w-7 rounded-full text-muted-foreground/70 hover:text-foreground hover:bg-foreground/6 dark:hover:bg-white/6";
-
-function getShowInFolderKey(): string {
-  if (platform === "win32") return "controlPanel.history.showInFolderWindows";
-  if (platform === "linux") return "controlPanel.history.showInFolderLinux";
-  return "controlPanel.history.showInFolder";
-}
 
 interface MenuAction {
   key: string;
@@ -71,7 +63,7 @@ export default function TranscriptionItem({
   onOpenSettings,
 }: TranscriptionItemProps) {
   const { t, i18n } = useTranslation();
-  const { toast } = useToast();
+  const addToTestSet = useAddToTestSet();
   const [isExpanded, setIsExpanded] = useState(false);
   const [showSteps, setShowSteps] = useState(false);
   const [isRetrying, setIsRetrying] = useState(false);
@@ -130,33 +122,6 @@ export default function TranscriptionItem({
     styleId ? findStyle(state.library, styleId) : undefined
   );
 
-  // Main copies the raw transcript into a test case; the cleaned text is
-  // never used as the input, so a row without a raw transcript can't be pinned.
-  const addToTestSet = async () => {
-    const result = await pinHistoryTestCase(item.id);
-    if (!result.success) {
-      toast({
-        title: t("controlPanel.history.testSet.failed"),
-        description:
-          result.code === "NO_RAW_TEXT" ? t("controlPanel.history.testSet.noRawText") : undefined,
-        variant: "destructive",
-      });
-    } else if (result.duplicate) {
-      toast({ title: t("controlPanel.history.testSet.already") });
-    } else if (result.durable) {
-      toast({
-        title: t("controlPanel.history.testSet.added"),
-        description: t("controlPanel.history.testSet.addedDescription"),
-        variant: "success",
-      });
-    } else {
-      toast({
-        title: t("controlPanel.history.testSet.addedSession"),
-        description: t(storageNoticeKey(result.reason)),
-      });
-    }
-  };
-
   // Copy stays visible as the one-tap action; everything else lives in the menu.
   const candidateActions: (MenuAction | false)[] = [
     isDiscarded &&
@@ -186,12 +151,18 @@ export default function TranscriptionItem({
         key: "test-set",
         icon: TestTube,
         label: t("controlPanel.history.testSet.add"),
-        onSelect: () => void addToTestSet(),
+        onSelect: () => void addToTestSet(item.id),
       },
+    !isDiscarded && {
+      key: "open-in-history",
+      icon: Clock,
+      label: t("promptStudio.testSet.actions.openInHistory"),
+      onSelect: () => requestOpenHistoryItem(item.id),
+    },
     hasAudio && {
       key: "folder",
       icon: FolderOpen,
-      label: t(getShowInFolderKey()),
+      label: t(showInFolderLabelKey()),
       onSelect: () => onShowAudioInFolder?.(item.id),
     },
     {

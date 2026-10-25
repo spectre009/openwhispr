@@ -805,6 +805,97 @@
       "action": "開啟設定"
     }
   },
+  "historyView": {
+    "search": {
+      "placeholder": "搜尋你說的話或最終文字",
+      "label": "搜尋聽寫",
+      "clear": "清除搜尋"
+    },
+    "filters": {
+      "label": "篩選聽寫",
+      "all": "全部",
+      "failed": "失敗",
+      "cleanupChanged": "被文字整理修改",
+      "app": "應用程式",
+      "appSelected": "應用程式：{{app}}",
+      "anyApp": "任何應用程式",
+      "noApps": "尚未記錄任何應用程式"
+    },
+    "list": {
+      "label": "聽寫",
+      "noText": "沒有文字",
+      "loadingMore": "正在載入更多…",
+      "moreFailed": "無法載入更多。"
+    },
+    "marks": {
+      "changed": "{{step}}：修改了文字",
+      "same": "{{step}}：沒有變化",
+      "failed": "{{step}}：失敗",
+      "fallback": "{{step}}：保留了先前的文字",
+      "skipped": "{{step}}：已略過",
+      "letters": {
+        "glossary": "詞",
+        "cleanup": "整",
+        "translation": "譯",
+        "agent": "助",
+        "style": "風",
+        "finalize": "後",
+        "snippets": "片"
+      }
+    },
+    "empty": {
+      "noDictations": "還沒有聽寫",
+      "noResults": "沒有符合的聽寫",
+      "noResultsDescription": "試試其他字詞，或清除搜尋和篩選條件。",
+      "clearFilters": "清除搜尋和篩選"
+    },
+    "historyOff": {
+      "title": "本機歷史記錄已關閉",
+      "message": "本機歷史記錄關閉期間，新的聽寫不會儲存在這裡。",
+      "link": "開啟「隱私與資料」"
+    },
+    "detail": {
+      "back": "返回清單",
+      "empty": "選擇一則聽寫，查看每個步驟做了什麼。",
+      "notFound": "這則聽寫已不在你的歷史記錄中。",
+      "loadError": "無法載入這則聽寫。",
+      "appNotRecorded": "未記錄應用程式",
+      "inApp": "在 {{app}} 中",
+      "audioLength": "{{duration}} 音訊",
+      "failedRetry": "音訊已保留，因此可以重新轉錄。",
+      "failedNoAudio": "音訊未保留，因此無法重新轉錄。"
+    },
+    "audio": {
+      "play": "播放錄音",
+      "pause": "暫停",
+      "position": "播放位置"
+    },
+    "steps": {
+      "title": "步驟",
+      "goTo": "跳到{{step}}",
+      "changed": "已修改",
+      "same": "沒有變化",
+      "final": "最終輸出",
+      "sentTo": "已傳送到 {{app}}",
+      "sentToUnknown": "已傳送到未記錄的應用程式",
+      "viewLabel": "顯示",
+      "viewChanges": "變更",
+      "viewText": "文字",
+      "noCorrections": "沒有更正",
+      "failedNote": "此步驟失敗，因此沿用了先前的文字。",
+      "fallbackNote": "此步驟沒有傳回文字，因此沿用了先前的文字。",
+      "skippedNote": "此步驟未執行，因此文字維持不變。",
+      "caseWas": "原為「{{text}}」",
+      "lineBreak": "換行",
+      "tooLong": "文字太長，無法逐字比較，因此按原樣顯示。",
+      "withoutStepsTitle": "辨識內容",
+      "notRecorded": "這則聽寫沒有記錄步驟詳情。",
+      "heard": "辨識結果",
+      "heardHint": "原始轉錄",
+      "sameAsHeard": "與辨識結果相同",
+      "whoChanged": "未記錄是哪個步驟修改的"
+    }
+  },
   "reasoning": {
     "mode": {
       "cloud": "雲端",
@@ -4276,6 +4367,7 @@
   "sidebar": {
     "insights": "統計",
     "home": "首頁",
+    "history": "歷史記錄",
     "notes": "筆記",
     "upload": "上傳",
     "dictionary": "字典",

@@ -805,6 +805,97 @@
       "action": "Abrir Ajustes"
     }
   },
+  "historyView": {
+    "search": {
+      "placeholder": "Busca lo que dijiste o el texto final",
+      "label": "Buscar dictados",
+      "clear": "Borrar búsqueda"
+    },
+    "filters": {
+      "label": "Filtrar dictados",
+      "all": "Todos",
+      "failed": "Fallidos",
+      "cleanupChanged": "La corrección lo cambió",
+      "app": "App",
+      "appSelected": "App: {{app}}",
+      "anyApp": "Cualquier app",
+      "noApps": "Aún no hay apps registradas"
+    },
+    "list": {
+      "label": "Dictados",
+      "noText": "Sin texto",
+      "loadingMore": "Cargando más…",
+      "moreFailed": "No se pudieron cargar más."
+    },
+    "marks": {
+      "changed": "{{step}} cambió el texto",
+      "same": "{{step}} no hizo cambios",
+      "failed": "{{step}} falló",
+      "fallback": "{{step}} mantuvo el texto anterior",
+      "skipped": "{{step}} se omitió",
+      "letters": {
+        "glossary": "G",
+        "cleanup": "C",
+        "translation": "T",
+        "agent": "A",
+        "style": "E",
+        "finalize": "F",
+        "snippets": "Sn"
+      }
+    },
+    "empty": {
+      "noDictations": "Aún no hay dictados",
+      "noResults": "Ningún dictado coincide",
+      "noResultsDescription": "Prueba con otras palabras o borra la búsqueda y los filtros.",
+      "clearFilters": "Borrar búsqueda y filtros"
+    },
+    "historyOff": {
+      "title": "El historial local está desactivado",
+      "message": "Los dictados nuevos no se guardan aquí mientras el historial local está desactivado.",
+      "link": "Abrir Privacidad y datos"
+    },
+    "detail": {
+      "back": "Volver a la lista",
+      "empty": "Selecciona un dictado para ver qué hizo cada paso.",
+      "notFound": "Este dictado ya no está en tu historial.",
+      "loadError": "No se pudo cargar este dictado.",
+      "appNotRecorded": "app no registrada",
+      "inApp": "en {{app}}",
+      "audioLength": "{{duration}} de audio",
+      "failedRetry": "El audio se conservó, así que puedes volver a transcribirlo.",
+      "failedNoAudio": "El audio no se conservó, así que no se puede volver a transcribir."
+    },
+    "audio": {
+      "play": "Reproducir la grabación",
+      "pause": "Pausar",
+      "position": "Posición de reproducción"
+    },
+    "steps": {
+      "title": "Pasos",
+      "goTo": "Ir a {{step}}",
+      "changed": "cambió",
+      "same": "sin cambios",
+      "final": "Resultado final",
+      "sentTo": "enviado a {{app}}",
+      "sentToUnknown": "enviado a una app que no se registró",
+      "viewLabel": "Mostrar",
+      "viewChanges": "Cambios",
+      "viewText": "Texto",
+      "noCorrections": "Sin correcciones",
+      "failedNote": "Este paso falló, así que siguió el texto de antes.",
+      "fallbackNote": "Este paso no devolvió texto, así que siguió el texto de antes.",
+      "skippedNote": "Este paso no se ejecutó, así que el texto siguió sin cambios.",
+      "caseWas": "antes: «{{text}}»",
+      "lineBreak": "salto de línea",
+      "tooLong": "Demasiado largo para compararlo palabra por palabra, así que el texto se muestra tal cual.",
+      "withoutStepsTitle": "Lo que se oyó",
+      "notRecorded": "No se registraron los detalles de los pasos de este dictado.",
+      "heard": "Oído",
+      "heardHint": "transcripción sin procesar",
+      "sameAsHeard": "igual que lo oído",
+      "whoChanged": "no se registró qué paso lo cambió"
+    }
+  },
   "reasoning": {
     "mode": {
       "cloud": "Nube",
@@ -4328,6 +4419,7 @@
   "sidebar": {
     "insights": "Estadísticas",
     "home": "Inicio",
+    "history": "Historial",
     "notes": "Notas",
     "upload": "Subir",
     "dictionary": "Diccionario",

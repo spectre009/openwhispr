@@ -4,15 +4,15 @@ import { Loader2 } from "../icons";
 import { useSettingsStore } from "../../stores/settingsStore";
 import { useStyleStore } from "../../stores/styleStore";
 import { DEFAULT_PROMPT_ID, findPromptEntry } from "../../config/prompts/library";
-import { findStyle } from "../../config/styles/library";
 import type { TranscriptionStepRecord, TranscriptionStepsResult } from "../../types/electron";
-import { stepKindLabel, stepOutcomeLabel } from "./transcriptionStepLabels";
+import { stepKindLabel, stepOutcomeLabel, styleStepFacts } from "./transcriptionStepLabels";
 
 // Step history for one dictation, read from main on demand. Main scopes it to
 // the current account (or the signed-out namespace); rows from before step
 // history, or pulled from the cloud, have none.
 
-function StepPrompt({ step }: { step: TranscriptionStepRecord }) {
+/** A model step's prompt: its name and "Show prompt" (also the History view's step cards). */
+export function StepPrompt({ step }: { step: TranscriptionStepRecord }) {
   const { t } = useTranslation();
   const cleanupLibrary = useSettingsStore((state) => state.promptLibraries?.cleanup);
   const prompt = step.prompt;
@@ -54,21 +54,6 @@ export default function TranscriptionSteps({ id, revision }: { id: number; revis
   const styleLibrary = useStyleStore((state) => state.library);
   const [result, setResult] = useState<TranscriptionStepsResult | null>(null);
   const [failed, setFailed] = useState(false);
-
-  // A style step names its style (or its id, once the style is deleted) and run mode.
-  const styleFacts = (step: TranscriptionStepRecord): string[] => {
-    if (step.kind !== "style" || !step.detail?.styleId) return [];
-    const style = findStyle(styleLibrary, step.detail.styleId);
-    const name = style ? `${style.emoji ? `${style.emoji} ` : ""}${style.name}` : null;
-    return [
-      name ?? t("controlPanel.history.steps.deletedStyle"),
-      step.detail.runMode === "one-step"
-        ? t("styles.runMode.oneStep")
-        : step.detail.runMode === "two-step"
-          ? t("styles.runMode.twoSteps")
-          : null,
-    ].filter((fact): fact is string => !!fact);
-  };
 
   useEffect(() => {
     let cancelled = false;
@@ -129,7 +114,7 @@ export default function TranscriptionSteps({ id, revision }: { id: number; revis
       <ol className="space-y-2">
         {result.steps.map((step, index) => {
           const facts = [
-            ...styleFacts(step),
+            ...styleStepFacts(step, styleLibrary, t),
             step.provider,
             step.model,
             step.ms !== null && step.ms !== undefined

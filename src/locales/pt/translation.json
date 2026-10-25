@@ -784,6 +784,97 @@
       "action": "Abrir Configurações"
     }
   },
+  "historyView": {
+    "search": {
+      "placeholder": "Pesquise o que você disse ou o texto final",
+      "label": "Pesquisar ditados",
+      "clear": "Limpar pesquisa"
+    },
+    "filters": {
+      "label": "Filtrar ditados",
+      "all": "Todos",
+      "failed": "Com falha",
+      "cleanupChanged": "Alterados pela limpeza",
+      "app": "App",
+      "appSelected": "App: {{app}}",
+      "anyApp": "Qualquer app",
+      "noApps": "Nenhum app registrado ainda"
+    },
+    "list": {
+      "label": "Ditados",
+      "noText": "Sem texto",
+      "loadingMore": "Carregando mais…",
+      "moreFailed": "Não foi possível carregar mais."
+    },
+    "marks": {
+      "changed": "{{step}}: texto alterado",
+      "same": "{{step}}: sem alteração",
+      "failed": "{{step}}: falhou",
+      "fallback": "{{step}}: texto anterior mantido",
+      "skipped": "{{step}}: etapa ignorada",
+      "letters": {
+        "glossary": "G",
+        "cleanup": "L",
+        "translation": "T",
+        "agent": "A",
+        "style": "E",
+        "finalize": "F",
+        "snippets": "Sn"
+      }
+    },
+    "empty": {
+      "noDictations": "Nenhum ditado ainda",
+      "noResults": "Nenhum ditado corresponde",
+      "noResultsDescription": "Tente outras palavras ou limpe a pesquisa e os filtros.",
+      "clearFilters": "Limpar pesquisa e filtros"
+    },
+    "historyOff": {
+      "title": "O histórico local está desativado",
+      "message": "Novos ditados não são salvos aqui enquanto o histórico local estiver desativado.",
+      "link": "Abrir Privacidade e dados"
+    },
+    "detail": {
+      "back": "Voltar à lista",
+      "empty": "Selecione um ditado para ver o que cada etapa fez.",
+      "notFound": "Este ditado não está mais no seu histórico.",
+      "loadError": "Não foi possível carregar este ditado.",
+      "appNotRecorded": "app não registrado",
+      "inApp": "em {{app}}",
+      "audioLength": "{{duration}} de áudio",
+      "failedRetry": "O áudio foi mantido, então você pode retranscrevê-lo.",
+      "failedNoAudio": "O áudio não foi mantido, então não pode ser retranscrito."
+    },
+    "audio": {
+      "play": "Reproduzir a gravação",
+      "pause": "Pausar",
+      "position": "Posição da reprodução"
+    },
+    "steps": {
+      "title": "Etapas",
+      "goTo": "Ir para {{step}}",
+      "changed": "alterado",
+      "same": "sem alteração",
+      "final": "Resultado final",
+      "sentTo": "enviado para {{app}}",
+      "sentToUnknown": "enviado para um app não registrado",
+      "viewLabel": "Mostrar",
+      "viewChanges": "Alterações",
+      "viewText": "Texto",
+      "noCorrections": "Nenhuma correção",
+      "failedNote": "Esta etapa falhou, então o texto de antes seguiu adiante.",
+      "fallbackNote": "Esta etapa não retornou texto, então o texto de antes seguiu adiante.",
+      "skippedNote": "Esta etapa não foi executada, então o texto seguiu sem alterações.",
+      "caseWas": "antes: “{{text}}”",
+      "lineBreak": "quebra de linha",
+      "tooLong": "Longo demais para comparar palavra por palavra, então o texto é mostrado como está.",
+      "withoutStepsTitle": "O que foi ouvido",
+      "notRecorded": "Os detalhes das etapas não foram registrados para este ditado.",
+      "heard": "Ouvido",
+      "heardHint": "transcrição bruta",
+      "sameAsHeard": "igual ao ouvido",
+      "whoChanged": "não foi registrado qual etapa o alterou"
+    }
+  },
   "reasoning": {
     "mode": {
       "cloud": "Nuvem",
@@ -4276,6 +4367,7 @@
   "sidebar": {
     "insights": "Estatísticas",
     "home": "Início",
+    "history": "Histórico",
     "notes": "Notas",
     "upload": "Enviar",
     "dictionary": "Dicionário",

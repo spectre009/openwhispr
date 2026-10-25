@@ -126,6 +126,8 @@ const EXPECTED_NATIVE_FIELD_DIRECTIONS = {
   "src/components/chat/EmailApprovalFields.tsx": ["auto", "auto", "auto", "auto"],
   // Title and description, or a comment: prose in any script.
   "src/components/chat/IssueApprovalFields.tsx": ["auto", "auto"],
+  // The History search: dictated words in any script.
+  "src/components/history/HistoryList.tsx": ["auto"],
   "src/components/notes/ActionManagerDialog.tsx": ["auto", "auto"],
   "src/components/notes/AddNotesToFolderDialog.tsx": ["auto"],
   "src/components/notes/MeetingTranscriptChat.tsx": ["ltr", "auto"],

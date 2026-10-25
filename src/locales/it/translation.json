@@ -805,6 +805,97 @@
       "action": "Apri Impostazioni"
     }
   },
+  "historyView": {
+    "search": {
+      "placeholder": "Cerca ciò che hai detto o il testo finale",
+      "label": "Cerca nelle dettature",
+      "clear": "Cancella ricerca"
+    },
+    "filters": {
+      "label": "Filtra le dettature",
+      "all": "Tutte",
+      "failed": "Non riuscite",
+      "cleanupChanged": "Modificate dalla correzione",
+      "app": "App",
+      "appSelected": "App: {{app}}",
+      "anyApp": "Qualsiasi app",
+      "noApps": "Ancora nessuna app registrata"
+    },
+    "list": {
+      "label": "Dettature",
+      "noText": "Nessun testo",
+      "loadingMore": "Caricamento…",
+      "moreFailed": "Impossibile caricarne altre."
+    },
+    "marks": {
+      "changed": "{{step}}: testo modificato",
+      "same": "{{step}}: nessuna modifica",
+      "failed": "{{step}}: non riuscito",
+      "fallback": "{{step}}: testo precedente mantenuto",
+      "skipped": "{{step}}: saltato",
+      "letters": {
+        "glossary": "G",
+        "cleanup": "C",
+        "translation": "T",
+        "agent": "A",
+        "style": "S",
+        "finalize": "R",
+        "snippets": "Sn"
+      }
+    },
+    "empty": {
+      "noDictations": "Ancora nessuna dettatura",
+      "noResults": "Nessuna dettatura corrisponde",
+      "noResultsDescription": "Prova altre parole, oppure cancella la ricerca e i filtri.",
+      "clearFilters": "Cancella ricerca e filtri"
+    },
+    "historyOff": {
+      "title": "La cronologia locale è disattivata",
+      "message": "Le nuove dettature non vengono salvate qui finché la cronologia locale è disattivata.",
+      "link": "Apri Privacy e dati"
+    },
+    "detail": {
+      "back": "Torna all'elenco",
+      "empty": "Seleziona una dettatura per vedere cosa ha fatto ogni passaggio.",
+      "notFound": "Questa dettatura non è più nella tua cronologia.",
+      "loadError": "Impossibile caricare questa dettatura.",
+      "appNotRecorded": "app non registrata",
+      "inApp": "in {{app}}",
+      "audioLength": "{{duration}} di audio",
+      "failedRetry": "L'audio è stato conservato, quindi puoi ritrascriverla.",
+      "failedNoAudio": "L'audio non è stato conservato, quindi non si può ritrascrivere."
+    },
+    "audio": {
+      "play": "Riproduci la registrazione",
+      "pause": "Pausa",
+      "position": "Posizione di riproduzione"
+    },
+    "steps": {
+      "title": "Passaggi",
+      "goTo": "Vai a {{step}}",
+      "changed": "modificato",
+      "same": "nessuna modifica",
+      "final": "Risultato finale",
+      "sentTo": "inviato a {{app}}",
+      "sentToUnknown": "inviato a un'app non registrata",
+      "viewLabel": "Mostra",
+      "viewChanges": "Modifiche",
+      "viewText": "Testo",
+      "noCorrections": "Nessuna correzione",
+      "failedNote": "Questo passaggio non è riuscito, quindi è andato avanti il testo di prima.",
+      "fallbackNote": "Questo passaggio non ha restituito testo, quindi è andato avanti il testo di prima.",
+      "skippedNote": "Questo passaggio non è stato eseguito, quindi il testo è andato avanti invariato.",
+      "caseWas": "prima: «{{text}}»",
+      "lineBreak": "a capo",
+      "tooLong": "Troppo lungo per un confronto parola per parola, quindi il testo è mostrato così com'è.",
+      "withoutStepsTitle": "Cosa è stato sentito",
+      "notRecorded": "I dettagli dei passaggi non sono stati registrati per questa dettatura.",
+      "heard": "Sentito",
+      "heardHint": "trascrizione grezza",
+      "sameAsHeard": "uguale a ciò che è stato sentito",
+      "whoChanged": "non è stato registrato quale passaggio l'ha modificato"
+    }
+  },
   "reasoning": {
     "mode": {
       "cloud": "Cloud",
@@ -4276,6 +4367,7 @@
   "sidebar": {
     "insights": "Statistiche",
     "home": "Home",
+    "history": "Cronologia",
     "notes": "Note",
     "upload": "Carica",
     "dictionary": "Dizionario",

@@ -805,6 +805,97 @@
       "action": "打开设置"
     }
   },
+  "historyView": {
+    "search": {
+      "placeholder": "搜索你说的话或最终文本",
+      "label": "搜索听写",
+      "clear": "清除搜索"
+    },
+    "filters": {
+      "label": "筛选听写",
+      "all": "全部",
+      "failed": "失败",
+      "cleanupChanged": "被文本整理修改",
+      "app": "应用",
+      "appSelected": "应用：{{app}}",
+      "anyApp": "任意应用",
+      "noApps": "尚未记录任何应用"
+    },
+    "list": {
+      "label": "听写",
+      "noText": "无文本",
+      "loadingMore": "正在加载更多…",
+      "moreFailed": "无法加载更多。"
+    },
+    "marks": {
+      "changed": "{{step}}：修改了文本",
+      "same": "{{step}}：无变化",
+      "failed": "{{step}}：失败",
+      "fallback": "{{step}}：保留了之前的文本",
+      "skipped": "{{step}}：已跳过",
+      "letters": {
+        "glossary": "术",
+        "cleanup": "整",
+        "translation": "译",
+        "agent": "助",
+        "style": "风",
+        "finalize": "终",
+        "snippets": "片"
+      }
+    },
+    "empty": {
+      "noDictations": "还没有听写",
+      "noResults": "没有匹配的听写",
+      "noResultsDescription": "试试其他词，或清除搜索和筛选条件。",
+      "clearFilters": "清除搜索和筛选"
+    },
+    "historyOff": {
+      "title": "本地历史记录已关闭",
+      "message": "本地历史记录关闭期间，新的听写不会保存在这里。",
+      "link": "打开“隐私与数据”"
+    },
+    "detail": {
+      "back": "返回列表",
+      "empty": "选择一条听写，查看每个步骤做了什么。",
+      "notFound": "这条听写已不在你的历史记录中。",
+      "loadError": "无法加载这条听写。",
+      "appNotRecorded": "未记录应用",
+      "inApp": "在 {{app}} 中",
+      "audioLength": "{{duration}} 音频",
+      "failedRetry": "音频已保留，因此可以重新转录。",
+      "failedNoAudio": "音频未保留，因此无法重新转录。"
+    },
+    "audio": {
+      "play": "播放录音",
+      "pause": "暂停",
+      "position": "播放位置"
+    },
+    "steps": {
+      "title": "步骤",
+      "goTo": "跳到{{step}}",
+      "changed": "已修改",
+      "same": "无变化",
+      "final": "最终输出",
+      "sentTo": "已发送到 {{app}}",
+      "sentToUnknown": "已发送到未记录的应用",
+      "viewLabel": "显示",
+      "viewChanges": "改动",
+      "viewText": "文本",
+      "noCorrections": "无更正",
+      "failedNote": "此步骤失败，因此沿用了之前的文本。",
+      "fallbackNote": "此步骤未返回文本，因此沿用了之前的文本。",
+      "skippedNote": "此步骤未运行，因此文本保持不变。",
+      "caseWas": "原为“{{text}}”",
+      "lineBreak": "换行",
+      "tooLong": "文本太长，无法逐词比较，因此按原样显示。",
+      "withoutStepsTitle": "识别内容",
+      "notRecorded": "这条听写没有记录步骤详情。",
+      "heard": "识别结果",
+      "heardHint": "原始转录",
+      "sameAsHeard": "与识别结果相同",
+      "whoChanged": "未记录是哪个步骤修改的"
+    }
+  },
   "reasoning": {
     "mode": {
       "cloud": "云端",
@@ -4276,6 +4367,7 @@
   "sidebar": {
     "insights": "统计",
     "home": "首页",
+    "history": "历史记录",
     "notes": "笔记",
     "upload": "上传",
     "dictionary": "词典",
