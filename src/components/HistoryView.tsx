@@ -33,7 +33,10 @@ interface HistoryViewProps {
   onOpenSettings: (section?: string) => void;
   onOpenIntegrations: () => void;
   onShowAudioInFolder: (id: number) => void;
-  onRetryTranscription: (id: number, options?: { isRecover?: boolean }) => Promise<void>;
+  onRetryTranscription: (
+    id: number,
+    options?: { isRecover?: boolean; cleanupOnly?: boolean }
+  ) => Promise<void>;
   showDiscarded: boolean;
   onToggleDiscarded: () => void;
   userName?: string | null;

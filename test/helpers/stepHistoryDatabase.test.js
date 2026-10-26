@@ -422,6 +422,151 @@ test("a retry with unchanged text still replaces its steps", (t) => {
   assert.deepEqual(ctx.prompts(), [PROMPT_B], "replaced, not appended");
 });
 
+// Re-run cleanup's trace: the stored speech-to-text step carried over, then
+// cleanup on the row's raw transcript (services/historyRerun.ts).
+function rerunCleanupTrace(raw, final, runId) {
+  const trace = makeTrace({ raw, working: raw, final, prompt: PROMPT_B, runId });
+  trace.steps[0] = { ...trace.steps[0], ms: null, detail: { reused: "stored" } };
+  return trace;
+}
+
+test("Re-transcribe overtaken by Re-run cleanup writes nothing; the cleanup wins", (t) => {
+  const ctx = setup(t);
+  if (!ctx) return;
+  const id = ctx.dictate({ raw: "um hello littlebuddy" });
+  const before = ctx.row(id);
+
+  // Re-transcribe begins (main's retry-transcription), and while speech-to-text
+  // runs, Re-run cleanup begins its own run on the row and reads it.
+  const retranscribe = ctx.history.beginRun({ transcriptionId: id });
+  const retranscribeCurrent = ctx.history.currentRunCheck(retranscribe);
+  const cleanup = ctx.history.beginRun({ transcriptionId: id });
+  const raw = ctx.row(id).raw_text;
+
+  // Speech-to-text answers: main's own writes are dropped.
+  assert.deepEqual(
+    ctx.history.saveRetranscription(id, {
+      text: "a different hearing",
+      provider: "groq",
+      model: "whisper",
+      isCurrent: retranscribeCurrent,
+    }),
+    { stale: true, transcription: null }
+  );
+  const untouched = ctx.row(id);
+  for (const column of ["text", "raw_text", "status", "provider", "model"]) {
+    assert.equal(untouched[column], before[column], column);
+  }
+  assert.equal(ctx.stepCount(id), 4, "its steps are left alone");
+
+  // Re-run cleanup completes on the raw transcript it read.
+  const done = ctx.history.completeRetry(id, "Hello, Little Buddy!", raw, {
+    trace: rerunCleanupTrace(raw, "Hello, Little Buddy!", cleanup),
+  });
+  assert.deepEqual(done, { success: true, stepsSaved: true });
+  assert.equal(ctx.row(id).text, "Hello, Little Buddy!");
+  assert.equal(ctx.row(id).raw_text, "um hello littlebuddy");
+  const steps = ctx.history.getSteps(id).steps;
+  assert.deepEqual(steps[0].detail, { reused: "stored" }, "the reused step says so");
+  assert.equal(steps[0].provider, "groq");
+
+  // Re-transcribe's renderer completion arrives last: stale, nothing written.
+  const late = makeTrace({ raw: "a different hearing", final: "Late.", runId: retranscribe });
+  assert.deepEqual(ctx.history.completeRetry(id, "Late.", late.rawText, { trace: late }), {
+    success: false,
+    stale: true,
+  });
+  assert.equal(ctx.row(id).text, "Hello, Little Buddy!");
+});
+
+test("Re-run cleanup overtaken by Re-transcribe is dropped; the re-transcription wins", (t) => {
+  const ctx = setup(t);
+  if (!ctx) return;
+  const id = ctx.dictate({ raw: "um hello littlebuddy" });
+
+  const cleanup = ctx.history.beginRun({ transcriptionId: id });
+  const raw = ctx.row(id).raw_text;
+  const retranscribe = ctx.history.beginRun({ transcriptionId: id });
+  const retranscribeCurrent = ctx.history.currentRunCheck(retranscribe);
+
+  // Re-transcribe's speech-to-text writes go through: it is the newest run.
+  const saved = ctx.history.saveRetranscription(id, {
+    text: "hello little buddy",
+    provider: "groq",
+    model: "whisper-large-v3",
+    isCurrent: retranscribeCurrent,
+  });
+  assert.equal(saved.stale, false);
+  assert.equal(saved.transcription.raw_text, "hello little buddy");
+  assert.equal(saved.transcription.status, "completed");
+  assert.equal(saved.transcription.model, "whisper-large-v3");
+
+  // The cleanup that began first completes now: nothing written.
+  assert.deepEqual(
+    ctx.history.completeRetry(id, "Stale cleanup.", raw, {
+      trace: rerunCleanupTrace(raw, "Stale cleanup.", cleanup),
+    }),
+    { success: false, stale: true }
+  );
+  assert.equal(ctx.row(id).text, "hello little buddy");
+
+  const retried = makeTrace({
+    raw: "hello little buddy",
+    working: "hello Little Buddy",
+    final: "Hello, Little Buddy.",
+    runId: retranscribe,
+  });
+  assert.equal(
+    ctx.history.completeRetry(id, "Hello, Little Buddy.", "hello little buddy", {
+      trace: retried,
+    }).success,
+    true
+  );
+  assert.equal(ctx.row(id).text, "Hello, Little Buddy.");
+  assert.equal(ctx.history.getSteps(id).steps[0].detail, null, "a real transcription");
+});
+
+test("a failed step's reason is stored allowlisted, and read back with the step", (t) => {
+  const ctx = setup(t);
+  if (!ctx) return;
+  const runId = ctx.history.beginRun();
+  const trace = makeTrace({ runId });
+  trace.steps[2] = {
+    kind: "cleanup",
+    outcome: "failed",
+    output: null,
+    provider: "copilot",
+    model: "claude-haiku-5.5",
+    ms: 30000,
+    errorCode: "PROVIDER_QUOTA_EXHAUSTED",
+    detail: {
+      failure: {
+        code: "PROVIDER_QUOTA_EXHAUSTED",
+        messageKey: "providerErrors.quotaExhausted",
+        messageParams: { provider: "GitHub Copilot", error: "um hello littlebuddy" },
+        settingsTarget: "llms",
+        technicalDetails: { underlyingError: '{"error":"quota"}' },
+      },
+    },
+  };
+  const { id } = ctx.history.saveTranscription(trace.finalText, trace.rawText, { trace });
+  const stored = ctx.db.db
+    .prepare("SELECT detail FROM transcription_steps WHERE transcription_id = ? AND kind = ?")
+    .get(id, "cleanup").detail;
+  assert.deepEqual(JSON.parse(stored), {
+    failure: {
+      code: "PROVIDER_QUOTA_EXHAUSTED",
+      messageKey: "providerErrors.quotaExhausted",
+      messageParams: { provider: "GitHub Copilot" },
+      settingsTarget: "llms",
+    },
+  });
+  assert.ok(!stored.includes("littlebuddy") && !stored.includes("underlyingError"));
+  const step = ctx.history.getSteps(id).steps.find((candidate) => candidate.kind === "cleanup");
+  assert.equal(step.errorCode, "PROVIDER_QUOTA_EXHAUSTED");
+  assert.equal(step.detail.failure.messageKey, "providerErrors.quotaExhausted");
+});
+
 // The dictation error card's Retry re-sent a failed recording.
 function failedRow(ctx) {
   const { id } = ctx.db.saveTranscription("", null, {

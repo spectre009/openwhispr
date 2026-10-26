@@ -240,6 +240,11 @@ contextBridge.exposeInMainWorld("electronAPI", {
   ),
   onReviewDictationBusy: registerListener("review-dictation-busy", (callback) => () => callback()),
   hideControlPanel: () => ipcRenderer.invoke("hide-control-panel"),
+  // "Open in History" on a dictation error card: the dictation window names
+  // its row; main holds it for the control panel, which asks on the event.
+  openHistoryItem: (id) => ipcRenderer.invoke("history-open-item", id),
+  getPendingHistoryItemRequest: () => ipcRenderer.invoke("get-pending-history-item-request"),
+  onHistoryItemPending: registerListener("history-item-pending", (callback) => () => callback()),
   dictationDeliveryStateChanged: (delivering) =>
     ipcRenderer.send("dictation-delivery-state", delivering),
   // Prompt test cases: main owns ownership, the history policy and pinned text.

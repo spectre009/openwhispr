@@ -11,6 +11,17 @@ export interface CleanupFailure {
   actionKey?: string;
   copyCommand?: string;
   technicalDetails?: TechnicalErrorDetailsData;
+  /**
+   * The dictation it belongs to (the dictation window sets it): whether that
+   * dictation is still the newest, so a late card never replaces a newer
+   * dictation's, and its saved History row, for Open in History.
+   */
+  dictation?: {
+    isCurrent: () => boolean;
+    rowId: Promise<number | null> | null;
+    /** Whether the uncleaned text was pasted; false: it's only in History (and the clipboard). */
+    pasted?: boolean;
+  };
 }
 
 interface CleanupFailureState {

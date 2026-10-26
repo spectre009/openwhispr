@@ -71,7 +71,7 @@ interface HistoryBrowserProps {
   onDelete: (id: number) => void;
   onRetry: (
     id: number,
-    options: { routeKind: string | null; onSettled: () => void }
+    options: { routeKind: string | null; onSettled: () => void; cleanupOnly?: boolean }
   ) => Promise<void>;
   onShowAudioInFolder: (id: number) => void;
   onOpenSettings: (destination?: string) => void;
@@ -200,11 +200,13 @@ export default function HistoryBrowser({
   }, []);
 
   // The retry rewrites the row's text and steps (or, for a deleted style, runs
-  // once the user confirms): re-read both when it's done.
+  // once the user confirms): re-read both when it's done. `cleanupOnly`: Re-run
+  // cleanup, from the stored raw transcript.
   const retry = useCallback(
-    (id: number, routeKind: string | null) =>
+    (id: number, routeKind: string | null, cleanupOnly = false) =>
       onRetry(id, {
         routeKind,
+        ...(cleanupOnly ? { cleanupOnly } : {}),
         onSettled: () => {
           refreshRow(id);
           setRevision((n) => n + 1);

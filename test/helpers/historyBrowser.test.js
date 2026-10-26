@@ -66,8 +66,8 @@ test("a malformed cursor is refused rather than restarting the list", () => {
 });
 
 test("a row's app and marks come from its first step's context and each later step", () => {
-  assert.deepEqual(summarizeSteps(undefined), { app: null, marks: null });
-  assert.deepEqual(summarizeSteps([]), { app: null, marks: null });
+  assert.deepEqual(summarizeSteps(undefined), { app: null, marks: null, stepFailure: null });
+  assert.deepEqual(summarizeSteps([]), { app: null, marks: null, stepFailure: null });
   assert.deepEqual(
     summarizeSteps([
       { kind: "stt", outcome: "ok", output: "hi", context: '{"targetApp":"Code.exe"}' },
@@ -80,12 +80,43 @@ test("a row's app and marks come from its first step's context and each later st
         { kind: "cleanup", change: "changed" },
         { kind: "finalize", change: "changed", snippets: true },
       ],
+      stepFailure: null,
     }
   );
   assert.equal(
     summarizeSteps([{ kind: "stt", outcome: "ok", output: "hi", context: "not json" }]).app,
     null
   );
+});
+
+test("a row's badge names its first failed cleanup, style or translation step", () => {
+  const steps = (...rest) => [{ kind: "stt", outcome: "ok", output: "hi" }, ...rest];
+  assert.equal(
+    summarizeSteps(steps({ kind: "cleanup", outcome: "failed", output: null })).stepFailure,
+    "cleanup"
+  );
+  assert.equal(
+    summarizeSteps(
+      steps(
+        { kind: "cleanup", outcome: "ok", output: "Hi." },
+        { kind: "style", outcome: "fallback", output: "" }
+      )
+    ).stepFailure,
+    "style",
+    "a blank reply that was ignored counts"
+  );
+  assert.equal(
+    summarizeSteps(steps({ kind: "translation", outcome: "failed", output: null })).stepFailure,
+    "translation"
+  );
+  for (const notFailed of [
+    { kind: "translation", outcome: "skipped", output: "hi" },
+    { kind: "translation", outcome: "ok", output: "hi" },
+    { kind: "agent", outcome: "failed", output: null },
+    { kind: "finalize", outcome: "failed", output: "hi" },
+  ]) {
+    assert.equal(summarizeSteps(steps(notFailed)).stepFailure, null, JSON.stringify(notFailed));
+  }
 });
 
 test("the list asks for one extra row, reads steps for the page's ids under the current owner", () => {

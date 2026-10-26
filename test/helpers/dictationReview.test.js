@@ -276,6 +276,46 @@ test("a panel still loading gets the request after it has loaded", async () => {
   assert.deepEqual(manager.consumePendingReviewRequest(), { requestId: 1, id: 41 });
 });
 
+test("a card's Open in History opens that row with no review, never refused as busy", async () => {
+  const panel = fakeWindow();
+  const { manager, calls, owners } = managerFor({ panel });
+  // A newer dictation is being recorded and the last one still delivered.
+  manager.setDictationLifecycleState("recording", "dictation");
+  manager.setDictationDeliveryState(true);
+  assert.equal(manager.isDictationBusy(), true);
+
+  assert.deepEqual(await manager.dictationReview.openItem(55), { opened: true, id: 55 });
+  assert.deepEqual(calls, ["create-panel"], "the panel is shown and focused");
+  const channels = panel.webContents.sent.map(([channel]) => channel);
+  assert.ok(channels.includes("history-item-pending"));
+  assert.ok(!channels.includes("review-dictation-pending"));
+  assert.deepEqual(manager.mainWindow.webContents.sent, [], "no busy notice");
+  assert.deepEqual(owners, [], "the card names its row: nothing is resolved");
+  assert.deepEqual(manager.consumePendingHistoryItemRequest(), { requestId: 1, id: 55 });
+  assert.equal(manager.consumePendingHistoryItemRequest(), null, "taken once");
+  assert.equal(manager.consumePendingReviewRequest(), null, "no review is drafted");
+
+  for (const id of [null, 0, -3, 1.5, "55"]) {
+    assert.deepEqual(await manager.dictationReview.openItem(id), {
+      opened: false,
+      reason: "invalid",
+    });
+  }
+  assert.equal(manager.consumePendingHistoryItemRequest(), null);
+});
+
+test("a card's Open in History reaches a panel that is still loading", async () => {
+  const { manager, calls } = managerFor({ panel: null });
+  await manager.dictationReview.openItem(9);
+  const panel = manager.controlPanelWindow;
+  assert.deepEqual(calls, ["create-panel", "show-panel"]);
+  assert.deepEqual(panel.webContents.sent, []);
+  panel.webContents.loading = false;
+  panel.webContents.emit("did-finish-load");
+  assert.deepEqual(panel.webContents.sent, [["history-item-pending"]]);
+  assert.deepEqual(manager.consumePendingHistoryItemRequest(), { requestId: 1, id: 9 });
+});
+
 test("not during onboarding or while a hotkey is being captured", async () => {
   const panel = fakeWindow();
   const { manager, calls, owners } = managerFor({ panel });

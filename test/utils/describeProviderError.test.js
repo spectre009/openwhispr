@@ -45,7 +45,12 @@ test("formatProviderErrorDetails labels provider details generically", async () 
   const { formatProviderErrorDetails } = await load();
   assert.equal(
     formatProviderErrorDetails(
-      { provider: "Mistral", status: 401, requestId: "r1", underlyingError: '{"detail":"Invalid API Key"}' },
+      {
+        provider: "Mistral",
+        status: 401,
+        requestId: "r1",
+        underlyingError: '{"detail":"Invalid API Key"}',
+      },
       t
     ),
     [
@@ -108,6 +113,53 @@ test("a fixable classified error gets Open Settings, then an icon-only Copy deta
   assert.equal(actions[1].dismissOnClick, false);
   assert.equal(await actions[1].onClick(), true);
   assert.match(written[0], /providerErrors\.details\.provider: OpenAI/);
+  // Open Settings leaves the card (and the recording it keeps for Retry) up.
+  assert.equal(actions[0].dismissOnClick, false);
+});
+
+test("a stored step failure is the sentence its card showed; none without a key", async () => {
+  const { describeStepFailure } = await load();
+  assert.equal(
+    describeStepFailure(
+      {
+        code: "PROVIDER_QUOTA_EXHAUSTED",
+        messageKey: "providerErrors.quotaExhausted",
+        messageParams: { provider: "GitHub Copilot" },
+      },
+      t
+    ),
+    'providerErrors.quotaExhausted|{"provider":"GitHub Copilot"}'
+  );
+  assert.equal(describeStepFailure({ code: "unknown" }, t), null, "the code is shown instead");
+  assert.equal(describeStepFailure(null, t), null);
+});
+
+test("Open in History waits for the dictation's row and opens that one, never another", async (ctx) => {
+  const { openInHistoryAction } = await load();
+  const opened = [];
+  const original = globalThis.window;
+  globalThis.window = { electronAPI: { openHistoryItem: async (id) => opened.push(id) } };
+  ctx.after(() => {
+    globalThis.window = original;
+  });
+  let resolveRow;
+  const action = openInHistoryAction(
+    new Promise((resolve) => {
+      resolveRow = resolve;
+    }),
+    t
+  );
+  assert.equal(action.icon, "history");
+  assert.equal(action.dismissOnClick, false);
+  const click = action.onClick();
+  resolveRow(12);
+  await click;
+  assert.deepEqual(opened, [12]);
+  // No saved row (history off, or the save failed): nothing to open.
+  await openInHistoryAction(Promise.resolve(null), t).onClick();
+  // A card replaced meanwhile ignores the click.
+  await openInHistoryAction(Promise.resolve(13), t, () => false).onClick();
+  assert.deepEqual(opened, [12]);
 });
 
 test("Copy details on a superseded card neither copies nor reports a result", async (ctx) => {

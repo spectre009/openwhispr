@@ -37,6 +37,28 @@ export function stepOutcomeLabel(
   return outcome === "ok" ? null : t(`controlPanel.history.steps.outcomes.${outcome}`);
 }
 
+/**
+ * A speech-to-text step Re-run cleanup carried over instead of transcribing
+ * again: "Reused", or "Reused · origin unknown" when the dictation had no
+ * speech-to-text step to carry. Null for every other step.
+ */
+export function stepReusedLabel(
+  step: Pick<TranscriptionStepRecord, "kind" | "detail">,
+  t: Translate
+): string | null {
+  const reused = step.kind === "stt" ? step.detail?.reused : undefined;
+  if (reused === "stored") return t("controlPanel.history.steps.reused");
+  if (reused === "unknown") return t("controlPanel.history.steps.reusedUnknown");
+  return null;
+}
+
+/** A History row's badge for its failed step: "Cleanup failed", "Style not applied", … */
+export function stepFailureBadgeLabel(kind: string, t: Translate): string | null {
+  return kind === "cleanup" || kind === "style" || kind === "translation"
+    ? t(`historyView.badges.${kind}`)
+    : null;
+}
+
 /** A style step's style (or "Deleted style") and run mode; nothing for other steps. */
 export function styleStepFacts(
   step: Pick<TranscriptionStepRecord, "kind" | "detail">,

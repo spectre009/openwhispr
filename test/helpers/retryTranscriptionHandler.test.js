@@ -3,6 +3,7 @@ const assert = require("node:assert/strict");
 const Module = require("node:module");
 
 const handlersModulePath = require.resolve("../../src/helpers/ipcHandlers");
+const { createStepHistory } = require("../../src/helpers/stepHistory.js");
 const originalLoad = Module._load;
 
 // Captures every ipcMain.handle registration and every net.fetch request so the
@@ -142,18 +143,33 @@ function buildFakeThis() {
     [7, { id: 7, audio_duration_ms: 1200 }],
     [8, { id: 8, audio_duration_ms: 1200 }],
   ]);
+  const databaseManager = {
+    writes: [],
+    updateTranscriptionText(id, ...rest) {
+      this.writes.push(["text", id, ...rest]);
+    },
+    updateTranscriptionStatus(id, status) {
+      this.writes.push(["status", id, status]);
+    },
+    updateTranscriptionAudio(id, audio) {
+      this.writes.push(["audio", id, audio.provider, audio.model]);
+    },
+    getTranscriptionById: (id) => dbRows.get(id),
+  };
   const target = {
     sessionId: "test-session",
     audioStorageManager: {
       // 7 is a stored WebM recording, 8 one already in WAV.
       getAudioBuffer: (id) => (id === 7 ? Buffer.from([1, 2, 3]) : id === 8 ? WAV_BUFFER : null),
     },
-    databaseManager: {
-      updateTranscriptionText: () => {},
-      updateTranscriptionStatus: () => {},
-      updateTranscriptionAudio: () => {},
-      getTranscriptionById: (id) => dbRows.get(id),
-    },
+    databaseManager,
+    // The real step-history service over the fake database: retry runs and
+    // their revisions, and the writes they guard.
+    stepHistory: createStepHistory({
+      db: databaseManager,
+      getOwner: () => "signed-out",
+      isEnabled: () => true,
+    }),
     environmentManager: {
       getOpenAIKey: () => "sk-openai",
       getGroqKey: () => "gk-groq",
@@ -204,6 +220,77 @@ test("retry: corti routes to the corti client, never OpenAI", async () => {
   assert.equal(cortiCalls[0].tenant, "acme");
   assert.equal(cortiCalls[0].language, "en");
   assert.equal(fetches.length, 0, "corti retry must not touch HTTP endpoints");
+});
+
+const CORTI = {
+  cloudTranscriptionProvider: "corti",
+  cloudTranscriptionMode: "byok",
+  transcriptionMode: "providers",
+  cortiEnvironment: "eu",
+  cortiTenant: "acme",
+  preferredLanguage: "auto",
+};
+
+// Speech-to-text answers only when the test says so, so another run on the
+// same row can begin while this one waits.
+function holdCorti() {
+  let answer;
+  cortiBehavior = () =>
+    new Promise((resolve) => {
+      answer = resolve;
+    });
+  return {
+    answer: (text) => answer({ text }),
+    restore: () => {
+      cortiBehavior = async () => ({ text: "corti text" });
+    },
+  };
+}
+
+test("retry: a Re-transcribe a Re-run cleanup overtook writes nothing", async (t) => {
+  const corti = holdCorti();
+  t.after(corti.restore);
+  fakeThis.databaseManager.writes.length = 0;
+  const pending = invoke(CORTI);
+  await new Promise((resolve) => setImmediate(resolve));
+  // Re-run cleanup begins its own run on the row (step-history-begin-run).
+  const cleanupRun = fakeThis.stepHistory.beginRun({ transcriptionId: 7 });
+  assert.ok(cleanupRun);
+  corti.answer("heard again");
+  const result = await pending;
+  assert.deepEqual(result, { success: false, stale: true });
+  assert.deepEqual(
+    fakeThis.databaseManager.writes,
+    [],
+    "no text, status, audio, provider or model write"
+  );
+});
+
+test("retry: a Re-transcribe begun after a Re-run cleanup writes, and the cleanup's completion is dropped", async (t) => {
+  const corti = holdCorti();
+  t.after(corti.restore);
+  fakeThis.databaseManager.writes.length = 0;
+  const cleanupRun = fakeThis.stepHistory.beginRun({ transcriptionId: 7 });
+  const pending = invoke(CORTI);
+  await new Promise((resolve) => setImmediate(resolve));
+  corti.answer("heard again");
+  const result = await pending;
+  assert.equal(result.success, true);
+  assert.deepEqual(
+    fakeThis.databaseManager.writes.map((write) => write.slice(0, 3)),
+    [
+      ["text", 7, "heard again"],
+      ["status", 7, "completed"],
+      ["audio", 7, "corti"],
+    ]
+  );
+  // The overtaken Re-run cleanup's completion is stale: nothing written.
+  fakeThis.databaseManager.writes.length = 0;
+  const completion = fakeThis.stepHistory.completeRetry(7, "Cleaned.", "heard", {
+    trace: { version: 1, runId: cleanupRun, steps: [] },
+  });
+  assert.deepEqual(completion, { success: false, stale: true });
+  assert.deepEqual(fakeThis.databaseManager.writes, []);
 });
 
 test("retry: custom misconfiguration fails closed with a coded error", async () => {

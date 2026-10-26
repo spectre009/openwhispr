@@ -752,7 +752,9 @@
           "skipped": "Omitido",
           "fallback": "Se mantuvo el texto anterior"
         },
-        "deletedStyle": "Estilo eliminado"
+        "deletedStyle": "Estilo eliminado",
+        "reused": "Reutilizado",
+        "reusedUnknown": "Reutilizado · origen desconocido"
       },
       "export": {
         "button": "Exportar",
@@ -780,6 +782,12 @@
         "title": "El estilo de este dictado se eliminó",
         "description": "¿Reintentarlo como dictado Simple (solo limpieza)?",
         "retryPlain": "Reintentar como Simple"
+      },
+      "rerunCleanup": {
+        "action": "Repetir la limpieza",
+        "success": "Limpieza repetida",
+        "error": "No se pudo repetir la limpieza",
+        "unavailable": "No se puede repetir la limpieza de este dictado"
       }
     },
     "aiCta": {
@@ -895,7 +903,9 @@
       "heard": "Oído",
       "heardHint": "transcripción sin procesar",
       "sameAsHeard": "igual que lo oído",
-      "whoChanged": "no se registró qué paso lo cambió"
+      "whoChanged": "no se registró qué paso lo cambió",
+      "reusedNote": "Repetir la limpieza conservó esta transcripción en lugar de volver a transcribir la grabación.",
+      "reusedUnknownNote": "Repetir la limpieza conservó la transcripción guardada; no se registró qué conversión de voz a texto la produjo."
     },
     "review": {
       "label": "Tu valoración",
@@ -1025,6 +1035,11 @@
         "saved": "Comprobaciones guardadas",
         "saveError": "No se pudieron guardar las comprobaciones."
       }
+    },
+    "badges": {
+      "cleanup": "Limpieza fallida",
+      "style": "Estilo no aplicado",
+      "translation": "Traducción fallida"
     }
   },
   "reasoning": {
@@ -1247,7 +1262,8 @@
         "description": "Whisper local falló. Se usó la API de OpenAI."
       },
       "errorActions": {
-        "viewTranscript": "Ver transcripción"
+        "viewTranscript": "Ver transcripción",
+        "openInHistory": "Abrir en el historial"
       },
       "noAudio": {
         "title": "No hemos entendido eso",
@@ -4830,7 +4846,9 @@
       },
       "cleanupFailed": {
         "title": "Limpieza fallida",
-        "description": "Tu dictado se pegó sin limpieza con IA."
+        "description": "Tu dictado se pegó sin limpieza con IA.",
+        "descriptionNotPasted": "Guardado en el historial sin limpieza con IA.",
+        "alsoFailed": "La limpieza con IA también falló: {{reason}}"
       }
     },
     "mic": {
@@ -5898,7 +5916,7 @@
     "unreachable": "No se pudo conectar con {{provider}}. Comprueba tu conexión.",
     "noResponse": "No se recibió respuesta de {{provider}}. Comprueba tu clave de API y tu conexión.",
     "unknown": "{{provider}} devolvió un error inesperado.",
-    "keyMissing": "No hay ninguna clave de API configurada para {{provider}}. Añádela en Ajustes → Modelos de lenguaje.",
+    "keyMissing": "No hay ninguna clave de API configurada para {{provider}}. Añádela en Ajustes → Conexiones de IA y modelos locales.",
     "selfHosted": {
       "authFailed": "Tu servidor rechazó la clave de API.",
       "accessDenied": "Tu servidor denegó el acceso. Es posible que la clave no incluya este modelo.",
@@ -5926,10 +5944,10 @@
       "requestId": "ID de solicitud"
     },
     "copilot": {
-      "authFailed": "Tu sesión de GitHub Copilot ya no es válida. Vuelve a iniciar sesión en Ajustes → Modelos de lenguaje.",
+      "authFailed": "Tu sesión de GitHub Copilot ya no es válida. Vuelve a iniciar sesión en Ajustes → Conexiones de IA y modelos locales.",
       "accessDenied": "GitHub Copilot rechazó esta solicitud. Puede que tu plan o la política de tu organización no permitan este modelo.",
-      "notSignedIn": "No has iniciado sesión en GitHub Copilot. Inicia sesión en Ajustes → Modelos de lenguaje.",
-      "unsupportedRequest": "GitHub Copilot solo puede limpiar dictados, dar formato a notas y traducir. Elige otro modelo para el chat y el asistente de voz en Ajustes → Modelos de lenguaje."
+      "notSignedIn": "No has iniciado sesión en GitHub Copilot. Inicia sesión en Ajustes → Conexiones de IA y modelos locales.",
+      "unsupportedRequest": "GitHub Copilot solo puede limpiar dictados, dar formato a notas y traducir. Elige otro modelo para el Chat y el Asistente de voz en Ajustes."
     }
   },
   "calendarOAuth": {

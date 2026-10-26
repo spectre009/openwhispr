@@ -39,6 +39,15 @@ const FIXABLE = new Set([
   C.KEY_MISSING,
 ]);
 
+/**
+ * The Settings section a stored error code is fixed in, for a surface
+ * ("transcription" or "llm"), or undefined when Settings can't fix it: what a
+ * failed History row offers, where only the code was kept.
+ */
+export function providerSettingsTargetFor(code, surface) {
+  return FIXABLE.has(code) ? SETTINGS_TARGET_BY_SURFACE[surface] : undefined;
+}
+
 const MESSAGE_KEYS = {
   [C.AUTH_FAILED]: "providerErrors.authFailed",
   [C.ACCESS_DENIED]: "providerErrors.accessDenied",
@@ -76,7 +85,7 @@ const ENGLISH = {
     "Couldn't get a response from {{provider}}. Check your API key and connection.",
   "providerErrors.unknown": "{{provider}} returned an unexpected error.",
   "providerErrors.keyMissing":
-    "No API key is set for {{provider}}. Add it in Settings → Language Models.",
+    "No API key is set for {{provider}}. Add it in Settings → AI Connections & Local Models.",
   "providerErrors.selfHosted.authFailed": "Your server rejected the API key.",
   "providerErrors.selfHosted.accessDenied":
     "Your server denied access. The key may not include this model.",
@@ -101,14 +110,17 @@ const ENGLISH = {
   "hooks.audioRecording.errorDescriptions.providerKeyMissing":
     "No API key is set for {{provider}}.",
   "providerErrors.copilot.authFailed":
-    "Your GitHub Copilot sign-in is no longer valid. Sign in again in Settings → Language Models.",
+    "Your GitHub Copilot sign-in is no longer valid. Sign in again in Settings → AI Connections & Local Models.",
   "providerErrors.copilot.accessDenied":
     "GitHub Copilot refused this request. Your plan or your organization's policy may not allow this model.",
   "providerErrors.copilot.notSignedIn":
-    "You're not signed in to GitHub Copilot. Sign in under Settings → Language Models.",
+    "You're not signed in to GitHub Copilot. Sign in under Settings → AI Connections & Local Models.",
   "providerErrors.copilot.unsupportedRequest":
-    "GitHub Copilot can only clean up dictation, format notes and translate. Choose another model for chat and the voice assistant in Settings → Language Models.",
+    "GitHub Copilot can only clean up dictation, format notes and translate. Choose another model for Chat and the Voice Assistant in Settings.",
 };
+
+/** Every message key a classified provider error can carry (the keys of ENGLISH). */
+export const PROVIDER_ERROR_MESSAGE_KEYS = Object.freeze(Object.keys(ENGLISH));
 
 // Providers that sign in rather than take an API key word some failures their
 // own way.
@@ -247,7 +259,7 @@ function buildClassification(
   }
   const providerKey = PROVIDER_MESSAGE_KEYS[providerId]?.[code];
   if (providerKey) messageKey = providerKey;
-  const settingsTarget = FIXABLE.has(code) ? SETTINGS_TARGET_BY_SURFACE[surface] : undefined;
+  const settingsTarget = providerSettingsTargetFor(code, surface);
   return {
     code,
     messageKey,

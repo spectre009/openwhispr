@@ -752,7 +752,9 @@
           "skipped": "Übersprungen",
           "fallback": "Vorheriger Text beibehalten"
         },
-        "deletedStyle": "Gelöschter Stil"
+        "deletedStyle": "Gelöschter Stil",
+        "reused": "Übernommen",
+        "reusedUnknown": "Übernommen · Herkunft unbekannt"
       },
       "export": {
         "button": "Exportieren",
@@ -780,6 +782,12 @@
         "title": "Der Stil dieses Diktats wurde gelöscht",
         "description": "Als einfaches Diktat (nur Bereinigung) erneut versuchen?",
         "retryPlain": "Einfach erneut versuchen"
+      },
+      "rerunCleanup": {
+        "action": "Bereinigung erneut ausführen",
+        "success": "Bereinigung erneut ausgeführt",
+        "error": "Bereinigung konnte nicht erneut ausgeführt werden",
+        "unavailable": "Für dieses Diktat kann die Bereinigung nicht erneut ausgeführt werden"
       }
     },
     "aiCta": {
@@ -895,7 +903,9 @@
       "heard": "Erkannt",
       "heardHint": "Rohtranskript",
       "sameAsHeard": "wie erkannt",
-      "whoChanged": "welcher Schritt es geändert hat, wurde nicht erfasst"
+      "whoChanged": "welcher Schritt es geändert hat, wurde nicht erfasst",
+      "reusedNote": "Die erneute Bereinigung hat dieses Transkript übernommen, statt die Aufnahme erneut zu transkribieren.",
+      "reusedUnknownNote": "Die erneute Bereinigung hat das gespeicherte Transkript übernommen; welche Spracherkennung es erstellt hat, wurde nicht erfasst."
     },
     "review": {
       "label": "Deine Bewertung",
@@ -1025,6 +1035,11 @@
         "saved": "Prüfungen gespeichert",
         "saveError": "Die Prüfungen konnten nicht gespeichert werden."
       }
+    },
+    "badges": {
+      "cleanup": "Bereinigung fehlgeschlagen",
+      "style": "Stil nicht angewendet",
+      "translation": "Übersetzung fehlgeschlagen"
     }
   },
   "reasoning": {
@@ -1247,7 +1262,8 @@
         "description": "Lokales Whisper ist fehlgeschlagen. Stattdessen wurde die OpenAI API verwendet."
       },
       "errorActions": {
-        "viewTranscript": "Transkript anzeigen"
+        "viewTranscript": "Transkript anzeigen",
+        "openInHistory": "Im Verlauf öffnen"
       },
       "noAudio": {
         "title": "Das haben wir nicht verstanden",
@@ -4948,7 +4964,9 @@
       },
       "cleanupFailed": {
         "title": "Bereinigung fehlgeschlagen",
-        "description": "Dein Diktat wurde ohne KI-Bereinigung eingefügt."
+        "description": "Dein Diktat wurde ohne KI-Bereinigung eingefügt.",
+        "descriptionNotPasted": "Ohne KI-Bereinigung im Verlauf gespeichert.",
+        "alsoFailed": "Auch die KI-Bereinigung ist fehlgeschlagen: {{reason}}"
       }
     },
     "mic": {
@@ -5898,7 +5916,7 @@
     "unreachable": "{{provider}} konnte nicht erreicht werden. Überprüfen Sie Ihre Verbindung.",
     "noResponse": "Keine Antwort von {{provider}} erhalten. Überprüfen Sie Ihren API-Schlüssel und Ihre Verbindung.",
     "unknown": "{{provider}} hat einen unerwarteten Fehler zurückgegeben.",
-    "keyMissing": "Für {{provider}} ist kein API-Schlüssel hinterlegt. Fügen Sie ihn unter Einstellungen → Sprachmodelle hinzu.",
+    "keyMissing": "Für {{provider}} ist kein API-Schlüssel hinterlegt. Fügen Sie ihn unter Einstellungen → KI-Verbindungen & lokale Modelle hinzu.",
     "selfHosted": {
       "authFailed": "Ihr Server hat den API-Schlüssel abgelehnt.",
       "accessDenied": "Ihr Server hat den Zugriff verweigert. Der Schlüssel deckt dieses Modell möglicherweise nicht ab.",
@@ -5926,10 +5944,10 @@
       "requestId": "Anfrage-ID"
     },
     "copilot": {
-      "authFailed": "Ihre GitHub-Copilot-Anmeldung ist nicht mehr gültig. Melden Sie sich unter Einstellungen → Sprachmodelle erneut an.",
+      "authFailed": "Ihre GitHub-Copilot-Anmeldung ist nicht mehr gültig. Melden Sie sich unter Einstellungen → KI-Verbindungen & lokale Modelle erneut an.",
       "accessDenied": "GitHub Copilot hat diese Anfrage abgelehnt. Ihr Tarif oder die Richtlinie Ihrer Organisation erlaubt dieses Modell möglicherweise nicht.",
-      "notSignedIn": "Sie sind nicht bei GitHub Copilot angemeldet. Melden Sie sich unter Einstellungen → Sprachmodelle an.",
-      "unsupportedRequest": "GitHub Copilot kann nur Diktate bereinigen, Notizen formatieren und übersetzen. Wählen Sie für Chat und Sprachassistent unter Einstellungen → Sprachmodelle ein anderes Modell."
+      "notSignedIn": "Sie sind nicht bei GitHub Copilot angemeldet. Melden Sie sich unter Einstellungen → KI-Verbindungen & lokale Modelle an.",
+      "unsupportedRequest": "GitHub Copilot kann nur Diktate bereinigen, Notizen formatieren und übersetzen. Wählen Sie für Chat und Sprachassistent in den Einstellungen ein anderes Modell."
     }
   },
   "calendarOAuth": {

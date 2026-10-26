@@ -1,9 +1,5 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const fs = require("node:fs");
-const path = require("node:path");
-const vm = require("node:vm");
-const ts = require("typescript");
 const { createRendererServer, installBrowserGlobals } = require("../lib/rendererTestHarness");
 
 const RAW = "um so can you uh send me the report by friday";
@@ -111,76 +107,38 @@ test("cleanup validates completed provider output using the request's prompt set
       cleanupMode: "local",
       cleanupProvider: "local",
       cleanupModel: "test-model",
+      useCleanupModel: true,
+      snippets: [],
     });
     window.electronAPI.processLocalReasoning = async () => ({ success: true, text: DUPLICATE });
-    const row = { id: 123, text: RAW, raw_text: RAW };
-    window.electronAPI.retryTranscription = async () => ({ success: true, transcription: row });
     window.electronAPI.updateTranscriptionText = async () =>
       assert.fail("rejected cleanup must not overwrite the row");
-    const source = fs.readFileSync(
-      path.resolve(__dirname, "../../src/components/ControlPanel.tsx"),
-      "utf8"
-    );
-    const parsed = ts.createSourceFile(
-      "ControlPanel.tsx",
-      source,
-      ts.ScriptTarget.Latest,
-      true,
-      ts.ScriptKind.TSX
-    );
-    let callback;
-    const visit = (node) => {
-      if (ts.isVariableDeclaration(node) && node.name.getText(parsed) === "retryTranscription") {
-        callback = node.initializer.arguments[0].getText(parsed);
-      }
-      ts.forEachChild(node, visit);
-    };
-    visit(parsed);
-    assert.ok(callback, "the history retry callback must be present");
-    // Execute the real callback without mounting the whole application shell.
-    const code = ts.transpileModule(`const retry = ${callback};`, {
-      compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS },
-    }).outputText;
-    const settingsModule = await vite.ssrLoadModule("/stores/settingsStore.ts");
-    // The retry callback closes over this module-scope import (not a dynamic
-    // `import()`), so it must be supplied as a global rather than via `require`.
+    // The part of Re-transcribe and Re-run cleanup after speech-to-text
+    // (services/historyRerun.ts), which ControlPanel runs for both.
+    const { rerunAfterSpeechToText } = await vite.ssrLoadModule("/services/historyRerun.ts");
     const { providerErrorToastProps } = await vite.ssrLoadModule("/utils/describeProviderError.ts");
-    // Same for the post-speech-to-text boundary it runs, with an empty glossary.
-    const { runPostTranscription } = await vite.ssrLoadModule("/helpers/postTranscription.ts");
-    const toasts = [];
-    let displayedRow;
-    const retry = vm.runInNewContext(`${code}\nretry`, {
-      require: (id) => {
-        if (id === "../services/ReasoningService") return { __esModule: true, default: service };
-        if (id === "../stores/settingsStore") return settingsModule;
-        throw new Error(`Unexpected history retry import: ${id}`);
+    const reported = [];
+    const outcome = await rerunAfterSpeechToText(
+      {
+        id: 123,
+        rawText: RAW,
+        routeKind: null,
+        currentText: RAW,
+        stt: { provider: "local", model: "base", ms: null },
+        targetApp: null,
+        runId: null,
       },
-      window,
-      getSettings: settingsModule.getSettings,
-      getManagedTranscriptionResolution: () => null,
-      isTranscriptionContextAllowed: () => true,
-      usePolicyStore,
-      useCleanupModel: true,
-      getAgentName: () => "OpenWhispr",
-      hasTextContent: (text) => typeof text === "string" && text.trim().length > 0,
-      applyChineseScript: async (text) => text,
-      resolveChineseScriptTarget: () => null,
-      updateInStore: (value) => {
-        displayedRow = value;
-      },
-      toast: (value) => toasts.push(value),
-      t: (key) => key,
-      providerErrorToastProps,
-      runPostTranscription,
-      getGlossarySnapshot: () => ({ revision: 0, rules: [] }),
-    });
-    await retry(row.id);
-    assert.strictEqual(displayedRow, row);
+      {
+        cleanupFailed: (error) => reported.push(providerErrorToastProps(error, (key) => key)),
+        styleNotApplied: () => assert.fail("no style was involved"),
+      }
+    );
+    assert.deepEqual(outcome, { status: "unchanged", text: RAW });
     assert.ok(
-      toasts.some(
+      reported.some(
         (toast) => toast.description === "hooks.audioRecording.errorDescriptions.cleanupDuplicated"
       ),
-      JSON.stringify(toasts)
+      JSON.stringify(reported)
     );
   });
 });

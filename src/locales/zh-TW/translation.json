@@ -752,7 +752,9 @@
           "skipped": "已略過",
           "fallback": "保留了先前的文字"
         },
-        "deletedStyle": "已刪除的風格"
+        "deletedStyle": "已刪除的風格",
+        "reused": "沿用",
+        "reusedUnknown": "沿用 · 來源不明"
       },
       "export": {
         "button": "匯出",
@@ -780,6 +782,12 @@
         "title": "此口述的風格已被刪除",
         "description": "以一般口述（僅清理）重試？",
         "retryPlain": "以一般方式重試"
+      },
+      "rerunCleanup": {
+        "action": "重新清理",
+        "success": "已重新清理",
+        "error": "無法重新清理",
+        "unavailable": "這筆聽寫無法重新清理"
       }
     },
     "aiCta": {
@@ -895,7 +903,9 @@
       "heard": "辨識結果",
       "heardHint": "原始轉錄",
       "sameAsHeard": "與辨識結果相同",
-      "whoChanged": "未記錄是哪個步驟修改的"
+      "whoChanged": "未記錄是哪個步驟修改的",
+      "reusedNote": "重新清理沿用了這份轉錄，沒有重新轉錄錄音。",
+      "reusedUnknownNote": "重新清理沿用了已儲存的轉錄；未記錄是哪種語音轉文字產生的。"
     },
     "review": {
       "label": "你的評價",
@@ -1025,6 +1035,11 @@
         "saved": "檢查已儲存",
         "saveError": "無法儲存檢查。"
       }
+    },
+    "badges": {
+      "cleanup": "清理失敗",
+      "style": "未套用風格",
+      "translation": "翻譯失敗"
     }
   },
   "reasoning": {
@@ -1247,7 +1262,8 @@
         "description": "本機 Whisper 失敗，已改用 OpenAI API。"
       },
       "errorActions": {
-        "viewTranscript": "查看轉錄"
+        "viewTranscript": "查看轉錄",
+        "openInHistory": "在歷史記錄中開啟"
       },
       "noAudio": {
         "title": "我們沒聽清楚",
@@ -4778,7 +4794,9 @@
       },
       "cleanupFailed": {
         "title": "清理失敗",
-        "description": "你的聽寫已直接貼上，未經 AI 清理。"
+        "description": "你的聽寫已直接貼上，未經 AI 清理。",
+        "descriptionNotPasted": "已儲存到歷史記錄，未經 AI 清理。",
+        "alsoFailed": "AI 清理也失敗了：{{reason}}"
       }
     },
     "mic": {
@@ -5898,7 +5916,7 @@
     "unreachable": "無法連線到 {{provider}}。請檢查你的網路連線。",
     "noResponse": "未能收到 {{provider}} 的回應。請檢查你的 API 金鑰和網路連線。",
     "unknown": "{{provider}} 回傳了意外的錯誤。",
-    "keyMissing": "尚未為 {{provider}} 設定 API 金鑰。請在「設定 → 語言模型」中新增。",
+    "keyMissing": "尚未為 {{provider}} 設定 API 金鑰。請在「設定 → AI 連線與本機模型」中新增。",
     "selfHosted": {
       "authFailed": "你的伺服器拒絕了 API 金鑰。",
       "accessDenied": "你的伺服器拒絕存取。該金鑰可能不包含此模型。",
@@ -5926,10 +5944,10 @@
       "requestId": "請求 ID"
     },
     "copilot": {
-      "authFailed": "您的 GitHub Copilot 登入已失效。請在「設定 → 語言模型」中重新登入。",
+      "authFailed": "您的 GitHub Copilot 登入已失效。請在「設定 → AI 連線與本機模型」中重新登入。",
       "accessDenied": "GitHub Copilot 拒絕了此請求。您的方案或組織政策可能不允許使用此模型。",
-      "notSignedIn": "您尚未登入 GitHub Copilot。請在「設定 → 語言模型」中登入。",
-      "unsupportedRequest": "GitHub Copilot 只能清理聽寫、格式化筆記和翻譯。請在「設定 → 語言模型」中為聊天和語音助理選擇其他模型。"
+      "notSignedIn": "您尚未登入 GitHub Copilot。請在「設定 → AI 連線與本機模型」中登入。",
+      "unsupportedRequest": "GitHub Copilot 只能清理聽寫、格式化筆記和翻譯。請在「設定」中為聊天和語音助理選擇其他模型。"
     }
   },
   "calendarOAuth": {

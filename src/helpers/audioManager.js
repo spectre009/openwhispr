@@ -96,7 +96,7 @@ import {
   resolveStreamingStartFallback,
 } from "./transcriptionFallback";
 import { transcriptionFailureOutcome } from "./transcriptionFailureOutcome";
-import { isResendableFailure, keptRecordingFor } from "./failedRecordingRetry";
+import { keptRecordingFor } from "./failedRecordingRetry";
 import { sendDictationTranscription } from "./dictationTranscriptionClient";
 import { IPC_ERROR_FIELDS, errorFromIpcResult } from "./ipcErrorFields";
 import { asProviderError, providerHttpError, redactProviderBody } from "./providerHttpErrors";
@@ -2348,6 +2348,46 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     return true;
   }
 
+  // A streaming recording that ended without a transcript (its batch fallback
+  // or its language re-transcription failed) ends as a batch recording's
+  // failure would: its row is saved and its recording kept for the card's
+  // Retry, which re-sends it through the batch pipeline with the settings in
+  // force then. Returns the card's report, or null for silence;
+  // `delivery.resultHandled` waits on the save.
+  _failStreamingRecording(error, { blob, metadata, delivery }) {
+    const outcome = transcriptionFailureOutcome(error);
+    let resolveRowId = null;
+    const rowId = outcome.keepAudio
+      ? new Promise((resolve) => {
+          resolveRowId = resolve;
+        })
+      : null;
+    if (outcome.keepAudio) {
+      delivery.resultHandled = this.saveFailedTranscription(
+        error.message,
+        error.code || null,
+        metadata,
+        { onRowSaved: resolveRowId }
+      );
+    }
+    if (!outcome.report) return null;
+    const keptRecording = keptRecordingFor({
+      error,
+      blob,
+      metadata,
+      retention: getEffectiveRetentionPreferences(),
+      voiceAgentRequested: this.voiceAgentRequested,
+      translationRequested: this.translationRequested,
+      style: this.getActiveRecordingStyle(),
+      rowId,
+    });
+    return {
+      ...outcome.report,
+      ...(keptRecording ? { keptRecording } : {}),
+      ...(rowId ? { historyRowId: rowId } : {}),
+    };
+  }
+
   async processAudio(audioBlob, metadata = {}, processingPipeline = null) {
     const pipeline = processingPipeline ?? this._startProcessingPipeline();
     if (processingPipeline && this._activeProcessingPipeline !== processingPipeline) return;
@@ -2516,39 +2556,45 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
 
       const outcome = transcriptionFailureOutcome(error);
       noAudioDetected = outcome.noAudio;
-      // A failure a second try can fix keeps its recording for the card's
-      // Retry, which re-sends it. A re-send that fails again keeps its row.
+      // Any failure that kept its recording can be re-sent from the card's
+      // Retry (failedRecordingRetry.js). A re-send that fails again keeps its row.
       const completesRow = Number.isInteger(pipeline.resend?.rowId);
+      const savesRow = outcome.keepAudio && Boolean(this.lastAudioBlob) && !completesRow;
       let resolveRowId = null;
-      const keptRecording =
-        outcome.report && isResendableFailure(error)
-          ? keptRecordingFor({
-              error,
-              blob: audioBlob,
-              metadata,
-              retention: getEffectiveRetentionPreferences(),
-              voiceAgentRequested: this.voiceAgentRequested,
-              translationRequested: this.translationRequested,
-              style: this.getActiveRecordingStyle(),
-              rowId: completesRow
-                ? pipeline.resend.rowId
-                : new Promise((resolve) => {
-                    resolveRowId = resolve;
-                  }),
+      // The failed History row, for the card's Retry and its Open in History.
+      const rowId = completesRow
+        ? Promise.resolve(pipeline.resend.rowId)
+        : savesRow
+          ? new Promise((resolve) => {
+              resolveRowId = resolve;
             })
           : null;
+      const keptRecording = outcome.report
+        ? keptRecordingFor({
+            error,
+            blob: audioBlob,
+            metadata,
+            retention: getEffectiveRetentionPreferences(),
+            voiceAgentRequested: this.voiceAgentRequested,
+            translationRequested: this.translationRequested,
+            style: this.getActiveRecordingStyle(),
+            rowId,
+          })
+        : null;
       if (outcome.report) {
-        this.onError?.(keptRecording ? { ...outcome.report, keptRecording } : outcome.report);
+        this.onError?.({
+          ...outcome.report,
+          ...(keptRecording ? { keptRecording } : {}),
+          ...(rowId ? { historyRowId: rowId } : {}),
+        });
       }
-      if (outcome.keepAudio && this.lastAudioBlob && !completesRow) {
+      if (savesRow) {
         pipeline.resultHandled = this.saveFailedTranscription(
           error.message,
           error.code || null,
           metadata,
-          resolveRowId ? { onRowSaved: resolveRowId } : undefined
+          { onRowSaved: resolveRowId }
         );
-      } else {
-        resolveRowId?.(null);
       }
     } finally {
       const shouldNotifyNoAudio =
@@ -4745,7 +4791,9 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     return route.endpoint;
   }
 
-  async safePaste(text, options = {}) {
+  // `report` (default: the manager's onError) hears a paste that failed, so
+  // the dictation hook can tie the card to the dictation it belongs to.
+  async safePaste(text, options = {}, { report = (error) => this.onError?.(error) } = {}) {
     try {
       const result = await window.electronAPI.pasteText(text, options);
       if (
@@ -4753,7 +4801,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
         result.code === "ACCESSIBILITY_PERMISSION_REQUIRED" &&
         result.clipboardCopied === true
       ) {
-        this.onError?.({
+        report({
           title: "Paste Error",
           code: result.code,
           clipboardCopied: true,
@@ -4769,7 +4817,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       const message =
         error?.message ??
         (typeof error?.toString === "function" ? error.toString() : String(error));
-      this.onError?.({
+      report({
         title: "Paste Error",
         code: "PASTE_FAILED",
         // Keep the platform's guidance, without Electron's IPC wrapper around it.
@@ -4779,10 +4827,38 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     }
   }
 
+  // `onRowSaved(id)` hears the History row this dictation was saved to (the
+  // re-sent failed row it completed, or its new row), or null when none was:
+  // a card's Open in History opens that row, never "the newest".
   async saveTranscription(
     text,
     rawText = null,
-    { clientTranscriptionId, analyticsOccurredAt, trace, replacesTranscriptionId } = {}
+    { clientTranscriptionId, analyticsOccurredAt, trace, replacesTranscriptionId, onRowSaved } = {}
+  ) {
+    let savedId = null;
+    try {
+      return await this._saveTranscriptionRow(text, rawText, {
+        clientTranscriptionId,
+        analyticsOccurredAt,
+        trace,
+        replacesTranscriptionId,
+        onRowId: (id) => {
+          savedId = Number.isInteger(id) ? id : null;
+        },
+      });
+    } finally {
+      try {
+        onRowSaved?.(savedId);
+      } catch {
+        // A listener must never cost the save.
+      }
+    }
+  }
+
+  async _saveTranscriptionRow(
+    text,
+    rawText,
+    { clientTranscriptionId, analyticsOccurredAt, trace, replacesTranscriptionId, onRowId }
   ) {
     const { dataRetentionEnabled, audioRetentionDays } = getEffectiveRetentionPreferences();
     if (!dataRetentionEnabled) {
@@ -4802,7 +4878,10 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
         rawText,
         trace
       );
-      if (completed !== null) return completed;
+      if (completed !== null) {
+        onRowId(replacesTranscriptionId);
+        return completed;
+      }
     }
 
     const eventId = clientTranscriptionId || crypto.randomUUID();
@@ -4842,6 +4921,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
         // history setting still allow them when it arrives.
         ...(trace ? { trace } : {}),
       });
+      onRowId(result?.id);
       if (result?.id) syncService.debouncedPush("transcription", result.id);
       // Joins this dictation's log lines to its History entry (no text).
       logger.debug(
@@ -6208,14 +6288,14 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
           "streaming"
         );
         finalText = "";
-        const outcome = transcriptionFailureOutcome(error);
-        failureReport = outcome.report;
-        if (outcome.keepAudio) {
-          delivery.resultHandled = this.saveFailedTranscription(error.message, error.code || null, {
+        failureReport = this._failStreamingRecording(error, {
+          blob: fallbackBlob,
+          metadata: {
             durationSeconds,
             analyticsOccurredAt: analyticsOccurredAt.toISOString(),
-          });
-        }
+          },
+          delivery,
+        });
       };
       try {
         const batchResult = await this.processWithOpenWhisprCloud(
@@ -6483,19 +6563,20 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       logger.info("Speech gate skipped the failed-over upload", { failoverReason }, "streaming");
     }
     // A failed-over recording has no other transcript, so a failure to
-    // transcribe it ends as a batch recording's would. A stream that produced
-    // no text still ends quietly on a real failure, but keeps a recording that
-    // reads as silence for a retry, as batch does.
+    // transcribe it ends as a batch recording's would, its recording kept for
+    // the card's Retry. A stream that produced no text still ends quietly on a
+    // real failure, but keeps a recording that reads as silence for a retry,
+    // as batch does.
     const failBatchFallback = (error) => {
-      const outcome = transcriptionFailureOutcome(error);
-      if (!failoverReason && outcome.report) return;
-      failureReport = outcome.report;
-      if (outcome.keepAudio) {
-        delivery.resultHandled = this.saveFailedTranscription(error.message, error.code || null, {
+      if (!failoverReason && transcriptionFailureOutcome(error).report) return;
+      failureReport = this._failStreamingRecording(error, {
+        blob: fallbackBlob,
+        metadata: {
           durationSeconds,
           analyticsOccurredAt: analyticsOccurredAt.toISOString(),
-        });
-      }
+        },
+        delivery,
+      });
     };
     if (
       !finalText &&

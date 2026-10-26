@@ -752,7 +752,9 @@
           "skipped": "Skipped",
           "fallback": "Kept previous text"
         },
-        "deletedStyle": "Deleted style"
+        "deletedStyle": "Deleted style",
+        "reused": "Reused",
+        "reusedUnknown": "Reused · origin unknown"
       },
       "export": {
         "button": "Export",
@@ -780,6 +782,12 @@
         "title": "This dictation's style was deleted",
         "description": "Retry it as Plain dictation (cleanup only)?",
         "retryPlain": "Retry as Plain"
+      },
+      "rerunCleanup": {
+        "action": "Re-run cleanup",
+        "success": "Cleanup re-run",
+        "error": "Couldn't re-run cleanup",
+        "unavailable": "Cleanup can't be re-run on this dictation"
       }
     },
     "aiCta": {
@@ -895,7 +903,9 @@
       "heard": "Heard",
       "heardHint": "raw transcript",
       "sameAsHeard": "same as heard",
-      "whoChanged": "which step changed it wasn't recorded"
+      "whoChanged": "which step changed it wasn't recorded",
+      "reusedNote": "Re-run cleanup kept this transcript instead of transcribing the recording again.",
+      "reusedUnknownNote": "Re-run cleanup kept the saved transcript; the speech-to-text that produced it wasn't recorded."
     },
     "review": {
       "label": "Your review",
@@ -1025,6 +1035,11 @@
         "saved": "Checks saved",
         "saveError": "Couldn't save the checks."
       }
+    },
+    "badges": {
+      "cleanup": "Cleanup failed",
+      "style": "Style not applied",
+      "translation": "Translation failed"
     }
   },
   "reasoning": {
@@ -1247,7 +1262,8 @@
         "description": "Local Whisper failed. Used OpenAI API instead."
       },
       "errorActions": {
-        "viewTranscript": "View Transcript"
+        "viewTranscript": "View Transcript",
+        "openInHistory": "Open in History"
       },
       "noAudio": {
         "title": "We didn’t catch that",
@@ -4948,7 +4964,9 @@
       },
       "cleanupFailed": {
         "title": "Cleanup failed",
-        "description": "Original dictation pasted without AI cleanup."
+        "description": "Original dictation pasted without AI cleanup.",
+        "descriptionNotPasted": "Saved to History without AI cleanup.",
+        "alsoFailed": "AI cleanup also failed: {{reason}}"
       }
     },
     "mic": {
@@ -5898,7 +5916,7 @@
     "unreachable": "Couldn't reach {{provider}}. Check your connection.",
     "noResponse": "Couldn't get a response from {{provider}}. Check your API key and connection.",
     "unknown": "{{provider}} returned an unexpected error.",
-    "keyMissing": "No API key is set for {{provider}}. Add it in Settings → Language Models.",
+    "keyMissing": "No API key is set for {{provider}}. Add it in Settings → AI Connections & Local Models.",
     "selfHosted": {
       "authFailed": "Your server rejected the API key.",
       "accessDenied": "Your server denied access. The key may not include this model.",
@@ -5926,10 +5944,10 @@
       "requestId": "Request ID"
     },
     "copilot": {
-      "authFailed": "Your GitHub Copilot sign-in is no longer valid. Sign in again in Settings → Language Models.",
+      "authFailed": "Your GitHub Copilot sign-in is no longer valid. Sign in again in Settings → AI Connections & Local Models.",
       "accessDenied": "GitHub Copilot refused this request. Your plan or your organization's policy may not allow this model.",
-      "notSignedIn": "You're not signed in to GitHub Copilot. Sign in under Settings → Language Models.",
-      "unsupportedRequest": "GitHub Copilot can only clean up dictation, format notes and translate. Choose another model for chat and the voice assistant in Settings → Language Models."
+      "notSignedIn": "You're not signed in to GitHub Copilot. Sign in under Settings → AI Connections & Local Models.",
+      "unsupportedRequest": "GitHub Copilot can only clean up dictation, format notes and translate. Choose another model for Chat and the Voice Assistant in Settings."
     }
   },
   "calendarOAuth": {

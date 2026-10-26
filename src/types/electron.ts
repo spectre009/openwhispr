@@ -458,7 +458,8 @@ export interface TranscriptionStepRecord {
   } | null;
   /**
    * Glossary steps: `{ revision, rulesFired }`; snippet finalize: `{ snippets: true }`;
-   * style steps: `{ styleId, runMode }`.
+   * style steps: `{ styleId, runMode }`; a carried-over speech-to-text step:
+   * `{ reused }`; a failed step adds `failure` (why, allowlisted).
    */
   detail: {
     revision?: number | null;
@@ -472,7 +473,22 @@ export interface TranscriptionStepRecord {
     snippets?: boolean;
     styleId?: string | null;
     runMode?: "two-step" | "one-step" | null;
+    /** Re-run cleanup reused this speech-to-text step: from the dictation's step, or unknown. */
+    reused?: "stored" | "unknown";
+    failure?: StepFailureRecord;
   } | null;
+}
+
+/**
+ * Why a step failed (helpers/stepFailure.js): its code ("unknown" when the
+ * error had none), the message the error card showed and where to fix it.
+ * Never provider text.
+ */
+export interface StepFailureRecord {
+  code: string;
+  messageKey?: string;
+  messageParams?: { provider?: string; model?: string };
+  settingsTarget?: ProviderSettingsTarget;
 }
 
 export interface TranscriptionStepsResult {
@@ -482,6 +498,8 @@ export interface TranscriptionStepsResult {
   route?: string | null;
   context?: {
     targetApp: string | null;
+    /** What the recording was for: the voice assistant, a translation, a wake word. */
+    intents?: { voiceAgent?: boolean; translation?: boolean; wakeWord?: boolean };
     /** A styled dictation's style. */
     style?: { id: string | null; runMode: "two-step" | "one-step" | null };
   } | null;
@@ -516,6 +534,7 @@ export interface HistoryCursor {
 }
 
 export interface HistoryListFilters {
+  /** Failed dictations, and those whose cleanup, style or translation step failed. */
   failed?: boolean;
   /** The current owner's Cleanup step changed the text. */
   cleanupChanged?: boolean;
@@ -546,6 +565,11 @@ export interface HistoryListRow {
   /** From the current owner's steps; null without them. */
   app: string | null;
   marks: HistoryStepMark[] | null;
+  /**
+   * The current owner's cleanup, style or translation step failed or fell
+   * back: its kind (the first one), for the row's badge. Null otherwise.
+   */
+  stepFailure?: "cleanup" | "style" | "translation" | null;
   /** The current owner's review of it, if any. */
   rating: HistoryVerdict | null;
 }
@@ -650,6 +674,12 @@ export type HistoryFeedbackSaveResult =
 export interface HistoryReviewRequest {
   requestId: number;
   id: number | null;
+}
+
+/** "Open in History" from a dictation error card: one row, no review. */
+export interface HistoryItemRequest {
+  requestId: number;
+  id: number;
 }
 
 /**
@@ -2227,6 +2257,8 @@ declare global {
         messageKey?: string;
         /** Main's step-history run for this retry; put it on the trace as `runId`. */
         stepRunId?: string | null;
+        /** A newer run on this row (Re-transcribe, Re-run cleanup) began; nothing was written. */
+        stale?: boolean;
       }>;
       updateTranscriptionText: (
         id: number,
@@ -2280,6 +2312,11 @@ declare global {
       onHistoryFeedbackChanged?: (callback: (change: { id: number }) => void) => () => void;
       getPendingReviewRequest?: () => Promise<HistoryReviewRequest | null>;
       onReviewDictationPending?: (callback: () => void) => () => void;
+      /** The dictation window: a card's "Open in History", at the row its dictation saved. */
+      openHistoryItem?: (id: number) => Promise<{ opened: boolean; id?: number; reason?: string }>;
+      /** The control panel: the dictation a card asked to open, without a review. */
+      getPendingHistoryItemRequest?: () => Promise<HistoryItemRequest | null>;
+      onHistoryItemPending?: (callback: () => void) => () => void;
       /** The dictation window: the review hotkey was pressed during a dictation. */
       onReviewDictationBusy?: (callback: () => void) => () => void;
       /** Hides the control panel to the tray. */

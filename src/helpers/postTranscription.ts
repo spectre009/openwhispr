@@ -14,7 +14,8 @@
 //                 style?, appScopedGlossary? },
 //     glossary: { revision, rules },          // one snapshot for the whole dictation
 //     snippets,                               // trigger spans win over glossary replacements
-//     stt:      { provider, model, ms },      // what produced rawText
+//     stt:      { provider, model, ms,        // what produced rawText
+//                 reused? },                  // Re-run cleanup: "stored" | "unknown"
 //     detectWakeWord(rawText) -> boolean,     // intent, read from the RAW text
 //     run({ rawText, workingText, recordStep, setRoute }) -> string,
 //     finalize(text) -> string,               // Chinese script conversion
@@ -55,7 +56,12 @@
 //               prompt?: { source: "resolved", text, entryId? }    // model steps, when known
 //                      | { source: "server", entryId? },
 //               detail?: { snippets: true }                     // snippet finalize
-//                      | { styleId, runMode } }],               // style steps; in execution order
+//                      | { styleId, runMode }                   // style steps
+//                      | { reused: "stored" | "unknown" }       // a carried-over stt step
+//                      & { failure?: { code, messageKey?,       // a failed step: why, from
+//                                      messageParams?,          //   an allowlist only
+//                                      settingsTarget? } } }],  //   (stepFailure.js)
+//                                                               // in execution order
 //     runId?: string }   // main's step-history run (ownership), set before saving
 //
 // `provider`/`model` on model steps are what was actually dispatched
@@ -77,6 +83,7 @@ import { applyGlossary, type GlossaryFiredRule, type GlossarySnapshot } from "..
 import type { Snippet } from "../utils/snippets";
 import type { DispatchedPrompt } from "../services/BaseReasoningService";
 import { hasTextContent } from "./translationChain";
+import { failureDescriptor, normalizeReusedMarker } from "./stepFailure.js";
 
 export const POST_TRANSCRIPTION_TRACE_VERSION = 1;
 
@@ -94,6 +101,20 @@ export interface TraceStyleContext {
   runMode: TraceStyleRunMode;
 }
 
+/**
+ * Why a step failed, from an allowlist only (stepFailure.js): never the
+ * provider's text or the dictation. `code` is "unknown" when the error had none.
+ */
+export interface StepFailureDescriptor {
+  code: string;
+  messageKey?: string;
+  messageParams?: { provider?: string; model?: string };
+  settingsTarget?: "speechToText" | "llms";
+}
+
+/** A carried-over speech-to-text step (Re-run cleanup): from the dictation's step, or unknown. */
+export type TraceSttReused = "stored" | "unknown";
+
 /** Kind-specific extras of a step. */
 export interface TraceStepDetail {
   /** A finalize step that recorded the snippet expansion. */
@@ -101,6 +122,10 @@ export interface TraceStepDetail {
   /** A style step: which style, and how it ran. */
   styleId?: string;
   runMode?: TraceStyleRunMode;
+  /** A speech-to-text step this run reused instead of transcribing again. */
+  reused?: TraceSttReused;
+  /** A failed step: why, as the error card said it. */
+  failure?: StepFailureDescriptor;
 }
 
 /** The system prompt a model step ran with; see the contract above. Never log `text`. */
@@ -193,7 +218,13 @@ export interface PostTranscriptionOptions {
   context?: PostTranscriptionContext;
   glossary?: GlossarySnapshot | null;
   snippets?: Snippet[] | null;
-  stt?: { provider?: string | null; model?: string | null; ms?: number | null } | null;
+  stt?: {
+    provider?: string | null;
+    model?: string | null;
+    ms?: number | null;
+    /** Re-run cleanup: this speech-to-text step was carried over, not run. */
+    reused?: TraceSttReused | null;
+  } | null;
   detectWakeWord?: ((rawText: string) => boolean) | null;
   run?: ((args: PostTranscriptionRunArgs) => Promise<string | null | undefined>) | null;
   finalize?: ((text: string) => string | Promise<string>) | null;
@@ -250,6 +281,8 @@ function createStepRecorder(trace: PostTranscriptionTrace, now: () => number): R
     } catch (error) {
       step.outcome = "failed";
       step.errorCode = errorCodeOf(error);
+      // Why, from an allowlist: the error's message and body never reach the trace.
+      step.detail = { ...(step.detail || {}), failure: failureDescriptor(error) };
       throw error;
     } finally {
       step.ms = Math.round(now() - started);
@@ -300,6 +333,7 @@ export async function runPostTranscription(
             : "two-step") as TraceStyleRunMode,
         }
       : null;
+  const sttReused = normalizeReusedMarker(stt?.reused) as TraceSttReused | null;
   const trace: PostTranscriptionTrace = {
     version: POST_TRANSCRIPTION_TRACE_VERSION,
     rawText,
@@ -321,6 +355,7 @@ export async function runPostTranscription(
         provider: stt?.provider ?? null,
         model: stt?.model ?? null,
         ms: Number.isFinite(stt?.ms) ? Math.round(stt?.ms as number) : null,
+        ...(sttReused ? { detail: { reused: sttReused } } : {}),
       },
     ],
   };
@@ -415,6 +450,7 @@ export async function runPostTranscription(
         model: null,
         ms: Math.round(now() - finalizeStart),
         errorCode: errorCodeOf(error),
+        detail: { failure: failureDescriptor(error) },
       });
     }
   }

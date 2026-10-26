@@ -139,7 +139,10 @@ async function mountCompletionHarness(
   };
   globalThis.__clipboardPersistenceLogs = [];
   globalThis.__saveClipboardPersistenceTranscription = async (...args) => {
-    saves.push(args);
+    const [text, rawText, { onRowSaved, ...options } = {}] = args;
+    // Every save names its row back, for the dictation's Open in History.
+    assert.equal(typeof onRowSaved, "function");
+    saves.push([text, rawText, options]);
     return saveTranscription(...args);
   };
 

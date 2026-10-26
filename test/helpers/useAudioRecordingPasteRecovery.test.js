@@ -311,7 +311,7 @@ for (const transition of ["close", "newer error", "start", "complete", "unmount"
   });
 }
 
-test("generic errors retain Retry, transcript and the platform's paste guidance", async (t) => {
+test("generic errors retain Retry, transcript and the platform's paste guidance, and stay up", async (t) => {
   const h = await mount(t);
   const guidance = "Please install xdotool or paste manually with Ctrl+V.";
   await h.error({ title: "Paste Error", code: "PASTE_FAILED", description: guidance });
@@ -320,8 +320,9 @@ test("generic errors retain Retry, transcript and the platform's paste guidance"
   assert.equal(card.actions[0].icon, "retry");
   assert.equal(card.actions[1].icon, "transcript");
   assert.equal(card.description, guidance);
-  assert.equal(card.duration, undefined);
-  assert.equal(card.dismissible, undefined);
+  // A failure card stays until it is dismissed or the next dictation starts.
+  assert.equal(card.duration, 0);
+  assert.equal(card.dismissible, true);
   card.actions[1].onClick();
   assert.deepEqual(h.shown, ["raw words"]);
   await h.error({ title: "Other error", description: "details" });

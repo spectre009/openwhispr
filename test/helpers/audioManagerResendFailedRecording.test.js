@@ -286,17 +286,44 @@ test("a cancel while main waits is no card and no save", async (t) => {
   assert.equal(h.calls.saves.length, 0);
 });
 
-test("an auth failure keeps the record-again Retry", async (t) => {
-  const h = await setup(t, { replies: [httpErrorReply(401)] });
-  await failOnce(h);
-  assert.equal(h.calls.errors[0].code, "PROVIDER_AUTH_FAILED");
-  assert.equal(h.calls.errors[0].keptRecording, undefined);
+test("an auth failure keeps its recording too: Retry re-sends once the key is fixed", async (t) => {
+  const h = await setup(t, { replies: [httpErrorReply(401), answerReply("fixed key")] });
+  const blob = await failOnce(h);
+  const report = h.calls.errors[0];
+  assert.equal(report.code, "PROVIDER_AUTH_FAILED");
+  assert.equal(report.settingsTarget, "speechToText", "the card offers the settings to fix it");
+  assert.ok(report.keptRecording, "the card's Retry re-sends it");
+  assert.equal(report.keptRecording.blob, blob);
+  assert.equal(await report.keptRecording.rowId, 41);
+  assert.equal(await report.historyRowId, 41, "Open in History opens the failed row");
   assert.equal(h.calls.saves.length, 1, "the failed row is still kept");
   // A real provider 401 classifies the same way in main and here.
   assert.equal(
     providerHttpError({ ...errorContext, status: 401, body: "" }).code,
     "PROVIDER_AUTH_FAILED"
   );
+
+  // The user fixed the key; Retry re-sends with the settings in force now.
+  h.manager.isProcessing = false;
+  assert.equal(await h.manager.resendFailedRecording(report.keptRecording), true);
+  assert.equal(h.calls.results.at(-1).text, "fixed key.");
+  assert.equal(h.calls.completions[0].id, 41);
+});
+
+test("a quota failure keeps its recording, and a cause still there fails with the same card", async (t) => {
+  const quota = () => ({ ...httpErrorReply(402), body: '{"error":"insufficient_quota"}' });
+  const h = await setup(t, { replies: [quota(), quota()] });
+  await failOnce(h);
+  const first = h.calls.errors[0];
+  assert.equal(first.code, "PROVIDER_QUOTA_EXHAUSTED");
+  assert.ok(first.keptRecording);
+  h.manager.isProcessing = false;
+  await h.manager.resendFailedRecording(first.keptRecording);
+  const again = h.calls.errors[1];
+  assert.equal(again.code, "PROVIDER_QUOTA_EXHAUSTED");
+  assert.equal(await again.keptRecording.rowId, 41, "the same row, no second one");
+  assert.equal(await again.historyRowId, 41);
+  assert.equal(h.calls.saves.length, 1);
 });
 
 test("with local history or recordings off, nothing is kept and Retry records again", async (t) => {

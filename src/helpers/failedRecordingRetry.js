@@ -1,23 +1,36 @@
-// The dictation error card's Retry re-sends the failed recording when a second
-// try can fix the failure (our deadline or a provider timeout, an unreachable
-// provider, a 5xx, a rate limit), instead of recording again. Auth, quota and
-// configuration failures keep the record-again Retry and their settings link.
-// Pure, so the rule is testable without the audio stack.
+// The dictation error card's Retry re-sends the failed recording after any
+// failure that kept it, instead of recording again: a timeout or an
+// unreachable provider, and auth, quota, configuration and model failures too,
+// since the user may have fixed the cause meanwhile (the card's Open Settings
+// leaves it up). The re-send uses the settings in force when Retry is pressed;
+// a cause still there fails again with the same card. Never for: silence or
+// no audio (nothing worth sending), a cancel, a voice-assistant recording, a
+// selection edit, or a failure to deliver text already transcribed. Pure, so
+// the rule is testable without the audio stack.
 
-import { PROVIDER_ERROR_CODES } from "./providerHttpErrors.js";
-import { TRANSCRIPTION_REQUEST_TIMEOUT_CODE } from "./transcriptionRequestDeadline.js";
+import { DICTIONARY_ECHO_CODE } from "../utils/dictionaryEchoFilter.js";
 
-export const RESENDABLE_ERROR_CODES = Object.freeze([
-  PROVIDER_ERROR_CODES.TIMEOUT,
-  PROVIDER_ERROR_CODES.UNREACHABLE,
-  PROVIDER_ERROR_CODES.UNAVAILABLE,
-  PROVIDER_ERROR_CODES.RATE_LIMITED,
-  TRANSCRIPTION_REQUEST_TIMEOUT_CODE,
+export const NOT_RESENDABLE_ERROR_CODES = Object.freeze([
+  // A cancel is the user's choice.
+  "TRANSCRIPTION_CANCELLED",
+  "REASON_CANCELLED",
+  // Silence: the card says no audio; recording again is the fix.
+  "NO_SPEECH_DETECTED",
+  DICTIONARY_ECHO_CODE,
+  // Delivery only: the text was transcribed, the paste didn't land.
+  "PASTE_FAILED",
+  "ACCESSIBILITY_PERMISSION_REQUIRED",
 ]);
 
-const RESENDABLE = new Set(RESENDABLE_ERROR_CODES);
+const NOT_RESENDABLE = new Set(NOT_RESENDABLE_ERROR_CODES);
 
-export const isResendableFailure = (error) => RESENDABLE.has(error?.code);
+export const isResendableFailure = (error) =>
+  !!error &&
+  typeof error === "object" &&
+  error.name !== "AbortError" &&
+  error.selectionEditFatal !== true &&
+  error.message !== "No audio detected" &&
+  !NOT_RESENDABLE.has(error.code);
 
 /**
  * What the dictation window keeps of a failed recording for its card's Retry,

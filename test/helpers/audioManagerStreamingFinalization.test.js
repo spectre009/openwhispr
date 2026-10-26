@@ -1111,6 +1111,42 @@ test("a failed-over upload error is reported and kept for retry, not shown as si
   assert.deepEqual(completions, []);
 });
 
+test("a failed-over upload that fails keeps its recording for the card's Retry, and its row", async (t) => {
+  const AudioManager = await loadManagerClass(t);
+  useManagedOrukeetSettings();
+  globalThis.__streamingFinalizationSettings = {
+    ...globalThis.__streamingFinalizationSettings,
+    dataRetentionEnabled: true,
+    audioRetentionDays: 30,
+  };
+  installCapture(t);
+  const { manager, errors } = createStartingManager(AudioManager, {
+    providerName: "orukeet",
+    provider: refusedStartProvider(),
+  });
+  const saved = [];
+  manager.saveFailedTranscription = async (message, code, metadata, options) => {
+    saved.push(code);
+    options?.onRowSaved?.(58);
+  };
+  manager.processWithOpenWhisprCloud = async () => {
+    throw Object.assign(new Error("Your OpenWhispr Cloud session is unavailable."), {
+      code: "AUTH_EXPIRED",
+    });
+  };
+
+  await manager.startStreamingRecording();
+  await manager.stopStreamingRecording();
+
+  assert.deepEqual(saved, ["AUTH_EXPIRED"]);
+  assert.equal(errors.length, 1);
+  const report = errors[0];
+  assert.ok(report.keptRecording, "Retry re-sends the failed-over recording");
+  assert.equal(await report.keptRecording.blob.text(), "opening words");
+  assert.equal(await report.keptRecording.rowId, 58);
+  assert.equal(await report.historyRowId, 58, "Open in History opens its failed row");
+});
+
 test("cancelling a failed-over upload does not keep it as a failed transcription", async (t) => {
   const AudioManager = await loadManagerClass(t);
   useManagedOrukeetSettings();
@@ -1280,15 +1316,17 @@ test("a failed-over selection edit that fails is reported as a selection edit fa
   await manager.startStreamingRecording();
   await manager.stopStreamingRecording();
 
-  assert.deepEqual(errors, [
-    {
-      title: "Selection Edit Failed",
-      description: "Selection edit could not safely read the selection: gone",
-      selectionEditFatal: true,
-      code: "SELECTION_EDIT_CAPTURE_FAILED",
-      messageKey: "hooks.audioRecording.selectionEditing.unavailable",
-    },
-  ]);
+  assert.equal(errors.length, 1);
+  const { historyRowId, ...report } = errors[0];
+  assert.deepEqual(report, {
+    title: "Selection Edit Failed",
+    description: "Selection edit could not safely read the selection: gone",
+    selectionEditFatal: true,
+    code: "SELECTION_EDIT_CAPTURE_FAILED",
+    messageKey: "hooks.audioRecording.selectionEditing.unavailable",
+  });
+  assert.equal(typeof historyRowId?.then, "function", "Open in History waits on its row");
+  assert.equal(report.keptRecording, undefined, "a selection edit is never re-sent");
 });
 
 test("a managed Orukeet session fails over even if its route changes mid-recording", async (t) => {

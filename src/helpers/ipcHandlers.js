@@ -2060,6 +2060,28 @@ class IPCHandlers {
     ipcMain.handle("hide-control-panel", (event) => {
       if (fromControlPanel(event)) this.windowManager.hideControlPanelToTray();
     });
+    // "Open in History" on a dictation error card: the dictation window names
+    // the row its dictation saved; main shows the control panel on it, no
+    // review drafted, and never refuses it as busy.
+    ipcMain.handle("history-open-item", async (event, id) => {
+      const dictationWindow = this.windowManager.mainWindow;
+      if (!dictationWindow || dictationWindow.isDestroyed()) return { opened: false };
+      if (event.sender !== dictationWindow.webContents) return { opened: false };
+      if (!this.windowManager.dictationReview) return { opened: false };
+      try {
+        return await this.windowManager.dictationReview.openItem(id);
+      } catch (error) {
+        debugLogger.error(
+          "Failed to open History at a dictation",
+          { error: error.message },
+          "history"
+        );
+        return { opened: false };
+      }
+    });
+    ipcMain.handle("get-pending-history-item-request", (event) =>
+      fromControlPanel(event) ? this.windowManager.consumePendingHistoryItemRequest() : null
+    );
     // The dictation window still pasting or saving a finished dictation, which
     // main's lifecycle (idle by then) doesn't see. Reset when that renderer
     // goes away (windowManager._registerDictationLifecycleReset).
@@ -7262,7 +7284,10 @@ class IPCHandlers {
       if (!buffer) return { success: false, error: "Audio file not found" };
       // This retry's step-history run: it captures the owner now and becomes
       // the row's newest revision, so an older retry's completion is dropped.
+      // A newer run (Re-transcribe, Re-run cleanup) overtakes this one: then
+      // even the writes below are dropped.
       const stepRunId = this.stepHistory.beginRun({ transcriptionId: id });
+      const runIsCurrent = this.stepHistory.currentRunCheck(stepRunId);
       let providerErrorContext = null;
       try {
         let result;
@@ -7614,18 +7639,15 @@ class IPCHandlers {
           return { success: false, error: "No transcription engine available" };
         }
 
-        this.databaseManager.updateTranscriptionText(id, result.text, result.text);
-        this.databaseManager.updateTranscriptionStatus(id, "completed");
-        const providerName = result.source || "local";
-        const modelName = result.model || null;
-        const existingRow = this.databaseManager.getTranscriptionById(id);
-        this.databaseManager.updateTranscriptionAudio(id, {
-          hasAudio: 1,
-          audioDurationMs: existingRow?.audio_duration_ms ?? null,
-          provider: providerName,
-          model: modelName,
+        const saved = this.stepHistory.saveRetranscription(id, {
+          text: result.text,
+          provider: result.source || "local",
+          model: result.model || null,
+          isCurrent: runIsCurrent,
         });
-        const updated = this.databaseManager.getTranscriptionById(id);
+        // A newer run on this row began meanwhile; it reports its own result.
+        if (saved.stale) return { success: false, stale: true };
+        const updated = saved.transcription;
         if (updated) {
           setImmediate(() => {
             broadcastToWindows("transcription-updated", updated);

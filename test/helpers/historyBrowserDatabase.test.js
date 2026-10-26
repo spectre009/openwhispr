@@ -192,6 +192,7 @@ test("a list row is light: a preview cut in SQL, the raw text when there's no fi
     rating: null,
     app: null,
     marks: null,
+    stepFailure: null,
   });
   for (const row of rows.values()) {
     assert.ok(!("text" in row) && !("rawText" in row), "no full texts in the list");
@@ -256,13 +257,20 @@ test("filters: failed, Cleanup changed it (this owner's), and app (this owner's)
   const theirs = ctx.cleanedUp({ app: "Code.exe" });
   ctx.state.owner = "account:a";
 
-  assert.deepEqual(ctx.allIds({ filters: { failed: true } }), [failed]);
+  // Failed: the failed transcription, and this owner's failed or ignored cleanup.
+  assert.deepEqual(
+    ctx.allIds({ filters: { failed: true } }).sort(),
+    [failed, cleanupFailed, cleanupFallback].sort()
+  );
   assert.deepEqual(ctx.allIds({ filters: { cleanupChanged: true } }), [changed]);
   assert.deepEqual(ctx.allIds({ filters: { app: "Code.exe" } }), [changed]);
   assert.deepEqual(ctx.allIds({ filters: { app: "Teams.exe" } }), [unchanged]);
   assert.deepEqual(ctx.allIds({ filters: { app: "code.exe" } }), [], "the app as recorded");
   assert.deepEqual(ctx.allIds({ filters: { cleanupChanged: true, app: "Teams.exe" } }), []);
-  assert.deepEqual(ctx.allIds({ filters: { failed: true, query: "x", bogus: true } }), [failed]);
+  assert.deepEqual(
+    ctx.allIds({ filters: { failed: true, query: "x", bogus: true } }).sort(),
+    [failed, cleanupFailed, cleanupFallback].sort()
+  );
   assert.deepEqual(
     ctx.allIds({ filters: { bogus: true } }).sort(),
     [
@@ -281,9 +289,96 @@ test("filters: failed, Cleanup changed it (this owner's), and app (this owner's)
   ctx.state.owner = "account:b";
   assert.deepEqual(ctx.allIds({ filters: { cleanupChanged: true } }), [theirs]);
   assert.deepEqual(ctx.allIds({ filters: { app: "Code.exe" } }), [theirs]);
+  assert.deepEqual(
+    ctx.allIds({ filters: { failed: true } }),
+    [failed],
+    "another owner's failed steps never count"
+  );
   ctx.state.owner = null;
   assert.deepEqual(ctx.allIds({ filters: { cleanupChanged: true } }), [], "no owner, no steps");
+  assert.deepEqual(ctx.allIds({ filters: { failed: true } }), [failed]);
   assert.equal(ctx.allIds().length, 8, "rows stay device-wide");
+});
+
+test("Failed lists a failed or ignored cleanup, style or translation, never a skipped or unchanged one", (t) => {
+  const ctx = setup(t);
+  if (!ctx) return;
+  const style = ctx.dictate({
+    steps: [
+      STEP("stt", "hello there"),
+      STEP("cleanup", "Hello there."),
+      STEP("style", null, {
+        outcome: "failed",
+        errorCode: "PROVIDER_QUOTA_EXHAUSTED",
+        detail: {
+          styleId: "teams",
+          runMode: "two-step",
+          failure: {
+            code: "PROVIDER_QUOTA_EXHAUSTED",
+            messageKey: "providerErrors.quotaExhausted",
+            messageParams: { provider: "GitHub Copilot" },
+            settingsTarget: "llms",
+          },
+        },
+      }),
+    ],
+  });
+  const translationFailed = ctx.dictate({
+    steps: [STEP("stt", "hello"), STEP("translation", null, { outcome: "failed" })],
+  });
+  const translationEmpty = ctx.dictate({
+    steps: [STEP("stt", "hello"), STEP("translation", "", { outcome: "fallback" })],
+  });
+  const translationSkipped = ctx.dictate({
+    steps: [STEP("stt", "hello"), STEP("translation", "hello", { outcome: "skipped" })],
+  });
+  const translationUnchanged = ctx.dictate({
+    steps: [STEP("stt", "bonjour"), STEP("translation", "bonjour")],
+  });
+  const agentFailed = ctx.dictate({
+    steps: [STEP("stt", "hey jarvis"), STEP("agent", null, { outcome: "failed" })],
+  });
+  const fine = ctx.cleanedUp();
+
+  assert.deepEqual(
+    ctx.allIds({ filters: { failed: true } }).sort(),
+    [style, translationFailed, translationEmpty].sort()
+  );
+  const rows = new Map(ctx.browser.list().rows.map((row) => [row.id, row]));
+  assert.equal(rows.get(style).stepFailure, "style");
+  assert.equal(rows.get(translationFailed).stepFailure, "translation");
+  assert.equal(rows.get(translationEmpty).stepFailure, "translation");
+  for (const id of [translationSkipped, translationUnchanged, agentFailed, fine]) {
+    assert.equal(rows.get(id).stepFailure, null);
+  }
+
+  // The stored reason comes back with the step, as main validated it.
+  const item = ctx.browser.getItem(style);
+  const styleStep = item.steps.find((step) => step.kind === "style");
+  assert.deepEqual(styleStep.detail, {
+    styleId: "teams",
+    runMode: "two-step",
+    failure: {
+      code: "PROVIDER_QUOTA_EXHAUSTED",
+      messageKey: "providerErrors.quotaExhausted",
+      messageParams: { provider: "GitHub Copilot" },
+      settingsTarget: "llms",
+    },
+  });
+  assert.equal(styleStep.errorCode, "PROVIDER_QUOTA_EXHAUSTED");
+
+  // The flag uses the steps' (owner, transcription_id) index.
+  const plan = ctx.db.db
+    .prepare(
+      `EXPLAIN QUERY PLAN SELECT 1 FROM transcription_steps sf
+       WHERE sf.owner = ? AND sf.transcription_id = ?
+         AND sf.kind IN ('cleanup', 'style', 'translation')
+         AND sf.outcome IN ('failed', 'fallback')`
+    )
+    .all("account:a", style)
+    .map((row) => row.detail)
+    .join(" ");
+  assert.match(plan, /idx_transcription_steps_owner/);
 });
 
 test("marks and app come from the current owner's steps only", (t) => {
@@ -329,6 +424,8 @@ test("marks and app come from the current owner's steps only", (t) => {
     { kind: "cleanup", change: "failed" },
     { kind: "finalize", change: "same" },
   ]);
+  assert.equal(rows.get(failedCleanup).stepFailure, "cleanup", "the row's badge");
+  assert.equal(rows.get(mine).stepFailure, null);
   for (const id of [old, signedOut]) {
     assert.equal(rows.get(id).app, null);
     assert.equal(rows.get(id).marks, null, "another owner's steps never show");

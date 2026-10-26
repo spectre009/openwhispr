@@ -13,7 +13,7 @@ import {
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
 import { BIDI_VALUE_TOKEN, BidiInterpolatedText } from "../ui/BidiInterpolatedText";
-import { stepKindLabel } from "../ui/transcriptionStepLabels";
+import { stepFailureBadgeLabel, stepKindLabel } from "../ui/transcriptionStepLabels";
 import { ChevronDown, Loader2, Search, ThumbsDown, ThumbsUp, X } from "../icons";
 import { formatDateGroup, normalizeDbDate } from "../../utils/dateFormatting";
 import { useUiLocale } from "../../hooks/useUiLocale";
@@ -150,6 +150,11 @@ function Row({
         )}
         <span className="ms-auto flex shrink-0 items-center gap-0.5">
           <Rating rating={row.rating ?? null} />
+          {!failed && row.stepFailure && (
+            <span className="me-0.5 inline-flex h-4 items-center rounded border border-destructive/45 bg-destructive/10 px-1 text-[10px] leading-none font-medium text-destructive">
+              {stepFailureBadgeLabel(row.stepFailure, t)}
+            </span>
+          )}
           {failed ? (
             <span
               title={failedLabel}

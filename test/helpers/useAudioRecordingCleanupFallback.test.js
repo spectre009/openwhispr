@@ -98,15 +98,28 @@ test("raw cleanup fallback is reported only after the original dictation is past
   await React.act(async () => manager.callbacks.onTranscriptionComplete({ ...result }));
   assert.equal(manager.pasteCalls, 1);
   assert.equal(useCleanupFailureStore.getState().pending, 1);
-  assert.deepEqual(useCleanupFailureStore.getState().lastFailure, cleanupFailure);
+  const { dictation, ...recorded } = useCleanupFailureStore.getState().lastFailure;
+  assert.deepEqual(recorded, cleanupFailure);
+  // It carries its dictation: still the newest, and the row its save names.
+  assert.equal(dictation.isCurrent(), true);
+  assert.equal(dictation.pasted, true);
+  assert.equal(await dictation.rowId, null, "this save names no row");
 
+  // A paste that didn't land, with no card of its own, still says cleanup
+  // failed: the text is in History, not at the cursor.
   useCleanupFailureStore.setState({ pending: 0, lastFailure: null });
   globalThis.__cleanupFallbackPasteOutcome = { success: true, pasted: false };
   await React.act(async () => manager.callbacks.onTranscriptionComplete({ ...result }));
-  assert.equal(useCleanupFailureStore.getState().pending, 0);
+  assert.equal(useCleanupFailureStore.getState().pending, 1);
+  assert.equal(useCleanupFailureStore.getState().lastFailure.dictation.pasted, false);
 
+  // Auto-paste off: nothing is pasted, and the cleanup failure is still shown.
+  useCleanupFailureStore.setState({ pending: 0, lastFailure: null });
   useSettingsStore.setState({ autoPasteEnabled: false, keepTranscriptionInClipboard: false });
   globalThis.__cleanupFallbackPasteOutcome = { success: true, pasted: true };
+  const pastesBefore = manager.pasteCalls;
   await React.act(async () => manager.callbacks.onTranscriptionComplete({ ...result }));
-  assert.equal(useCleanupFailureStore.getState().pending, 0);
+  assert.equal(manager.pasteCalls, pastesBefore, "no paste with auto-paste off");
+  assert.equal(useCleanupFailureStore.getState().pending, 1);
+  assert.equal(useCleanupFailureStore.getState().lastFailure.dictation.pasted, false);
 });

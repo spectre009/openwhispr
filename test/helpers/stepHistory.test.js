@@ -4,6 +4,7 @@ const crypto = require("node:crypto");
 
 const {
   SIGNED_OUT_OWNER,
+  createStepHistory,
   createStepRunRegistry,
   hashPrompt,
   normalizeTrace,
@@ -225,6 +226,55 @@ test("a run completes once, and a newer retry overtakes an older one", () => {
   const kept = [1, 2, 3, 4].map(() => runs.begin("signed-out"));
   assert.equal(runs.take(kept[0]), null, "the oldest open run is dropped past the cap");
   assert.ok(runs.take(kept[3]));
+});
+
+test("an overtaken retry's own speech-to-text writes are dropped too", () => {
+  const writes = [];
+  const db = {
+    getTranscriptionById: (id) => ({ id, audio_duration_ms: 2100 }),
+    updateTranscriptionText: (id, text, rawText) => writes.push(["text", id, text, rawText]),
+    updateTranscriptionStatus: (id, status) => writes.push(["status", id, status]),
+    updateTranscriptionAudio: (id, audio) => writes.push(["audio", id, audio]),
+  };
+  const history = createStepHistory({
+    db,
+    getOwner: () => "account:a",
+    isEnabled: () => true,
+  });
+  // Re-transcribe begins; Re-run cleanup of the same row begins after it.
+  const retranscribe = history.beginRun({ transcriptionId: 7 });
+  const stillCurrent = history.currentRunCheck(retranscribe);
+  assert.equal(stillCurrent(), true);
+  history.beginRun({ transcriptionId: 7 });
+  assert.equal(stillCurrent(), false);
+  assert.deepEqual(
+    history.saveRetranscription(7, { text: "heard again", isCurrent: stillCurrent }),
+    { stale: true, transcription: null }
+  );
+  assert.deepEqual(writes, [], "nothing at all is written");
+
+  // Another row's runs never overtake this one; an unknown run can't be overtaken.
+  const other = history.beginRun({ transcriptionId: 8 });
+  const otherCurrent = history.currentRunCheck(other);
+  history.beginRun({ transcriptionId: 9 });
+  assert.equal(otherCurrent(), true);
+  assert.equal(history.currentRunCheck(null)(), true);
+  const saved = history.saveRetranscription(8, {
+    text: "heard",
+    provider: "groq",
+    model: "whisper-large-v3",
+    isCurrent: otherCurrent,
+  });
+  assert.equal(saved.stale, false);
+  assert.deepEqual(writes, [
+    ["text", 8, "heard", "heard"],
+    ["status", 8, "completed"],
+    [
+      "audio",
+      8,
+      { hasAudio: 1, audioDurationMs: 2100, provider: "groq", model: "whisper-large-v3" },
+    ],
+  ]);
 });
 
 test("the boundary records each model step's prompt as dispatched", async () => {

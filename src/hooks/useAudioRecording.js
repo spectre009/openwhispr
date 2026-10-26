@@ -6,7 +6,9 @@ import { playStartCue, playStopCue, releaseCueOutput, warmCueOutput } from "../u
 import { getSettings } from "../stores/settingsStore";
 import { expandSnippets } from "../utils/snippets";
 import { getRecordingErrorTitle, getRecordingErrorDescription } from "../utils/recordingErrors";
-import { providerErrorActions } from "../utils/describeProviderError";
+import { openInHistoryAction, providerErrorActions } from "../utils/describeProviderError";
+import { cleanupFailureReason } from "../utils/cleanupFailureCard";
+import { isProviderSettingsTarget } from "../helpers/providerHttpErrors.js";
 import { isAccessibilitySkipped } from "../utils/permissions";
 import { needsSttConfigBeforeStart } from "../helpers/sttConfigPolicy";
 import { recordPastedText } from "../helpers/postTranscription";
@@ -111,6 +113,9 @@ export const useAudioRecording = (toast, options = {}) => {
   const preparationGenerationRef = useRef(0);
   const startTraceRef = useRef(null);
   const dictationErrorGenerationRef = useRef(0);
+  // Bumped when a recording (or a re-send) starts: a card from an older
+  // dictation that settles after it never replaces the newer one's.
+  const dictationSeqRef = useRef(0);
   const wasRecordingRef = useRef(false);
   const pastesInFlightRef = useRef(0);
   const deliveriesInFlightRef = useRef(0);
@@ -339,6 +344,7 @@ export const useAudioRecording = (toast, options = {}) => {
         if (didStart) {
           markStartTrace(trace, "recordingStarted");
           trace.details = { ...trace.details, ...audioManagerRef.current.lastStartInfo };
+          dictationSeqRef.current += 1;
           dictationErrorGenerationRef.current += 1;
           keptRecordingRef.current = null;
           dismissDictationError?.();
@@ -494,17 +500,24 @@ export const useAudioRecording = (toast, options = {}) => {
     // transcript is already kept and only needs delivering again. A
     // `keptRecording` (failedRecordingRetry.js) makes Retry re-send that
     // recording; it belongs to this card and is released when the card goes.
+    // A failure card stays until it is dismissed or the next dictation starts
+    // (`transient`: a short notice instead, for "no audio"). `historyRowId`
+    // resolves the dictation's saved row (Open in History), and a
+    // `cleanupFailure` of the same dictation rides on its paste-failure card:
+    // the pill shows one card at a time, and both failures stay visible.
     const showDictationError = ({
       title,
       description,
       transcript = "",
-      duration,
       code,
       settingsLaunchFailed = false,
       onRetry,
       keptRecording,
       settingsTarget,
       technicalDetails,
+      historyRowId = null,
+      cleanupFailure = null,
+      transient = false,
     }) => {
       const errorGeneration = ++dictationErrorGenerationRef.current;
       const isCurrent = () => errorGeneration === dictationErrorGenerationRef.current;
@@ -518,6 +531,12 @@ export const useAudioRecording = (toast, options = {}) => {
       };
       const recoverAssistant = Boolean(audioManagerRef.current?.voiceAgentRequested);
       onDictationError?.({ recoverAssistant });
+      const cleanupLine = cleanupFailure
+        ? t("app.toasts.cleanupFailed.alsoFailed", {
+            reason: cleanupFailureReason(cleanupFailure, t),
+          })
+        : "";
+      const openInHistory = historyRowId ? openInHistoryAction(historyRowId, t, isCurrent) : null;
       if (code === "ACCESSIBILITY_PERMISSION_REQUIRED") {
         let settingsOpening = false;
         const actions = [
@@ -546,11 +565,14 @@ export const useAudioRecording = (toast, options = {}) => {
                   transcript,
                   code,
                   settingsLaunchFailed: true,
+                  historyRowId,
+                  cleanupFailure,
                 });
               }
             },
           },
         ];
+        if (openInHistory) actions.push(openInHistory);
         if (transcript.trim()) {
           actions.push({
             label: t("hooks.audioRecording.pastePermission.copyToClipboard"),
@@ -576,15 +598,20 @@ export const useAudioRecording = (toast, options = {}) => {
         toast({
           title,
           description: [
-            settingsLaunchFailed
-              ? t("hooks.audioRecording.pastePermission.settingsFailed")
-              : description,
-            transcript.trim()
-              ? t("hooks.audioRecording.pastePermission.manualPaste", { shortcut: "Cmd+V" })
-              : "",
+            [
+              settingsLaunchFailed
+                ? t("hooks.audioRecording.pastePermission.settingsFailed")
+                : description,
+              transcript.trim()
+                ? t("hooks.audioRecording.pastePermission.manualPaste", { shortcut: "Cmd+V" })
+                : "",
+            ]
+              .filter(Boolean)
+              .join(" "),
+            cleanupLine,
           ]
             .filter(Boolean)
-            .join(" "),
+            .join("\n"),
           descriptionHotkey: transcript.trim() ? "Cmd+V" : undefined,
           variant: "destructive",
           presentation: "dictation-error",
@@ -624,6 +651,13 @@ export const useAudioRecording = (toast, options = {}) => {
       ];
 
       actions.push(...providerErrorActions({ settingsTarget, technicalDetails }, t, isCurrent));
+      // The cleanup failure's own fix, when this card's error has none.
+      if (cleanupFailure && !isProviderSettingsTarget(settingsTarget)) {
+        actions.push(
+          ...providerErrorActions({ settingsTarget: cleanupFailure.settingsTarget }, t, isCurrent)
+        );
+      }
+      if (openInHistory) actions.push(openInHistory);
 
       if (recoverableTranscript) {
         actions.push({
@@ -637,10 +671,18 @@ export const useAudioRecording = (toast, options = {}) => {
 
       toast({
         title,
-        description,
+        description: [description, cleanupLine].filter(Boolean).join("\n"),
         variant: "destructive",
         presentation: "dictation-error",
-        duration,
+        ...(transient
+          ? {}
+          : {
+              duration: 0,
+              dismissible: true,
+              onClose: () => {
+                if (isCurrent()) dictationErrorGenerationRef.current += 1;
+              },
+            }),
         actions,
         ...(keptRecording ? { onRemoved: releaseKeptRecording } : {}),
       });
@@ -666,6 +708,7 @@ export const useAudioRecording = (toast, options = {}) => {
       }
       keptRecordingRef.current = null;
       resendingRef.current = true;
+      dictationSeqRef.current += 1;
       dictationErrorGenerationRef.current += 1;
       dismissDictationError?.();
       // The keys that force-stopped the original are long released.
@@ -680,6 +723,47 @@ export const useAudioRecording = (toast, options = {}) => {
         resendingRef.current = false;
       }
       return false;
+    };
+
+    // Every failure the audio manager reports, and a paste of this window's
+    // dictation that failed: a card that stays until dismissed or the next
+    // dictation starts. `historyRowId` (the failed row, or the dictation's own)
+    // gives it Open in History; a paste failure carries its dictation's
+    // cleanup failure along (`cleanupFailure`).
+    const handleError = (error) => {
+      setIsPreparing(false);
+      setIsStopping(false);
+      if (error?.code === "TRANSCRIPTION_CANCELLED" || error?.code === "REASON_CANCELLED") return;
+      onDemoEventRef.current?.({
+        kind: demoKindRef.current,
+        status: "error",
+        message: error?.message,
+      });
+      if (error?.title !== "Paste Error") {
+        window.electronAPI?.hideDictationPreview?.();
+      }
+      const title = getRecordingErrorTitle(error, t);
+      const description = getRecordingErrorDescription(error, t);
+      if (error?.variant === "default") {
+        // Informational outcomes (SCREEN_CONTEXT_SKIPPED after a successful
+        // text-only retry) are notices, not failures: no card, no Retry.
+        toast({ title, description, variant: "default" });
+      } else {
+        showDictationError({
+          title,
+          description,
+          code: error?.code,
+          transcript: error?.transcript,
+          keptRecording: error?.keptRecording,
+          settingsTarget: error?.settingsTarget,
+          technicalDetails: error?.technicalDetails,
+          historyRowId: error?.historyRowId ?? null,
+          cleanupFailure: error?.cleanupFailure ?? null,
+        });
+      }
+      if (getSettings().pauseMediaOnDictation) {
+        window.electronAPI?.resumeMediaPlayback?.();
+      }
     };
 
     audioManagerRef.current.setCallbacks({
@@ -746,40 +830,7 @@ export const useAudioRecording = (toast, options = {}) => {
           setPartialTranscript("");
         }
       },
-      onError: (error) => {
-        setIsPreparing(false);
-        setIsStopping(false);
-        if (error?.code === "TRANSCRIPTION_CANCELLED" || error?.code === "REASON_CANCELLED") return;
-        onDemoEventRef.current?.({
-          kind: demoKindRef.current,
-          status: "error",
-          message: error?.message,
-        });
-        if (error?.title !== "Paste Error") {
-          window.electronAPI?.hideDictationPreview?.();
-        }
-        const title = getRecordingErrorTitle(error, t);
-        const description = getRecordingErrorDescription(error, t);
-        if (error?.variant === "default") {
-          // Informational outcomes (SCREEN_CONTEXT_SKIPPED after a successful
-          // text-only retry) are notices, not failures: no card, no Retry.
-          toast({ title, description, variant: "default" });
-        } else {
-          showDictationError({
-            title,
-            description,
-            duration: error?.code === "AUTH_EXPIRED" ? 8000 : undefined,
-            code: error?.code,
-            transcript: error?.transcript,
-            keptRecording: error?.keptRecording,
-            settingsTarget: error?.settingsTarget,
-            technicalDetails: error?.technicalDetails,
-          });
-        }
-        if (getSettings().pauseMediaOnDictation) {
-          window.electronAPI?.resumeMediaPlayback?.();
-        }
-      },
+      onError: handleError,
       onNoAudio: () => {
         setIsPreparing(false);
         setIsStopping(false);
@@ -795,6 +846,7 @@ export const useAudioRecording = (toast, options = {}) => {
         showDictationError({
           title: t("hooks.audioRecording.noAudio.title"),
           description: t("hooks.audioRecording.noAudio.description"),
+          transient: true,
         });
       },
       onPartialTranscript: (text) => {
@@ -831,9 +883,14 @@ export const useAudioRecording = (toast, options = {}) => {
             showDictationError({
               title: t("hooks.audioRecording.noAudio.title"),
               description: t("hooks.audioRecording.noAudio.description"),
+              transient: true,
             });
             return;
           }
+
+          // This dictation's cards: none once a newer dictation started.
+          const dictationSeq = dictationSeqRef.current;
+          const isCurrentDictation = () => dictationSeq === dictationSeqRef.current;
 
           // A selection edit must replace the model's exact result. Snippet
           // expansion is a dictation convenience and can otherwise mutate a
@@ -902,6 +959,12 @@ export const useAudioRecording = (toast, options = {}) => {
           const { autoPasteEnabled, keepTranscriptionInClipboard } = getSettings();
 
           countDelivery(deliveriesInFlightRef, 1);
+          // The History row this dictation is saved to (the save starts before
+          // the paste): a card's Open in History waits on it, never "the newest".
+          let resolveRowId;
+          const rowId = new Promise((resolve) => {
+            resolveRowId = resolve;
+          });
           const persistencePromise = audioManagerRef.current
             .saveTranscription(result.text, result.rawText ?? result.text, {
               clientTranscriptionId: result.clientTranscriptionId,
@@ -919,6 +982,7 @@ export const useAudioRecording = (toast, options = {}) => {
               ...(Number.isInteger(result.replacesTranscriptionId)
                 ? { replacesTranscriptionId: result.replacesTranscriptionId }
                 : {}),
+              onRowSaved: (id) => resolveRowId(Number.isInteger(id) ? id : null),
             })
             .then(
               (persisted) => {
@@ -949,7 +1013,30 @@ export const useAudioRecording = (toast, options = {}) => {
                 return false;
               }
             )
-            .finally(() => countDelivery(deliveriesInFlightRef, -1));
+            .finally(() => {
+              // A save that never named its row: Open in History has nothing to open.
+              resolveRowId(null);
+              countDelivery(deliveriesInFlightRef, -1);
+            });
+
+          // A paste of this dictation that fails shows its card with the
+          // dictation's cleanup failure on it; otherwise the cleanup card
+          // follows a paste that landed.
+          const cleanupFailure = result.cleanupFailure ?? null;
+          let pasteCardShown = false;
+          const dictationCard = { historyRowId: rowId, cleanupFailure };
+          const reportPasteFailure = (error) => {
+            if (!isCurrentDictation()) {
+              logger.info(
+                "A failed paste stays off the pill behind a newer dictation",
+                { code: error?.code ?? null },
+                "clipboard"
+              );
+              return;
+            }
+            pasteCardShown = true;
+            handleError({ ...error, ...dictationCard });
+          };
 
           const keepInClipboard = async (delivery) => {
             try {
@@ -1011,6 +1098,7 @@ export const useAudioRecording = (toast, options = {}) => {
               return;
             }
             window.electronAPI?.hideDictationPreview?.();
+            pasteCardShown = true;
             showDictationError({
               title,
               // Never promise a clipboard that rejected the write; the transcript
@@ -1018,19 +1106,24 @@ export const useAudioRecording = (toast, options = {}) => {
               description: keptInClipboard ? description : descriptionClipboardFailed,
               transcript: result.rawText ?? result.text,
               onRetry,
+              ...dictationCard,
             });
           };
 
           const pasteTranscript = async () => {
             const generation = dictationErrorGenerationRef.current;
             const pasteOutcome = await whilePasting(() =>
-              audioManagerRef.current.safePaste(result.text, {
-                ...(isStreaming ? { fromStreaming: true } : {}),
-                ...pasteOptions,
-                // A styled paste isn't what was said, so main must not learn
-                // dictionary words from edits to it (decided per paste).
-                ...(traceStyle(result.trace) ? { suppressAutoLearn: true } : {}),
-              })
+              audioManagerRef.current.safePaste(
+                result.text,
+                {
+                  ...(isStreaming ? { fromStreaming: true } : {}),
+                  ...pasteOptions,
+                  // A styled paste isn't what was said, so main must not learn
+                  // dictionary words from edits to it (decided per paste).
+                  ...(traceStyle(result.trace) ? { suppressAutoLearn: true } : {}),
+                },
+                { report: reportPasteFailure }
+              )
             );
             if (pasteOutcome.reason === "modifiers-held") {
               await reportHeldBackPaste(
@@ -1050,6 +1143,8 @@ export const useAudioRecording = (toast, options = {}) => {
             return pasteOutcome.pasted;
           };
 
+          // Whether this dictation's text reached the cursor (the cleanup card's wording).
+          let cleanupTextPasted = false;
           if (pushForceStoppedRef.current && autoPasteEnabled && !result.assistantConversation) {
             // The push hit its safety ceiling while the trigger keys were still
             // down. Injecting the paste shortcut into those held modifiers is
@@ -1096,10 +1191,12 @@ export const useAudioRecording = (toast, options = {}) => {
                 }
                 const detailKey =
                   SELECTION_EDIT_DETAIL_KEY_BY_CODE[replacement?.code] || "unavailable";
+                pasteCardShown = true;
                 showDictationError({
                   title: t("hooks.audioRecording.selectionEditing.notAppliedTitle"),
                   description: t(`hooks.audioRecording.selectionEditing.${detailKey}`),
                   transcript: result.rawText ?? result.text,
+                  ...dictationCard,
                 });
               }
             } else {
@@ -1124,10 +1221,21 @@ export const useAudioRecording = (toast, options = {}) => {
             // visible somewhere.
             if (pasteSucceeded) {
               window.electronAPI?.hideDictationPreview?.();
-              if (result.cleanupFailure) recordCleanupFailure(result.cleanupFailure);
             }
+            cleanupTextPasted = pasteSucceeded;
           } else if (keepTranscriptionInClipboard && !result.assistantConversation) {
             await keepInClipboard("clipboard-only");
+          }
+
+          // The cleanup card, for a delivery that showed no card of its own: a
+          // paste that landed, or no paste at all (auto-paste off). A paste
+          // card of this dictation already carries it, and a newer
+          // dictation's pill is never covered by this one's card.
+          if (cleanupFailure && !pasteCardShown && isCurrentDictation()) {
+            recordCleanupFailure({
+              ...cleanupFailure,
+              dictation: { isCurrent: isCurrentDictation, rowId, pasted: cleanupTextPasted },
+            });
           }
 
           if (result.source === "openai" && getSettings().useLocalWhisper) {

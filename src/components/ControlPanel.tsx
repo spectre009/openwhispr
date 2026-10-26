@@ -1,4 +1,4 @@
-import React, { Suspense, useState, useEffect, useRef, useCallback } from "react";
+import React, { Suspense, useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { useShallow } from "zustand/react/shallow";
 import { Button } from "./ui/button";
@@ -82,18 +82,16 @@ import {
 } from "../stores/noteStore";
 import { fetchProviders as fetchStreamingProviders } from "../stores/streamingProvidersStore";
 import {
-  executeTranslationChain,
-  hasTextContent,
-  shouldRunTranslateStep,
-} from "../helpers/translationChain";
-import { applyChineseScript, resolveChineseScriptTarget } from "../utils/chineseScript";
-import { runPostTranscription, type PostTranscriptionRunArgs } from "../helpers/postTranscription";
-import { getGlossarySnapshot } from "../stores/glossaryStore";
+  rerunAfterSpeechToText,
+  reusedSttStep,
+  targetAppFromSteps,
+  wasAssistantCommand,
+  type HistoryRerunNotices,
+} from "../services/historyRerun";
 import { resolveStyleForRetry } from "../stores/styleStore";
 import { styleIdFromRouteKind } from "../config/styles/library";
 import { OPEN_HISTORY_ITEM_EVENT } from "../utils/openHistoryItem";
 import { requestHistoryItem, requestHistoryReview } from "./history/historyViewStore";
-import { getAgentName } from "../utils/agentName";
 import HistoryView from "./HistoryView";
 import BackgroundActionToastListener from "./notes/BackgroundActionToastListener";
 import AssistantNoteUndoListener from "./notes/AssistantNoteUndoListener";
@@ -391,6 +389,20 @@ export default function ControlPanel({ initialSettingsSection }: ControlPanelPro
     };
     void drain();
     return window.electronAPI?.onReviewDictationPending?.(() => void drain());
+  }, [closeSettings]);
+
+  // "Open in History" on a dictation error card: main holds the dictation's
+  // row until this window asks, then History opens on it with no review
+  // drafted, read by id whatever the list shows (as Home's Open in History).
+  useEffect(() => {
+    const drain = async () => {
+      const request = await window.electronAPI?.getPendingHistoryItemRequest?.();
+      if (!request || !Number.isInteger(request.id) || !closeSettings()) return;
+      requestHistoryItem(request.id);
+      setActiveView("history");
+    };
+    void drain();
+    return window.electronAPI?.onHistoryItemPending?.(() => void drain());
   }, [closeSettings]);
 
   useEffect(() => {
@@ -726,6 +738,31 @@ export default function ControlPanel({ initialSettingsSection }: ControlPanelPro
     [toast, t]
   );
 
+  // What a re-run tells the user along the way, as a live dictation's toasts do.
+  const rerunNotices = useMemo<HistoryRerunNotices>(
+    () => ({
+      cleanupFailed: (cleanupError) =>
+        toast({
+          title: t("app.toasts.cleanupFailed.title"),
+          ...providerErrorToastProps(cleanupError, t),
+          variant: "destructive",
+        }),
+      styleNotApplied: (name, reason) =>
+        toast({
+          title: t("hooks.audioRecording.styleFallback.title", { name }),
+          description: t(
+            reason === "unreachable"
+              ? "hooks.audioRecording.styleFallback.unreachableDescription"
+              : "hooks.audioRecording.styleFallback.failedDescription"
+          ),
+          variant: "destructive",
+        }),
+    }),
+    [toast, t]
+  );
+
+  // Re-transcribe: main transcribes the stored recording again, then the rest
+  // of the dictation runs as Re-run cleanup does (historyRerun.ts).
   const retryTranscription = useCallback(
     async (id: number, options?: { isRecover?: boolean; plainStyle?: boolean }) => {
       try {
@@ -741,6 +778,14 @@ export default function ControlPanel({ initialSettingsSection }: ControlPanelPro
         if (!managed && !isTranscriptionContextAllowed(usePolicyStore.getState(), s, "dictation")) {
           toast({ title: t("common.managedByOrg"), variant: "default" });
           return;
+        }
+        // The dictation's captured target app, read before main rewrites the
+        // transcript (which drops the row's old steps).
+        let targetApp: string | null = null;
+        try {
+          targetApp = targetAppFromSteps(await window.electronAPI.getTranscriptionSteps?.(id));
+        } catch {
+          targetApp = null;
         }
         const result = await window.electronAPI.retryTranscription(id, {
           managed,
@@ -761,254 +806,28 @@ export default function ControlPanel({ initialSettingsSection }: ControlPanelPro
           remoteTranscriptionUrl: s.remoteTranscriptionUrl,
           remoteTranscriptionModel: s.remoteTranscriptionModel,
         });
+        // A newer run on this row (Re-run cleanup, another Re-transcribe)
+        // began meanwhile: main wrote nothing, and that run reports its own result.
+        if (result.stale) return;
         if (result.success && result.transcription) {
-          const rawText = result.transcription.text;
-          let finalTranscription = result.transcription;
-          const isTranslation = result.transcription.route_kind === "translation";
-          let translationApplied = false;
-          // A styled dictation re-runs its style ("style:<id>"), unless the user
-          // chose Plain because the style was deleted.
-          const routeKind = result.transcription.route_kind;
-          const retryStyleId =
-            !options?.plainStyle && typeof routeKind === "string" && routeKind.startsWith("style:")
-              ? routeKind.slice("style:".length)
-              : null;
-          const retryStyle = retryStyleId ? resolveStyleForRetry(retryStyleId) : null;
-
-          // The same post-speech-to-text boundary a live dictation runs. History
-          // records no target app, so only "anywhere" glossary corrections apply.
-          const { text: finalText, trace } = await runPostTranscription(rawText, {
-            context: {
-              targetApp: null,
-              voiceAgentRequested: false,
-              translationRequested: isTranslation,
-              ...(retryStyle
-                ? {
-                    style: { id: retryStyle.id, runMode: retryStyle.runMode },
-                    appScopedGlossary: retryStyle.appGlossary,
-                  }
-                : {}),
-            },
-            glossary: getGlossarySnapshot(),
-            snippets: s.snippets,
-            stt: {
-              provider: result.transcription.provider ?? null,
-              model: result.transcription.model ?? null,
-              ms: null,
-            },
-            run: async ({
-              rawText: routeText,
-              workingText,
-              recordStep,
-              setRoute,
-            }: PostTranscriptionRunArgs) => {
-              // The style chain, as a styled dictation runs it: two steps or one,
-              // with the cleanup switch deciding whether cleanup runs first.
-              if (retryStyle) {
-                const [
-                  { isStyleReachable, runStyledDictation },
-                  { default: ReasoningService },
-                  { buildDictationCleanupConfig },
-                  { getEffectiveCleanupModel, getSettings: getEffectiveSettings },
-                ] = await Promise.all([
-                  import("../services/dictationStyles"),
-                  import("../services/ReasoningService"),
-                  import("../helpers/dictationCleanupConfig"),
-                  import("../stores/settingsStore"),
-                ]);
-                const settings = getEffectiveSettings();
-                const styleToast = (descriptionKey: string) =>
-                  toast({
-                    title: t("hooks.audioRecording.styleFallback.title", {
-                      name: retryStyle.name,
-                    }),
-                    description: t(descriptionKey),
-                    variant: "destructive",
-                  });
-                if (!isStyleReachable(settings)) {
-                  setRoute("none");
-                  styleToast("hooks.audioRecording.styleFallback.unreachableDescription");
-                  return workingText;
-                }
-                setRoute("style");
-                const agentName = getAgentName();
-                let styleFailed = false;
-                const styled = await runStyledDictation({
-                  text: workingText,
-                  style: retryStyle,
-                  settings,
-                  agentName,
-                  cleanupOn: !!settings.useCleanupModel,
-                  recordStep,
-                  runCleanup: (text: string) =>
-                    recordStep("cleanup", {}, (dispatched) =>
-                      ReasoningService.processText(text, getEffectiveCleanupModel(), agentName, {
-                        ...buildDictationCleanupConfig(settings),
-                        onDispatch: dispatched,
-                      })
-                    ),
-                  onCleanupError: (cleanupError: unknown) =>
-                    toast({
-                      title: t("app.toasts.cleanupFailed.title"),
-                      ...providerErrorToastProps(cleanupError, t),
-                      variant: "destructive",
-                    }),
-                  onStyleError: () => {
-                    styleFailed = true;
-                  },
-                });
-                if (styleFailed) styleToast("hooks.audioRecording.styleFallback.failedDescription");
-                return styled.text;
-              }
-              // A translation dictation must re-run cleanup-then-translate on retry,
-              // not plain cleanup.
-              if (isTranslation) {
-                try {
-                  const [
-                    { default: ReasoningService },
-                    { resolveReasoningRoute },
-                    { getEffectiveCleanupModel, getSettings: getEffectiveSettings },
-                  ] = await Promise.all([
-                    import("../services/ReasoningService"),
-                    import("../helpers/audioManager"),
-                    import("../stores/settingsStore"),
-                  ]);
-                  const settings = getEffectiveSettings();
-                  const agentName = getAgentName();
-                  // Routing reads what was said; the chain works on the corrected text.
-                  const route = resolveReasoningRoute(routeText, settings, agentName, false, true);
-                  setRoute(route.kind);
-                  if (route.kind === "translation") {
-                    const { text, translated } = await executeTranslationChain({
-                      text: workingText,
-                      cleanupReachable: route.cleanupReachable,
-                      runCleanup: (currentText: string) =>
-                        recordStep("cleanup", {}, (dispatched) =>
-                          ReasoningService.processText(
-                            currentText,
-                            getEffectiveCleanupModel(),
-                            agentName,
-                            { ...route.cleanupConfig, onDispatch: dispatched }
-                          )
-                        ),
-                      runTranslate: (currentText: string) =>
-                        recordStep("translation", {}, (dispatched) =>
-                          ReasoningService.processText(currentText, route.model, agentName, {
-                            ...route.config,
-                            onDispatch: dispatched,
-                          })
-                        ),
-                      shouldTranslate: shouldRunTranslateStep(
-                        settings.translationSourceLanguage,
-                        settings.translationTargetLanguage
-                      ),
-                      onCleanupError: (cleanupError: unknown) => {
-                        logger.warn(
-                          "Cleanup step failed in translation chain, translating raw transcript",
-                          { error: (cleanupError as Error).message },
-                          "transcription"
-                        );
-                        // The chain still translates the transcript, so say why cleanup
-                        // was dropped rather than reporting a clean success (#2091).
-                        toast({
-                          title: t("app.toasts.cleanupFailed.title"),
-                          ...providerErrorToastProps(cleanupError, t),
-                          variant: "destructive",
-                        });
-                      },
-                      onEmptyTranslate: () =>
-                        logger.warn(
-                          "Translation step returned empty text, keeping previous text",
-                          {},
-                          "transcription"
-                        ),
-                      onUnchangedTranslate: () =>
-                        logger.warn(
-                          "Translation step returned unchanged text, keeping source text",
-                          {},
-                          "transcription"
-                        ),
-                    });
-                    translationApplied = translated;
-                    return text;
-                  }
-                  // Translation disabled/unreachable since recording — fall through to cleanup.
-                } catch {
-                  // Reasoning failed — keep the corrected transcript
-                  return workingText;
-                }
-              }
-
-              // Apply AI reasoning if enabled
-              if (!useCleanupModel) return workingText;
-              try {
-                const [
-                  { default: ReasoningService },
-                  { getEffectiveCleanupModel, isCloudCleanupMode, getSettings },
-                ] = await Promise.all([
-                  import("../services/ReasoningService"),
-                  import("../stores/settingsStore"),
-                ]);
-                const model = getEffectiveCleanupModel();
-                const isCloud = isCloudCleanupMode();
-                if (model || isCloud) {
-                  setRoute("cleanup");
-                  const agentName = getAgentName();
-                  const reasonedText = await recordStep("cleanup", {}, (dispatched) =>
-                    ReasoningService.processText(workingText, model, agentName, {
-                      disableThinking: getSettings().cleanupDisableThinking,
-                      requireCompleteOutput: true,
-                      onDispatch: dispatched,
-                    })
-                  );
-                  if (hasTextContent(reasonedText)) return reasonedText;
-                }
-              } catch (cleanupError) {
-                // The row keeps its corrected transcript, so the retry must not look like
-                // it cleaned anything — report why, the way dictation does (#2091).
-                toast({
-                  title: t("app.toasts.cleanupFailed.title"),
-                  ...providerErrorToastProps(cleanupError, t),
-                  variant: "destructive",
-                });
-              }
-              return workingText;
-            },
-            // Deterministic Chinese script pass, mirroring dictation (#975). Runs last so
-            // it covers the cleaned/translated text, or the transcript when neither ran.
-            // Same rule as audioManager.getEffectiveOutputLanguage: only a completed
-            // translate step moves the text into the target language, so anything else
-            // still has to be scripted as the language that was dictated.
-            finalize: (text: string) => {
-              const outputLanguage = isTranslation
-                ? (translationApplied
-                    ? s.translationTargetLanguage
-                    : s.translationSourceLanguage) || "auto"
-                : s.preferredLanguage;
-              return applyChineseScript(
-                text,
-                resolveChineseScriptTarget(outputLanguage, s.chineseScriptPreference, text)
-              );
-            },
-          });
-
-          // Main began this retry's step-history run; its steps replace the
-          // row's old ones together with the text, even when the text is unchanged.
-          if (result.stepRunId) trace.runId = result.stepRunId;
-          if (finalText !== finalTranscription.text || trace.runId) {
-            const updated = await window.electronAPI.updateTranscriptionText(
+          const row = result.transcription;
+          const outcome = await rerunAfterSpeechToText(
+            {
               id,
-              finalText,
-              rawText,
-              { trace }
-            );
-            // A newer retry of this row overtook this one; it reports its own result.
-            if (updated.stale) return;
-            if (updated.success && updated.transcription) {
-              finalTranscription = updated.transcription;
-            }
-          }
-          updateInStore(finalTranscription);
+              rawText: row.text,
+              routeKind: row.route_kind ?? null,
+              currentText: row.text,
+              plainStyle: options?.plainStyle,
+              stt: { provider: row.provider ?? null, model: row.model ?? null, ms: null },
+              targetApp,
+              runId: result.stepRunId ?? null,
+            },
+            rerunNotices
+          );
+          if (outcome.status === "stale") return;
+          updateInStore(
+            outcome.status === "updated" && outcome.transcription ? outcome.transcription : row
+          );
           toast({
             title: t(
               options?.isRecover
@@ -1030,19 +849,100 @@ export default function ControlPanel({ initialSettingsSection }: ControlPanelPro
         });
       }
     },
-    [toast, t, useCleanupModel]
+    [toast, t, rerunNotices]
+  );
+
+  // Re-run cleanup: everything after speech-to-text, with today's settings, on
+  // the row's stored raw transcript. Speech-to-text is never called (nor its
+  // preflight), so it works without the recording; the stored speech-to-text
+  // step is carried over, marked reused. The run begins on the row before the
+  // row is read for it, so an older Re-transcribe still in flight writes
+  // nothing after that read.
+  const rerunCleanup = useCallback(
+    async (id: number, options?: { plainStyle?: boolean }) => {
+      const fail = () =>
+        toast({ title: t("controlPanel.history.rerunCleanup.error"), variant: "destructive" });
+      const read = () =>
+        Promise.all([
+          window.electronAPI.getTranscriptionById(id),
+          window.electronAPI.getTranscriptionSteps?.(id),
+        ]);
+      // A completed dictation with a raw transcript that wasn't an assistant command.
+      const eligible = ([row, steps]: Awaited<ReturnType<typeof read>>) =>
+        !!row &&
+        !row.deleted_at &&
+        row.status === "completed" &&
+        typeof row.raw_text === "string" &&
+        !!row.raw_text.trim() &&
+        !wasAssistantCommand(steps);
+      const unavailable = () =>
+        toast({
+          title: t("controlPanel.history.rerunCleanup.unavailable"),
+          variant: "destructive",
+        });
+      try {
+        // Checked before the run begins, so a refused click never overtakes
+        // a Re-transcribe in flight.
+        if (!eligible(await read())) {
+          unavailable();
+          return;
+        }
+        const begun = await window.electronAPI.beginStepHistoryRun?.({ transcriptionId: id });
+        const current = await read();
+        if (!eligible(current)) {
+          unavailable();
+          return;
+        }
+        const [row, steps] = current;
+        const outcome = await rerunAfterSpeechToText(
+          {
+            id,
+            rawText: row.raw_text as string,
+            routeKind: row.route_kind ?? null,
+            currentText: row.text,
+            plainStyle: options?.plainStyle,
+            stt: reusedSttStep(steps),
+            targetApp: targetAppFromSteps(steps),
+            runId: begun?.runId ?? null,
+          },
+          rerunNotices
+        );
+        if (outcome.status === "stale") return;
+        if (outcome.status === "failed") {
+          fail();
+          return;
+        }
+        updateInStore(
+          outcome.status === "updated" && outcome.transcription ? outcome.transcription : row
+        );
+        toast({ title: t("controlPanel.history.rerunCleanup.success") });
+      } catch {
+        fail();
+      }
+    },
+    [toast, t, rerunNotices]
   );
 
   // A styled dictation whose style was deleted since can still be retried, as
   // Plain, once the user says so. The History view names the row's route
   // itself, since its row may be far below the ones Home has loaded, and hears
-  // when the retry is done (`onSettled`), confirmed or not.
+  // when the retry is done (`onSettled`), confirmed or not. `cleanupOnly`:
+  // Re-run cleanup instead of Re-transcribe.
   const retryFromHistory = useCallback(
     async (
       id: number,
-      options?: { isRecover?: boolean; routeKind?: string | null; onSettled?: () => void }
+      options?: {
+        isRecover?: boolean;
+        routeKind?: string | null;
+        onSettled?: () => void;
+        cleanupOnly?: boolean;
+      }
     ) => {
-      const { routeKind, onSettled, ...retryOptions } = options ?? {};
+      const { routeKind, onSettled, cleanupOnly, ...retryOptions } = options ?? {};
+      const run = (plainStyle?: boolean) =>
+        cleanupOnly
+          ? rerunCleanup(id, plainStyle ? { plainStyle } : undefined)
+          : retryTranscription(id, plainStyle ? { ...retryOptions, plainStyle } : retryOptions);
       const row = history.find((item) => item.id === id);
       const styleId = styleIdFromRouteKind(routeKind !== undefined ? routeKind : row?.route_kind);
       if (styleId && !resolveStyleForRetry(styleId)) {
@@ -1051,15 +951,15 @@ export default function ControlPanel({ initialSettingsSection }: ControlPanelPro
           description: t("controlPanel.history.styleDeleted.description"),
           confirmText: t("controlPanel.history.styleDeleted.retryPlain"),
           onConfirm: () => {
-            void retryTranscription(id, { ...retryOptions, plainStyle: true }).finally(onSettled);
+            void run(true).finally(onSettled);
           },
         });
         return;
       }
-      await retryTranscription(id, retryOptions);
+      await run();
       onSettled?.();
     },
-    [history, retryTranscription, showConfirmDialog, t]
+    [history, retryTranscription, rerunCleanup, showConfirmDialog, t]
   );
 
   const toggleShowDiscarded = useCallback(() => {

@@ -19,6 +19,8 @@
 // the cloud or indexed) and never logged. Log reasons and counts only.
 
 const crypto = require("crypto");
+// ESM, loaded through require(esm): the allowlist the renderer applied too.
+const { normalizeFailureDescriptor, normalizeReusedMarker } = require("./stepFailure.js");
 
 const SIGNED_OUT_OWNER = "signed-out";
 const ACCOUNT_OWNER_PREFIX = "account:";
@@ -40,6 +42,8 @@ const STEP_KINDS = new Set([
   "edited",
 ]);
 const STEP_OUTCOMES = new Set(["ok", "failed", "skipped", "fallback"]);
+// Outcomes whose step may say why (detail.failure, re-validated here).
+const FAILED_OUTCOMES = new Set(["failed", "fallback"]);
 const ROUTES = new Set(["cleanup", "translation", "agent", "style", "skip", "none"]);
 const PROMPT_SOURCES = new Set(["resolved", "server"]);
 const STYLE_RUN_MODES = new Set(["two-step", "one-step"]);
@@ -142,6 +146,16 @@ function normalizeTrace(trace, { rawTextIsNull = false } = {}) {
     else if (step.kind === "finalize" && step.detail?.snippets === true)
       detail = { snippets: true };
     else if (step.kind === "style") detail = normalizeStyleRef(step.detail, "styleId");
+    else if (step.kind === "stt") {
+      // Re-run cleanup's carried-over speech-to-text step says so.
+      const reused = normalizeReusedMarker(step.detail?.reused);
+      if (reused) detail = { reused };
+    }
+    // A failed step keeps why, through the same allowlist the renderer used.
+    if (FAILED_OUTCOMES.has(step.outcome)) {
+      const failure = normalizeFailureDescriptor(step.detail?.failure);
+      if (failure) detail = { ...(detail || {}), failure };
+    }
     steps.push({
       kind: step.kind,
       outcome: step.outcome,
@@ -206,6 +220,11 @@ function createStepRunRegistry({
       const run = runs.get(id);
       runs.delete(id);
       return run;
+    },
+    /** The open run, left open; null when unknown, completed or expired. */
+    peek(id) {
+      prune();
+      return typeof id === "string" ? runs.get(id) || null : null;
     },
     /** False for a retry another, newer retry of the same row has overtaken. */
     isCurrent(run) {
@@ -375,6 +394,18 @@ function createStepHistory({ db, getOwner, isEnabled, runs = createStepRunRegist
       return runs.begin(owner, { transcriptionId });
     },
 
+    /**
+     * A check that stays true until a newer run on the same row (Re-transcribe,
+     * Re-run cleanup, the error card's re-send) begins: an overtaken run must
+     * write nothing, not even main's own speech-to-text writes before its
+     * completion. Take it right after beginRun; a run it can't place (none, or
+     * already gone) is never overtaken.
+     */
+    currentRunCheck(runId) {
+      const run = runs.peek(runId);
+      return () => !run || runs.isCurrent(run);
+    },
+
     /** db-save-transcription: the row, plus its trace's steps in the same transaction. */
     saveTranscription(text, rawText, options = {}) {
       // Steps only ever come from a trace main validated, never from the caller.
@@ -390,6 +421,29 @@ function createStepHistory({ db, getOwner, isEnabled, runs = createStepRunRegist
     },
 
     completeRetry,
+
+    /**
+     * retry-transcription's own writes once speech-to-text answered: the new
+     * transcript (raw and final until the renderer's boundary completes the
+     * run), status and engine. Nothing is written once a newer run on the row
+     * has begun (`isCurrent`, from currentRunCheck): `{ stale: true }`.
+     */
+    saveRetranscription(id, { text, provider = null, model = null, isCurrent = () => true }) {
+      if (!isCurrent()) {
+        log("Overtaken re-transcription dropped", { reason: "superseded" });
+        return { stale: true, transcription: null };
+      }
+      const existing = db.getTranscriptionById(id);
+      db.updateTranscriptionText(id, text, text);
+      db.updateTranscriptionStatus(id, "completed");
+      db.updateTranscriptionAudio(id, {
+        hasAudio: 1,
+        audioDurationMs: existing?.audio_duration_ms ?? null,
+        provider,
+        model,
+      });
+      return { stale: false, transcription: db.getTranscriptionById(id) };
+    },
 
     /**
      * The error card's Retry re-sent a failed dictation and it worked: its

@@ -10,8 +10,13 @@ import {
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
 import { BIDI_VALUE_TOKEN, BidiInterpolatedText } from "../ui/BidiInterpolatedText";
-import { StepPrompt } from "../ui/TranscriptionSteps";
-import { stepKindLabel, stepOutcomeLabel, styleStepFacts } from "../ui/transcriptionStepLabels";
+import { StepFailure, StepPrompt } from "../ui/TranscriptionSteps";
+import {
+  stepKindLabel,
+  stepOutcomeLabel,
+  stepReusedLabel,
+  styleStepFacts,
+} from "../ui/transcriptionStepLabels";
 import { showInFolderLabelKey, useAddToTestSet } from "../ui/historyActions";
 import {
   AlertCircle,
@@ -22,15 +27,22 @@ import {
   Loader2,
   MoreHorizontal,
   RotateCcw,
+  Settings,
   TestTube,
   ThumbsDown,
   Trash2,
+  Wand2,
 } from "../icons";
 import { useStyleStore } from "../../stores/styleStore";
 import { findStyle, styleIdFromRouteKind, type StyleLibrary } from "../../config/styles/library";
 import { stepChanges } from "../../utils/stepChanges";
 import { normalizeDbDate } from "../../utils/dateFormatting";
 import { formatMmSs } from "../../utils/formatDuration";
+import {
+  openProviderSettings,
+  type ProviderSettingsTarget,
+} from "../../utils/describeProviderError";
+import { providerSettingsTargetFor } from "../../helpers/providerHttpErrors.js";
 import { useUiLocale } from "../../hooks/useUiLocale";
 import type {
   HistoryItem,
@@ -70,6 +82,8 @@ type LoadState =
   | { status: "error" }
   | { status: "notFound" }
   | { status: "ready"; result: LoadedItem };
+/** Re-transcribe the recording, or Re-run cleanup on the stored raw transcript. */
+type RerunKind = "transcribe" | "cleanup";
 
 const CARD_CLASS =
   "rounded-lg border border-border/70 bg-card/50 p-3.5 dark:border-white/10 dark:bg-surface-2/60";
@@ -144,6 +158,9 @@ function StepCard({
   styleLibrary,
   blamed,
   cardRef,
+  onRerunCleanup,
+  rerunBusy,
+  rerunning,
 }: {
   index: number;
   step: TranscriptionStepRecord;
@@ -153,8 +170,14 @@ function StepCard({
   styleLibrary: StyleLibrary;
   blamed: boolean;
   cardRef: (node: HTMLElement | null) => void;
+  /** A failed cleanup, style or translation step offers Re-run cleanup. */
+  onRerunCleanup?: () => void;
+  /** A re-run of this dictation is going; `rerunning`: it's Re-run cleanup. */
+  rerunBusy: boolean;
+  rerunning: boolean;
 }) {
   const { t } = useTranslation();
+  const reused = stepReusedLabel(step, t);
   const facts = [
     ...styleStepFacts(step, styleLibrary, t),
     step.provider,
@@ -191,6 +214,11 @@ function StepCard({
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
         <h4 className="text-sm font-medium text-foreground">{stepKindLabel(step, t)}</h4>
         <ChangeTag change={change} />
+        {reused && (
+          <span className="inline-flex shrink-0 items-center rounded-full border border-border px-1.5 text-[10.5px] leading-4 text-muted-foreground/80 dark:border-white/15">
+            {reused}
+          </span>
+        )}
         {blamed && <FlaggedTag />}
         {facts.length > 0 && (
           <span dir="auto" className="ms-auto text-[11px] text-muted-foreground/80">
@@ -198,6 +226,15 @@ function StepCard({
           </span>
         )}
       </div>
+      {reused && (
+        <p className="mt-1 text-[11px] text-muted-foreground/80">
+          {t(
+            step.detail?.reused === "stored"
+              ? "historyView.steps.reusedNote"
+              : "historyView.steps.reusedUnknownNote"
+          )}
+        </p>
+      )}
       {body && (
         <div
           data-step-output={isText ? index : undefined}
@@ -226,12 +263,13 @@ function StepCard({
           )}
         </div>
       )}
+      <StepFailure
+        step={step}
+        onRerunCleanup={onRerunCleanup}
+        busy={rerunBusy}
+        running={rerunning}
+      />
       <StepPrompt step={step} />
-      {step.errorCode && (
-        <p className="mt-1 text-[11px] text-muted-foreground/80">
-          {t("controlPanel.history.steps.errorCode", { code: step.errorCode })}
-        </p>
-      )}
     </section>
   );
 }
@@ -285,11 +323,17 @@ function StepsSection({
   app,
   styleLibrary,
   fixes,
+  onRerunCleanup,
+  rerunBusy,
+  rerunning,
 }: {
   result: LoadedItem;
   app: string | null;
   styleLibrary: StyleLibrary;
   fixes: HistoryFixesController;
+  onRerunCleanup?: () => void;
+  rerunBusy: boolean;
+  rerunning: boolean;
 }) {
   const { t } = useTranslation();
   const view = useHistoryViewStore((state) => state.textView);
@@ -414,6 +458,9 @@ function StepsSection({
                 cardRef={(node) => {
                   cards.current[index] = node;
                 }}
+                onRerunCleanup={onRerunCleanup}
+                rerunBusy={rerunBusy}
+                rerunning={rerunning}
               />
             );
           })}
@@ -520,7 +567,8 @@ interface HistoryDetailProps {
   onBack?: () => void;
   onCopy: (text: string) => void;
   onDelete: (id: number) => void;
-  onRetry: (id: number, routeKind: string | null) => Promise<void>;
+  /** Re-transcribe; `cleanupOnly`: Re-run cleanup on the stored raw transcript. */
+  onRetry: (id: number, routeKind: string | null, cleanupOnly?: boolean) => Promise<void>;
   onShowAudioInFolder: (id: number) => void;
   /** Local history is on, so a review can be kept. */
   historyOn: boolean;
@@ -546,7 +594,8 @@ export default function HistoryDetail({
 }: HistoryDetailProps) {
   const { t } = useTranslation();
   const [load, setLoad] = useState<LoadState>({ status: "loading" });
-  const [retrying, setRetrying] = useState(false);
+  // Which re-run is going: Re-transcribe or Re-run cleanup (one at a time).
+  const [retrying, setRetrying] = useState<RerunKind | null>(null);
   // Bumped when a review finds the dictation changed under it.
   const [reloads, setReloads] = useState(0);
 
@@ -578,13 +627,13 @@ export default function HistoryDetail({
   const reload = useCallback(() => setReloads((n) => n + 1), []);
 
   const retry = useCallback(
-    async (routeKind: string | null) => {
+    async (routeKind: string | null, kind: RerunKind = "transcribe") => {
       if (retrying) return;
-      setRetrying(true);
+      setRetrying(kind);
       try {
-        await onRetry(id, routeKind);
+        await onRetry(id, routeKind, kind === "cleanup");
       } finally {
-        setRetrying(false);
+        setRetrying(null);
       }
     },
     [id, onRetry, retrying]
@@ -652,8 +701,8 @@ function LoadedDetail({
 }: {
   result: LoadedItem;
   back: ReactNode;
-  retrying: boolean;
-  onRetry: (routeKind: string | null) => Promise<void>;
+  retrying: RerunKind | null;
+  onRetry: (routeKind: string | null, kind?: RerunKind) => Promise<void>;
   onCopy: (text: string) => void;
   onDelete: (id: number) => void;
   onShowAudioInFolder: (id: number) => void;
@@ -674,6 +723,17 @@ function LoadedDetail({
   const app = captured ? (result.context?.targetApp ?? null) : null;
   const completed = item.status === "completed";
   const failed = item.status === "failed";
+  // Re-run cleanup: a completed dictation with a raw transcript, never an
+  // assistant command; the recording isn't needed.
+  const assistantCommand =
+    captured && (result.route === "agent" || result.context?.intents?.voiceAgent === true);
+  const canRerunCleanup = completed && !!item.rawText?.trim() && !assistantCommand;
+  const rerunCleanup = canRerunCleanup ? () => void onRetry(item.routeKind, "cleanup") : undefined;
+  // A failed transcription's fix, from the code its row kept.
+  const failedSettingsTarget = failed
+    ? (providerSettingsTargetFor(item.errorCode, "transcription") as
+        ProviderSettingsTarget | undefined)
+    : undefined;
   const date = item.timestamp ? normalizeDbDate(item.timestamp) : null;
   const when =
     date && !Number.isNaN(date.getTime())
@@ -772,15 +832,30 @@ function LoadedDetail({
                 <Button
                   variant="outline"
                   size="sm"
-                  disabled={retrying}
+                  disabled={retrying !== null}
                   onClick={() => void onRetry(item.routeKind)}
                 >
-                  {retrying ? (
+                  {retrying === "transcribe" ? (
                     <Loader2 size={13} className="animate-spin" />
                   ) : (
                     <RotateCcw size={13} />
                   )}
                   {t("controlPanel.history.retryTranscription")}
+                </Button>
+              )}
+              {rerunCleanup && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={retrying !== null}
+                  onClick={rerunCleanup}
+                >
+                  {retrying === "cleanup" ? (
+                    <Loader2 size={13} className="animate-spin" />
+                  ) : (
+                    <Wand2 size={13} />
+                  )}
+                  {t("controlPanel.history.rerunCleanup.action")}
                 </Button>
               )}
               {canPin && (
@@ -843,13 +918,32 @@ function LoadedDetail({
                     : "historyView.detail.failedNoAudio"
                 )}
               </p>
+              {failedSettingsTarget && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-2"
+                  onClick={() => openProviderSettings(failedSettingsTarget)}
+                >
+                  <Settings size={13} />
+                  {t("providerErrors.openSettings")}
+                </Button>
+              )}
             </div>
           )}
 
           {review.hotkey && reviewSection}
 
           {captured ? (
-            <StepsSection result={result} app={app} styleLibrary={styleLibrary} fixes={fixes} />
+            <StepsSection
+              result={result}
+              app={app}
+              styleLibrary={styleLibrary}
+              fixes={fixes}
+              onRerunCleanup={rerunCleanup}
+              rerunBusy={retrying !== null}
+              rerunning={retrying === "cleanup"}
+            />
           ) : (
             completed && (
               <WithoutSteps

@@ -752,7 +752,9 @@
           "skipped": "Saltato",
           "fallback": "Testo precedente mantenuto"
         },
-        "deletedStyle": "Stile eliminato"
+        "deletedStyle": "Stile eliminato",
+        "reused": "Riutilizzato",
+        "reusedUnknown": "Riutilizzato · origine sconosciuta"
       },
       "export": {
         "button": "Esporta",
@@ -780,6 +782,12 @@
         "title": "Lo stile di questa dettatura è stato eliminato",
         "description": "Riprovarla come dettatura Semplice (solo pulizia)?",
         "retryPlain": "Riprova come Semplice"
+      },
+      "rerunCleanup": {
+        "action": "Ripeti pulizia",
+        "success": "Pulizia ripetuta",
+        "error": "Impossibile ripetere la pulizia",
+        "unavailable": "Non è possibile ripetere la pulizia di questa dettatura"
       }
     },
     "aiCta": {
@@ -895,7 +903,9 @@
       "heard": "Sentito",
       "heardHint": "trascrizione grezza",
       "sameAsHeard": "uguale a ciò che è stato sentito",
-      "whoChanged": "non è stato registrato quale passaggio l'ha modificato"
+      "whoChanged": "non è stato registrato quale passaggio l'ha modificato",
+      "reusedNote": "Ripeti pulizia ha mantenuto questa trascrizione invece di ritrascrivere la registrazione.",
+      "reusedUnknownNote": "Ripeti pulizia ha mantenuto la trascrizione salvata; il riconoscimento vocale che l'ha prodotta non è stato registrato."
     },
     "review": {
       "label": "La tua valutazione",
@@ -1025,6 +1035,11 @@
         "saved": "Controlli salvati",
         "saveError": "Impossibile salvare i controlli."
       }
+    },
+    "badges": {
+      "cleanup": "Pulizia non riuscita",
+      "style": "Stile non applicato",
+      "translation": "Traduzione non riuscita"
     }
   },
   "reasoning": {
@@ -1247,7 +1262,8 @@
         "description": "Whisper locale non riuscito. Utilizzata l'API OpenAI."
       },
       "errorActions": {
-        "viewTranscript": "Visualizza trascrizione"
+        "viewTranscript": "Visualizza trascrizione",
+        "openInHistory": "Apri nella cronologia"
       },
       "noAudio": {
         "title": "Non abbiamo capito",
@@ -4778,7 +4794,9 @@
       },
       "cleanupFailed": {
         "title": "Pulizia non riuscita",
-        "description": "La dettatura è stata incollata senza pulizia IA."
+        "description": "La dettatura è stata incollata senza pulizia IA.",
+        "descriptionNotPasted": "Salvato nella cronologia senza pulizia con l'IA.",
+        "alsoFailed": "Anche la pulizia IA non è riuscita: {{reason}}"
       }
     },
     "mic": {
@@ -5898,7 +5916,7 @@
     "unreachable": "Impossibile contattare {{provider}}. Controlla la tua connessione.",
     "noResponse": "Nessuna risposta da {{provider}}. Controlla la tua chiave API e la connessione.",
     "unknown": "{{provider}} ha restituito un errore imprevisto.",
-    "keyMissing": "Nessuna chiave API impostata per {{provider}}. Aggiungila in Impostazioni → Modelli linguistici.",
+    "keyMissing": "Nessuna chiave API impostata per {{provider}}. Aggiungila in Impostazioni → Connessioni IA e modelli locali.",
     "selfHosted": {
       "authFailed": "Il tuo server ha rifiutato la chiave API.",
       "accessDenied": "Il tuo server ha negato l’accesso. La chiave potrebbe non includere questo modello.",
@@ -5926,10 +5944,10 @@
       "requestId": "ID richiesta"
     },
     "copilot": {
-      "authFailed": "Il tuo accesso a GitHub Copilot non è più valido. Accedi di nuovo in Impostazioni → Modelli linguistici.",
+      "authFailed": "Il tuo accesso a GitHub Copilot non è più valido. Accedi di nuovo in Impostazioni → Connessioni IA e modelli locali.",
       "accessDenied": "GitHub Copilot ha rifiutato questa richiesta. Il tuo piano o i criteri della tua organizzazione potrebbero non consentire questo modello.",
-      "notSignedIn": "Non hai effettuato l'accesso a GitHub Copilot. Accedi in Impostazioni → Modelli linguistici.",
-      "unsupportedRequest": "GitHub Copilot può solo pulire le dettature, formattare le note e tradurre. Scegli un altro modello per la chat e l'assistente vocale in Impostazioni → Modelli linguistici."
+      "notSignedIn": "Non hai effettuato l'accesso a GitHub Copilot. Accedi in Impostazioni → Connessioni IA e modelli locali.",
+      "unsupportedRequest": "GitHub Copilot può solo pulire le dettature, formattare le note e tradurre. Scegli un altro modello per la Chat e l'Assistente vocale nelle Impostazioni."
     }
   },
   "calendarOAuth": {

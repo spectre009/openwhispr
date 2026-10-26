@@ -752,7 +752,9 @@
           "skipped": "Ignorée",
           "fallback": "Texte précédent conservé"
         },
-        "deletedStyle": "Style supprimé"
+        "deletedStyle": "Style supprimé",
+        "reused": "Réutilisée",
+        "reusedUnknown": "Réutilisée · origine inconnue"
       },
       "export": {
         "button": "Exporter",
@@ -780,6 +782,12 @@
         "title": "Le style de cette dictée a été supprimé",
         "description": "La réessayer en dictée Simple (nettoyage seul) ?",
         "retryPlain": "Réessayer en Simple"
+      },
+      "rerunCleanup": {
+        "action": "Relancer le nettoyage",
+        "success": "Nettoyage relancé",
+        "error": "Impossible de relancer le nettoyage",
+        "unavailable": "Le nettoyage ne peut pas être relancé pour cette dictée"
       }
     },
     "aiCta": {
@@ -895,7 +903,9 @@
       "heard": "Entendu",
       "heardHint": "transcription brute",
       "sameAsHeard": "identique à ce qui a été entendu",
-      "whoChanged": "l'étape qui l'a modifié n'a pas été enregistrée"
+      "whoChanged": "l'étape qui l'a modifié n'a pas été enregistrée",
+      "reusedNote": "Relancer le nettoyage a repris cette transcription au lieu de retranscrire l'enregistrement.",
+      "reusedUnknownNote": "Relancer le nettoyage a repris la transcription enregistrée ; la reconnaissance vocale qui l'a produite n'a pas été enregistrée."
     },
     "review": {
       "label": "Votre avis",
@@ -1025,6 +1035,11 @@
         "saved": "Vérifications enregistrées",
         "saveError": "Impossible d'enregistrer les vérifications."
       }
+    },
+    "badges": {
+      "cleanup": "Échec du nettoyage",
+      "style": "Style non appliqué",
+      "translation": "Échec de la traduction"
     }
   },
   "reasoning": {
@@ -1247,7 +1262,8 @@
         "description": "Whisper local a échoué. L'API OpenAI a pris le relais."
       },
       "errorActions": {
-        "viewTranscript": "Voir la transcription"
+        "viewTranscript": "Voir la transcription",
+        "openInHistory": "Ouvrir dans l'historique"
       },
       "noAudio": {
         "title": "Nous n’avons pas compris",
@@ -4948,7 +4964,9 @@
       },
       "cleanupFailed": {
         "title": "Échec du nettoyage",
-        "description": "Votre dictée a été collée sans nettoyage par IA."
+        "description": "Votre dictée a été collée sans nettoyage par IA.",
+        "descriptionNotPasted": "Enregistré dans l'historique sans nettoyage par l'IA.",
+        "alsoFailed": "Le nettoyage par IA a aussi échoué : {{reason}}"
       }
     },
     "mic": {
@@ -5898,7 +5916,7 @@
     "unreachable": "Impossible de contacter {{provider}}. Vérifiez votre connexion.",
     "noResponse": "Aucune réponse de {{provider}}. Vérifiez votre clé API et votre connexion.",
     "unknown": "{{provider}} a renvoyé une erreur inattendue.",
-    "keyMissing": "Aucune clé API n’est définie pour {{provider}}. Ajoutez-la dans Réglages → Modèles de langage.",
+    "keyMissing": "Aucune clé API n’est définie pour {{provider}}. Ajoutez-la dans Réglages → Connexions IA et modèles locaux.",
     "selfHosted": {
       "authFailed": "Votre serveur a rejeté la clé API.",
       "accessDenied": "Votre serveur a refusé l’accès. La clé ne couvre peut-être pas ce modèle.",
@@ -5926,10 +5944,10 @@
       "requestId": "ID de requête"
     },
     "copilot": {
-      "authFailed": "Votre connexion à GitHub Copilot n’est plus valide. Reconnectez-vous dans Réglages → Modèles de langage.",
+      "authFailed": "Votre connexion à GitHub Copilot n’est plus valide. Reconnectez-vous dans Réglages → Connexions IA et modèles locaux.",
       "accessDenied": "GitHub Copilot a refusé cette requête. Votre forfait ou la politique de votre organisation n’autorise peut-être pas ce modèle.",
-      "notSignedIn": "Vous n’êtes pas connecté à GitHub Copilot. Connectez-vous dans Réglages → Modèles de langage.",
-      "unsupportedRequest": "GitHub Copilot sait seulement nettoyer les dictées, mettre en forme les notes et traduire. Choisissez un autre modèle pour le chat et l’assistant vocal dans Réglages → Modèles de langage."
+      "notSignedIn": "Vous n’êtes pas connecté à GitHub Copilot. Connectez-vous dans Réglages → Connexions IA et modèles locaux.",
+      "unsupportedRequest": "GitHub Copilot sait seulement nettoyer les dictées, mettre en forme les notes et traduire. Choisissez un autre modèle pour le Chat et l’Assistant vocal dans les Réglages."
     }
   },
   "calendarOAuth": {

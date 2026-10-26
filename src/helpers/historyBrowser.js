@@ -8,6 +8,7 @@
 // reaches a log: callers log reasons and counts only.
 
 const { stepChanges } = require("../utils/stepChanges.js");
+const { failedStepKind } = require("./stepFailure.js");
 const { ownerTag } = require("./dictationFeedback");
 
 const DEFAULT_LIMIT = 50;
@@ -69,10 +70,12 @@ function normalizeListRequest(request) {
 
 /**
  * A row's app and marks from its owner's steps (in saved order): what each
- * step after speech-to-text did to the text. Null for both without steps.
+ * step after speech-to-text did to the text, and the kind of the first
+ * cleanup, style or translation step that failed (the row's badge). Null for
+ * all of them without steps.
  */
 function summarizeSteps(steps) {
-  if (!steps || steps.length === 0) return { app: null, marks: null };
+  if (!steps || steps.length === 0) return { app: null, marks: null, stepFailure: null };
   const context = parseJson(steps[0].context);
   const app =
     typeof context?.targetApp === "string" && context.targetApp ? context.targetApp : null;
@@ -87,7 +90,7 @@ function summarizeSteps(steps) {
       ...(detail?.snippets === true ? { snippets: true } : {}),
     });
   });
-  return { app, marks };
+  return { app, marks, stepFailure: failedStepKind(steps) };
 }
 
 function listRow(row, steps) {

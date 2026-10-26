@@ -3,9 +3,16 @@ import { useTranslation } from "react-i18next";
 import { useToast } from "./ui/useToast";
 import { consumeCleanupFailures, useCleanupFailureStore } from "../stores/cleanupFailureStore";
 import { isDictationPanelWindow } from "../utils/windowContext";
-import { providerErrorToastProps } from "../utils/describeProviderError";
+import { cleanupFailureActions, cleanupFailureReason } from "../utils/cleanupFailureCard";
 
-/** Tells the user their dictation was pasted raw because AI cleanup failed. */
+/**
+ * Tells the user their dictation was pasted raw because AI cleanup failed:
+ * why, and the fix. In the dictation window it takes the pill's error card
+ * and stays until dismissed or the next dictation starts, with Open Settings
+ * (when Settings can fix it) and Open in History (the dictation's own row,
+ * where Re-run cleanup is). A failure from a dictation a newer one has
+ * replaced is never shown over it.
+ */
 export default function CleanupFailureToastListener() {
   const { t } = useTranslation();
   const { toast } = useToast();
@@ -18,38 +25,38 @@ export default function CleanupFailureToastListener() {
     const failure = state.lastFailure ?? { message: state.lastMessage };
     // Draining first keeps a re-run of this effect from toasting the same failure twice.
     if (consumeCleanupFailures() === 0) return;
-    // The panel may already be hidden after dictation; surface it so the toast is seen.
+    if (failure.dictation && !failure.dictation.isCurrent()) return;
+    const actions = cleanupFailureActions(failure, t, { rowId: failure.dictation?.rowId });
+    const reason = cleanupFailureReason(failure, t);
+    // Only a dictation window that knows its text wasn't pasted says so.
+    const outcome = t(
+      failure.dictation?.pasted === false
+        ? "app.toasts.cleanupFailed.descriptionNotPasted"
+        : "app.toasts.cleanupFailed.description"
+    );
     if (isDictationPanelWindow()) {
+      // The panel may already be hidden after dictation; surface it so the card is seen.
       window.electronAPI?.showDictationPanel?.();
-    }
-    if (failure.surface === "llm") {
-      // A classified provider failure: why cleanup failed, then that the raw text went in.
-      const { description, actions } = providerErrorToastProps(failure, t);
       toast({
         title: t("app.toasts.cleanupFailed.title"),
         // A line break, not a space, so CJK sentences don't get one after "。".
-        description: `${description}\n${t("app.toasts.cleanupFailed.description")}`,
-        ...(actions ? { actions } : {}),
+        description: [reason, outcome].filter(Boolean).join("\n"),
+        ...(actions.length ? { actions } : {}),
         variant: "destructive",
-        // The dictation has already pasted, so the card can take the pill's place
-        // like a transcription failure does.
-        ...(isDictationPanelWindow() ? { presentation: "dictation-error" as const } : {}),
-        duration: 10000,
+        // The dictation has already pasted, so the card takes the pill's place
+        // like a transcription failure does, until dismissed.
+        presentation: "dictation-error",
+        duration: 0,
+        dismissible: true,
       });
       return;
     }
-    const title = failure.messageKey
-      ? t(failure.messageKey, failure.messageParams)
-      : failure.message || t("app.toasts.cleanupFailed.title");
-    const description = failure.actionKey ? t(failure.actionKey) : failure.action;
     toast({
-      title,
-      ...(description ? { description } : {}),
-      secondaryDescription: t("app.toasts.cleanupFailed.description"),
-      ...(failure.copyCommand ? { copyCommand: failure.copyCommand } : {}),
-      technicalDetails: failure.technicalDetails,
+      title: t("app.toasts.cleanupFailed.title"),
+      description: [reason, outcome].filter(Boolean).join("\n"),
+      ...(actions.length ? { actions } : {}),
       variant: "destructive",
-      duration: 10000,
+      duration: 0,
     });
   }, [pending, toast, t]);
 

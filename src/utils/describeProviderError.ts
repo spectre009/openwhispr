@@ -72,8 +72,56 @@ export function openProviderSettings(target: ProviderSettingsTarget): void {
 }
 
 /**
+ * A stored step failure (helpers/stepFailure.js) in words: the sentence the
+ * error card showed, rendered the same way (describeProviderError) from its
+ * message key and parameters. Null when it named none (the failure was never
+ * classified): show its code instead, as before.
+ */
+export function describeStepFailure(
+  failure: { messageKey?: string; messageParams?: Record<string, string> } | null | undefined,
+  t: TFunction
+): string | null {
+  if (!failure?.messageKey) return null;
+  return (
+    describeProviderError(
+      { messageKey: failure.messageKey, messageParams: failure.messageParams },
+      t
+    ).description || null
+  );
+}
+
+/** "Open in History" for a dictation card: its own saved row, once its save says which. */
+export function openInHistoryAction(
+  rowId: Promise<number | null> | number | null | undefined,
+  t: TFunction,
+  isCurrent: () => boolean = () => true
+): ToastActionConfig {
+  return {
+    label: t("hooks.audioRecording.errorActions.openInHistory"),
+    icon: "history",
+    // Navigation never takes the card (or the recording it keeps for Retry) away.
+    dismissOnClick: false,
+    onClick: async () => {
+      let id: number | null = null;
+      try {
+        id = await Promise.resolve(rowId ?? null);
+      } catch {
+        id = null;
+      }
+      if (!Number.isInteger(id) || !isCurrent()) return;
+      try {
+        await window.electronAPI?.openHistoryItem?.(id as number);
+      } catch {
+        // The card stays; nothing else depends on it.
+      }
+    },
+  };
+}
+
+/**
  * Open Settings (fixable errors) and an icon-only Copy details for a toast or
  * dictation card. `isCurrent` lets a superseded card ignore a late click.
+ * Open Settings leaves the card up: the user comes back to it to retry.
  */
 export function providerErrorActions(
   error: { settingsTarget?: string; technicalDetails?: TechnicalErrorDetailsData },
@@ -86,6 +134,7 @@ export function providerErrorActions(
     actions.push({
       label: t("providerErrors.openSettings"),
       icon: "settings",
+      dismissOnClick: false,
       onClick: () => openProviderSettings(settingsTarget as ProviderSettingsTarget),
     });
   }

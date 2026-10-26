@@ -21,6 +21,7 @@ import {
   ListOrdered,
   TestTube,
   Clock,
+  Wand2,
 } from "../icons";
 import TranscriptionSteps from "./TranscriptionSteps";
 import { showInFolderLabelKey, useAddToTestSet } from "./historyActions";
@@ -50,7 +51,10 @@ interface TranscriptionItemProps {
   onCopy: (text: string) => void;
   onDelete: (id: number) => void;
   onShowAudioInFolder?: (id: number) => void;
-  onRetryTranscription?: (id: number, options?: { isRecover?: boolean }) => Promise<void>;
+  onRetryTranscription?: (
+    id: number,
+    options?: { isRecover?: boolean; cleanupOnly?: boolean }
+  ) => Promise<void>;
   onOpenSettings?: () => void;
 }
 
@@ -82,6 +86,17 @@ export default function TranscriptionItem({
     setIsRetrying(true);
     try {
       await onRetryTranscription(item.id, { isRecover: item.status === "discarded" });
+    } finally {
+      setIsRetrying(false);
+    }
+  };
+
+  // Re-run cleanup on the stored raw transcript: no recording needed.
+  const handleRerunCleanup = async () => {
+    if (isRetrying || !onRetryTranscription) return;
+    setIsRetrying(true);
+    try {
+      await onRetryTranscription(item.id, { cleanupOnly: true });
     } finally {
       setIsRetrying(false);
     }
@@ -133,6 +148,14 @@ export default function TranscriptionItem({
       },
     !isDiscarded &&
       hasAudio && { key: "retry", icon: RotateCcw, label: retryLabel, onSelect: handleRetry },
+    isTranscribed &&
+      !!rawText?.trim() &&
+      !!onRetryTranscription && {
+        key: "rerun-cleanup",
+        icon: Wand2,
+        label: t("controlPanel.history.rerunCleanup.action"),
+        onSelect: () => void handleRerunCleanup(),
+      },
     isTranscribed &&
       rawText !== null && {
         key: "raw",

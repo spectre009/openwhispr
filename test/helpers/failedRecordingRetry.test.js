@@ -1,8 +1,9 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
-// Which failures the error card's Retry re-sends, and what the dictation
-// window keeps for it: nothing when history or recordings are off.
+// Which failures the error card's Retry re-sends (any that kept the
+// recording), and what the dictation window keeps for it: nothing when
+// history or recordings are off.
 
 async function load() {
   return import("../../src/helpers/failedRecordingRetry.js");
@@ -11,19 +12,15 @@ async function load() {
 const kept = { dataRetentionEnabled: true, audioRetentionDays: 30 };
 const blob = { size: 4096, type: "audio/webm" };
 
-test("a second try can fix a timeout, an unreachable provider, a 5xx or a rate limit", async () => {
-  const { isResendableFailure, RESENDABLE_ERROR_CODES } = await load();
+test("Retry re-sends after any failure that kept the recording, auth and quota included", async () => {
+  const { isResendableFailure, NOT_RESENDABLE_ERROR_CODES } = await load();
   for (const code of [
     "PROVIDER_TIMEOUT",
     "PROVIDER_UNREACHABLE",
     "PROVIDER_UNAVAILABLE",
     "PROVIDER_RATE_LIMITED",
     "TRANSCRIPTION_REQUEST_TIMEOUT",
-  ]) {
-    assert.equal(isResendableFailure({ code }), true, code);
-    assert.ok(RESENDABLE_ERROR_CODES.includes(code));
-  }
-  for (const code of [
+    // The user may have fixed the cause meanwhile: a new key, a top-up, a model.
     "PROVIDER_AUTH_FAILED",
     "PROVIDER_QUOTA_EXHAUSTED",
     "PROVIDER_MODEL_NOT_FOUND",
@@ -31,10 +28,30 @@ test("a second try can fix a timeout, an unreachable provider, a 5xx or a rate l
     "API_KEY_MISSING",
     "CUSTOM_ENDPOINT_INVALID",
     "SERVER_ERROR",
+    "AUTH_EXPIRED",
     undefined,
   ]) {
-    assert.equal(isResendableFailure({ code }), false, String(code));
+    assert.equal(isResendableFailure({ code, message: "x" }), true, String(code));
   }
+  for (const code of [
+    "TRANSCRIPTION_CANCELLED",
+    "REASON_CANCELLED",
+    "NO_SPEECH_DETECTED",
+    "DICTIONARY_ECHO",
+    "PASTE_FAILED",
+    "ACCESSIBILITY_PERMISSION_REQUIRED",
+  ]) {
+    assert.equal(isResendableFailure({ code }), false, code);
+    assert.ok(NOT_RESENDABLE_ERROR_CODES.includes(code));
+  }
+  assert.equal(isResendableFailure({ name: "AbortError" }), false, "a cancel");
+  assert.equal(isResendableFailure({ message: "No audio detected" }), false, "silence");
+  assert.equal(
+    isResendableFailure({ code: "PROVIDER_TIMEOUT", selectionEditFatal: true }),
+    false,
+    "a selection edit"
+  );
+  assert.equal(isResendableFailure(null), false);
 });
 
 test("a resendable failure keeps the recording, its intent and its row", async () => {
@@ -90,5 +107,14 @@ test("nothing is kept without history and recordings, for the assistant, or with
   }
   assert.equal(keptRecordingFor({ ...base, voiceAgentRequested: true }), null);
   assert.equal(keptRecordingFor({ ...base, blob: { size: 0 } }), null);
-  assert.equal(keptRecordingFor({ ...base, error: { code: "PROVIDER_AUTH_FAILED" } }), null);
+  assert.equal(keptRecordingFor({ ...base, error: { code: "PASTE_FAILED" } }), null);
+  assert.equal(
+    keptRecordingFor({ ...base, error: { code: "PROVIDER_TIMEOUT", selectionEditFatal: true } }),
+    null
+  );
+  assert.ok(
+    keptRecordingFor({ ...base, error: { code: "PROVIDER_AUTH_FAILED" } }),
+    "an auth failure keeps its recording for a Retry after the key is fixed"
+  );
+  assert.ok(keptRecordingFor({ ...base, error: { code: "PROVIDER_QUOTA_EXHAUSTED" } }));
 });

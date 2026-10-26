@@ -61,16 +61,24 @@ test("cleanup toast localizes AWS recovery guidance and keeps fallback status qu
   await React.act(async () => recordCleanupFailure(failure));
 
   assert.equal(globalThis.__cleanupFailureToasts.length, 1);
-  assert.deepEqual(globalThis.__cleanupFailureToasts[0], {
-    title:
+  const shown = globalThis.__cleanupFailureToasts[0];
+  assert.equal(shown.title, "Limpieza fallida");
+  assert.equal(
+    shown.description,
+    [
       "AWS Bedrock no está disponible temporalmente debido a una alta demanda. Este es un problema del servicio de AWS, no una interrupción de OpenWhispr. Vuelve a intentarlo en unos minutos.",
-    description: "Ejecuta el siguiente comando en tu terminal para volver a autenticarte:",
-    secondaryDescription: "Tu dictado se pegó sin limpieza con IA.",
-    copyCommand: "aws sso login --profile company-sso",
-    technicalDetails: failure.technicalDetails,
-    variant: "destructive",
-    duration: 10_000,
-  });
+      "Ejecuta el siguiente comando en tu terminal para volver a autenticarte:",
+      "Tu dictado se pegó sin limpieza con IA.",
+    ].join("\n")
+  );
+  assert.equal(shown.variant, "destructive");
+  assert.equal(shown.duration, 0, "a failure card stays until dismissed");
+  // The recovery command and the technical details are actions now, never dismissing.
+  assert.equal(shown.actions.length, 2);
+  assert.equal(shown.actions[0].dismissOnClick, false);
+  assert.equal(shown.actions[1].iconOnly, true);
+  assert.equal(shown.copyCommand, undefined);
+  assert.equal(shown.technicalDetails, undefined);
 });
 
 test("technical AWS details use the selected UI language", async (t) => {
@@ -103,14 +111,16 @@ test("technical AWS details use the selected UI language", async (t) => {
   assert.match(markup, /aria-label="Copiar detalles técnicos"/);
 });
 
-async function recordClassifiedCleanupFailure(t, { dictationWindow }) {
+async function recordClassifiedCleanupFailure(t, { dictationWindow, dictation, openHistoryItem }) {
   let root = null;
   t.after(async () => {
     if (root) await React.act(async () => root.unmount());
     delete globalThis.__cleanupFailureToasts;
   });
   globalThis.__cleanupFailureToasts = [];
-  installBrowserGlobals(t);
+  installBrowserGlobals(t, {
+    window: { electronAPI: { ...(openHistoryItem ? { openHistoryItem } : {}) } },
+  });
   const container = installHookDom(t);
   const vite = await createRendererServer(t, {
     cachePrefix: "openwhispr-cleanup-failure-toast-llm-",
@@ -146,6 +156,7 @@ async function recordClassifiedCleanupFailure(t, { dictationWindow }) {
       messageParams: { provider: "OpenAI" },
       settingsTarget: "llms",
       technicalDetails: { provider: "OpenAI", status: 401 },
+      ...(dictation ? { dictation } : {}),
     })
   );
   return globalThis.__cleanupFailureToasts.at(-1);
@@ -170,9 +181,64 @@ test("a classified cleanup failure says why, then that the dictation went in raw
   assert.equal(toastProps.presentation, undefined);
 });
 
-test("in the dictation window a classified cleanup failure uses the pill's error card", async (t) => {
+test("in the dictation window a cleanup failure takes the pill's error card and stays", async (t) => {
   const toastProps = await recordClassifiedCleanupFailure(t, { dictationWindow: true });
   assert.equal(toastProps.presentation, "dictation-error");
-  assert.equal(toastProps.duration, 10_000);
+  assert.equal(
+    toastProps.duration,
+    0,
+    "no timeout: it stays until dismissed or the next dictation"
+  );
+  assert.equal(toastProps.dismissible, true);
   assert.equal(toastProps.actions.length, 2);
+  assert.equal(
+    toastProps.actions[0].dismissOnClick,
+    false,
+    "Open Settings leaves the card up, to come back to"
+  );
+});
+
+test("Open in History opens the dictation's own saved row, and leaves the card up", async (t) => {
+  const opened = [];
+  let resolveRow;
+  const rowId = new Promise((resolve) => {
+    resolveRow = resolve;
+  });
+  const toastProps = await recordClassifiedCleanupFailure(t, {
+    dictationWindow: true,
+    dictation: { isCurrent: () => true, rowId },
+    openHistoryItem: async (id) => {
+      opened.push(id);
+      return { opened: true, id };
+    },
+  });
+  const action = toastProps.actions.find((candidate) => candidate.icon === "history");
+  assert.ok(action, "the card offers Open in History");
+  assert.equal(action.label, "Open in History");
+  assert.equal(action.dismissOnClick, false);
+  // The save may still be running when the card shows: the click waits for its row.
+  const click = action.onClick();
+  assert.deepEqual(opened, []);
+  resolveRow(41);
+  await click;
+  assert.deepEqual(opened, [41]);
+});
+
+test("a cleanup failure of a dictation a newer one replaced never takes the pill", async (t) => {
+  const toastProps = await recordClassifiedCleanupFailure(t, {
+    dictationWindow: true,
+    dictation: { isCurrent: () => false, rowId: Promise.resolve(7) },
+  });
+  assert.equal(toastProps, undefined);
+});
+
+test("a dictation that wasn't pasted says it's in History, not that it was pasted", async (t) => {
+  const toastProps = await recordClassifiedCleanupFailure(t, {
+    dictationWindow: true,
+    dictation: { isCurrent: () => true, rowId: Promise.resolve(7), pasted: false },
+  });
+  assert.equal(
+    toastProps.description,
+    "OpenAI rejected your API key.\nSaved to History without AI cleanup."
+  );
 });

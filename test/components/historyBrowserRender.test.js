@@ -142,6 +142,62 @@ const ITEMS = new Map([
       steps: [],
     },
   ],
+  // Re-run cleanup's result after a cleanup that failed: the speech-to-text
+  // step carried over (reused), the cleanup step with its stored reason.
+  [
+    201,
+    {
+      success: true,
+      item: item(201, { text: "so tell Martha", rawText: "so tell martha" }),
+      status: "captured",
+      route: "cleanup",
+      context: {
+        targetApp: null,
+        intents: { voiceAgent: false, translation: false, wakeWord: false },
+      },
+      steps: [
+        step("stt", "so tell martha", {
+          provider: "groq",
+          model: "whisper-large-v3",
+          ms: null,
+          detail: { reused: "stored" },
+        }),
+        step("glossary", "so tell Martha"),
+        step("cleanup", null, {
+          outcome: "failed",
+          provider: "copilot",
+          model: "claude-haiku-5.5",
+          errorCode: "PROVIDER_QUOTA_EXHAUSTED",
+          detail: {
+            failure: {
+              code: "PROVIDER_QUOTA_EXHAUSTED",
+              messageKey: "providerErrors.quotaExhausted",
+              messageParams: { provider: "GitHub Copilot" },
+              settingsTarget: "llms",
+            },
+          },
+        }),
+        step("finalize", "so tell Martha", { ms: 0 }),
+      ],
+    },
+  ],
+  [
+    202,
+    {
+      success: true,
+      item: item(202, {
+        status: "failed",
+        errorCode: "PROVIDER_AUTH_FAILED",
+        errorMessage: "OpenAI rejected your API key.",
+        hasAudio: true,
+        audioDurationMs: 3000,
+      }),
+      status: "none",
+      route: null,
+      context: null,
+      steps: [],
+    },
+  ],
 ]);
 
 let dom;
@@ -302,7 +358,11 @@ async function mountHistory(t) {
           onCopy: () => {},
           onDelete: (id) => deletes.push(id),
           onRetry: async (id, retryOptions) => {
-            retries.push([id, retryOptions.routeKind]);
+            retries.push(
+              retryOptions.cleanupOnly
+                ? [id, retryOptions.routeKind, "cleanup"]
+                : [id, retryOptions.routeKind]
+            );
             retryOptions.onSettled();
           },
           onShowAudioInFolder: () => {},
@@ -562,6 +622,78 @@ test(
     assert.ok(back());
     assert.equal(useHistoryViewStore.getState().selectedId, 555);
     assert.match(doc.body.textContent, /An old one, far down\./);
+    assert.deepEqual(consoleOutput.errors, [], "nothing logged an error");
+  }
+);
+
+test(
+  "a failed step: the list's badge, the reason in words, its fix, and Re-run cleanup",
+  { timeout: 90000 },
+  async (t) => {
+    pages = [
+      [
+        listRow(201, {
+          preview: "so tell Martha",
+          marks: [
+            { kind: "glossary", change: "changed" },
+            { kind: "cleanup", change: "failed" },
+          ],
+          stepFailure: "cleanup",
+        }),
+        listRow(202, {
+          status: "failed",
+          errorCode: "PROVIDER_AUTH_FAILED",
+          hasAudio: true,
+          audioDurationMs: 3000,
+        }),
+      ],
+    ];
+    const { doc, act, consoleOutput, retries, options, selected, key } = await mountHistory(t);
+    const detail = () => doc.body.textContent;
+    const buttons = (text) =>
+      [...doc.querySelectorAll("button")].filter(
+        (candidate) => candidate.textContent.trim() === text
+      );
+
+    // The list flags the dictation whose cleanup failed.
+    assert.equal(selected().id, "history-row-201");
+    assert.match(options()[0].textContent, /Cleanup failed/);
+    assert.doesNotMatch(options()[1].textContent, /Cleanup failed/);
+
+    // The failed step says why, as the card did, with its code as small print.
+    assert.match(detail(), /Your GitHub Copilot account is out of credit./);
+    assert.match(detail(), /Error: PROVIDER_QUOTA_EXHAUSTED/);
+    // The speech-to-text step Re-run cleanup carried over says so.
+    assert.match(detail(), /Reused/);
+    assert.match(detail(), /Re-run cleanup kept this transcript/);
+
+    // The fix: the settings the card offered, and Re-run cleanup (in the
+    // header and on the failed step); no recording is needed for it.
+    await act(() => buttons("Open Settings")[0].click());
+    assert.deepEqual(
+      dom.calls.filter(([name]) => name === "openSettingsSection").map(([, args]) => args),
+      [["llms"]]
+    );
+    const rerun = buttons("Re-run cleanup");
+    assert.equal(rerun.length, 2);
+    assert.equal(buttons("Re-transcribe").length, 0, "no recording kept");
+    await act(() => rerun[1].click());
+    assert.deepEqual(retries, [[201, null, "cleanup"]]);
+
+    // A failed transcription's banner: what the row kept, its code, its fix.
+    await key("ArrowDown");
+    assert.equal(selected().id, "history-row-202");
+    assert.match(detail(), /OpenAI rejected your API key./);
+    assert.match(detail(), /Error: PROVIDER_AUTH_FAILED/);
+    assert.equal(buttons("Re-run cleanup").length, 0, "nothing transcribed to clean up");
+    await act(() => buttons("Open Settings")[0].click());
+    assert.deepEqual(
+      dom.calls
+        .filter(([name]) => name === "openSettingsSection")
+        .map(([, args]) => args)
+        .at(-1),
+      ["speechToText"]
+    );
     assert.deepEqual(consoleOutput.errors, [], "nothing logged an error");
   }
 );

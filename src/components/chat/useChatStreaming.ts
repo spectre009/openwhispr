@@ -491,7 +491,7 @@ export function useChatStreaming({
             plans: `${t("sidebar.settings")} → ${t("settingsModal.sections.plansBilling.label")}`,
             calendars: `${t("sidebar.integrations")} → ${t("integrations.nav.sections.calendars")}`,
             connectors: `${t("sidebar.integrations")} → ${t("integrations.nav.sections.connectors")}`,
-            models: `${t("sidebar.settings")} → ${t("settingsModal.sections.llms.label")}`,
+            models: `${t("sidebar.settings")} → ${t("settingsPage.llms.tabs.chatIntelligence")}`,
           },
         });
 

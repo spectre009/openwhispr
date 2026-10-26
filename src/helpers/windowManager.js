@@ -173,6 +173,8 @@ class WindowManager {
     // service that resolves it (set by IPCHandlers), and whether the dictation
     // window is still pasting or saving a finished dictation.
     this._pendingReviewRequest = null;
+    // "Open in History" from a dictation error card: the row to show, no review.
+    this._pendingHistoryItemRequest = null;
     this.dictationReview = null;
     this._dictationDelivering = false;
     this._recordingIndicatorSettings = normalizeRecordingIndicatorSettings(null);
@@ -1149,6 +1151,24 @@ class WindowManager {
   consumePendingReviewRequest() {
     const request = this._pendingReviewRequest;
     this._pendingReviewRequest = null;
+    return request;
+  }
+
+  // "Open in History" on a dictation error card: History at that dictation's
+  // row, with no review drafted. Shown and focused like a review request, and
+  // held the same way until the control panel asks for it
+  // (get-pending-history-item-request), so a panel still loading gets it.
+  async queueHistoryItemRequest(request) {
+    this._pendingHistoryItemRequest = request;
+    const existed = Boolean(this.controlPanelWindow && !this.controlPanelWindow.isDestroyed());
+    await this.createControlPanelWindow();
+    if (!existed) this.showControlPanel();
+    this.sendToControlPanel("history-item-pending");
+  }
+
+  consumePendingHistoryItemRequest() {
+    const request = this._pendingHistoryItemRequest ?? null;
+    this._pendingHistoryItemRequest = null;
     return request;
   }
 

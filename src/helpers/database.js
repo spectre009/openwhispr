@@ -32,6 +32,8 @@ const {
 } = require("./glossaryRules");
 const { ownerKeyFor } = require("./stepHistory");
 const { historyRevision } = require("./dictationFeedback");
+// ESM, through require(esm): the failed-step rule the History list shares.
+const { STEP_FAILURE_KINDS, STEP_FAILURE_OUTCOMES } = require("./stepFailure.js");
 
 // Server-enforced trigger cap (openwhispr-api); enforced here so one oversized
 // trigger can't 400 the whole sync batch.
@@ -231,6 +233,16 @@ const HISTORY_RATING = `(
 const HISTORY_FLAGGED = `EXISTS (
   SELECT 1 FROM dictation_feedback f
   WHERE f.transcription_id = t.id AND f.owner = ? AND f.verdict = 'bad'
+)`;
+// The owner's cleanup, style or translation step failed or fell back
+// (helpers/stepFailure.js, the same rule as the list's badge), on the
+// (owner, transcription_id) index. A skipped or unchanged translation isn't one.
+const sqlList = (values) => values.map((value) => `'${value}'`).join(", ");
+const HISTORY_STEP_FAILED = `EXISTS (
+  SELECT 1 FROM transcription_steps sf
+  WHERE sf.owner = ? AND sf.transcription_id = t.id
+    AND sf.kind IN (${sqlList(STEP_FAILURE_KINDS)})
+    AND sf.outcome IN (${sqlList(STEP_FAILURE_OUTCOMES)})
 )`;
 
 // A LIKE pattern matching `text` anywhere, its own wildcards taken literally.
@@ -2890,8 +2902,17 @@ class DatabaseManager {
       );
       params.push(pattern, pattern);
     }
-    if (failed) where.push("t.status = 'failed'");
     const stepsReadable = Boolean(owner) && this.stepHistoryReady;
+    // Failed: the transcription failed, or the owner's cleanup, style or
+    // translation step did.
+    if (failed) {
+      if (stepsReadable) {
+        where.push(`(t.status = 'failed' OR ${HISTORY_STEP_FAILED})`);
+        params.push(owner);
+      } else {
+        where.push("t.status = 'failed'");
+      }
+    }
     if (cleanupChanged) {
       if (stepsReadable) {
         where.push(HISTORY_CLEANUP_CHANGED);

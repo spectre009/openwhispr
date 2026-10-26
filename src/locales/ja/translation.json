@@ -752,7 +752,9 @@
           "skipped": "スキップ",
           "fallback": "前のテキストを保持"
         },
-        "deletedStyle": "削除されたスタイル"
+        "deletedStyle": "削除されたスタイル",
+        "reused": "再利用",
+        "reusedUnknown": "再利用 · 出所不明"
       },
       "export": {
         "button": "エクスポート",
@@ -780,6 +782,12 @@
         "title": "この口述のスタイルは削除されています",
         "description": "プレーン（クリーンアップのみ）で再試行しますか？",
         "retryPlain": "プレーンで再試行"
+      },
+      "rerunCleanup": {
+        "action": "クリーンアップを再実行",
+        "success": "クリーンアップを再実行しました",
+        "error": "クリーンアップを再実行できませんでした",
+        "unavailable": "このディクテーションではクリーンアップを再実行できません"
       }
     },
     "aiCta": {
@@ -895,7 +903,9 @@
       "heard": "聞き取り",
       "heardHint": "生の文字起こし",
       "sameAsHeard": "聞き取りと同じ",
-      "whoChanged": "どのステップで変更されたかは記録されていません"
+      "whoChanged": "どのステップで変更されたかは記録されていません",
+      "reusedNote": "クリーンアップの再実行では、録音を文字起こしし直さず、この文字起こしを使いました。",
+      "reusedUnknownNote": "クリーンアップの再実行では保存済みの文字起こしを使いました。どの音声認識で作られたかは記録されていません。"
     },
     "review": {
       "label": "あなたの評価",
@@ -1025,6 +1035,11 @@
         "saved": "チェックを保存しました",
         "saveError": "チェックを保存できませんでした。"
       }
+    },
+    "badges": {
+      "cleanup": "クリーンアップ失敗",
+      "style": "スタイル未適用",
+      "translation": "翻訳失敗"
     }
   },
   "reasoning": {
@@ -1247,7 +1262,8 @@
         "description": "ローカル Whisper が失敗しました。代わりに OpenAI API を使用しました。"
       },
       "errorActions": {
-        "viewTranscript": "文字起こしを表示"
+        "viewTranscript": "文字起こしを表示",
+        "openInHistory": "履歴で開く"
       },
       "noAudio": {
         "title": "聞き取れませんでした",
@@ -4778,7 +4794,9 @@
       },
       "cleanupFailed": {
         "title": "クリーンアップに失敗しました",
-        "description": "ディクテーションは AI クリーンアップなしで貼り付けられました。"
+        "description": "ディクテーションは AI クリーンアップなしで貼り付けられました。",
+        "descriptionNotPasted": "AI クリーンアップなしで履歴に保存しました。",
+        "alsoFailed": "AI クリーンアップも失敗しました: {{reason}}"
       }
     },
     "mic": {
@@ -5898,7 +5916,7 @@
     "unreachable": "{{provider}} に接続できませんでした。接続を確認してください。",
     "noResponse": "{{provider}} から応答がありませんでした。APIキーと接続を確認してください。",
     "unknown": "{{provider}} から予期しないエラーが返されました。",
-    "keyMissing": "{{provider}} のAPIキーが設定されていません。設定 → 言語モデル から追加してください。",
+    "keyMissing": "{{provider}} のAPIキーが設定されていません。設定 → AI 接続とローカルモデル から追加してください。",
     "selfHosted": {
       "authFailed": "サーバーがAPIキーを拒否しました。",
       "accessDenied": "サーバーがアクセスを拒否しました。キーがこのモデルに対応していない可能性があります。",
@@ -5926,10 +5944,10 @@
       "requestId": "リクエストID"
     },
     "copilot": {
-      "authFailed": "GitHub Copilot のサインインが無効になりました。設定 → 言語モデル からもう一度サインインしてください。",
+      "authFailed": "GitHub Copilot のサインインが無効になりました。設定 → AI 接続とローカルモデル からもう一度サインインしてください。",
       "accessDenied": "GitHub Copilot がこのリクエストを拒否しました。プランまたは組織のポリシーで、このモデルが許可されていない可能性があります。",
-      "notSignedIn": "GitHub Copilot にサインインしていません。設定 → 言語モデル からサインインしてください。",
-      "unsupportedRequest": "GitHub Copilot で使えるのは、ディクテーションのクリーンアップ、ノートのフォーマット、翻訳だけです。チャットと音声アシスタントには、設定 → 言語モデル で別のモデルを選択してください。"
+      "notSignedIn": "GitHub Copilot にサインインしていません。設定 → AI 接続とローカルモデル からサインインしてください。",
+      "unsupportedRequest": "GitHub Copilot で使えるのは、ディクテーションのクリーンアップ、ノートのフォーマット、翻訳だけです。チャットと音声アシスタントには、設定で別のモデルを選択してください。"
     }
   },
   "calendarOAuth": {
