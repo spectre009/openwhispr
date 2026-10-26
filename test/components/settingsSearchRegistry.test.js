@@ -446,3 +446,52 @@ test("opening results: settings land on their id, pages navigate, app pages leav
     "nothing to open when there is no prerequisite"
   );
 });
+
+test("Storage › Logs holds the logging rows, the old System ids included, and search finds them", async () => {
+  const { findSettingDescriptor, settingsSearchAction } = await load();
+  const anchors = sourceAnchors();
+  const logsSection = path.join("components", "settings", "LogsSection.tsx");
+  // The two System ids keep their names where the debug switch and the logs folder went.
+  for (const id of [
+    "system.developer.debug",
+    "system.developer.logs",
+    "storage.logs.retention",
+    "storage.logs.text",
+    "storage.logs.clear",
+    "storage.logs.problems",
+    "storage.logs.diagnostics",
+  ]) {
+    const descriptor = findSettingDescriptor(id);
+    assert.equal(descriptor?.location.page, "storage", id);
+    assert.equal(descriptor.anchor, id);
+    assert.equal(descriptor.fallbackAnchor, undefined, `${id} always renders`);
+    assert.deepEqual([...(anchors.get(id) ?? [])], [logsSection], id);
+  }
+  assert.deepEqual(settingsSearchAction({ id: "system.developer.debug" }), {
+    kind: "navigate",
+    location: { page: "storage" },
+    settingId: "system.developer.debug",
+    destination: "#system.developer.debug",
+  });
+  const diagnostics = findSettingDescriptor("system.diagnostics");
+  assert.equal(diagnostics.location.page, "system");
+  assert.deepEqual(
+    [...anchors.get("system.diagnostics")],
+    [path.join("components", "settings", "DiagnosticsSection.tsx")]
+  );
+
+  const { index, rankSettings } = await searchIndex(makeContext());
+  const top = (query) => rankSettings(index, query)[0]?.entry.id;
+  assert.equal(top("clear logs"), "storage.logs.clear");
+  assert.equal(top("include dictated text"), "storage.logs.text");
+  for (const [query, id] of [
+    ["debug", "system.developer.debug"],
+    ["logging", "system.developer.debug"],
+    ["log size", "system.developer.logs"],
+    ["diagnostics", "system.diagnostics"],
+    ["keep logs", "storage.logs.retention"],
+  ]) {
+    const ids = rankSettings(index, query).map((result) => result.entry.id);
+    assert.ok(ids.includes(id), `"${query}" finds ${id} (${ids.slice(0, 5).join(", ")})`);
+  }
+});

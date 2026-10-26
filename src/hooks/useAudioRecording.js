@@ -849,6 +849,7 @@ export const useAudioRecording = (toast, options = {}) => {
                     "Failed to persist transcription",
                     {
                       clientTranscriptionId: result.clientTranscriptionId,
+                      runId: result.trace?.runId ?? null,
                       source: result.source,
                     },
                     "audio"
@@ -861,6 +862,7 @@ export const useAudioRecording = (toast, options = {}) => {
                   "Failed to persist transcription",
                   {
                     clientTranscriptionId: result.clientTranscriptionId,
+                    runId: result.trace?.runId ?? null,
                     error: error?.message,
                     source: result.source,
                   },
@@ -881,7 +883,11 @@ export const useAudioRecording = (toast, options = {}) => {
             } catch (error) {
               logger.warn(
                 "Failed to keep transcription in clipboard",
-                { delivery, error: error?.message },
+                {
+                  delivery,
+                  error: error?.message,
+                  clientTranscriptionId: result.clientTranscriptionId,
+                },
                 "clipboard"
               );
               return false;
@@ -1029,6 +1035,8 @@ export const useAudioRecording = (toast, options = {}) => {
                 textLength: result.text.length,
                 selectionEdit: !!result.selectionEdit,
                 success: pasteSucceeded,
+                clientTranscriptionId: result.clientTranscriptionId ?? null,
+                runId: result.trace?.runId ?? null,
               },
               "streaming"
             );

@@ -1538,71 +1538,6 @@
     "sessionExpired": "会话已过期，请重新登录。"
   },
   "cleanupPrompt": "文本整理",
-  "developerSection": {
-    "currentLogFile": "当前日志文件",
-    "debugMode": {
-      "disabledDescription": "启用以捕获详细的诊断信息",
-      "enabledDescription": "正在记录音频处理、API 请求和系统操作",
-      "label": "Debug 模式"
-    },
-    "description": "捕获详细日志以帮助诊断问题",
-    "openLogsFolder": "打开日志文件夹",
-    "performanceNote": {
-      "description": "Debug 日志会持续写入磁盘，可能略微影响性能。不排查问题时请关闭。",
-      "label": "注意"
-    },
-    "sharing": {
-      "footer": "日志不包含 API Key 或敏感数据",
-      "steps": {
-        "0": "在启用 Debug 模式的情况下重现问题",
-        "1": "点击上方的“打开日志文件夹”",
-        "2": "将最新的日志文件附加到你的 Bug 报告中"
-      },
-      "title": "为技术支持分享日志"
-    },
-    "title": "Debug 日志",
-    "toasts": {
-      "copied": {
-        "description": "日志文件路径已复制到剪贴板",
-        "title": "已复制"
-      },
-      "copyFailed": {
-        "description": "复制到剪贴板时出错。",
-        "title": "无法复制"
-      },
-      "debugDisabled": {
-        "description": "Debug 日志已关闭",
-        "title": "Debug 日志已禁用"
-      },
-      "debugEnabled": {
-        "description": "详细日志正在写入磁盘",
-        "title": "Debug 日志已启用"
-      },
-      "loadFailed": {
-        "description": "出了点问题，请尝试重新打开设置。",
-        "title": "无法加载 Debug 设置"
-      },
-      "openLogsFailed": {
-        "description": "打开日志目录时出错。",
-        "title": "无法打开日志文件夹"
-      },
-      "updateFailed": {
-        "description": "出了点问题，请重试。",
-        "title": "无法更新 Debug 日志设置"
-      }
-    },
-    "whatGetsLogged": {
-      "items": {
-        "apiRequests": "API 请求",
-        "audioProcessing": "音频处理",
-        "errorDetails": "错误详情",
-        "ffmpegOperations": "FFmpeg 操作",
-        "systemDiagnostics": "系统诊断",
-        "transcriptionPipeline": "转录管道"
-      },
-      "title": "记录的内容"
-    }
-  },
   "dictionarySuffix": "词典后缀",
   "emailVerification": {
     "checkEmailDescription": "我们已向你的邮箱发送了验证链接：",
@@ -2135,6 +2070,10 @@
       },
       "hotkeys": {
         "description": "所有全局快捷键集中在一张表中。所有快捷键（包括风格快捷键）之间都会检查冲突。"
+      },
+      "storage": {
+        "title": "存储",
+        "description": "OpenWhispr 在这台电脑上保存了什么、存在哪里、占用多大空间、保留多久。"
       }
     },
     "elsewhere": {
@@ -3424,6 +3363,74 @@
       "persistFailedBody": "在 OpenWhispr 重启前有效。请重试。",
       "modeBadge": "已关闭",
       "modeDescription": "OpenWhispr Cloud 已在“隐私与数据”中关闭。请选择其他模式。"
+    },
+    "storage": {
+      "logs": {
+        "title": "日志",
+        "description": "记录应用做了什么以及为什么，便于排查问题。从不记录 API 密钥。日志行会标明所涉及的听写，其文本保留在历史记录中。",
+        "fileCount_one": "{{count}} 个文件",
+        "fileCount_other": "{{count}} 个文件",
+        "saveFailed": "无法保存日志设置，请重试。",
+        "level": {
+          "label": "记录内容",
+          "description": "关闭：不写入任何新内容。仅问题：警告和错误。全部：每一步的详细信息（调试）。关闭日志不会删除已有日志；“清除日志”才会删除。",
+          "off": "关闭",
+          "warn": "仅问题",
+          "debug": "全部（调试）",
+          "other": "{{level}}",
+          "overriddenFlag": "当前生效：{{level}}，由 {{source}} 设置。在移除之前，它优先于此设置。",
+          "overriddenEnv": "当前生效：{{level}}，由环境变量 {{source}} 设置。在移除之前，它优先于此设置。"
+        },
+        "retention": {
+          "label": "日志保留时间",
+          "description": "总计最多 100 MB；最旧的文件先删除。超过 20 MB 的文件会在新文件中继续。"
+        },
+        "text": {
+          "label": "包含听写文本",
+          "description": "用于排查文本问题：添加听写、清理、粘贴或编辑内容的简短片段（最多 80 个字符）。含文本的文件最多保留 3 天，不受上方设置影响。默认关闭。"
+        },
+        "folder": {
+          "label": "日志文件夹",
+          "empty": "暂无日志",
+          "current": "当前文件：{{name}}",
+          "open": "打开文件夹",
+          "openFailed": "无法打开日志文件夹。"
+        },
+        "clear": {
+          "button": "清除日志",
+          "title": "清除日志？",
+          "description": "删除所有日志文件，包括正在写入的文件。如果日志已开启，会在新文件中继续记录。",
+          "done": "日志已清除。",
+          "partial": "部分文件正被另一个 OpenWhispr 使用，已保留：{{names}}",
+          "failed": "无法清除日志。"
+        },
+        "problems": {
+          "label": "最近的问题",
+          "description": "日志中最新的警告和错误，最新的在前。",
+          "none": "日志中没有警告或错误。",
+          "showAll": "全部显示（{{total}}）",
+          "levels": {
+            "warn": "警告",
+            "error": "错误",
+            "fatal": "严重"
+          }
+        }
+      }
+    },
+    "diagnostics": {
+      "title": "诊断",
+      "logs": "日志",
+      "summary": "{{level}} · 保留 {{days}} · {{size}} · {{problems}}",
+      "problemsToday_one": "今天 {{count}} 个问题",
+      "problemsToday_other": "今天 {{count}} 个问题",
+      "manage": "在“存储”中管理",
+      "copy": {
+        "label": "复制诊断信息",
+        "description": "版本、构建、操作系统、日志设置和最近问题的数量，可直接用于问题报告。不含密钥、听写文本或日志行。",
+        "button": "复制…",
+        "dialogTitle": "复制诊断信息",
+        "dialogDescription": "以下就是将要复制的内容，为便于问题报告使用英文。路径中隐去了你的用户名。"
+      }
     }
   },
   "models": {

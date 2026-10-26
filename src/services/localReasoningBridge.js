@@ -1,5 +1,6 @@
 const modelManager = require("../helpers/modelManagerBridge").default;
 const debugLogger = require("../helpers/debugLogger");
+const { logText } = require("../utils/logText.js");
 
 class LocalReasoningService {
   constructor() {
@@ -55,11 +56,15 @@ class LocalReasoningService {
         redactLogs: config.redactLogs === true,
       };
 
+      // The prompt can quote dictionary words and notes: its size only.
       debugLogger.logReasoning("LOCAL_BRIDGE_INFERENCE", {
         modelId,
-        config: inferenceConfig.redactLogs
-          ? { ...inferenceConfig, systemPrompt: "[redacted]" }
-          : inferenceConfig,
+        config: {
+          ...inferenceConfig,
+          systemPrompt: inferenceConfig.redactLogs
+            ? "[redacted]"
+            : { chars: inferenceConfig.systemPrompt.length },
+        },
       });
 
       const result = await modelManager.runInference(modelId, text, inferenceConfig);
@@ -79,12 +84,7 @@ class LocalReasoningService {
         modelId,
         processingTimeMs: processingTime,
         resultLength: cleanResult.length,
-        ...(inferenceConfig.redactLogs
-          ? { textRedacted: true }
-          : {
-              resultPreview:
-                cleanResult.substring(0, 100) + (cleanResult.length > 100 ? "..." : ""),
-            }),
+        ...(inferenceConfig.redactLogs ? { textRedacted: true } : { result: logText(cleanResult) }),
       });
 
       return cleanResult;

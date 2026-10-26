@@ -34,7 +34,8 @@ export function parseTranscriptSegments(raw: string): TranscriptSegment[] {
       }))
     );
   } catch (e) {
-    logger.warn("Failed to parse transcript segments", e);
+    // The parse error quotes the transcript it choked on: its name only.
+    logger.warn("Failed to parse transcript segments", { error: (e as Error)?.name });
     return [];
   }
 }

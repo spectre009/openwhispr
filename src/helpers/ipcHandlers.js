@@ -52,6 +52,8 @@ const {
 const { createNoteAttendeesLookup, searchContacts } = require("./connectors/contactSearch");
 const { registerCopilotIpc } = require("./copilot/copilotIpc");
 const { registerCustomConnectionIpc } = require("./customConnectionIpc");
+const { registerLogIpc } = require("./logIpc");
+const { logText } = require("../utils/logText.js");
 const { getBuildInfo } = require("./buildInfo");
 // The renderer's ModelRegistry is not main-loadable; the raw registry data is
 // packaged, and the route resolver only needs {id, baseUrl} per provider.
@@ -1434,8 +1436,8 @@ class IPCHandlers {
       const { originalText, newFieldValue } = data;
 
       debugLogger.debug("[AutoLearn] text-edited event", {
-        originalPreview: originalText.substring(0, 80),
-        newValuePreview: newFieldValue.substring(0, 80),
+        original: logText(originalText),
+        newValue: logText(newFieldValue),
       });
 
       this._autoLearnLatestData = { originalText, newFieldValue };
@@ -1470,7 +1472,8 @@ class IPCHandlers {
       const learned = extractCorrections(originalText, newFieldValue, currentDict);
       const corrections = this._withoutGlossaryWords(learned);
       debugLogger.debug("[AutoLearn] Corrections result", {
-        corrections,
+        corrections: logText(corrections.join(", ")),
+        count: corrections.length,
         skippedGlossaryWords: learned.length - corrections.length,
         dictSize: currentDict.length,
       });
@@ -1493,7 +1496,7 @@ class IPCHandlers {
         // Show the overlay so the toast is visible (it may have been hidden after dictation)
         this.windowManager.showDictationPanel();
         broadcastToWindows("corrections-learned", corrections);
-        debugLogger.debug("[AutoLearn] Saved corrections", { corrections });
+        debugLogger.debug("[AutoLearn] Saved corrections", { count: corrections.length });
       }
     } catch (error) {
       debugLogger.debug("[AutoLearn] Error processing corrections", { error: error.message });
@@ -2572,7 +2575,7 @@ class IPCHandlers {
           return { success: false };
         }
         broadcastToWindows("dictionary-updated", this.databaseManager.getDictionary());
-        debugLogger.debug("[AutoLearn] Undo: removed words", { words: validWords });
+        debugLogger.debug("[AutoLearn] Undo: removed words", { count: validWords.length });
         return { success: true };
       } catch (err) {
         debugLogger.debug("[AutoLearn] Undo failed", { error: err.message });
@@ -3681,9 +3684,7 @@ class IPCHandlers {
         setTimeout(() => {
           if (pasteSeq !== this._autoLearnPasteSeq) return;
           try {
-            debugLogger.debug("[AutoLearn] Starting monitoring", {
-              textPreview: text.substring(0, 80),
-            });
+            debugLogger.debug("[AutoLearn] Starting monitoring", { text: logText(text) });
             this.textEditMonitor.startMonitoring(text, 30000, { targetPid });
           } catch (err) {
             debugLogger.debug("[AutoLearn] Failed to start monitoring", { error: err.message });
@@ -6283,13 +6284,18 @@ class IPCHandlers {
       }
     });
 
-    ipcMain.handle("get-log-level", async () => {
-      return debugLogger.getLevel();
-    });
-
     ipcMain.handle("app-log", async (event, entry) => {
       debugLogger.logEntry(entry);
       return { success: true };
+    });
+
+    // Storage › Logs: level, retention, dictated text, Clear, recent problems.
+    registerLogIpc({
+      ipcMain,
+      logger: debugLogger,
+      environmentManager: this.environmentManager,
+      broadcast: broadcastToWindows,
+      openPath: (folder) => shell.openPath(folder),
     });
 
     const SYSTEM_SETTINGS_URLS = {
@@ -7664,7 +7670,7 @@ class IPCHandlers {
         debugLogger.debug(
           "Dropping buffered mic segment after system context confirmed duplicate",
           {
-            text: pending.text.slice(0, 80),
+            text: logText(pending.text),
             averageCorrelation: pending.micSuppression?.averageCorrelation?.toFixed(3),
             averageResidual: pending.micSuppression?.averageResidual?.toFixed(3),
           }
@@ -7677,7 +7683,7 @@ class IPCHandlers {
             ? "Releasing bleed-flagged mic segment after holdback (no transcript match)"
             : "Releasing buffered mic segment after duplicate holdback",
           {
-            text: pending.text.slice(0, 80),
+            text: logText(pending.text),
             holdbackMs: pending.holdbackMs,
             reason: pending.micSuppression?.reason,
             averageCorrelation: pending.micSuppression?.averageCorrelation?.toFixed(3),
@@ -7810,7 +7816,7 @@ class IPCHandlers {
               reason: micSuppression.reason,
               averageCorrelation: micSuppression.averageCorrelation?.toFixed(3),
               averageResidual: micSuppression.averageResidual?.toFixed(3),
-              text: latestSegment.slice(0, 80),
+              text: logText(latestSegment),
             });
             send("meeting-transcription-segment", { text: "", source, type: "partial" });
             return;
@@ -7818,7 +7824,7 @@ class IPCHandlers {
 
           if (shouldSkipDuplicateMicSegment(latestSegment, timestamp, micSuppression)) {
             debugLogger.debug("Skipping duplicate mic segment that matches recent system audio", {
-              text: latestSegment.slice(0, 80),
+              text: logText(latestSegment),
               averageCorrelation: micSuppression.averageCorrelation?.toFixed(3),
               averageResidual: micSuppression.averageResidual?.toFixed(3),
             });
@@ -7832,7 +7838,7 @@ class IPCHandlers {
           if (pending.length > 0) {
             debugLogger.debug("Dropping buffered mic segments after system transcript arrived", {
               count: pending.length,
-              text: latestSegment.slice(0, 80),
+              text: logText(latestSegment),
             });
           }
 
@@ -7849,7 +7855,7 @@ class IPCHandlers {
 
         debugLogger.debug("Meeting segment sending to renderer", {
           source,
-          text: latestSegment.slice(0, 80),
+          text: logText(latestSegment),
           segmentCount: segments.length,
           micCorrelation: micSuppression?.averageCorrelation?.toFixed(3),
           micSuppressionReason: micSuppression?.reason,
@@ -7859,7 +7865,7 @@ class IPCHandlers {
         });
         if (source === "mic" && hasRiskyMicDuplicateProfile(micSuppression)) {
           debugLogger.debug("Buffering risky mic segment before renderer commit", {
-            text: latestSegment.slice(0, 80),
+            text: logText(latestSegment),
             holdbackMs: STREAMING_RISKY_MIC_SEGMENT_HOLDBACK_MS,
             reason: micSuppression?.reason,
             hasBleedEvidence: micSuppression?.hasBleedEvidence,
@@ -8775,7 +8781,7 @@ class IPCHandlers {
             );
             debugLogger.debug("Local meeting transcription candidate", {
               source,
-              text: text.slice(0, 80),
+              text: logText(text),
               suppress: micSuppression.suppress,
               reason: micSuppression.reason,
               hasBleedEvidence: micSuppression.hasBleedEvidence,
@@ -8788,14 +8794,14 @@ class IPCHandlers {
                 reason: micSuppression.reason,
                 averageCorrelation: micSuppression.averageCorrelation?.toFixed(3),
                 averageResidual: micSuppression.averageResidual?.toFixed(3),
-                text: text.slice(0, 80),
+                text: logText(text),
               });
               return;
             }
 
             if (shouldSkipDuplicateMicSegment(text, segTimestamp, micSuppression)) {
               debugLogger.debug("Skipping duplicate local mic segment that matches system audio", {
-                text: text.slice(0, 80),
+                text: logText(text),
                 averageCorrelation: micSuppression.averageCorrelation?.toFixed(3),
                 averageResidual: micSuppression.averageResidual?.toFixed(3),
               });
@@ -8804,7 +8810,7 @@ class IPCHandlers {
           } else {
             debugLogger.debug("Local meeting transcription candidate", {
               source,
-              text: text.slice(0, 80),
+              text: logText(text),
             });
           }
 
@@ -8815,7 +8821,7 @@ class IPCHandlers {
                 "Dropping buffered local mic segments after system transcript arrived",
                 {
                   count: pending.length,
-                  text: text.slice(0, 80),
+                  text: logText(text),
                 }
               );
             }
@@ -8845,7 +8851,7 @@ class IPCHandlers {
 
           if (source === "mic" && hasRiskyMicDuplicateProfile(micSuppression)) {
             debugLogger.debug("Buffering risky local mic segment before renderer commit", {
-              text: text.slice(0, 80),
+              text: logText(text),
               holdbackMs: LOCAL_RISKY_MIC_SEGMENT_HOLDBACK_MS,
               reason: micSuppression?.reason,
               hasBleedEvidence: micSuppression?.hasBleedEvidence,
@@ -10509,7 +10515,11 @@ class IPCHandlers {
         const authHeader = await getAuthHeader(event);
         if (!Object.keys(authHeader).length) throw new Error("Not authenticated");
 
-        debugLogger.debug("Agent web search request", { query, numResults }, "cloud-api");
+        debugLogger.debug(
+          "Agent web search request",
+          { query: logText(query), numResults },
+          "cloud-api"
+        );
 
         const response = await proxyFetch(`${apiUrl}/api/agent/web-search`, {
           method: "POST",
@@ -11300,87 +11310,6 @@ class IPCHandlers {
         } catch {}
       }
       return { ...status, hasXclip, hasXsel };
-    });
-
-    ipcMain.handle("get-debug-state", async () => {
-      try {
-        return {
-          enabled: debugLogger.isEnabled(),
-          logPath: debugLogger.getLogPath(),
-          logLevel: debugLogger.getLevel(),
-        };
-      } catch (error) {
-        debugLogger.error("Failed to get debug state:", error);
-        return { enabled: false, logPath: null, logLevel: "info" };
-      }
-    });
-
-    ipcMain.handle("set-debug-logging", async (event, enabled) => {
-      try {
-        const path = require("path");
-        const fs = require("fs");
-        const envPath = path.join(app.getPath("userData"), ".env");
-
-        // Read current .env content
-        let envContent = "";
-        if (fs.existsSync(envPath)) {
-          envContent = fs.readFileSync(envPath, "utf8");
-        }
-
-        // Parse lines
-        const lines = envContent.split("\n");
-        const logLevelIndex = lines.findIndex((line) =>
-          line.trim().startsWith("OPENWHISPR_LOG_LEVEL=")
-        );
-
-        if (enabled) {
-          // Set to debug
-          if (logLevelIndex !== -1) {
-            lines[logLevelIndex] = "OPENWHISPR_LOG_LEVEL=debug";
-          } else {
-            // Add new line
-            if (lines.length > 0 && lines[lines.length - 1] !== "") {
-              lines.push("");
-            }
-            lines.push("# Debug logging setting");
-            lines.push("OPENWHISPR_LOG_LEVEL=debug");
-          }
-        } else {
-          // Remove or set to info
-          if (logLevelIndex !== -1) {
-            lines[logLevelIndex] = "OPENWHISPR_LOG_LEVEL=info";
-          }
-        }
-
-        // Write back
-        fs.writeFileSync(envPath, lines.join("\n"), "utf8");
-
-        // Update environment variable
-        process.env.OPENWHISPR_LOG_LEVEL = enabled ? "debug" : "info";
-
-        // Refresh logger state
-        debugLogger.refreshLogLevel();
-
-        return {
-          success: true,
-          enabled: debugLogger.isEnabled(),
-          logPath: debugLogger.getLogPath(),
-        };
-      } catch (error) {
-        debugLogger.error("Failed to set debug logging:", error);
-        return { success: false, error: error.message };
-      }
-    });
-
-    ipcMain.handle("open-logs-folder", async () => {
-      try {
-        const logsDir = path.join(app.getPath("userData"), "logs");
-        await shell.openPath(logsDir);
-        return { success: true };
-      } catch (error) {
-        debugLogger.error("Failed to open logs folder:", error);
-        return { success: false, error: error.message };
-      }
     });
 
     ipcMain.handle("check-for-updates", async () => {

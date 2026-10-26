@@ -1538,71 +1538,6 @@
     "welcomeTitle": "OpenWhispr へようこそ"
   },
   "cleanupPrompt": "クリーンアップ",
-  "developerSection": {
-    "currentLogFile": "現在のログファイル",
-    "debugMode": {
-      "disabledDescription": "有効にすると詳細な診断情報を記録します",
-      "enabledDescription": "音声処理、API リクエスト、システム操作を記録中",
-      "label": "デバッグモード"
-    },
-    "description": "問題の診断に役立つ詳細なログを記録",
-    "openLogsFolder": "ログフォルダーを開く",
-    "performanceNote": {
-      "description": "デバッグログは継続的にディスクに書き込まれるため、パフォーマンスにわずかに影響する場合があります。トラブルシューティング以外では無効にしてください。",
-      "label": "注意"
-    },
-    "sharing": {
-      "footer": "ログに API キーや機密データは含まれません",
-      "steps": {
-        "0": "デバッグモードを有効にした状態で問題を再現してください",
-        "1": "上の「ログフォルダーを開く」をクリックしてください",
-        "2": "最新のログファイルをバグレポートに添付してください"
-      },
-      "title": "サポート向けログの共有"
-    },
-    "title": "デバッグログ",
-    "toasts": {
-      "copied": {
-        "description": "ログファイルのパスをクリップボードにコピーしました",
-        "title": "コピーしました"
-      },
-      "copyFailed": {
-        "description": "クリップボードへのコピー中に問題が発生しました。",
-        "title": "コピーできませんでした"
-      },
-      "debugDisabled": {
-        "description": "デバッグログを無効にしました",
-        "title": "デバッグログ無効"
-      },
-      "debugEnabled": {
-        "description": "詳細なログをディスクに書き込み中です",
-        "title": "デバッグログ有効"
-      },
-      "loadFailed": {
-        "description": "問題が発生しました。設定を開き直してください。",
-        "title": "デバッグ設定を読み込めませんでした"
-      },
-      "openLogsFailed": {
-        "description": "ログディレクトリを開く際に問題が発生しました。",
-        "title": "ログフォルダーを開けませんでした"
-      },
-      "updateFailed": {
-        "description": "問題が発生しました。もう一度お試しください。",
-        "title": "デバッグログを更新できませんでした"
-      }
-    },
-    "whatGetsLogged": {
-      "items": {
-        "apiRequests": "API リクエスト",
-        "audioProcessing": "音声処理",
-        "errorDetails": "エラーの詳細",
-        "ffmpegOperations": "FFmpeg 操作",
-        "systemDiagnostics": "システム診断",
-        "transcriptionPipeline": "文字起こしパイプライン"
-      },
-      "title": "記録される内容"
-    }
-  },
   "dictionarySuffix": "辞書サフィックス",
   "emailVerification": {
     "checkEmailDescription": "確認リンクを次のメールアドレスに送信しました：",
@@ -2135,6 +2070,10 @@
       },
       "hotkeys": {
         "description": "すべてのグローバルホットキーを 1 つの表にまとめています。スタイルのホットキーも含め、すべての間で競合をチェックします。"
+      },
+      "storage": {
+        "title": "ストレージ",
+        "description": "OpenWhispr がこのコンピューターに保存しているもの、その場所、サイズ、保存期間。"
       }
     },
     "elsewhere": {
@@ -3424,6 +3363,74 @@
       "persistFailedBody": "OpenWhispr を再起動するまで適用されます。もう一度お試しください。",
       "modeBadge": "オフ",
       "modeDescription": "OpenWhispr Cloud はプライバシーとデータでオフになっています。別のモードを選んでください。"
+    },
+    "storage": {
+      "logs": {
+        "title": "ログ",
+        "description": "アプリが何をしたか、なぜそうしたかを記録し、問題の原因を探るのに使います。API キーは記録しません。ログの各行は対象のディクテーションを示すので、テキストは履歴に残ります。",
+        "fileCount_one": "{{count}} ファイル",
+        "fileCount_other": "{{count}} ファイル",
+        "saveFailed": "ログの設定を保存できませんでした。もう一度お試しください。",
+        "level": {
+          "label": "記録する内容",
+          "description": "オフ: 新しいログは書き込まれません。問題のみ: 警告とエラー。すべて: 各ステップの詳細 (デバッグ)。オフにしても既存のログは削除されません。削除するには「ログを消去」を使います。",
+          "off": "オフ",
+          "warn": "問題のみ",
+          "debug": "すべて (デバッグ)",
+          "other": "{{level}}",
+          "overriddenFlag": "適用中: {{level}} ({{source}} による設定)。取り除かれるまで、この設定より優先されます。",
+          "overriddenEnv": "適用中: {{level}} (環境変数 {{source}} による設定)。取り除かれるまで、この設定より優先されます。"
+        },
+        "retention": {
+          "label": "ログの保存期間",
+          "description": "合計 100 MB まで。古いファイルから削除されます。20 MB を超えたファイルは新しいファイルに続きます。"
+        },
+        "text": {
+          "label": "ディクテーションのテキストを含める",
+          "description": "テキストの不具合を調べるために、ディクテーション、クリーンアップ、貼り付け、編集の内容を短い抜粋 (最大 80 文字) で記録します。テキストを含むファイルは、上の設定にかかわらず最大 3 日間保存されます。既定ではオフです。"
+        },
+        "folder": {
+          "label": "ログフォルダー",
+          "empty": "まだログはありません",
+          "current": "現在のファイル: {{name}}",
+          "open": "フォルダーを開く",
+          "openFailed": "ログフォルダーを開けませんでした。"
+        },
+        "clear": {
+          "button": "ログを消去",
+          "title": "ログを消去しますか?",
+          "description": "書き込み中のファイルを含め、すべてのログファイルを削除します。ログがオンなら新しいファイルで続きます。",
+          "done": "ログを消去しました。",
+          "partial": "一部のファイルは別の OpenWhispr が使用中のため残しました: {{names}}",
+          "failed": "ログを消去できませんでした。"
+        },
+        "problems": {
+          "label": "最近の問題",
+          "description": "ログ内の最新の警告とエラー (新しい順)。",
+          "none": "ログに警告やエラーはありません。",
+          "showAll": "すべて表示 ({{total}})",
+          "levels": {
+            "warn": "警告",
+            "error": "エラー",
+            "fatal": "致命的"
+          }
+        }
+      }
+    },
+    "diagnostics": {
+      "title": "診断",
+      "logs": "ログ",
+      "summary": "{{level}} · {{days}}保存 · {{size}} · {{problems}}",
+      "problemsToday_one": "今日の問題 {{count}} 件",
+      "problemsToday_other": "今日の問題 {{count}} 件",
+      "manage": "ストレージで管理",
+      "copy": {
+        "label": "診断情報をコピー",
+        "description": "バージョン、ビルド、OS、ログ設定、最近の問題の件数を不具合報告用にまとめます。キー、ディクテーションのテキスト、ログの行は含みません。",
+        "button": "コピー…",
+        "dialogTitle": "診断情報をコピー",
+        "dialogDescription": "コピーされる内容はこのとおりです (不具合報告用に英語)。パス内のユーザー名は隠されます。"
+      }
     }
   },
   "models": {

@@ -160,7 +160,7 @@ class AppleCalendarManager {
           } catch (err) {
             debugLogger.warn(
               "Unparseable calendar listener output",
-              { line, error: err.message },
+              { chars: line.length, error: err.message },
               "acal"
             );
           }

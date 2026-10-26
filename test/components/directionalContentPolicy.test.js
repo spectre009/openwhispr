@@ -68,7 +68,7 @@ test("dynamic prose and identity values keep their own direction", () => {
 
 test("technical output values remain LTR inside an Arabic document", () => {
   const expectations = [
-    ["src/components/DeveloperSection.tsx", /<code\s+dir="ltr"[\s\S]*?\{logPath\}/],
+    ["src/components/settings/LogsSection.tsx", /<span\s+dir="ltr"[^>]*>\s*\{info\.logsDir\}/],
     [
       "src/components/TestConnectionButton.tsx",
       /<code\s+dir="ltr"[^>]*>\s*\{errorInfo\.copyCommand\}/,

@@ -8,6 +8,7 @@ import {
 import { extractGeminiText } from "../../../helpers/geminiResponse.js";
 import { wrapCleanupTranscript } from "../../../config/prompts";
 import { emptyOutputError, truncatedOutputError } from "../chatRequestBody";
+import { extractApiErrorMessage } from "../apiErrorMessage";
 import logger from "../../../utils/logger";
 import {
   asProviderError,
@@ -121,10 +122,20 @@ export const geminiProvider: InferenceProvider = {
 
         if (!res.ok) {
           const errorText = await res.text();
+          let errorData: unknown = { error: res.statusText };
+          try {
+            errorData = JSON.parse(errorText);
+          } catch {
+            errorData = { error: errorText || res.statusText };
+          }
+          // The error's message and the body's size: a body may quote the request.
           logger.logReasoning("GEMINI_API_ERROR_DETAIL", {
             status: res.status,
             statusText: res.statusText,
-            fullResponse: redactProviderBody(errorText),
+            errorMessage: redactProviderBody(
+              extractApiErrorMessage(errorData, `Gemini API error: ${res.status}`)
+            ),
+            bodyLength: errorText.length,
           });
 
           throw providerHttpError({

@@ -282,13 +282,14 @@ test("a run writes no setting and keeps its text out of the request log", async 
       .every((entry) => entry.meta.textRedacted === true && !("requestBody" in entry.meta))
   );
 
-  // Control: the same request without the tag logs its body as before.
+  // Control: the same request without the tag logs the input's size (not the
+  // body), with no text since "Include dictated text" is off.
   ctx.logs.length = 0;
   await ctx.cleanup.runCleanupWithPrompt("short", { mode: "builtin" }, { agentName: AGENT });
   await new Promise((resolve) => setImmediate(resolve));
-  assert.ok(
-    ctx.logs.some((entry) => entry.message === "GROQ_REQUEST" && "requestBody" in entry.meta)
-  );
+  const request = ctx.logs.find((entry) => entry.message === "GROQ_REQUEST");
+  assert.ok(request && !("requestBody" in request.meta));
+  assert.deepEqual(request.meta.input, { chars: 5, words: 1 });
 });
 
 test("an account change cancels the run and clears its results", async (t) => {

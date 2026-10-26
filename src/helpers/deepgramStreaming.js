@@ -1,5 +1,6 @@
 const WebSocket = require("./guardedWebSocket");
 const debugLogger = require("./debugLogger");
+const { logText } = require("../utils/logText.js");
 
 const SAMPLE_RATE = 16000;
 const WEBSOCKET_TIMEOUT_MS = 30000;
@@ -787,7 +788,7 @@ class DeepgramStreaming {
                   : Date.now();
               this.onFinalTranscript?.(this.accumulatedText, startedAt);
               debugLogger.debug("Deepgram final transcript", {
-                text: trimmed.slice(0, 100),
+                text: logText(trimmed),
                 totalAccumulated: this.accumulatedText.length,
               });
             }

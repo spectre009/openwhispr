@@ -650,8 +650,9 @@ class WhisperServerManager extends EventEmitter {
     const getProcessInfo = () => ({ stderr: stderrBuffer, exitCode, signal: exitSignal });
     this._lastProcessInfo = getProcessInfo;
 
+    // whisper.cpp prints each transcribed segment on stdout: its size only.
     this.process.stdout.on("data", (data) => {
-      debugLogger.debug("whisper-server stdout", { data: data.toString().trim() });
+      debugLogger.debug("whisper-server stdout", { chars: String(data).length });
     });
 
     this.process.stderr.on("data", (data) => {
@@ -920,7 +921,9 @@ class WhisperServerManager extends EventEmitter {
           `Content-Disposition: form-data; name="prompt"\r\n\r\n` +
           `${initialPrompt}\r\n`
       );
-      debugLogger.info("Using custom dictionary prompt", { prompt: initialPrompt });
+      debugLogger.info("Using custom dictionary prompt", {
+        promptWords: initialPrompt.trim().split(/\s+/u).filter(Boolean).length,
+      });
     }
 
     parts.push(
@@ -990,22 +993,31 @@ class WhisperServerManager extends EventEmitter {
           });
           res.on("end", () => {
             removeAbortListener();
+            // The body is the transcript: status and size only.
             debugLogger.debug("whisper-server transcription completed", {
               statusCode: res.statusCode,
               elapsed: Date.now() - startTime,
               responseLength: data.length,
-              responsePreview: data.slice(0, 500),
             });
 
             if (res.statusCode !== 200) {
-              reject(new Error(`whisper-server returned status ${res.statusCode}: ${data}`));
+              // The server's own error message, never a body that could be a transcript.
+              let detail = `${data.length} bytes`;
+              try {
+                const parsed = JSON.parse(data);
+                if (typeof parsed?.error === "string") detail = parsed.error.slice(0, 200);
+              } catch {
+                // not JSON: its size only
+              }
+              reject(new Error(`whisper-server returned status ${res.statusCode}: ${detail}`));
               return;
             }
 
             try {
               resolve(JSON.parse(data));
             } catch (e) {
-              reject(new Error(`Failed to parse whisper-server response: ${e.message}`));
+              // A JSON.parse message quotes the text it choked on.
+              reject(new Error(`Failed to parse whisper-server response: ${e.name}`));
             }
           });
         }

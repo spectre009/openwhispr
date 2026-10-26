@@ -1538,71 +1538,6 @@
     "welcomeTitle": "Benvenuto in OpenWhispr"
   },
   "cleanupPrompt": "Correzione",
-  "developerSection": {
-    "currentLogFile": "File di log corrente",
-    "debugMode": {
-      "disabledDescription": "Attiva per acquisire informazioni diagnostiche dettagliate",
-      "enabledDescription": "Registrazione di elaborazione audio, richieste API e operazioni di sistema",
-      "label": "Modalità debug"
-    },
-    "description": "Acquisisci log dettagliati per diagnosticare i problemi",
-    "openLogsFolder": "Apri cartella log",
-    "performanceNote": {
-      "description": "Il logging di debug scrive su disco continuamente e potrebbe influire leggermente sulle prestazioni. Disattivalo quando non stai risolvendo problemi.",
-      "label": "Nota"
-    },
-    "sharing": {
-      "footer": "I log non contengono chiavi API o dati sensibili",
-      "steps": {
-        "0": "Riproduci il problema con la modalità debug attiva",
-        "1": "Fai clic su \"Apri cartella log\" qui sopra",
-        "2": "Allega il file di log più recente alla segnalazione"
-      },
-      "title": "Condivisione dei log per il supporto"
-    },
-    "title": "Log di debug",
-    "toasts": {
-      "copied": {
-        "description": "Percorso del file di log copiato negli appunti",
-        "title": "Copiato"
-      },
-      "copyFailed": {
-        "description": "Si è verificato un errore durante la copia negli appunti.",
-        "title": "Impossibile copiare"
-      },
-      "debugDisabled": {
-        "description": "Il logging di debug è stato disattivato",
-        "title": "Log di debug disattivato"
-      },
-      "debugEnabled": {
-        "description": "I log dettagliati vengono ora scritti su disco",
-        "title": "Log di debug attivato"
-      },
-      "loadFailed": {
-        "description": "Qualcosa è andato storto. Prova a riaprire le Impostazioni.",
-        "title": "Impossibile caricare le impostazioni di debug"
-      },
-      "openLogsFailed": {
-        "description": "Si è verificato un errore nell'apertura della cartella dei log.",
-        "title": "Impossibile aprire la cartella dei log"
-      },
-      "updateFailed": {
-        "description": "Qualcosa è andato storto. Riprova.",
-        "title": "Impossibile aggiornare il logging di debug"
-      }
-    },
-    "whatGetsLogged": {
-      "items": {
-        "apiRequests": "Richieste API",
-        "audioProcessing": "Elaborazione audio",
-        "errorDetails": "Dettagli errori",
-        "ffmpegOperations": "Operazioni FFmpeg",
-        "systemDiagnostics": "Diagnostica di sistema",
-        "transcriptionPipeline": "Pipeline di trascrizione"
-      },
-      "title": "Cosa viene registrato"
-    }
-  },
   "dictionarySuffix": "Suffisso dizionario",
   "emailVerification": {
     "checkEmailDescription": "Abbiamo inviato un link di verifica alla tua e-mail:",
@@ -2135,6 +2070,10 @@
       },
       "hotkeys": {
         "description": "Tutte le scorciatoie globali in un'unica tabella. I conflitti vengono controllati tra tutte, scorciatoie di stile comprese."
+      },
+      "storage": {
+        "title": "Archiviazione",
+        "description": "Cosa conserva OpenWhispr su questo computer: dove si trova, quanto occupa e per quanto tempo resta."
       }
     },
     "elsewhere": {
@@ -3424,6 +3363,74 @@
       "persistFailedBody": "Resta valida fino al riavvio di OpenWhispr. Riprova.",
       "modeBadge": "Disattivato",
       "modeDescription": "OpenWhispr Cloud è disattivato in Privacy e dati. Scegli un'altra modalità."
+    },
+    "storage": {
+      "logs": {
+        "title": "Log",
+        "description": "Cosa ha fatto l'app e perché, per capire cosa è andato storto. Mai chiavi API. Ogni riga indica la dettatura a cui si riferisce, così il testo resta nella Cronologia.",
+        "fileCount_one": "{{count}} file",
+        "fileCount_other": "{{count}} file",
+        "saveFailed": "Impossibile salvare le impostazioni dei log. Riprova.",
+        "level": {
+          "label": "Cosa registrare",
+          "description": "Disattivato: non viene scritto nulla di nuovo. Solo problemi: avvisi ed errori. Tutto: il dettaglio di ogni passaggio (debug). Disattivare i log non elimina quelli esistenti; lo fa «Cancella log».",
+          "off": "Disattivato",
+          "warn": "Solo problemi",
+          "debug": "Tutto (debug)",
+          "other": "{{level}}",
+          "overriddenFlag": "In vigore: {{level}}, impostato da {{source}}. Prevale su questa impostazione finché non viene rimosso.",
+          "overriddenEnv": "In vigore: {{level}}, impostato dalla variabile d'ambiente {{source}}. Prevale su questa impostazione finché non viene rimossa."
+        },
+        "retention": {
+          "label": "Conserva i log per",
+          "description": "Fino a 100 MB in tutto; i file più vecchi vengono eliminati per primi. Un file oltre i 20 MB continua in uno nuovo."
+        },
+        "text": {
+          "label": "Includi il testo dettato",
+          "description": "Per indagare sui problemi di testo: aggiunge brevi estratti (fino a 80 caratteri) di ciò che è stato dettato, ripulito, incollato o modificato. I file con testo vengono conservati al massimo 3 giorni, qualunque sia l'impostazione sopra. Disattivato per impostazione predefinita."
+        },
+        "folder": {
+          "label": "Cartella dei log",
+          "empty": "Ancora nessun log",
+          "current": "File corrente: {{name}}",
+          "open": "Apri cartella",
+          "openFailed": "Impossibile aprire la cartella dei log."
+        },
+        "clear": {
+          "button": "Cancella log",
+          "title": "Cancellare i log?",
+          "description": "Elimina tutti i file di log, compreso quello in scrittura. Se i log sono attivi, continuano in un nuovo file.",
+          "done": "Log cancellati.",
+          "partial": "Alcuni file sono in uso da un'altra istanza di OpenWhispr e sono stati conservati: {{names}}",
+          "failed": "Impossibile cancellare i log."
+        },
+        "problems": {
+          "label": "Problemi recenti",
+          "description": "Gli ultimi avvisi ed errori nei log, dal più recente.",
+          "none": "Nessun avviso o errore nei log.",
+          "showAll": "Mostra tutti ({{total}})",
+          "levels": {
+            "warn": "Avviso",
+            "error": "Errore",
+            "fatal": "Grave"
+          }
+        }
+      }
+    },
+    "diagnostics": {
+      "title": "Diagnostica",
+      "logs": "Log",
+      "summary": "{{level}} · conservati {{days}} · {{size}} · {{problems}}",
+      "problemsToday_one": "{{count}} problema oggi",
+      "problemsToday_other": "{{count}} problemi oggi",
+      "manage": "Gestisci in Archiviazione",
+      "copy": {
+        "label": "Copia diagnostica",
+        "description": "Versioni, build, sistema operativo, impostazioni dei log e conteggio dei problemi recenti, pronti per una segnalazione di bug. Niente chiavi, niente testo dettato, niente righe di log.",
+        "button": "Copia…",
+        "dialogTitle": "Copia diagnostica",
+        "dialogDescription": "Questo è esattamente ciò che verrà copiato, in inglese per una segnalazione di bug. Il nome utente è nascosto nei percorsi."
+      }
     }
   },
   "models": {

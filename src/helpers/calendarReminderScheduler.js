@@ -1,4 +1,5 @@
 const debugLogger = require("./debugLogger");
+const { logText } = require("../utils/logText.js");
 const { getMeetingJoinUrl } = require("./meetingJoinUrl");
 
 const MEETING_REMINDER_LEAD_MS = 60 * 1000;
@@ -84,7 +85,11 @@ class CalendarReminderScheduler {
     this.activeMeeting = event;
     this.notifiedMeetings.add(notificationKey(event));
 
-    debugLogger.info("Calendar meeting reminder due", { summary: event.summary }, "calendar");
+    debugLogger.info(
+      "Calendar meeting reminder due",
+      { summary: logText(event.summary) },
+      "calendar"
+    );
     this.meetingDetectionEngine?.handleCalendarReminder(event);
 
     this._scheduleMeetingEnd(event);
@@ -95,7 +100,7 @@ class CalendarReminderScheduler {
   onMeetingEnd() {
     debugLogger.info(
       "Calendar meeting ended",
-      { summary: this.activeMeeting?.summary },
+      { summary: logText(this.activeMeeting?.summary) },
       "calendar"
     );
     this.activeMeeting = null;

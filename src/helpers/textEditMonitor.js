@@ -3,6 +3,20 @@ const path = require("path");
 const EventEmitter = require("events");
 const fs = require("fs");
 const debugLogger = require("./debugLogger");
+const { logText } = require("../utils/logText.js");
+
+// What a chunk of a monitor's stdout was, for the log: each line's kind
+// (CHANGED_B64, NO_ELEMENT, …) and the chunk's length, never the text a
+// CHANGED line carries (plain or base64).
+function describeMonitorOutput(chunk) {
+  const kinds = [];
+  for (const line of String(chunk).split(/\r?\n/)) {
+    if (!line) continue;
+    const kind = /^([A-Z][A-Z0-9_]*)(?::|$)/.exec(line)?.[1] ?? "other";
+    if (!kinds.includes(kind)) kinds.push(kind);
+  }
+  return { kinds, chars: String(chunk).length };
+}
 
 const POLL_INTERVAL_MS = 500;
 const INITIAL_QUERY_DELAY_MS = 500; // Wait for paste to settle in target app
@@ -441,9 +455,7 @@ class TextEditMonitor extends EventEmitter {
       }
     }
 
-    debugLogger.debug("[TextEditMonitor] Spawning monitor", {
-      textPreview: originalText.substring(0, 80),
-    });
+    debugLogger.debug("[TextEditMonitor] Spawning monitor", { text: logText(originalText) });
 
     this.process = spawn(command, args, {
       stdio: ["pipe", "pipe", "pipe"],
@@ -457,7 +469,7 @@ class TextEditMonitor extends EventEmitter {
     this._stdoutBuffer = "";
     this.process.stdout.setEncoding("utf8");
     this.process.stdout.on("data", (chunk) => {
-      debugLogger.debug("[TextEditMonitor] stdout", { data: chunk.trim() });
+      debugLogger.debug("[TextEditMonitor] stdout", describeMonitorOutput(chunk));
       this._handleProcessStdoutChunk(chunk);
     });
 
@@ -529,9 +541,7 @@ class TextEditMonitor extends EventEmitter {
       return;
     }
 
-    debugLogger.debug("[TextEditMonitor] Text changed", {
-      newFieldValue: newFieldValue.substring(0, 80),
-    });
+    debugLogger.debug("[TextEditMonitor] Text changed", { newFieldValue: logText(newFieldValue) });
     this.emit("text-edited", {
       originalText: this.currentOriginalText,
       newFieldValue,
@@ -582,7 +592,7 @@ class TextEditMonitor extends EventEmitter {
 
     debugLogger.debug("[TextEditMonitor] macOS native: starting", {
       targetPid,
-      textPreview: originalText.substring(0, 80),
+      text: logText(originalText),
     });
 
     await new Promise((r) => setTimeout(r, INITIAL_QUERY_DELAY_MS));
@@ -615,7 +625,7 @@ class TextEditMonitor extends EventEmitter {
     this._stdoutBuffer = "";
     this.process.stdout.setEncoding("utf8");
     this.process.stdout.on("data", (chunk) => {
-      debugLogger.debug("[TextEditMonitor] stdout", { data: chunk.trim() });
+      debugLogger.debug("[TextEditMonitor] stdout", describeMonitorOutput(chunk));
       if (chunk.includes("NO_ELEMENT")) axRun.noElement = true;
       this._handleProcessStdoutChunk(chunk);
     });
@@ -686,7 +696,7 @@ class TextEditMonitor extends EventEmitter {
 
     debugLogger.debug("[TextEditMonitor] macOS: starting osascript polling", {
       targetPid,
-      textPreview: originalText.substring(0, 80),
+      text: logText(originalText),
     });
 
     // Delay before querying to let the paste keystroke be processed.
@@ -732,7 +742,7 @@ class TextEditMonitor extends EventEmitter {
 
     this._lastValue = initialValue;
     debugLogger.debug("[TextEditMonitor] macOS: initial value", {
-      valuePreview: initialValue.substring(0, 80),
+      value: logText(initialValue),
       attempt,
     });
 
@@ -750,7 +760,7 @@ class TextEditMonitor extends EventEmitter {
       if (currentValue !== this._lastValue) {
         this._lastValue = currentValue;
         debugLogger.debug("[TextEditMonitor] macOS: text changed", {
-          newValuePreview: currentValue.substring(0, 80),
+          newValue: logText(currentValue),
         });
         this.emit("text-edited", {
           originalText: this.currentOriginalText,

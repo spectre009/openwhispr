@@ -533,10 +533,11 @@ function startDevElectron({ cdpPort }) {
   const logFile = path.join(LOG_DIR, "dev-electron.log");
   const offset = fs.existsSync(logFile) ? fs.statSync(logFile).size : 0;
   const out = openAppendLog(logFile);
+  // The log level follows the .env setting, as in Stable; a level set in the
+  // calling shell passes through and overrides it (cleanEnv keeps it).
   const env = cleanEnv({
     NODE_ENV: "production",
     OPENWHISPR_CHANNEL: "production",
-    OPENWHISPR_LOG_LEVEL: process.env.OPENWHISPR_LOG_LEVEL || "debug",
   });
   if (cdpPort) env.OW_DEBUG_CDP = String(cdpPort);
   spawn(process.execPath, [path.join(REPO, "scripts", "run-electron.js")], {

@@ -1538,71 +1538,6 @@
     "sessionExpired": "工作階段已過期，請重新登入。"
   },
   "cleanupPrompt": "文字整理",
-  "developerSection": {
-    "currentLogFile": "目前的記錄檔",
-    "debugMode": {
-      "disabledDescription": "啟用以擷取詳細的診斷資訊",
-      "enabledDescription": "正在記錄音訊處理、API 請求和系統操作",
-      "label": "Debug 模式"
-    },
-    "description": "擷取詳細記錄以協助診斷問題",
-    "openLogsFolder": "開啟記錄檔資料夾",
-    "performanceNote": {
-      "description": "Debug 記錄會持續寫入磁碟，可能略微影響效能。不需要除錯時請停用。",
-      "label": "注意"
-    },
-    "sharing": {
-      "footer": "記錄檔不包含 API Key 或敏感資料",
-      "steps": {
-        "0": "在 Debug 模式啟用的狀態下重現問題",
-        "1": "點擊上方的「開啟記錄檔資料夾」",
-        "2": "將最近的記錄檔附加到錯誤回報中"
-      },
-      "title": "分享記錄檔以取得支援"
-    },
-    "title": "Debug 記錄",
-    "toasts": {
-      "copied": {
-        "description": "記錄檔路徑已複製到剪貼簿",
-        "title": "已複製"
-      },
-      "copyFailed": {
-        "description": "複製到剪貼簿時發生錯誤。",
-        "title": "無法複製"
-      },
-      "debugDisabled": {
-        "description": "Debug 記錄已關閉",
-        "title": "Debug 記錄已停用"
-      },
-      "debugEnabled": {
-        "description": "正在將詳細記錄寫入磁碟",
-        "title": "Debug 記錄已啟用"
-      },
-      "loadFailed": {
-        "description": "發生錯誤。請嘗試重新開啟設定。",
-        "title": "無法載入 Debug 設定"
-      },
-      "openLogsFailed": {
-        "description": "開啟記錄檔目錄時發生錯誤。",
-        "title": "無法開啟記錄檔資料夾"
-      },
-      "updateFailed": {
-        "description": "發生錯誤，請再試一次。",
-        "title": "無法更新 Debug 記錄設定"
-      }
-    },
-    "whatGetsLogged": {
-      "items": {
-        "apiRequests": "API 請求",
-        "audioProcessing": "音訊處理",
-        "errorDetails": "錯誤詳情",
-        "ffmpegOperations": "FFmpeg 操作",
-        "systemDiagnostics": "系統診斷",
-        "transcriptionPipeline": "轉錄流程"
-      },
-      "title": "記錄的項目"
-    }
-  },
   "dictionarySuffix": "字典後綴",
   "emailVerification": {
     "checkEmailDescription": "我們已將驗證連結寄送至你的電子郵件：",
@@ -2135,6 +2070,10 @@
       },
       "hotkeys": {
         "description": "所有全域快捷鍵集中在一張表中。所有快捷鍵（包括風格快捷鍵）之間都會檢查衝突。"
+      },
+      "storage": {
+        "title": "儲存空間",
+        "description": "OpenWhispr 在這台電腦上保存了什麼、存放在哪裡、占用多大空間、保留多久。"
       }
     },
     "elsewhere": {
@@ -3424,6 +3363,74 @@
       "persistFailedBody": "在 OpenWhispr 重新啟動前有效。請再試一次。",
       "modeBadge": "已關閉",
       "modeDescription": "OpenWhispr Cloud 已在「隱私與資料」中關閉。請選擇其他模式。"
+    },
+    "storage": {
+      "logs": {
+        "title": "記錄檔",
+        "description": "記錄應用程式做了什麼以及原因，方便找出問題。絕不記錄 API 金鑰。記錄行會標明所涉及的語音輸入，其文字保留在歷史記錄中。",
+        "fileCount_one": "{{count}} 個檔案",
+        "fileCount_other": "{{count}} 個檔案",
+        "saveFailed": "無法儲存記錄檔設定，請再試一次。",
+        "level": {
+          "label": "記錄內容",
+          "description": "關閉：不寫入任何新內容。僅問題：警告與錯誤。全部：每個步驟的詳細資訊（偵錯）。關閉記錄不會刪除既有記錄檔；「清除記錄檔」才會刪除。",
+          "off": "關閉",
+          "warn": "僅問題",
+          "debug": "全部（偵錯）",
+          "other": "{{level}}",
+          "overriddenFlag": "目前生效：{{level}}，由 {{source}} 設定。在移除之前，它優先於此設定。",
+          "overriddenEnv": "目前生效：{{level}}，由環境變數 {{source}} 設定。在移除之前，它優先於此設定。"
+        },
+        "retention": {
+          "label": "記錄檔保留時間",
+          "description": "總計最多 100 MB；最舊的檔案先刪除。超過 20 MB 的檔案會在新檔案中繼續。"
+        },
+        "text": {
+          "label": "包含語音輸入文字",
+          "description": "用於調查文字問題：加入語音輸入、清理、貼上或編輯內容的簡短片段（最多 80 個字元）。含文字的檔案最多保留 3 天，不受上方設定影響。預設為關閉。"
+        },
+        "folder": {
+          "label": "記錄檔資料夾",
+          "empty": "尚無記錄檔",
+          "current": "目前檔案：{{name}}",
+          "open": "開啟資料夾",
+          "openFailed": "無法開啟記錄檔資料夾。"
+        },
+        "clear": {
+          "button": "清除記錄檔",
+          "title": "要清除記錄檔嗎？",
+          "description": "刪除所有記錄檔，包括正在寫入的檔案。若記錄已開啟，會在新檔案中繼續記錄。",
+          "done": "記錄檔已清除。",
+          "partial": "部分檔案正由另一個 OpenWhispr 使用，已保留：{{names}}",
+          "failed": "無法清除記錄檔。"
+        },
+        "problems": {
+          "label": "最近的問題",
+          "description": "記錄檔中最新的警告與錯誤，最新的在前。",
+          "none": "記錄檔中沒有警告或錯誤。",
+          "showAll": "全部顯示（{{total}}）",
+          "levels": {
+            "warn": "警告",
+            "error": "錯誤",
+            "fatal": "嚴重"
+          }
+        }
+      }
+    },
+    "diagnostics": {
+      "title": "診斷",
+      "logs": "記錄檔",
+      "summary": "{{level}} · 保留 {{days}} · {{size}} · {{problems}}",
+      "problemsToday_one": "今天 {{count}} 個問題",
+      "problemsToday_other": "今天 {{count}} 個問題",
+      "manage": "在「儲存空間」中管理",
+      "copy": {
+        "label": "複製診斷資訊",
+        "description": "版本、建置、作業系統、記錄檔設定與最近問題的數量，可直接用於回報問題。不含金鑰、語音輸入文字或記錄行。",
+        "button": "複製…",
+        "dialogTitle": "複製診斷資訊",
+        "dialogDescription": "以下就是將要複製的內容，為方便回報問題使用英文。路徑中隱去了你的使用者名稱。"
+      }
     }
   },
   "models": {

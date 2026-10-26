@@ -1,4 +1,5 @@
 const debugLogger = require("./debugLogger");
+const { logText } = require("../utils/logText.js");
 const { randomUUID } = require("node:crypto");
 const {
   meetingDestinationContext,
@@ -415,7 +416,7 @@ class MeetingDetectionEngine {
         detectionId,
         source,
         variant,
-        title: calendarEvent?.summary ?? null,
+        title: logText(calendarEvent?.summary),
         hasJoinUrl: !!joinUrl,
       },
       "meeting"

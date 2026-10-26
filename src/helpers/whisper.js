@@ -385,8 +385,15 @@ class WhisperManager {
   }
 
   async transcribeLocalWhisper(audioBlob, options = {}) {
+    // The dictionary prompt is the user's words: its word count only.
+    const { initialPrompt: dictionaryPrompt, ...loggedOptions } = options || {};
     debugLogger.logWhisperPipeline("transcribeLocalWhisper - start", {
-      options,
+      options: {
+        ...loggedOptions,
+        ...(dictionaryPrompt
+          ? { promptWords: String(dictionaryPrompt).trim().split(/\s+/u).filter(Boolean).length }
+          : {}),
+      },
       audioBlobType: audioBlob?.constructor?.name,
       audioBlobSize: audioBlob?.byteLength || audioBlob?.size || 0,
       serverAvailable: this.serverManager.isAvailable(),
@@ -560,7 +567,7 @@ class WhisperManager {
         if (text && !this.isBlankAudioMarker(text)) {
           return { success: true, text };
         }
-        throw new Error(`Failed to parse Whisper output: ${parseError.message}`);
+        throw new Error(`Failed to parse Whisper output: ${parseError.name}`);
       }
     } else if (typeof output === "object" && output !== null) {
       debugLogger.logWhisperPipeline("Parsing result (object)", { keys: Object.keys(output) });

@@ -1538,71 +1538,6 @@
     "sessionExpired": "Sesión expirada"
   },
   "cleanupPrompt": "Corrección",
-  "developerSection": {
-    "currentLogFile": "Archivo de registro actual",
-    "debugMode": {
-      "disabledDescription": "Activa para capturar información de diagnóstico detallada",
-      "enabledDescription": "Registrando procesamiento de audio, solicitudes API y operaciones del sistema",
-      "label": "Modo depuración"
-    },
-    "description": "Captura registros detallados para ayudar a diagnosticar problemas",
-    "openLogsFolder": "Abrir carpeta de registros",
-    "performanceNote": {
-      "description": "El registro de depuración escribe continuamente en disco y puede afectar ligeramente el rendimiento. Desactívalo cuando no estés solucionando problemas.",
-      "label": "Nota"
-    },
-    "sharing": {
-      "footer": "Los registros no contienen claves API ni datos sensibles",
-      "steps": {
-        "0": "Reproduce el problema con el modo depuración activado",
-        "1": "Haz clic en \"Abrir carpeta de registros\" arriba",
-        "2": "Adjunta el archivo de registro más reciente a tu reporte de error"
-      },
-      "title": "Compartir registros para soporte"
-    },
-    "title": "Registro de depuración",
-    "toasts": {
-      "copied": {
-        "description": "Ruta del archivo de registro copiada al portapapeles",
-        "title": "Copiado"
-      },
-      "copyFailed": {
-        "description": "Algo salió mal al copiar al portapapeles.",
-        "title": "No se pudo copiar"
-      },
-      "debugDisabled": {
-        "description": "El registro de depuración ha sido desactivado",
-        "title": "Registro de depuración desactivado"
-      },
-      "debugEnabled": {
-        "description": "Se están escribiendo registros detallados en disco",
-        "title": "Registro de depuración activado"
-      },
-      "loadFailed": {
-        "description": "Algo salió mal. Intenta reabrir Ajustes.",
-        "title": "No se pudo cargar la configuración de depuración"
-      },
-      "openLogsFailed": {
-        "description": "Algo salió mal al abrir el directorio de registros.",
-        "title": "No se pudo abrir la carpeta de registros"
-      },
-      "updateFailed": {
-        "description": "Algo salió mal. Inténtalo de nuevo.",
-        "title": "No se pudo actualizar el registro de depuración"
-      }
-    },
-    "whatGetsLogged": {
-      "items": {
-        "apiRequests": "Solicitudes API",
-        "audioProcessing": "Procesamiento de audio",
-        "errorDetails": "Detalles de errores",
-        "ffmpegOperations": "Operaciones FFmpeg",
-        "systemDiagnostics": "Diagnósticos del sistema",
-        "transcriptionPipeline": "Flujo de transcripción"
-      },
-      "title": "Qué se registra"
-    }
-  },
   "apiKeysSection": {
     "title": "Claves API",
     "description": "Crea claves para acceder a la API de OpenWhispr de forma programática.",
@@ -2187,6 +2122,10 @@
       },
       "hotkeys": {
         "description": "Todos los atajos globales en una tabla. Los conflictos se comprueban entre todos, incluidos los atajos de estilo."
+      },
+      "storage": {
+        "title": "Almacenamiento",
+        "description": "Lo que OpenWhispr guarda en este equipo: dónde está, cuánto ocupa y cuánto tiempo se conserva."
       }
     },
     "elsewhere": {
@@ -3476,6 +3415,74 @@
       "persistFailedBody": "Se aplica hasta que OpenWhispr se reinicie. Inténtalo de nuevo.",
       "modeBadge": "Desactivado",
       "modeDescription": "OpenWhispr Cloud está desactivado en Privacidad y datos. Elige otro modo."
+    },
+    "storage": {
+      "logs": {
+        "title": "Registros",
+        "description": "Qué hizo la aplicación y por qué, para averiguar qué salió mal. Nunca claves de API. Cada línea indica el dictado al que se refiere, así que su texto se queda en el Historial.",
+        "fileCount_one": "{{count}} archivo",
+        "fileCount_other": "{{count}} archivos",
+        "saveFailed": "No se pudo guardar la configuración de registros. Inténtalo de nuevo.",
+        "level": {
+          "label": "Qué registrar",
+          "description": "Desactivado: no se escribe nada nuevo. Solo problemas: advertencias y errores. Todo: detalle paso a paso (depuración). Desactivar el registro no borra los registros existentes; «Borrar registros» sí.",
+          "off": "Desactivado",
+          "warn": "Solo problemas",
+          "debug": "Todo (depuración)",
+          "other": "{{level}}",
+          "overriddenFlag": "En vigor: {{level}}, fijado por {{source}}. Prevalece sobre este ajuste hasta que se quite.",
+          "overriddenEnv": "En vigor: {{level}}, fijado por la variable de entorno {{source}}. Prevalece sobre este ajuste hasta que se quite."
+        },
+        "retention": {
+          "label": "Conservar registros durante",
+          "description": "Hasta 100 MB en total; los archivos más antiguos se borran primero. Un archivo de más de 20 MB continúa en uno nuevo."
+        },
+        "text": {
+          "label": "Incluir el texto dictado",
+          "description": "Para investigar errores de texto: añade fragmentos breves (hasta 80 caracteres) de lo que se dictó, limpió, pegó o editó. Los archivos con texto se conservan 3 días como máximo, sea cual sea el ajuste anterior. Desactivado por defecto."
+        },
+        "folder": {
+          "label": "Carpeta de registros",
+          "empty": "Aún no hay registros",
+          "current": "Archivo actual: {{name}}",
+          "open": "Abrir carpeta",
+          "openFailed": "No se pudo abrir la carpeta de registros."
+        },
+        "clear": {
+          "button": "Borrar registros",
+          "title": "¿Borrar los registros?",
+          "description": "Borra todos los archivos de registro, incluido el que se está escribiendo. Si el registro está activado, continúa en un archivo nuevo.",
+          "done": "Registros borrados.",
+          "partial": "Otra instancia de OpenWhispr está usando algunos archivos y se han conservado: {{names}}",
+          "failed": "No se pudieron borrar los registros."
+        },
+        "problems": {
+          "label": "Problemas recientes",
+          "description": "Las últimas advertencias y errores de los registros, los más recientes primero.",
+          "none": "No hay advertencias ni errores en los registros.",
+          "showAll": "Mostrar todos ({{total}})",
+          "levels": {
+            "warn": "Advertencia",
+            "error": "Error",
+            "fatal": "Grave"
+          }
+        }
+      }
+    },
+    "diagnostics": {
+      "title": "Diagnóstico",
+      "logs": "Registros",
+      "summary": "{{level}} · se conservan {{days}} · {{size}} · {{problems}}",
+      "problemsToday_one": "{{count}} problema hoy",
+      "problemsToday_other": "{{count}} problemas hoy",
+      "manage": "Gestionar en Almacenamiento",
+      "copy": {
+        "label": "Copiar diagnóstico",
+        "description": "Versiones, compilación, sistema operativo, ajustes de registro y recuento de problemas recientes, listos para un informe de errores. Sin claves, sin texto dictado, sin líneas de registro.",
+        "button": "Copiar…",
+        "dialogTitle": "Copiar diagnóstico",
+        "dialogDescription": "Esto es exactamente lo que se copiará, en inglés para un informe de errores. Tu nombre de usuario no aparece en las rutas."
+      }
     }
   },
   "models": {

@@ -1580,71 +1580,6 @@
     "connectCalendarButton": "Kalender verbinden"
   },
   "cleanupPrompt": "Textbereinigung",
-  "developerSection": {
-    "currentLogFile": "Aktuelle Protokolldatei",
-    "debugMode": {
-      "disabledDescription": "Aktivieren, um detaillierte Diagnoseinformationen zu erfassen",
-      "enabledDescription": "Protokolliert Audioverarbeitung, API-Anfragen und Systemoperationen",
-      "label": "Debug-Modus"
-    },
-    "description": "Detaillierte Protokolle zur Fehlerdiagnose erfassen",
-    "openLogsFolder": "Protokollordner öffnen",
-    "performanceNote": {
-      "description": "Debug-Protokollierung schreibt kontinuierlich auf die Festplatte und kann die Leistung leicht beeinträchtigen. Deaktivieren Sie sie, wenn keine Fehlersuche stattfindet.",
-      "label": "Hinweis"
-    },
-    "sharing": {
-      "footer": "Protokolle enthalten keine API-Schlüssel oder sensiblen Daten",
-      "steps": {
-        "0": "Reproduzieren Sie das Problem bei aktiviertem Debug-Modus",
-        "1": "Klicken Sie oben auf 'Protokollordner öffnen'",
-        "2": "Hängen Sie die neueste Protokolldatei an Ihren Fehlerbericht an"
-      },
-      "title": "Protokolle für den Support teilen"
-    },
-    "title": "Debug-Protokollierung",
-    "toasts": {
-      "copied": {
-        "description": "Protokolldateipfad wurde in die Zwischenablage kopiert",
-        "title": "Kopiert"
-      },
-      "copyFailed": {
-        "description": "Beim Kopieren in die Zwischenablage ist ein Fehler aufgetreten.",
-        "title": "Kopieren fehlgeschlagen"
-      },
-      "debugDisabled": {
-        "description": "Debug-Protokollierung wurde deaktiviert",
-        "title": "Debug-Protokollierung deaktiviert"
-      },
-      "debugEnabled": {
-        "description": "Detaillierte Protokolle werden jetzt auf die Festplatte geschrieben",
-        "title": "Debug-Protokollierung aktiviert"
-      },
-      "loadFailed": {
-        "description": "Etwas ist schiefgelaufen. Versuchen Sie, die Einstellungen erneut zu öffnen.",
-        "title": "Debug-Einstellungen konnten nicht geladen werden"
-      },
-      "openLogsFailed": {
-        "description": "Beim Öffnen des Protokollverzeichnisses ist ein Fehler aufgetreten.",
-        "title": "Protokollordner konnte nicht geöffnet werden"
-      },
-      "updateFailed": {
-        "description": "Etwas ist schiefgelaufen. Bitte versuchen Sie es erneut.",
-        "title": "Debug-Protokollierung konnte nicht aktualisiert werden"
-      }
-    },
-    "whatGetsLogged": {
-      "items": {
-        "apiRequests": "API-Anfragen",
-        "audioProcessing": "Audioverarbeitung",
-        "errorDetails": "Fehlerdetails",
-        "ffmpegOperations": "FFmpeg-Operationen",
-        "systemDiagnostics": "Systemdiagnose",
-        "transcriptionPipeline": "Transkriptionspipeline"
-      },
-      "title": "Was protokolliert wird"
-    }
-  },
   "apiKeysSection": {
     "title": "API-Schlüssel",
     "description": "Erstellen Sie Schlüssel für den programmatischen Zugriff auf die OpenWhispr-API.",
@@ -2229,6 +2164,10 @@
       },
       "hotkeys": {
         "description": "Alle globalen Hotkeys in einer Tabelle. Konflikte werden über alle hinweg geprüft, Stil-Hotkeys eingeschlossen."
+      },
+      "storage": {
+        "title": "Speicher",
+        "description": "Was OpenWhispr auf diesem Computer aufbewahrt, wo es liegt, wie groß es ist und wie lange es bleibt."
       }
     },
     "elsewhere": {
@@ -3518,6 +3457,74 @@
       "persistFailedBody": "Sie gilt bis zum Neustart von OpenWhispr. Versuchen Sie es erneut.",
       "modeBadge": "Ausgeschaltet",
       "modeDescription": "OpenWhispr Cloud ist unter Datenschutz und Daten ausgeschaltet. Wählen Sie einen anderen Modus."
+    },
+    "storage": {
+      "logs": {
+        "title": "Protokolle",
+        "description": "Was die App getan hat und warum, um Fehlern auf die Spur zu kommen. Niemals API-Schlüssel. Protokollzeilen nennen das betroffene Diktat, sein Text bleibt also im Verlauf.",
+        "fileCount_one": "{{count}} Datei",
+        "fileCount_other": "{{count}} Dateien",
+        "saveFailed": "Die Protokolleinstellungen konnten nicht gespeichert werden. Bitte erneut versuchen.",
+        "level": {
+          "label": "Was protokolliert wird",
+          "description": "Aus: Es wird nichts Neues geschrieben. Nur Probleme: Warnungen und Fehler. Alles: Details zu jedem Schritt (Debug). Ausschalten löscht vorhandene Protokolle nicht; das tut „Protokolle löschen“.",
+          "off": "Aus",
+          "warn": "Nur Probleme",
+          "debug": "Alles (Debug)",
+          "other": "{{level}}",
+          "overriddenFlag": "Aktiv: {{level}}, festgelegt durch {{source}}. Das hat Vorrang vor dieser Einstellung, bis es entfernt wird.",
+          "overriddenEnv": "Aktiv: {{level}}, festgelegt durch die Umgebungsvariable {{source}}. Sie hat Vorrang vor dieser Einstellung, bis sie entfernt wird."
+        },
+        "retention": {
+          "label": "Protokolle aufbewahren für",
+          "description": "Insgesamt bis zu 100 MB; die ältesten Dateien werden zuerst gelöscht. Eine Datei über 20 MB wird in einer neuen fortgesetzt."
+        },
+        "text": {
+          "label": "Diktierten Text einbeziehen",
+          "description": "Zum Untersuchen von Textfehlern: fügt kurze Ausschnitte (bis zu 80 Zeichen) dessen hinzu, was diktiert, bereinigt, eingefügt oder bearbeitet wurde. Dateien mit Text werden höchstens 3 Tage aufbewahrt, unabhängig von der Einstellung oben. Standardmäßig aus."
+        },
+        "folder": {
+          "label": "Protokollordner",
+          "empty": "Noch keine Protokolle",
+          "current": "Aktuelle Datei: {{name}}",
+          "open": "Ordner öffnen",
+          "openFailed": "Der Protokollordner konnte nicht geöffnet werden."
+        },
+        "clear": {
+          "button": "Protokolle löschen",
+          "title": "Protokolle löschen?",
+          "description": "Löscht alle Protokolldateien, auch die gerade geschriebene. Ist die Protokollierung an, geht sie in einer neuen Datei weiter.",
+          "done": "Protokolle gelöscht.",
+          "partial": "Einige Dateien werden von einer anderen OpenWhispr-Instanz verwendet und wurden behalten: {{names}}",
+          "failed": "Die Protokolle konnten nicht gelöscht werden."
+        },
+        "problems": {
+          "label": "Letzte Probleme",
+          "description": "Die neuesten Warnungen und Fehler in den Protokollen, neueste zuerst.",
+          "none": "Keine Warnungen oder Fehler in den Protokollen.",
+          "showAll": "Alle anzeigen ({{total}})",
+          "levels": {
+            "warn": "Warnung",
+            "error": "Fehler",
+            "fatal": "Schwerwiegend"
+          }
+        }
+      }
+    },
+    "diagnostics": {
+      "title": "Diagnose",
+      "logs": "Protokolle",
+      "summary": "{{level}} · {{days}} aufbewahrt · {{size}} · {{problems}}",
+      "problemsToday_one": "{{count}} Problem heute",
+      "problemsToday_other": "{{count}} Probleme heute",
+      "manage": "Im Speicher verwalten",
+      "copy": {
+        "label": "Diagnose kopieren",
+        "description": "Versionen, Build, Betriebssystem, Protokolleinstellungen und die Anzahl der letzten Probleme, bereit für einen Fehlerbericht. Keine Schlüssel, kein diktierter Text, keine Protokollzeilen.",
+        "button": "Kopieren…",
+        "dialogTitle": "Diagnose kopieren",
+        "dialogDescription": "Genau dieser Text wird kopiert, auf Englisch für einen Fehlerbericht. Der Benutzername ist in Pfaden ausgeblendet."
+      }
     }
   },
   "models": {

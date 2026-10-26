@@ -74,9 +74,12 @@ const PERSISTED_KEYS = [
   "VERTEX_LOCATION",
   "OPENWHISPR_CLOUD_DISABLED",
   "GITHUB_COPILOT_LOGIN",
-  // Debug logging (debugLogger.js). Persisted so a full rewrite of .env keeps
-  // it; the logger bounds its own files.
+  // Debug logging (debugLogger.js, Settings › Storage › Logs): the level (off,
+  // warn or debug), how many days logs are kept, and whether they may include
+  // dictated text. Persisted so a full rewrite of .env keeps them.
   "OPENWHISPR_LOG_LEVEL",
+  "OPENWHISPR_LOG_RETENTION_DAYS",
+  "OPENWHISPR_LOG_TEXT",
 ];
 
 // Module-level so writes are serialized across all instances — hotkeyManager
@@ -565,6 +568,18 @@ class EnvironmentManager {
   async clearGithubCopilotToken() {
     await this._deleteSecretKey("GITHUB_COPILOT_TOKEN");
     this._saveKey("GITHUB_COPILOT_LOGIN", "");
+    await this.saveAllKeysToEnvFile();
+    return { success: true };
+  }
+
+  // Storage › Logs, already validated (logPolicy.validateLogSettings). Awaited
+  // like the cloud switch: what the page shows must still hold after a restart.
+  async saveLogSettings({ level, retentionDays, includeText } = {}) {
+    if (level !== undefined) this._saveKey("OPENWHISPR_LOG_LEVEL", level);
+    if (retentionDays !== undefined) {
+      this._saveKey("OPENWHISPR_LOG_RETENTION_DAYS", String(retentionDays));
+    }
+    if (includeText !== undefined) this._saveKey("OPENWHISPR_LOG_TEXT", includeText ? "true" : "");
     await this.saveAllKeysToEnvFile();
     return { success: true };
   }

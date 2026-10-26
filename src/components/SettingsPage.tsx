@@ -83,7 +83,8 @@ import { ActivationModeSelector } from "./ui/ActivationModeSelector";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import LinuxPttSetupInfo from "./ui/LinuxPttSetupInfo";
 import { Toggle } from "./ui/toggle";
-import DeveloperSection from "./DeveloperSection";
+import DiagnosticsSection from "./settings/DiagnosticsSection";
+import StoragePage from "./settings/StoragePage";
 import ChatAgentSettings from "./settings/ChatAgentSettings";
 import DictationAgentSettings from "./settings/DictationAgentSettings";
 import DictationTranslationSettings from "./settings/DictationTranslationSettings";
@@ -4629,9 +4630,9 @@ EOF`,
               </div>
             </div>
 
-            {/* Developer Tools */}
+            {/* Diagnostics: a summary of the log, managed in Storage */}
             <div className="border-t border-border/70 pt-6">
-              <DeveloperSection />
+              <DiagnosticsSection showing={page === "system"} />
             </div>
 
             {/* Data Management */}
@@ -4849,6 +4850,9 @@ EOF`,
       case "connections":
         // Its connections regroup once per visit, so it needs to know when it shows.
         return <AiConnectionsPage showing={page === "connections"} />;
+
+      case "storage":
+        return <StoragePage showing={page === "storage"} />;
 
       default:
         return <div className="space-y-6">{renderPreferencesBlocks(pageId)}</div>;

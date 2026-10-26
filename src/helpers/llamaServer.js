@@ -832,7 +832,8 @@ class LlamaServerManager {
                 message?.content || (suppressThinking && message?.reasoning_content) || "";
               resolve(text.trim());
             } catch (e) {
-              reject(new Error(`Failed to parse llama-server response: ${e.message}`));
+              // A JSON.parse message quotes the text it choked on.
+              reject(new Error(`Failed to parse llama-server response: ${e.name}`));
             }
           });
         }

@@ -1,3 +1,5 @@
+import { setLogTextEnabled } from "./logText.js";
+
 type LogLevel = "trace" | "debug" | "info" | "warn" | "error" | "fatal";
 
 const LOG_LEVELS: Record<LogLevel, number> = {
@@ -9,9 +11,12 @@ const LOG_LEVELS: Record<LogLevel, number> = {
   fatal: 60,
 };
 
+// Main's level in force. "off" stops main's files; warnings and errors still go
+// to main, which shows them on its console where that's on.
 const normalizeLevel = (value?: string | null): LogLevel | null => {
   if (!value) return null;
   const lower = value.toLowerCase();
+  if (lower === "off") return "warn";
   return lower in LOG_LEVELS ? (lower as LogLevel) : null;
 };
 
@@ -19,6 +24,29 @@ const defaultLevel: LogLevel = "info";
 
 let cachedLevel: LogLevel | null = null;
 let levelPromise: Promise<LogLevel> | null = null;
+let subscribed = false;
+
+// Every window takes a changed setting at once (Storage › Logs broadcasts it).
+const applyState = (state?: { level?: string | null; includeText?: boolean } | null) => {
+  const level = normalizeLevel(state?.level);
+  if (level) cachedLevel = level;
+  setLogTextEnabled(state?.includeText === true);
+};
+
+const subscribe = () => {
+  if (subscribed || typeof window === "undefined") return;
+  const onChanged = window.electronAPI?.onLogSettingsChanged;
+  if (typeof onChanged !== "function") return;
+  subscribed = true;
+  try {
+    onChanged((state) => {
+      levelPromise = null;
+      applyState(state);
+    });
+  } catch {
+    subscribed = false;
+  }
+};
 
 const resolveLogLevel = async (): Promise<LogLevel> => {
   if (cachedLevel) {
@@ -26,6 +54,16 @@ const resolveLogLevel = async (): Promise<LogLevel> => {
   }
   if (!levelPromise) {
     levelPromise = (async () => {
+      subscribe();
+      if (typeof window !== "undefined" && window.electronAPI?.getLogState) {
+        try {
+          const state = await window.electronAPI.getLogState();
+          applyState(state);
+          if (cachedLevel) return cachedLevel;
+        } catch {
+          // Fall back to the level alone
+        }
+      }
       if (typeof window !== "undefined" && window.electronAPI?.getLogLevel) {
         try {
           const level = normalizeLevel(await window.electronAPI.getLogLevel());

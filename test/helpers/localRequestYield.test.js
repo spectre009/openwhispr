@@ -202,8 +202,18 @@ test("a test request's text and reply stay out of main's reasoning log", async (
   assert.equal(quiet.includes("Clean up this transcript"), false, "no prompt text");
   assert.ok(quiet.includes("textRedacted"), "the log says what it left out");
 
-  // Control: an untagged request still logs its preview as before.
+  // Control: an untagged request logs the reply's size, never its text or the prompt...
+  logged.length = 0;
+  await gate.run(TEST_INPUT, modelId, { systemPrompt: "Clean up." });
+  const plain = JSON.stringify(logged);
+  assert.equal(plain.includes("quarterly"), false, "no text without Include dictated text");
+  assert.equal(plain.includes("Clean up."), false, "no prompt text");
+  // ...unless "Include dictated text" is on: then a short snippet of the reply.
+  const { setLogTextEnabled } = require("../../src/utils/logText.js");
+  setLogTextEnabled(true);
+  t.after(() => setLogTextEnabled(false));
   logged.length = 0;
   await gate.run(TEST_INPUT, modelId, { systemPrompt: "Clean up." });
   assert.ok(JSON.stringify(logged).includes("quarterly"));
+  assert.equal(JSON.stringify(logged).includes("Clean up."), false, "never the prompt");
 });

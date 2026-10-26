@@ -3,6 +3,7 @@ const fs = require("fs");
 const path = require("path");
 const WebSocket = require("ws");
 const debugLogger = require("./debugLogger");
+const { logText } = require("../utils/logText.js");
 const {
   findAvailablePort,
   resolveBinaryPath,
@@ -173,8 +174,9 @@ class ParakeetWsServer {
       readyResolve = resolve;
     });
 
+    // sherpa-onnx can print what it recognized on stdout: its size only.
     child.stdout.on("data", (data) => {
-      debugLogger.debug("parakeet-ws stdout", { data: data.toString().trim() });
+      debugLogger.debug("parakeet-ws stdout", { chars: String(data).length });
     });
 
     child.stderr.on("data", (data) => {
@@ -375,14 +377,15 @@ class ParakeetWsServer {
           return;
         }
 
+        const text = parseOfflineMessage(result);
         debugLogger.debug("parakeet-ws transcription completed", {
           elapsed,
           code,
           resultLength: result.length,
-          resultPreview: result.slice(0, 200),
+          result: logText(text),
         });
 
-        resolve({ text: parseOfflineMessage(result), elapsed });
+        resolve({ text, elapsed });
       });
 
       ws.on("error", (error) => {
@@ -439,8 +442,7 @@ class ParakeetWsServer {
       debugLogger.debug("parakeet-ws streaming transcription completed", {
         elapsed,
         truncated,
-        resultLength: text.length,
-        resultPreview: text.slice(0, 200),
+        result: logText(text),
       });
       return truncated ? { text, elapsed, truncated } : { text, elapsed };
     } finally {

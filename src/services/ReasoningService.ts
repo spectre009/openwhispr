@@ -17,6 +17,7 @@ import { SecureCache } from "../utils/SecureCache";
 import { withRetry, createApiRetryStrategy, httpError } from "../utils/retry";
 import { API_ENDPOINTS, TOKEN_LIMITS, buildApiUrl, ensureV1Suffix } from "../config/constants";
 import logger from "../utils/logger";
+import { logText } from "../utils/logText.js";
 import { assertValidCleanupOutput } from "../utils/cleanupOutput";
 import { getSettings, isCloudCleanupMode } from "../stores/settingsStore";
 import {
@@ -414,15 +415,14 @@ class ReasoningService extends BaseReasoningService {
     });
 
     // Prompt tests: their dictations and replies stay out of the log, which
-    // debug logging writes to disk. Metadata only.
+    // debug logging writes to disk. Metadata only. Anything else logs the
+    // dictated text's size (logText), never the prompt or the reply.
     const quiet = config.redactLogs === true;
     logger.logReasoning(`${providerName.toUpperCase()}_REQUEST`, {
       endpoint,
       model,
       hasApiKey: !!apiKey,
-      ...(quiet
-        ? { textRedacted: true }
-        : { requestBody: JSON.stringify(requestBody).substring(0, 200) }),
+      ...(quiet ? { textRedacted: true } : { input: logText(text), messageCount: messages.length }),
     });
 
     // Minted before the retry loop so every attempt of this call is one conversation.
@@ -476,18 +476,19 @@ class ReasoningService extends BaseReasoningService {
           }
 
           // Providers echo the rejected key back, so every logged field is redacted.
-          // A provider may quote the request too, so a quiet request logs the status only.
+          // A provider may quote the request (the dictated text) too, so the log
+          // keeps the error's message and the body's size, not the body; a quiet
+          // request logs the status only.
           logger.logReasoning(`${providerName.toUpperCase()}_API_ERROR_DETAIL`, {
             status: res.status,
             statusText: res.statusText,
             ...(quiet
               ? { textRedacted: true }
               : {
-                  error: redactProviderBody(errorData),
                   errorMessage: redactProviderBody(
                     extractApiErrorMessage(errorData, `${providerName} API error: ${res.status}`)
                   ),
-                  fullResponse: redactProviderBody(errorText),
+                  bodyLength: errorText.length,
                 }),
           });
           throw providerHttpError({
@@ -507,7 +508,7 @@ class ReasoningService extends BaseReasoningService {
           choicesLength: jsonResponse?.choices?.length || 0,
           ...(quiet
             ? { textRedacted: true }
-            : { fullResponse: JSON.stringify(jsonResponse).substring(0, 500) }),
+            : { output: logText(jsonResponse?.choices?.[0]?.message?.content) }),
         });
 
         return jsonResponse;
@@ -532,9 +533,7 @@ class ReasoningService extends BaseReasoningService {
     if (!response.choices || !response.choices[0]) {
       logger.logReasoning(`${providerName.toUpperCase()}_RESPONSE_ERROR`, {
         model,
-        ...(quiet
-          ? { textRedacted: true }
-          : { response: JSON.stringify(response).substring(0, 500) }),
+        responseKeys: response ? Object.keys(response) : [],
         hasChoices: !!response.choices,
         choicesCount: response.choices?.length || 0,
       });
@@ -556,9 +555,8 @@ class ReasoningService extends BaseReasoningService {
         model,
         finishReason: choice.finish_reason,
         hasMessage: !!choice.message,
-        ...(quiet
-          ? { textRedacted: true }
-          : { response: JSON.stringify(choice).substring(0, 500) }),
+        choiceKeys: Object.keys(choice || {}),
+        ...(quiet ? { textRedacted: true } : { output: logText(rawContent) }),
       });
       throw (
         emptyResponseError(providerName, config, isTruncatedFinishReason(choice.finish_reason)) ??

@@ -4,6 +4,7 @@ import {
   TRUNCATED_OUTPUT_MESSAGE_KEY,
 } from "../services/ai/chatRequestBody";
 import logger from "../utils/logger";
+import { logText } from "../utils/logText.js";
 import { markStartTrace } from "../utils/dictationStartTrace";
 import { assertValidCleanupOutput } from "../utils/cleanupOutput";
 import { isAzureOpenAIEndpoint } from "../utils/urlUtils";
@@ -3456,11 +3457,11 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     // Rule ids and counts only: the trace holds dictated text and never reaches a log.
     const glossary = summarizeGlossaryTrace(result.trace);
     if (glossary.fired > 0) {
-      logger.info("Glossary corrections applied", { source, ...glossary }, "transcription");
+      logger.info("Glossary corrections applied", { source, runId, ...glossary }, "transcription");
     } else {
       logger.debug(
         "Glossary: no corrections",
-        { source, ...glossary, targetApp: result.trace.context.targetApp },
+        { source, runId, ...glossary, targetApp: result.trace.context.targetApp },
         "transcription"
       );
     }
@@ -3600,8 +3601,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
 
     logger.logReasoning("TRANSCRIPTION_RECEIVED", {
       source,
-      textLength: normalizedText.length,
-      textPreview: normalizedText.substring(0, 100) + (normalizedText.length > 100 ? "..." : ""),
+      text: logText(normalizedText),
       timestamp: new Date().toISOString(),
     });
 
@@ -3670,9 +3670,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
           });
 
           logger.logReasoning("REASONING_SUCCESS", {
-            resultLength: translatedText.length,
-            resultPreview:
-              translatedText.substring(0, 100) + (translatedText.length > 100 ? "..." : ""),
+            result: logText(translatedText),
             processingTime: new Date().toISOString(),
           });
 
@@ -3713,8 +3711,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
               );
 
         logger.logReasoning("REASONING_SUCCESS", {
-          resultLength: result.length,
-          resultPreview: result.substring(0, 100) + (result.length > 100 ? "..." : ""),
+          result: logText(result),
           processingTime: new Date().toISOString(),
         });
 
@@ -3834,13 +3831,12 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       const chunk = decoder.decode(value, { stream: true });
       buffer += chunk;
 
-      // Log first chunk to see format
+      // The first chunk's size only: its SSE events carry the transcript.
       if (eventCount === 0 && chunk.length > 0) {
         logger.debug(
           "First stream chunk received",
           {
             chunkLength: chunk.length,
-            chunkPreview: chunk.substring(0, 500),
           },
           "transcription"
         );
@@ -4538,27 +4534,22 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
         );
       } else {
         const rawText = await response.text();
-        logger.debug(
-          "Raw API response body",
-          {
-            rawText: rawText.substring(0, 1000),
-            fullLength: rawText.length,
-          },
-          "transcription"
-        );
+        // The body is the transcript: its size only.
+        logger.debug("Raw API response body", { fullLength: rawText.length }, "transcription");
 
         try {
           result = JSON.parse(rawText);
         } catch (parseError) {
+          // A JSON.parse message quotes the text it choked on: its name only.
           logger.error(
             "Failed to parse JSON response",
             {
-              parseError: parseError.message,
-              rawText: rawText.substring(0, 500),
+              parseError: parseError.name,
+              fullLength: rawText.length,
             },
             "transcription"
           );
-          throw new Error(`Failed to parse API response: ${parseError.message}`);
+          throw new Error(`Failed to parse API response: ${parseError.name}`);
         }
 
         logger.debug(
@@ -4567,7 +4558,6 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
             hasText: !!result.text,
             textLength: result.text?.length,
             resultKeys: Object.keys(result),
-            fullResult: result,
           },
           "transcription"
         );
@@ -4615,7 +4605,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
             blobType: audioBlob.type,
             mimeType,
             extension,
-            resultText: result.text,
+            resultText: logText(result.text),
             resultKeys: Object.keys(result),
           },
           "transcription"
@@ -4623,7 +4613,6 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
         logger.error(
           "No text in transcription result",
           {
-            result,
             resultKeys: Object.keys(result),
           },
           "transcription"
@@ -4818,7 +4807,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     } catch (analyticsError) {
       logger.warn(
         "Failed to record local analytics event",
-        { error: analyticsError.message },
+        { error: analyticsError.message, clientTranscriptionId: eventId },
         "analytics"
       );
     }
@@ -4839,6 +4828,16 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
         ...(trace ? { trace } : {}),
       });
       if (result?.id) syncService.debouncedPush("transcription", result.id);
+      // Joins this dictation's log lines to its History entry (no text).
+      logger.debug(
+        "Dictation saved",
+        {
+          historyId: result?.id ?? null,
+          clientTranscriptionId: eventId,
+          runId: trace?.runId ?? null,
+        },
+        "audio"
+      );
 
       // Save audio if we have a captured blob and the transcription was saved successfully
       if (result?.id && this.lastAudioBlob) {
@@ -4852,7 +4851,11 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
             );
           } catch (audioErr) {
             // Non-blocking: transcription is saved even if audio save fails
-            logger.warn("Failed to save transcription audio", { error: audioErr.message }, "audio");
+            logger.warn(
+              "Failed to save transcription audio",
+              { error: audioErr.message, historyId: result.id },
+              "audio"
+            );
           }
         }
         this.lastAudioBlob = null;
@@ -5548,7 +5551,11 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
 
       const sessionEndCleanup = provider.onSessionEnd((data) => {
         if (!ownsSession()) return;
-        logger.debug("Streaming session ended", data, "streaming");
+        logger.debug(
+          "Streaming session ended",
+          { keys: Object.keys(data || {}), text: logText(data?.text) },
+          "streaming"
+        );
         if (data.text) {
           this.streamingFinalText = data.text;
         }
@@ -6555,7 +6562,11 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
               }
             });
           } catch (err) {
-            logger.error("Failed to report streaming usage", { error: err.message }, "streaming");
+            logger.error(
+              "Failed to report streaming usage",
+              { error: err.message, clientTranscriptionId },
+              "streaming"
+            );
           }
           window.dispatchEvent(new Event("usage-changed"));
         })();

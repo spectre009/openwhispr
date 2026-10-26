@@ -545,3 +545,22 @@ test("Dictation › Overview comes first; Overview, Styles and Hotkeys lay out w
   assert.deepEqual(wide.sort(), ["hotkeys", "overview", "styles"]);
   assert.equal(SETTINGS_PAGES.cleanup.wide, undefined, "feature pages keep the reading width");
 });
+
+test("Storage sits in Data between Privacy & Data and System, with its own title and icon", async () => {
+  const { SETTINGS_NAV, SETTINGS_PAGES, resolveSettingsDestination, settingsBreadcrumbKeys } =
+    await load();
+  const data = SETTINGS_NAV.find((group) => group.id === "data");
+  assert.deepEqual(
+    data.items.map((item) => item.kind === "page" && item.page),
+    ["privacyData", "storage", "system"]
+  );
+  assert.equal(SETTINGS_PAGES.storage.icon, "HardDrive");
+  assert.deepEqual(settingsBreadcrumbKeys("storage"), [
+    "settingsNav.groups.data",
+    "settingsNav.pages.storage.title",
+  ]);
+  // Visible whatever Cloud, sign-in and agent policy say.
+  for (const ctx of [ALL, CLOUD_OFF, { ...ALL, agentAllowed: false }]) {
+    assert.deepEqual(resolveSettingsDestination("storage", { ctx }), { page: "storage" });
+  }
+});

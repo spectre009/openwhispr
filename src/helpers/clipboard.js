@@ -5,6 +5,7 @@ const path = require("path");
 const fs = require("fs");
 const os = require("os");
 const debugLogger = require("./debugLogger");
+const { logText } = require("../utils/logText.js");
 const { getLinuxSessionInfo } = require("./linuxSession");
 const { getCosmicActiveAppId } = require("./cosmicToplevel");
 
@@ -973,7 +974,7 @@ class ClipboardManager {
       } else {
         clipboard.writeText(text);
       }
-      this.safeLog("📋 Text copied to clipboard:", text.substring(0, 50) + "...");
+      this.safeLog("📋 Text copied to clipboard:", logText(text));
 
       let pasteResult = { restoreComplete: Promise.resolve() };
 
@@ -2011,13 +2012,15 @@ class ClipboardManager {
     const pasteWith = (tool) =>
       new Promise((resolve, reject) => {
         const delay = isWayland ? 0 : PASTE_DELAYS.linux;
+        // `xdotool type` carries the text as its last argument.
+        const loggedArgs = tool.logArgs ?? tool.args;
 
         setTimeout(() => {
           debugLogger.debug(
             "Attempting paste",
             {
               cmd: tool.cmd,
-              args: tool.args,
+              args: loggedArgs,
               delay,
               isWayland,
             },
@@ -2062,7 +2065,7 @@ class ClipboardManager {
                 "Paste command failed",
                 {
                   cmd: tool.cmd,
-                  args: tool.args,
+                  args: loggedArgs,
                   exitCode: code,
                   stderr: stderr.trim(),
                   stdout: stdout.trim(),
@@ -2130,16 +2133,21 @@ class ClipboardManager {
       const typeArgs = targetWindowId
         ? ["windowactivate", "--sync", targetWindowId, "type", "--clearmodifiers", "--", textToType]
         : ["type", "--clearmodifiers", "--", textToType];
+      const loggedTypeArgs = [...typeArgs.slice(0, -1), logText(textToType)];
 
       try {
-        const pasteResult = await pasteWith({ cmd: "xdotool", args: typeArgs });
+        const pasteResult = await pasteWith({
+          cmd: "xdotool",
+          args: typeArgs,
+          logArgs: loggedTypeArgs,
+        });
         this.safeLog("✅ Paste successful using xdotool type fallback");
         debugLogger.info("Terminal paste successful via xdotool type", {}, "clipboard");
         return { method: "xdotool-type", ...pasteResult };
       } catch (error) {
         const fallbackFailure = {
           tool: "xdotool type",
-          args: typeArgs,
+          args: loggedTypeArgs,
           error: error?.message || String(error),
         };
         failedAttempts.push(fallbackFailure);

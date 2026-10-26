@@ -837,14 +837,21 @@ contextBridge.exposeInMainWorld("electronAPI", {
   ),
 
   getLogLevel: () => ipcRenderer.invoke("get-log-level"),
+  getLogState: () => ipcRenderer.invoke("get-log-state"),
+  onLogSettingsChanged: registerListener(
+    "log-settings-changed",
+    (callback) => (_event, state) => callback(state)
+  ),
   log: (entry) => ipcRenderer.invoke("app-log", entry),
 
   // ydotool status check
   getYdotoolStatus: () => ipcRenderer.invoke("get-ydotool-status"),
 
-  // Debug logging management
-  getDebugState: () => ipcRenderer.invoke("get-debug-state"),
-  setDebugLogging: (enabled) => ipcRenderer.invoke("set-debug-logging", enabled),
+  // Logs (Settings › Storage › Logs)
+  getLogInfo: () => ipcRenderer.invoke("log-info"),
+  setLogSettings: (settings) => ipcRenderer.invoke("set-log-settings", settings),
+  clearLogs: () => ipcRenderer.invoke("clear-logs"),
+  getRecentLogProblems: () => ipcRenderer.invoke("log-recent-problems"),
   openLogsFolder: () => ipcRenderer.invoke("open-logs-folder"),
 
   // System settings helpers for microphone/audio permissions

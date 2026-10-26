@@ -1580,71 +1580,6 @@
     "connectCalendarButton": "Connect Calendar"
   },
   "cleanupPrompt": "Cleanup",
-  "developerSection": {
-    "currentLogFile": "Current log file",
-    "debugMode": {
-      "disabledDescription": "Enable to capture detailed diagnostic information",
-      "enabledDescription": "Logging audio processing, API requests, and system operations",
-      "label": "Debug mode"
-    },
-    "description": "Capture detailed logs to help diagnose issues",
-    "openLogsFolder": "Open Logs Folder",
-    "performanceNote": {
-      "description": "Debug logging writes to disk continuously and may slightly affect performance. Disable when not troubleshooting.",
-      "label": "Note"
-    },
-    "sharing": {
-      "footer": "Logs do not contain API keys or sensitive data",
-      "steps": {
-        "0": "Reproduce the issue while debug mode is enabled",
-        "1": "Click \"Open Logs Folder\" above",
-        "2": "Attach the most recent log file to your bug report"
-      },
-      "title": "Sharing logs for support"
-    },
-    "title": "Debug Logging",
-    "toasts": {
-      "copied": {
-        "description": "Log file path copied to clipboard",
-        "title": "Copied"
-      },
-      "copyFailed": {
-        "description": "Something went wrong copying to clipboard.",
-        "title": "Couldn't copy"
-      },
-      "debugDisabled": {
-        "description": "Debug logging has been turned off",
-        "title": "Debug Logging Disabled"
-      },
-      "debugEnabled": {
-        "description": "Detailed logs are now being written to disk",
-        "title": "Debug Logging Enabled"
-      },
-      "loadFailed": {
-        "description": "Something went wrong. Try reopening Settings.",
-        "title": "Couldn't load debug settings"
-      },
-      "openLogsFailed": {
-        "description": "Something went wrong opening the logs directory.",
-        "title": "Couldn't open logs folder"
-      },
-      "updateFailed": {
-        "description": "Something went wrong. Please try again.",
-        "title": "Couldn't update debug logging"
-      }
-    },
-    "whatGetsLogged": {
-      "items": {
-        "apiRequests": "API requests",
-        "audioProcessing": "Audio processing",
-        "errorDetails": "Error details",
-        "ffmpegOperations": "FFmpeg operations",
-        "systemDiagnostics": "System diagnostics",
-        "transcriptionPipeline": "Transcription pipeline"
-      },
-      "title": "What gets logged"
-    }
-  },
   "apiKeysSection": {
     "title": "API Keys",
     "description": "Create keys to access the OpenWhispr API programmatically.",
@@ -2229,6 +2164,10 @@
       },
       "hotkeys": {
         "description": "Every global hotkey in one table. Conflicts are checked across all of them, style hotkeys included."
+      },
+      "storage": {
+        "title": "Storage",
+        "description": "What OpenWhispr keeps on this computer, where it lives, how big it is and how long it stays."
       }
     },
     "elsewhere": {
@@ -3518,6 +3457,74 @@
       "persistFailedBody": "It applies until OpenWhispr restarts. Try again.",
       "modeBadge": "Turned off",
       "modeDescription": "OpenWhispr Cloud is turned off in Privacy & Data. Choose another mode."
+    },
+    "storage": {
+      "logs": {
+        "title": "Logs",
+        "description": "What the app did and why, for working out what went wrong. Never API keys. Log lines name the dictation they're about, so its text stays in History.",
+        "fileCount_one": "{{count}} file",
+        "fileCount_other": "{{count}} files",
+        "saveFailed": "Couldn't save the log settings. Try again.",
+        "level": {
+          "label": "What to log",
+          "description": "Off: nothing new is written. Problems only: warnings and errors. Everything: step-by-step detail (debug). Turning logging off doesn't delete existing logs; Clear logs does.",
+          "off": "Off",
+          "warn": "Problems only",
+          "debug": "Everything (debug)",
+          "other": "{{level}}",
+          "overriddenFlag": "In force: {{level}}, set by {{source}}. It wins over this setting until it's removed.",
+          "overriddenEnv": "In force: {{level}}, set by the {{source}} environment variable. It wins over this setting until it's removed."
+        },
+        "retention": {
+          "label": "Keep logs for",
+          "description": "Up to 100 MB in all; the oldest files go first. A file over 20 MB continues in a new one."
+        },
+        "text": {
+          "label": "Include dictated text",
+          "description": "For investigating text bugs: adds short snippets (up to 80 characters) of what was dictated, cleaned up, pasted or edited. Files with text are kept 3 days at most, whatever the setting above. Off by default."
+        },
+        "folder": {
+          "label": "Logs folder",
+          "empty": "No logs yet",
+          "current": "Current file: {{name}}",
+          "open": "Open folder",
+          "openFailed": "Couldn't open the logs folder."
+        },
+        "clear": {
+          "button": "Clear logs",
+          "title": "Clear logs?",
+          "description": "Deletes every log file, the one being written included. If logging is on, it carries on in a new file.",
+          "done": "Logs cleared.",
+          "partial": "Some files are in use by another OpenWhispr and were kept: {{names}}",
+          "failed": "Couldn't clear the logs."
+        },
+        "problems": {
+          "label": "Recent problems",
+          "description": "The latest warnings and errors in the logs, newest first.",
+          "none": "No warnings or errors in the logs.",
+          "showAll": "Show all ({{total}})",
+          "levels": {
+            "warn": "Warning",
+            "error": "Error",
+            "fatal": "Fatal"
+          }
+        }
+      }
+    },
+    "diagnostics": {
+      "title": "Diagnostics",
+      "logs": "Logs",
+      "summary": "{{level}} · kept {{days}} · {{size}} · {{problems}}",
+      "problemsToday_one": "{{count}} problem today",
+      "problemsToday_other": "{{count}} problems today",
+      "manage": "Manage in Storage",
+      "copy": {
+        "label": "Copy diagnostics",
+        "description": "Versions, build, OS, log settings and counts of recent problems, ready for a bug report. No keys, no dictated text, no log lines.",
+        "button": "Copy…",
+        "dialogTitle": "Copy diagnostics",
+        "dialogDescription": "This is exactly what will be copied, in English for a bug report. Your user name is hidden in paths."
+      }
     }
   },
   "models": {

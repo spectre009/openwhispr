@@ -1,5 +1,6 @@
 const WebSocket = require("./guardedWebSocket");
 const debugLogger = require("./debugLogger");
+const { logText } = require("../utils/logText.js");
 
 const WEBSOCKET_TIMEOUT_MS = 15000;
 const DISCONNECT_TIMEOUT_MS = 3000;
@@ -313,7 +314,7 @@ class OpenAIRealtimeStreaming {
             debugLogger.debug(
               `${this.providerLabel} turn completed`,
               this._logContext({
-                turnText: transcript.slice(0, 100),
+                turnText: logText(transcript),
                 totalLength: fullText.length,
                 segments: this.completedSegments.length,
               })

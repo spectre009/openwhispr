@@ -1580,71 +1580,6 @@
     "connectCalendarButton": "Connecter le calendrier"
   },
   "cleanupPrompt": "Correction",
-  "developerSection": {
-    "currentLogFile": "Fichier journal actuel",
-    "debugMode": {
-      "disabledDescription": "Activez pour capturer des informations de diagnostic détaillées",
-      "enabledDescription": "Enregistrement du traitement audio, des requêtes API et des opérations système",
-      "label": "Mode débogage"
-    },
-    "description": "Capturez des journaux détaillés pour diagnostiquer les problèmes",
-    "openLogsFolder": "Ouvrir le dossier des journaux",
-    "performanceNote": {
-      "description": "La journalisation de débogage écrit sur le disque en continu et peut légèrement affecter les performances. Désactivez-la lorsque vous ne résolvez pas de problème.",
-      "label": "Note"
-    },
-    "sharing": {
-      "footer": "Les journaux ne contiennent pas de clés API ni de données sensibles",
-      "steps": {
-        "0": "Reproduisez le problème avec le mode débogage activé",
-        "1": "Cliquez sur « Ouvrir le dossier des journaux » ci-dessus",
-        "2": "Joignez le fichier journal le plus récent à votre rapport de bug"
-      },
-      "title": "Partager les journaux pour le support"
-    },
-    "title": "Journalisation de débogage",
-    "toasts": {
-      "copied": {
-        "description": "Chemin du fichier journal copié dans le presse-papiers",
-        "title": "Copié"
-      },
-      "copyFailed": {
-        "description": "Un problème est survenu lors de la copie dans le presse-papiers.",
-        "title": "Impossible de copier"
-      },
-      "debugDisabled": {
-        "description": "La journalisation de débogage a été désactivée",
-        "title": "Journalisation de débogage désactivée"
-      },
-      "debugEnabled": {
-        "description": "Des journaux détaillés sont maintenant écrits sur le disque",
-        "title": "Journalisation de débogage activée"
-      },
-      "loadFailed": {
-        "description": "Un problème est survenu. Essayez de rouvrir les Paramètres.",
-        "title": "Impossible de charger les paramètres de débogage"
-      },
-      "openLogsFailed": {
-        "description": "Un problème est survenu lors de l'ouverture du dossier des journaux.",
-        "title": "Impossible d'ouvrir le dossier des journaux"
-      },
-      "updateFailed": {
-        "description": "Un problème est survenu. Veuillez réessayer.",
-        "title": "Impossible de mettre à jour la journalisation de débogage"
-      }
-    },
-    "whatGetsLogged": {
-      "items": {
-        "apiRequests": "Requêtes API",
-        "audioProcessing": "Traitement audio",
-        "errorDetails": "Détails des erreurs",
-        "ffmpegOperations": "Opérations FFmpeg",
-        "systemDiagnostics": "Diagnostics système",
-        "transcriptionPipeline": "Pipeline de transcription"
-      },
-      "title": "Ce qui est enregistré"
-    }
-  },
   "apiKeysSection": {
     "title": "Clés API",
     "description": "Créez des clés pour accéder à l'API OpenWhispr de manière programmatique.",
@@ -2229,6 +2164,10 @@
       },
       "hotkeys": {
         "description": "Tous les raccourcis globaux dans un seul tableau. Les conflits sont vérifiés entre tous, raccourcis de style compris."
+      },
+      "storage": {
+        "title": "Stockage",
+        "description": "Ce qu'OpenWhispr conserve sur cet ordinateur : où, quelle taille et pour combien de temps."
       }
     },
     "elsewhere": {
@@ -3518,6 +3457,74 @@
       "persistFailedBody": "Il s'applique jusqu'au redémarrage d'OpenWhispr. Réessayez.",
       "modeBadge": "Désactivé",
       "modeDescription": "OpenWhispr Cloud est désactivé dans Confidentialité et données. Choisissez un autre mode."
+    },
+    "storage": {
+      "logs": {
+        "title": "Journaux",
+        "description": "Ce que l'application a fait et pourquoi, pour comprendre ce qui n'a pas marché. Jamais de clés API. Chaque ligne indique la dictée concernée : son texte reste dans l'Historique.",
+        "fileCount_one": "{{count}} fichier",
+        "fileCount_other": "{{count}} fichiers",
+        "saveFailed": "Impossible d'enregistrer les réglages des journaux. Réessayez.",
+        "level": {
+          "label": "Que journaliser",
+          "description": "Désactivé : rien de nouveau n'est écrit. Problèmes uniquement : avertissements et erreurs. Tout : le détail de chaque étape (débogage). Désactiver la journalisation ne supprime pas les journaux existants ; « Effacer les journaux » le fait.",
+          "off": "Désactivé",
+          "warn": "Problèmes uniquement",
+          "debug": "Tout (débogage)",
+          "other": "{{level}}",
+          "overriddenFlag": "En vigueur : {{level}}, défini par {{source}}. Cela prime sur ce réglage tant que ce n'est pas retiré.",
+          "overriddenEnv": "En vigueur : {{level}}, défini par la variable d'environnement {{source}}. Elle prime sur ce réglage tant qu'elle n'est pas retirée."
+        },
+        "retention": {
+          "label": "Conserver les journaux",
+          "description": "Jusqu'à 100 Mo au total ; les fichiers les plus anciens partent en premier. Un fichier de plus de 20 Mo continue dans un nouveau."
+        },
+        "text": {
+          "label": "Inclure le texte dicté",
+          "description": "Pour enquêter sur un problème de texte : ajoute de courts extraits (80 caractères au plus) de ce qui a été dicté, nettoyé, collé ou modifié. Les fichiers avec du texte sont conservés 3 jours au plus, quel que soit le réglage ci-dessus. Désactivé par défaut."
+        },
+        "folder": {
+          "label": "Dossier des journaux",
+          "empty": "Aucun journal pour l'instant",
+          "current": "Fichier en cours : {{name}}",
+          "open": "Ouvrir le dossier",
+          "openFailed": "Impossible d'ouvrir le dossier des journaux."
+        },
+        "clear": {
+          "button": "Effacer les journaux",
+          "title": "Effacer les journaux ?",
+          "description": "Supprime tous les fichiers journaux, y compris celui en cours d'écriture. Si la journalisation est activée, elle continue dans un nouveau fichier.",
+          "done": "Journaux effacés.",
+          "partial": "Certains fichiers sont utilisés par une autre instance d'OpenWhispr et ont été conservés : {{names}}",
+          "failed": "Impossible d'effacer les journaux."
+        },
+        "problems": {
+          "label": "Problèmes récents",
+          "description": "Les derniers avertissements et erreurs des journaux, du plus récent au plus ancien.",
+          "none": "Aucun avertissement ni erreur dans les journaux.",
+          "showAll": "Tout afficher ({{total}})",
+          "levels": {
+            "warn": "Avertissement",
+            "error": "Erreur",
+            "fatal": "Fatale"
+          }
+        }
+      }
+    },
+    "diagnostics": {
+      "title": "Diagnostic",
+      "logs": "Journaux",
+      "summary": "{{level}} · conservés {{days}} · {{size}} · {{problems}}",
+      "problemsToday_one": "{{count}} problème aujourd'hui",
+      "problemsToday_other": "{{count}} problèmes aujourd'hui",
+      "manage": "Gérer dans Stockage",
+      "copy": {
+        "label": "Copier le diagnostic",
+        "description": "Versions, build, système, réglages des journaux et nombre de problèmes récents, prêts pour un rapport de bug. Aucune clé, aucun texte dicté, aucune ligne de journal.",
+        "button": "Copier…",
+        "dialogTitle": "Copier le diagnostic",
+        "dialogDescription": "Voici exactement ce qui sera copié, en anglais pour un rapport de bug. Votre nom d'utilisateur est masqué dans les chemins."
+      }
     }
   },
   "models": {

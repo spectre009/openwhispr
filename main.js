@@ -13,6 +13,11 @@ if (shouldForceXWayland(process.argv)) {
   process.exit(0);
 }
 
+// Before any .env loads (the userData one overrides with override: true): an
+// OPENWHISPR_LOG_LEVEL inherited from the parent process overrides the log
+// setting, and leaves process.env so saving .env can't make it the setting.
+require("./src/helpers/debugLogger").captureInheritedEnv(process.env);
+
 const {
   app,
   desktopCapturer,

@@ -1,5 +1,6 @@
 const WebSocket = require("./guardedWebSocket");
 const debugLogger = require("./debugLogger");
+const { logText } = require("../utils/logText.js");
 
 const SAMPLE_RATE = 16000;
 const WEBSOCKET_TIMEOUT_MS = 30000;
@@ -527,12 +528,12 @@ class AssemblyAiStreaming {
                   this.accumulatedText = this.turns.map((turn) => turn.text).join(" ");
                   this.onFinalTranscript?.(this.accumulatedText, previousTurn.startedAt);
                   debugLogger.debug("AssemblyAI formatted turn update applied", {
-                    text: trimmedTranscript.slice(0, 100),
+                    text: logText(trimmedTranscript),
                     totalAccumulated: this.accumulatedText.length,
                   });
                 } else {
                   debugLogger.debug("AssemblyAI duplicate turn ignored", {
-                    text: trimmedTranscript.slice(0, 100),
+                    text: logText(trimmedTranscript),
                   });
                 }
                 break;
@@ -550,7 +551,7 @@ class AssemblyAiStreaming {
               this.accumulatedText = this.turns.map((turn) => turn.text).join(" ");
               this.onFinalTranscript?.(this.accumulatedText, speechTimestamp);
               debugLogger.debug("AssemblyAI final transcript (end_of_turn)", {
-                text: message.transcript.slice(0, 100),
+                text: logText(message.transcript),
                 totalAccumulated: this.accumulatedText.length,
               });
             } else if (message.turn_is_formatted) {

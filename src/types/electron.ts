@@ -1464,6 +1464,63 @@ export interface BuildInfoResult {
   node: string | null;
 }
 
+/** Storage › Logs: Off, Problems only (warnings and errors), Everything (debug). */
+export type LogSettingLevel = "off" | "warn" | "debug";
+
+/** A level in force; a --log-level flag or an inherited variable may ask for any. */
+export type LogLevel = LogSettingLevel | "trace" | "info" | "error" | "fatal";
+
+export type LogRetentionDays = 7 | 14 | 30 | 90;
+
+/** `log-info`: the log settings, what's in force and the folder's size. */
+export interface LogInfoResult {
+  /** The saved setting (read as one of the three choices). */
+  level: LogSettingLevel;
+  /** The level in force; differs from `level` when an override sets it. */
+  effectiveLevel: LogLevel;
+  /** A --log-level flag or an OPENWHISPR_LOG_LEVEL inherited from the parent process. */
+  overriddenBy: "flag" | "env" | null;
+  retentionDays: LogRetentionDays;
+  includeText: boolean;
+  totalBytes: number;
+  fileCount: number;
+  /** The file being written (name only), or null while nothing is. */
+  currentFile: string | null;
+  /** The logs folder with the user profile as %USERPROFILE% (~ elsewhere). */
+  logsDir: string | null;
+  /** The OS, for Copy diagnostics. */
+  system?: { platform: string; version: string | null; arch: string };
+}
+
+export interface LogSettingsUpdate {
+  level?: LogSettingLevel;
+  retentionDays?: LogRetentionDays;
+  includeText?: boolean;
+}
+
+/** What every window's logger needs (`get-log-state`, `log-settings-changed`). */
+export interface LogState {
+  level: LogLevel;
+  includeText: boolean;
+}
+
+/** One of the recent warnings and errors (`log-recent-problems`), newest first. */
+export interface LogProblem {
+  /** UTC ISO time. */
+  time: string;
+  level: "warn" | "error" | "fatal";
+  /** The entry's scope (else its source), e.g. "clipboard"; null when it has neither. */
+  area: string | null;
+  /** The message's first line, at most 200 characters. */
+  message: string;
+}
+
+export interface ClearLogsResult {
+  deleted: number;
+  /** Files that couldn't be deleted (in use by another instance). */
+  failed: string[];
+}
+
 export interface WhisperDownloadProgressData {
   type: "progress" | "installing" | "complete" | "error";
   model: string;
@@ -3008,6 +3065,8 @@ declare global {
 
       // Debug logging
       getLogLevel?: () => Promise<string>;
+      getLogState?: () => Promise<LogState>;
+      onLogSettingsChanged?: (callback: (state: LogState) => void) => () => void;
       log?: (entry: {
         level: string;
         message: string;
@@ -3015,18 +3074,11 @@ declare global {
         scope?: string;
         source?: string;
       }) => Promise<void>;
-      getDebugState: () => Promise<{
-        enabled: boolean;
-        logPath: string | null;
-        logLevel: string;
-      }>;
-      setDebugLogging: (enabled: boolean) => Promise<{
-        success: boolean;
-        enabled?: boolean;
-        logPath?: string | null;
-        error?: string;
-      }>;
-      openLogsFolder: () => Promise<{ success: boolean; error?: string }>;
+      getLogInfo?: () => Promise<LogInfoResult>;
+      setLogSettings?: (settings: LogSettingsUpdate) => Promise<LogInfoResult>;
+      clearLogs?: () => Promise<ClearLogsResult>;
+      getRecentLogProblems?: () => Promise<LogProblem[]>;
+      openLogsFolder?: () => Promise<{ success: boolean; error?: string }>;
 
       // FFmpeg availability
       checkFFmpegAvailability: () => Promise<FFmpegAvailabilityResult>;

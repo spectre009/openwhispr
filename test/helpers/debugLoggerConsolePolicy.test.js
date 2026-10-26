@@ -121,7 +121,7 @@ test(
     });
 
     assert.deepEqual(calls, []);
-    assert.equal(logger.getLogPath(), null, "default INFO logging remains non-persistent");
+    assert.equal(logger.getLogPath(), null, "nothing persists before the app is ready");
   }
 );
 
@@ -162,9 +162,9 @@ test("--console-logs explicitly enables console logging in packaged Windows", as
     argv: ["--console-logs"],
   });
 
-  const calls = await captureConsole(() => logger.info("Console diagnostics enabled"));
+  const calls = await captureConsole(() => logger.warn("Console diagnostics enabled"));
 
-  assert.deepEqual(calls, [["log", "[INFO] Console diagnostics enabled"]]);
+  assert.deepEqual(calls, [["warn", "[WARN] Console diagnostics enabled"]]);
 });
 
 test("development and non-Windows packaged builds preserve console logging", async (t) => {
@@ -178,11 +178,38 @@ test("development and non-Windows packaged builds preserve console logging", asy
     await t.test(testCase.name, async () => {
       const logger = loadLogger(testCase);
 
-      const calls = await captureConsole(() => logger.info("Existing console behavior"));
+      const calls = await captureConsole(() => logger.warn("Existing console behavior"));
 
-      assert.deepEqual(calls, [["log", "[INFO] Existing console behavior"]]);
+      assert.deepEqual(calls, [["warn", "[WARN] Existing console behavior"]]);
     });
   }
+});
+
+test("the console follows the level: info at Everything, warnings and errors at Off", async () => {
+  const everything = loadLogger({
+    platform: "linux",
+    isPackaged: true,
+    env: { OPENWHISPR_LOG_LEVEL: "debug" },
+  });
+  assert.deepEqual(await captureConsole(() => everything.info("Step detail")), [
+    ["log", "[INFO] Step detail"],
+  ]);
+
+  const off = loadLogger({
+    platform: "linux",
+    isPackaged: true,
+    env: { OPENWHISPR_LOG_LEVEL: "off" },
+  });
+  const calls = await captureConsole(() => {
+    off.info("Not shown");
+    off.warn("Still shown");
+    off.error("Also shown");
+  });
+  assert.deepEqual(calls, [
+    ["warn", "[WARN] Still shown"],
+    ["error", "[ERROR] ERROR: Also shown"],
+  ]);
+  assert.equal(off.getLogPath(), null, "Off opens no file");
 });
 
 test(

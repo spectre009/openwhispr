@@ -37,6 +37,7 @@ export type SettingsPageId =
   | "noteFiles"
   | "hotkeys"
   | "privacyData"
+  | "storage"
   | "system";
 
 /** Nav items that hold sub-pages; opening one opens its first visible sub-page. */
@@ -71,6 +72,7 @@ export type SettingsIconName =
   | "FolderOpen"
   | "Keyboard"
   | "Shield"
+  | "HardDrive"
   | "Wrench"
   | "BookOpen"
   | "Blocks"
@@ -232,6 +234,7 @@ export const SETTINGS_PAGES: Readonly<Record<SettingsPageId, SettingsPageDef>> =
     wide: true,
   },
   privacyData: { ...sectionKeys("privacyData"), icon: "Shield" },
+  storage: { ...pageKeys("storage"), icon: "HardDrive" },
   system: { ...sectionKeys("system"), icon: "Wrench" },
 };
 
@@ -323,6 +326,7 @@ export const SETTINGS_NAV: readonly SettingsNavGroupDef[] = [
     labelKey: "settingsNav.groups.data",
     items: [
       { kind: "page", page: "privacyData" },
+      { kind: "page", page: "storage" },
       { kind: "page", page: "system" },
     ],
   },

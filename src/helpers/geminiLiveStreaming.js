@@ -1,5 +1,6 @@
 const WebSocket = require("./guardedWebSocket");
 const debugLogger = require("./debugLogger");
+const { logText } = require("../utils/logText.js");
 const { computePcm16Rms } = require("../utils/audioUtils");
 
 const SAMPLE_RATE = 16000;
@@ -266,7 +267,7 @@ class GeminiLiveStreaming {
         const fullText = this.getFullTranscript();
         this.onFinalTranscript?.(fullText, Date.now());
         debugLogger.debug("Gemini Live turn completed", {
-          turnText: final.slice(0, 100),
+          turnText: logText(final),
           totalLength: fullText.length,
           segments: this.completedSegments.length,
         });

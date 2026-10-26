@@ -12,6 +12,7 @@ const {
 const modelRegistryData = require("../models/modelRegistryData.json");
 const LlamaServerManager = require("./llamaServer");
 const debugLogger = require("./debugLogger");
+const { logText } = require("../utils/logText.js");
 const { readGgufMetadataFromFile } = require("./ggufMetadata");
 const {
   estimateTokens,
@@ -845,9 +846,7 @@ class ModelManager {
         totalTimeMs: totalTime,
         resultLength: result.length,
         // Prompt tests keep their text out of the log (redactLogs).
-        ...(options.redactLogs
-          ? { textRedacted: true }
-          : { resultPreview: result.substring(0, 200) + (result.length > 200 ? "..." : "") }),
+        ...(options.redactLogs ? { textRedacted: true } : { result: logText(result) }),
       });
 
       return result;

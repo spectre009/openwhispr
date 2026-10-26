@@ -179,6 +179,7 @@ const STARTUP = at("startup");
 const NOTE_FILES = at("noteFiles");
 const HOTKEYS = at("hotkeys");
 const PRIVACY = at("privacyData");
+const STORAGE = at("storage");
 const SYSTEM = at("system");
 const CONNECTIONS = at("connections");
 
@@ -1114,6 +1115,58 @@ export const SETTINGS_SEARCH_DESCRIPTORS: readonly SettingDescriptor[] = [
     }
   ),
 
+  // ── Storage ──────────────────────────────────────────────────────────────
+  page("page.storage", "storage", {
+    aliases: ["storage", "disk space", "disk usage", "where data lives", "logs", "debug"],
+  }),
+  // These two keep their ids from when the debug switch and the logs folder were on System.
+  row("system.developer.debug", STORAGE, "settingsPage.storage.logs.level.label", {
+    descriptionKey: "settingsPage.storage.logs.level.description",
+    groupKey: "settingsPage.storage.logs.title",
+    aliases: [
+      "debug",
+      "debug mode",
+      "debug logging",
+      "logs",
+      "logging",
+      "log level",
+      "diagnostics",
+      "verbose",
+      "troubleshoot",
+      "problems only",
+      "everything",
+      "turn off logging",
+    ],
+  }),
+  row("system.developer.logs", STORAGE, "settingsPage.storage.logs.folder.label", {
+    groupKey: "settingsPage.storage.logs.title",
+    aliases: ["logs", "log file", "log folder", "open logs folder", "log size", "logs size"],
+  }),
+  row("storage.logs.retention", STORAGE, "settingsPage.storage.logs.retention.label", {
+    descriptionKey: "settingsPage.storage.logs.retention.description",
+    groupKey: "settingsPage.storage.logs.title",
+    aliases: ["log retention", "keep logs", "delete old logs", "logs", "logging", "log size"],
+  }),
+  row("storage.logs.text", STORAGE, "settingsPage.storage.logs.text.label", {
+    descriptionKey: "settingsPage.storage.logs.text.description",
+    groupKey: "settingsPage.storage.logs.title",
+    aliases: ["dictated text in logs", "log text", "text snippets", "logs", "logging", "privacy"],
+  }),
+  row("storage.logs.clear", STORAGE, "settingsPage.storage.logs.clear.button", {
+    groupKey: "settingsPage.storage.logs.title",
+    aliases: ["clear logs", "delete logs", "remove logs", "log size", "logs", "disk space"],
+  }),
+  row("storage.logs.problems", STORAGE, "settingsPage.storage.logs.problems.label", {
+    descriptionKey: "settingsPage.storage.logs.problems.description",
+    groupKey: "settingsPage.storage.logs.title",
+    aliases: ["errors", "warnings", "what went wrong", "recent errors", "logs", "diagnostics"],
+  }),
+  row("storage.logs.diagnostics", STORAGE, "settingsPage.diagnostics.copy.label", {
+    descriptionKey: "settingsPage.diagnostics.copy.description",
+    groupKey: "settingsPage.storage.logs.title",
+    aliases: ["copy diagnostics", "diagnostics", "bug report", "support info", "logs"],
+  }),
+
   // ── System ───────────────────────────────────────────────────────────────
   page("page.system", "system", {
     aliases: ["system", "about", "advanced"],
@@ -1154,15 +1207,19 @@ export const SETTINGS_SEARCH_DESCRIPTORS: readonly SettingDescriptor[] = [
     groupKey: "settingsPage.general.updates.title",
     aliases: ["update", "new version", "upgrade app"],
   }),
-  row("system.developer.debug", SYSTEM, "developerSection.debugMode.label", {
-    descriptionKey: "developerSection.description",
-    groupKey: "developerSection.title",
-    aliases: ["debug", "logs", "logging", "diagnostics", "verbose", "troubleshoot"],
-  }),
-  row("system.developer.logs", SYSTEM, "developerSection.openLogsFolder", {
-    fallbackAnchor: "system.developer.debug",
-    groupKey: "developerSection.title",
-    aliases: ["logs", "log file", "log folder"],
+  row("system.diagnostics", SYSTEM, "settingsPage.diagnostics.title", {
+    groupKey: "settingsPage.diagnostics.title",
+    aliases: [
+      "diagnostics",
+      "logs",
+      "logging",
+      "debug",
+      "copy diagnostics",
+      "bug report",
+      "log size",
+      "problems",
+    ],
+    aliasKeys: ["settingsPage.diagnostics.copy.label", "settingsPage.diagnostics.manage"],
   }),
   row("system.data.modelCache", SYSTEM, "settingsPage.developer.modelCache", {
     groupKey: "settingsPage.developer.dataManagementTitle",

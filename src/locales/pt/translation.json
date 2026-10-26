@@ -1517,71 +1517,6 @@
     "welcomeTitle": "Boas-vindas ao OpenWhispr"
   },
   "cleanupPrompt": "Limpeza",
-  "developerSection": {
-    "currentLogFile": "Arquivo de log atual",
-    "debugMode": {
-      "disabledDescription": "Ative para capturar informações detalhadas de diagnóstico",
-      "enabledDescription": "Registrando processamento de áudio, requisições de API e operações do sistema",
-      "label": "Modo de depuração"
-    },
-    "description": "Capture logs detalhados para ajudar a diagnosticar problemas",
-    "openLogsFolder": "Abrir pasta de logs",
-    "performanceNote": {
-      "description": "O log de depuração grava em disco continuamente e pode afetar levemente o desempenho. Desative quando não estiver investigando problemas.",
-      "label": "Nota"
-    },
-    "sharing": {
-      "footer": "Os logs não contêm chaves API ou dados sensíveis",
-      "steps": {
-        "0": "Reproduza o problema com o modo de depuração ativado",
-        "1": "Clique em \"Abrir pasta de logs\" acima",
-        "2": "Anexe o arquivo de log mais recente ao seu relatório de bug"
-      },
-      "title": "Compartilhando logs para suporte"
-    },
-    "title": "Log de depuração",
-    "toasts": {
-      "copied": {
-        "description": "Caminho do arquivo de log copiado para a área de transferência",
-        "title": "Copiado"
-      },
-      "copyFailed": {
-        "description": "Algo deu errado ao copiar para a área de transferência.",
-        "title": "Não foi possível copiar"
-      },
-      "debugDisabled": {
-        "description": "O log de depuração foi desativado",
-        "title": "Log de depuração desativado"
-      },
-      "debugEnabled": {
-        "description": "Logs detalhados estão sendo gravados em disco",
-        "title": "Log de depuração ativado"
-      },
-      "loadFailed": {
-        "description": "Algo deu errado. Tente reabrir as Configurações.",
-        "title": "Não foi possível carregar configurações de depuração"
-      },
-      "openLogsFailed": {
-        "description": "Algo deu errado ao abrir o diretório de logs.",
-        "title": "Não foi possível abrir a pasta de logs"
-      },
-      "updateFailed": {
-        "description": "Algo deu errado. Tente novamente.",
-        "title": "Não foi possível atualizar o log de depuração"
-      }
-    },
-    "whatGetsLogged": {
-      "items": {
-        "apiRequests": "Requisições de API",
-        "audioProcessing": "Processamento de áudio",
-        "errorDetails": "Detalhes de erros",
-        "ffmpegOperations": "Operações FFmpeg",
-        "systemDiagnostics": "Diagnósticos do sistema",
-        "transcriptionPipeline": "Pipeline de transcrição"
-      },
-      "title": "O que é registrado"
-    }
-  },
   "dictionarySuffix": "Sufixo do dicionário",
   "emailVerification": {
     "checkEmailDescription": "Enviamos um link de verificação para o seu e-mail:",
@@ -2114,6 +2049,10 @@
       },
       "hotkeys": {
         "description": "Todos os atalhos globais em uma tabela. Os conflitos são verificados entre todos, incluindo os atalhos de estilo."
+      },
+      "storage": {
+        "title": "Armazenamento",
+        "description": "O que o OpenWhispr guarda neste computador: onde fica, quanto ocupa e por quanto tempo."
       }
     },
     "elsewhere": {
@@ -3403,6 +3342,74 @@
       "persistFailedBody": "Ela vale até o OpenWhispr reiniciar. Tente novamente.",
       "modeBadge": "Desativado",
       "modeDescription": "O OpenWhispr Cloud está desativado em Privacidade e dados. Escolha outro modo."
+    },
+    "storage": {
+      "logs": {
+        "title": "Logs",
+        "description": "O que o app fez e por quê, para descobrir o que deu errado. Nunca chaves de API. Cada linha indica o ditado a que se refere, então o texto fica no Histórico.",
+        "fileCount_one": "{{count}} arquivo",
+        "fileCount_other": "{{count}} arquivos",
+        "saveFailed": "Não foi possível salvar as configurações de log. Tente novamente.",
+        "level": {
+          "label": "O que registrar",
+          "description": "Desativado: nada novo é gravado. Só problemas: avisos e erros. Tudo: detalhes de cada etapa (depuração). Desativar os logs não apaga os existentes; \"Limpar logs\" apaga.",
+          "off": "Desativado",
+          "warn": "Só problemas",
+          "debug": "Tudo (depuração)",
+          "other": "{{level}}",
+          "overriddenFlag": "Em vigor: {{level}}, definido por {{source}}. Isso prevalece sobre esta configuração até ser removido.",
+          "overriddenEnv": "Em vigor: {{level}}, definido pela variável de ambiente {{source}}. Ela prevalece sobre esta configuração até ser removida."
+        },
+        "retention": {
+          "label": "Manter logs por",
+          "description": "Até 100 MB no total; os arquivos mais antigos saem primeiro. Um arquivo com mais de 20 MB continua em um novo."
+        },
+        "text": {
+          "label": "Incluir o texto ditado",
+          "description": "Para investigar problemas de texto: adiciona trechos curtos (até 80 caracteres) do que foi ditado, limpo, colado ou editado. Arquivos com texto são mantidos por no máximo 3 dias, seja qual for a configuração acima. Desativado por padrão."
+        },
+        "folder": {
+          "label": "Pasta de logs",
+          "empty": "Nenhum log ainda",
+          "current": "Arquivo atual: {{name}}",
+          "open": "Abrir pasta",
+          "openFailed": "Não foi possível abrir a pasta de logs."
+        },
+        "clear": {
+          "button": "Limpar logs",
+          "title": "Limpar os logs?",
+          "description": "Apaga todos os arquivos de log, inclusive o que está sendo gravado. Se o log estiver ativado, ele continua em um novo arquivo.",
+          "done": "Logs limpos.",
+          "partial": "Alguns arquivos estão em uso por outra instância do OpenWhispr e foram mantidos: {{names}}",
+          "failed": "Não foi possível limpar os logs."
+        },
+        "problems": {
+          "label": "Problemas recentes",
+          "description": "Os avisos e erros mais recentes nos logs, do mais novo para o mais antigo.",
+          "none": "Nenhum aviso ou erro nos logs.",
+          "showAll": "Mostrar todos ({{total}})",
+          "levels": {
+            "warn": "Aviso",
+            "error": "Erro",
+            "fatal": "Grave"
+          }
+        }
+      }
+    },
+    "diagnostics": {
+      "title": "Diagnóstico",
+      "logs": "Logs",
+      "summary": "{{level}} · mantidos por {{days}} · {{size}} · {{problems}}",
+      "problemsToday_one": "{{count}} problema hoje",
+      "problemsToday_other": "{{count}} problemas hoje",
+      "manage": "Gerenciar em Armazenamento",
+      "copy": {
+        "label": "Copiar diagnóstico",
+        "description": "Versões, build, sistema operacional, configurações de log e contagem de problemas recentes, prontos para um relatório de erro. Sem chaves, sem texto ditado, sem linhas de log.",
+        "button": "Copiar…",
+        "dialogTitle": "Copiar diagnóstico",
+        "dialogDescription": "Isto é exatamente o que será copiado, em inglês para um relatório de erro. Seu nome de usuário fica oculto nos caminhos."
+      }
     }
   },
   "models": {
