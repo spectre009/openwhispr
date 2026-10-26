@@ -134,4 +134,10 @@ export interface SettingDescriptor {
   /** What has to open before the anchor shows. Never a setting change. */
   reveal?: { expand?: readonly string[] };
   value?: SettingsSearchValueKey;
+  /**
+   * A row that only sums up settings kept on another page and links there
+   * (Privacy & Data's Recordings and Logs, System's Diagnostics): ranked below
+   * the setting it summarizes when both match.
+   */
+  summary?: boolean;
 }

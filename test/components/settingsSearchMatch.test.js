@@ -3,9 +3,9 @@ const assert = require("node:assert/strict");
 const { makeContext, translators } = require("../lib/settingsSearchFixtures");
 
 // Settings search matching: every token must match somewhere, titles rank above
-// aliases, values, descriptions and the breadcrumb, accents and case don't
-// matter, English terms work in any UI language, and values ("haiku", "groq",
-// "F8") find the settings that hold them.
+// aliases, values, descriptions and the breadcrumb, summary rows rank below the
+// settings they sum up, accents and case don't matter, English terms work in any
+// UI language, and values ("haiku", "groq", "F8") find the settings that hold them.
 
 async function load() {
   const match = await import("../../src/components/settings/search/match.ts");
@@ -76,6 +76,30 @@ test("a title word outranks a title substring, an alias, a value, a description 
     "description",
     "path",
   ]);
+});
+
+test("a summary row ranks below the settings it sums up, even with an exact title", async () => {
+  const { rankSettings } = await load();
+  const index = [
+    entry({ id: "summary", order: 0, title: "Recordings", summary: true }),
+    entry({ id: "setting", order: 1, title: "Keep recordings for" }),
+    entry({ id: "alias-only", order: 2, title: "Other", aliases: ["recordings"] }),
+  ];
+  assert.deepEqual(ids(rankSettings(index, "recordings")), ["setting", "summary", "alias-only"]);
+});
+
+test("the words people type for Storage open the setting, not a page or a summary", async () => {
+  const { index, rankSettings } = await buildIndex();
+  const top = (query) => ids(rankSettings(index, query))[0];
+  assert.equal(top("debug"), "system.developer.debug");
+  assert.equal(top("debug logs"), "system.developer.debug");
+  assert.equal(top("logs"), "system.developer.logs");
+  assert.equal(top("recordings"), "privacy.audioRetention");
+  assert.equal(top("storage"), "page.storage");
+  assert.equal(top("disk space"), "page.storage");
+  // The summaries still turn up, just after what they sum up.
+  assert.ok(ids(rankSettings(index, "recordings")).includes("privacy.recordingsSummary"));
+  assert.ok(ids(rankSettings(index, "diagnostics")).includes("system.diagnostics"));
 });
 
 test("every token must match somewhere; the order of tokens doesn't matter", async () => {

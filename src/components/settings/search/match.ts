@@ -5,7 +5,8 @@ import type { SettingDescriptorKind } from "./types";
  * somewhere, case- and diacritic-insensitive. A token scores by where it
  * matched: the title's start or a word in it (the UI language's title or the
  * English one), anywhere in the title, an alias, the current value, the
- * description, the breadcrumb.
+ * description, the breadcrumb. A summary row (one that points to settings kept
+ * on another page) ranks below any setting whose title has the word.
  */
 
 export interface SettingsSearchUnavailable {
@@ -38,6 +39,8 @@ export interface SettingsSearchEntry {
   /** Matched with the value, not shown (model ids, English names). */
   valueTerms?: string[];
   unavailable?: SettingsSearchUnavailable;
+  /** Sums up settings kept elsewhere (SettingDescriptor.summary). */
+  summary?: boolean;
 }
 
 export interface SettingsSearchResult {
@@ -70,6 +73,9 @@ const SCORE = {
   exactTitle: 5,
   page: 1,
   unavailable: -1,
+  // More than an exact title's bonus: a summary row ranks below any setting
+  // whose title has the word, so it never outranks what it sums up.
+  summary: -6,
 } as const;
 
 const COMBINING_MARKS = /\p{M}+/gu;
@@ -160,6 +166,7 @@ export function scoreSettingsEntry(entry: SettingsSearchEntry, tokens: string[])
   }
   if (entry.kind === "page") score += SCORE.page;
   if (entry.unavailable) score += SCORE.unavailable;
+  if (entry.summary) score += SCORE.summary;
   return score;
 }
 

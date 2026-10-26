@@ -101,6 +101,7 @@ export function buildSettingsSearchIndex({
       value: value?.display || undefined,
       valueTerms: value?.terms,
       unavailable,
+      ...(descriptor.summary ? { summary: true } : {}),
     });
   });
   return entries;

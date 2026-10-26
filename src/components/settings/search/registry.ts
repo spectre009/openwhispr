@@ -1085,9 +1085,11 @@ export const SETTINGS_SEARCH_DESCRIPTORS: readonly SettingDescriptor[] = [
   // Summaries of what Storage manages; the settings themselves moved there.
   row("privacy.recordingsSummary", PRIVACY, "settingsPage.privacy.recordingsSummary.label", {
     aliases: ["recordings summary", "manage recordings"],
+    summary: true,
   }),
   row("privacy.logsSummary", PRIVACY, "settingsPage.privacy.logsSummary.label", {
     aliases: ["logs summary", "manage logs"],
+    summary: true,
   }),
   row("privacy.permissions", PRIVACY, "settingsPage.permissions.title", {
     descriptionKey: "settingsPage.permissions.description",
@@ -1123,20 +1125,10 @@ export const SETTINGS_SEARCH_DESCRIPTORS: readonly SettingDescriptor[] = [
   ),
 
   // ── Storage ──────────────────────────────────────────────────────────────
+  // Only words for the page as a whole: logs, recordings, cache and the
+  // database each have a row of their own that should win.
   page("page.storage", "storage", {
-    aliases: [
-      "storage",
-      "disk space",
-      "disk usage",
-      "where data lives",
-      "where are my files",
-      "logs",
-      "debug",
-      "recordings",
-      "cache",
-      "database",
-      "folder",
-    ],
+    aliases: ["storage", "disk space", "disk usage", "where data lives", "where are my files"],
   }),
   row("storage.inventory", STORAGE, "settingsPage.storage.overview.title", {
     descriptionKey: "settingsPage.storage.overview.description",
@@ -1367,6 +1359,7 @@ export const SETTINGS_SEARCH_DESCRIPTORS: readonly SettingDescriptor[] = [
       "problems",
     ],
     aliasKeys: ["settingsPage.diagnostics.copy.label", "settingsPage.diagnostics.manage"],
+    summary: true,
   }),
   row("system.data.reset", SYSTEM, "settingsPage.developer.resetAppData", {
     descriptionKey: "settingsPage.developer.resetAppDataDescription",
