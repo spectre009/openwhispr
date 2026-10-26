@@ -2416,7 +2416,7 @@
         "description": "這將永久刪除您的 OpenWhispr 帳戶和個人資料。工作區擁有的內容及其他本地使用者的資料會保留在此裝置上。",
         "confirmText": "刪除帳戶",
         "eraseDeviceLabel": "同時清除此裝置上的所有資料",
-        "eraseDeviceDescription": "刪除所有本地使用者的筆記和工作區快取、已下載模型、設定、行事曆連線、憑證和錄音。",
+        "eraseDeviceDescription": "刪除所有本地使用者的筆記和工作區快取、已下載模型、搜尋索引、設定、行事曆連線、憑證和錄音。記錄檔會保留；可在「儲存空間 › 記錄檔」中清除。",
         "eraseDeviceWarning": "此裝置級清除無法復原，並會影響所有本地使用者。",
         "successTitle": "帳戶已刪除",
         "successDescription": "您的帳戶和個人資料已刪除。其他本地使用者、工作區、模型和裝置設定均已保留。",
@@ -2542,11 +2542,8 @@
       }
     },
     "developer": {
-      "clearCache": "清除快取",
-      "dataManagementDescription": "管理快取的模型和應用程式資料",
       "dataManagementTitle": "資料管理",
       "modelCache": "模型快取",
-      "open": "開啟",
       "removeModels": {
         "confirmText": "刪除模型",
         "description": "這將刪除所有本機快取的 Whisper 模型（{{path}}），並釋放磁碟空間。你可以從模型選擇器重新下載。",
@@ -2560,7 +2557,7 @@
       "removing": "移除中...",
       "resetAll": {
         "confirmText": "刪除所有資料",
-        "description": "這將永久刪除所有本地設定、轉錄、音訊錄製、下載的 AI 模型、行事曆連線和快取資料。雲端資料和您的帳戶不會受到影響。應用程式將在重設後重新啟動。",
+        "description": "這將永久刪除所有本地設定、轉錄、筆記、音訊錄製、API 金鑰和登入、行事曆連線、下載的 AI 模型、搜尋索引和快取資料。記錄檔會保留；可在「儲存空間 › 記錄檔」中清除。雲端資料和您的帳戶不會受到影響。應用程式將在重設後重新啟動。",
         "failedDescription": "發生錯誤。請再試一次或重新安裝應用程式。",
         "failedTitle": "無法重設",
         "successDescription": "所有資料已重設。應用程式即將重新啟動。",
@@ -2568,7 +2565,7 @@
         "title": "重設所有應用程式資料"
       },
       "resetAppData": "重設應用程式資料",
-      "resetAppDataDescription": "永久刪除所有本地設定、轉錄、音訊錄製、下載的模型和快取資料"
+      "resetAppDataDescription": "刪除 OpenWhispr 在這台電腦上儲存的所有內容（歷史記錄、筆記、錄音、設定、金鑰和登入、下載的模型和搜尋索引），然後重新啟動。記錄檔會保留；可在「儲存空間 › 記錄檔」中清除。"
     },
     "dictionary": {
       "title": "自訂詞典",
@@ -2961,19 +2958,18 @@
       "justNow": "剛剛",
       "lastSynced": "上次同步 {{time}}",
       "minutesAgo": "{{count}}分鐘前",
-      "audioRetention": "音訊保留",
-      "audioRetentionDescription": "將語音輸入音訊儲存在本機以便重新轉錄和下載。檔案會在保留期限過後自動刪除。會議音訊絕不會被儲存。",
-      "audioRetentionDisabled": "已停用",
       "retentionDays_one": "{{count}} 天",
       "retentionDays_other": "{{count}} 天",
-      "audioStorageUsage": "儲存空間用量",
-      "audioStorageUsageDescription": "儲存在此裝置上的音訊檔案",
-      "audioStorageFiles": "{{count}} 個檔案，{{size}}",
-      "audioStorageEmpty": "沒有已儲存的音訊檔案",
-      "clearAllAudio": "清除所有音訊",
-      "clearAllAudioConfirm": "刪除所有已儲存的音訊檔案？此操作無法復原。",
       "saveDiscarded": "儲存已捨棄的聽寫",
-      "saveDiscardedDescription": "當你以 Escape 取消聽寫時，將其音訊保留在歷史記錄中以便復原。需要開啟資料與音訊保留。"
+      "saveDiscardedDescription": "當你以 Escape 取消聽寫時，將其音訊保留在歷史記錄中以便復原。需要開啟資料與音訊保留。",
+      "recordingsSummary": {
+        "label": "錄音",
+        "kept": "保留 {{period}}",
+        "notSaved": "不儲存"
+      },
+      "logsSummary": {
+        "label": "記錄檔"
+      }
     },
     "prompts": {
       "description": "檢視、自訂和測試用於文字整理和指令偵測的統一系統提示詞",
@@ -3415,6 +3411,141 @@
             "fatal": "嚴重"
           }
         }
+      },
+      "retentionPeriods": {
+        "sixMonths": "6 個月",
+        "oneYear": "1 年"
+      },
+      "measuring": "正在測量…",
+      "measureFailed": "無法測量大小。請試試「重新整理」。",
+      "overview": {
+        "title": "在這台電腦上",
+        "total": "共 {{size}}",
+        "description": "開啟此頁時會測量大小，並保留一分鐘；「重新整理」會重新測量。這裡只能清除錄音、記錄檔和應用程式快取。",
+        "other": "設定、金鑰和 CLI"
+      },
+      "recordings": {
+        "title": "錄音",
+        "description": "每次聽寫的音訊，方便在歷史記錄中播放並重新轉錄。",
+        "retention": {
+          "label": "錄音保留時間",
+          "description": "較舊的錄音會自動刪除。會議音訊從不儲存。",
+          "off": "關閉（不保留）",
+          "historyOff": "本機歷史記錄關閉時不會儲存（隱私與資料）。",
+          "neverLonger": "保留時間絕不超過其轉錄。",
+          "effective": "轉錄保留 {{period}}，因此錄音會在 {{period}} 後一併刪除。"
+        },
+        "quality": {
+          "label": "錄音品質",
+          "description": "新聽寫的錄製方式，也是傳送給雲端語音轉文字服務的音訊。變更會從下一次錄音開始生效。不影響會議、上傳的檔案和聊天中的語音訊息。",
+          "default": "預設",
+          "smaller": {
+            "name": "較小",
+            "detail": "Opus，32 kbps。語音清晰，大小約為四分之一。"
+          },
+          "balanced": {
+            "name": "平衡",
+            "detail": "Opus，64 kbps。大小約為一半。"
+          },
+          "original": {
+            "name": "原始",
+            "detail": "Opus，約 128 kbps，與以往的錄製方式相同。"
+          },
+          "perMinute": "約 {{size}} KB / 分鐘",
+          "estimate": "{{period}} 約 {{size}}（估計）",
+          "pace": "估計值依據你的使用頻率：最近 30 天的歷史記錄中，每天約 {{minutes}} 的錄音。",
+          "noPace": "尚無估計：最近 30 天的歷史記錄中沒有帶時長的錄音。",
+          "noEstimateKept": "錄音不會保留，因此無需估計；品質仍決定傳送給雲端語音轉文字服務的音訊。",
+          "measured": "以 Azure gpt-4o-transcribe 測量 30 次聽寫：降至 32 kbps 仍未發現差異。尚未在其他供應商上驗證。"
+        },
+        "folder": {
+          "label": "錄音資料夾",
+          "empty": "沒有儲存的錄音",
+          "open": "開啟資料夾",
+          "openFailed": "無法開啟錄音資料夾。"
+        },
+        "clear": {
+          "button": "清除所有錄音",
+          "title": "清除所有錄音？",
+          "description": "刪除所有已儲存的錄音。轉錄仍保留在歷史記錄中。此操作無法復原。",
+          "done": "已刪除所有錄音。",
+          "partial": "部分錄音無法刪除（正在使用？），仍在資料夾中：{{remaining}}。",
+          "failed": "無法清除錄音。"
+        }
+      },
+      "database": {
+        "title": "歷史資料庫",
+        "description": "一個 SQLite 檔案，包含你的聽寫內容及其處理方式。清除歷史記錄請前往「隱私與資料」。",
+        "counts": {
+          "dictations": "聽寫",
+          "stepRecords": "步驟記錄",
+          "reviews": "評分",
+          "testCases": "測試案例",
+          "dictionaryWords": "字典詞彙",
+          "glossaryRules": "詞彙表規則",
+          "notes": "筆記"
+        },
+        "countsUnavailable": "無法讀取其內容。",
+        "file": "檔案",
+        "clearHistory": "在「隱私與資料」中清除歷史記錄"
+      },
+      "everythingElse": {
+        "title": "其他所有內容",
+        "description": "這些內容有各自安全的修改方式，這裡從不將其當作檔案刪除；只有應用程式快取可以清除。"
+      },
+      "items": {
+        "settings": {
+          "label": "設定",
+          "description": "你的選擇，儲存在應用程式的瀏覽器儲存空間中，另有一些啟動所需的設定在 .env 中。"
+        },
+        "secrets": {
+          "label": "API 金鑰和登入",
+          "description": "加密檔案；解鎖它們的金鑰儲存在系統的憑證儲存區中。"
+        },
+        "models": {
+          "label": "本機模型",
+          "description": "這台電腦上的語音轉文字、說話者偵測、語言和筆記搜尋模型。"
+        },
+        "searchIndex": {
+          "label": "搜尋索引",
+          "description": "依含義尋找筆記。它以大區塊預留空間，因此即使筆記很少也可能很大；刪除後會自動重建。"
+        },
+        "appCache": {
+          "label": "應用程式快取",
+          "description": "Chromium 的網頁、程式碼和 GPU 快取。可以放心清除：其中沒有你儲存的任何內容。"
+        },
+        "cliBridge": {
+          "label": "命令列橋接",
+          "description": "openwhispr 命令列工具用來連線到此應用程式的權杖。"
+        },
+        "selfhost": {
+          "label": "自行建置的版本",
+          "description": "selfhost.js 的發行版本、資料快照和發布記錄。不測量大小，「重設應用程式資料」也不會動它。",
+          "tag": "此分支"
+        }
+      },
+      "modelKinds": {
+        "whisper": "Whisper",
+        "parakeet": "Parakeet 和 Cohere",
+        "diarization": "說話者偵測",
+        "llm": "語言模型",
+        "embedding": "筆記搜尋"
+      },
+      "actions": {
+        "copyPath": "複製路徑",
+        "openFolder": "開啟資料夾",
+        "showInFolder": "在資料夾中顯示",
+        "clear": "清除",
+        "openFailed": "無法開啟。它可能還不存在。",
+        "notCreated": "尚未建立",
+        "manageModels": "在 AI 連線中管理",
+        "removeModels": "移除所有模型"
+      },
+      "appCache": {
+        "clearTitle": "清除應用程式快取？",
+        "clearDescription": "清除 Chromium 的網頁和程式碼快取。不會影響設定、歷史記錄和登入；在快取重新填滿之前，應用程式可能會稍慢一些。",
+        "cleared": "已清除應用程式快取。",
+        "clearFailed": "無法清除應用程式快取。"
       }
     },
     "diagnostics": {

@@ -126,6 +126,11 @@ import { evaluateFinishedRecording, withSalvageWarning } from "./recordingValida
 import { isEmptyRecording } from "./recordingGuard";
 import { startRecordingSpool, takeInterruptedRecordings } from "./recordingSpool";
 import {
+  DEFAULT_RECORDING_QUALITY,
+  normalizeRecordingQuality,
+  recorderOptionsFor,
+} from "../utils/recordingQuality.js";
+import {
   analyzeDictionaryPromptFragment,
   dictionaryEchoError,
   matchesDictionaryPrompt,
@@ -254,6 +259,18 @@ function getEffectiveRetentionPreferences() {
     dataRetentionEnabled: effectiveLocalHistoryEnabled(policyState, settings.dataRetentionEnabled),
     audioRetentionDays: effectiveAudioRetentionDays(policyState, settings.audioRetentionDays),
   };
+}
+
+// Recording quality (Settings › Storage › Recordings), read once when a
+// recording session starts: a change mid-recording applies to the next one.
+const currentRecordingQuality = () => normalizeRecordingQuality(getSettings()?.recordingQuality);
+
+// Every dictation recorder (pre-roll, batch, microphone recovery, streaming
+// fallback) is built here, at its session's quality. Original passes no
+// options, so Chromium encodes exactly as it always has.
+function createDictationRecorder(stream, quality) {
+  const options = recorderOptionsFor(quality);
+  return options ? new MediaRecorder(stream, options) : new MediaRecorder(stream);
 }
 
 // Insights sync is opt-in, so nothing analytics-only may ride along on a cloud
@@ -750,6 +767,8 @@ class AudioManager {
     this._cancelRequestedDuringMicRecovery = false;
     this._streamingFallbackSegments = [];
     this._streamingMicSwapPromise = null;
+    // The current recording session's quality (frozen when it starts).
+    this._recordingQuality = DEFAULT_RECORDING_QUALITY;
     this.micRecovery = new ActiveMicRecoveryController({
       mediaDevices: navigator.mediaDevices,
       acquire: async (reason) => {
@@ -780,7 +799,9 @@ class AudioManager {
   _startRecordingSpool() {
     const { dataRetentionEnabled, audioRetentionDays } = getEffectiveRetentionPreferences();
     if (!dataRetentionEnabled || audioRetentionDays <= 0) return null;
-    return startRecordingSpool(this.getRecordingRouteKind());
+    return startRecordingSpool(this.getRecordingRouteKind(), {
+      recordingQuality: this._recordingQuality,
+    });
   }
 
   // A styled recording is its own intent, like translation: assistant and
@@ -1026,7 +1047,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     }
   }
 
-  async mergeRecordedSegments(segments) {
+  async mergeRecordedSegments(segments, quality = this._recordingQuality) {
     // Header-only segments carry no audio frames and crash FFmpeg's concat (#871).
     const usable = segments.filter((segment) => segment && !isEmptyRecording(segment.size));
     if (usable.length === 0) return null;
@@ -1037,7 +1058,10 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
         mimeType: segment.type || "audio/webm",
       }))
     );
-    const result = await window.electronAPI.mergeAudioSegments(payload);
+    // Merged at the recording's own quality (main maps it to FFmpeg's bitrate).
+    const result = await window.electronAPI.mergeAudioSegments(payload, {
+      quality: normalizeRecordingQuality(quality),
+    });
     if (!result?.success) throw new Error(result?.error || "Failed to merge audio segments");
     return new Blob([result.buffer], { type: result.mimeType });
   }
@@ -1382,6 +1406,8 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
             chunks: [],
             pcmTap: null,
             startedAt: Date.now(),
+            // The session starts here when its pre-roll is adopted.
+            recordingQuality: currentRecordingQuality(),
           };
           if (!this.shouldUseStreaming()) this._startPreRollRecorder(value, pcmTap);
           if (value.recorder) markStartTrace(trace, "preRollStarted");
@@ -1428,7 +1454,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
   // a cancel discards them without the audio ever leaving the renderer.
   _startPreRollRecorder(prepared, pcmTap) {
     try {
-      const recorder = new MediaRecorder(prepared.stream);
+      const recorder = createDictationRecorder(prepared.stream, prepared.recordingQuality);
       recorder.ondataavailable = (event) => {
         if (event.data && event.data.size > 0) prepared.chunks.push(event.data);
       };
@@ -1681,6 +1707,10 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       // was adopted; a prepared stream without pre-roll contributes no audio
       // before this point, and back-dating would inflate durationSeconds.
       this.recordingStartTime = preRoll ? prepared.startedAt : Date.now();
+      // An adopted pre-roll already encodes at the quality read at key-down.
+      this._recordingQuality = preRoll
+        ? normalizeRecordingQuality(prepared.recordingQuality)
+        : currentRecordingQuality();
       // The tap shadows the recorder from its first frame: the pre-roll's own,
       // or the one built before the mic opened. A tap started now would miss
       // the opening, so an unusable pre-roll leaves the WebM path in charge.
@@ -1713,6 +1743,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
           totalMs: Math.round(performance.now() - startRequestedAt),
           usedPreparedCapture: !!prepared,
           preparedAgeMs,
+          recordingQuality: this._recordingQuality,
         },
         "audio"
       );
@@ -1818,7 +1849,8 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     // Adopting the pre-roll recorder keeps every chunk captured since key-down:
     // rebinding the handlers below transfers ownership with no gap and no
     // re-encode, and the seeded chunks become the recording's opening.
-    const recorder = adoption?.recorder ?? new MediaRecorder(micStream);
+    const recorder =
+      adoption?.recorder ?? createDictationRecorder(micStream, this._recordingQuality);
     const segmentChunks = adoption ? [...adoption.chunks] : [];
     if (segmentChunks.length > 0) {
       this._receivedAudioData = true;
@@ -1887,6 +1919,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
   async _finalizeBatchRecording(finalSegment) {
     const processingPipeline = this._startProcessingPipeline();
     const wasCancelled = () => this._shouldAbandonProcessingPipeline(processingPipeline);
+    const recordingQuality = this._recordingQuality;
     this.micRecovery.stop();
     this.teardownSpeechGate();
     const previewStopPromise = this.cleanupPreview({
@@ -1908,7 +1941,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     let audioBlob = null;
     let salvagedRecording = false;
     try {
-      audioBlob = await this.mergeRecordedSegments(segments);
+      audioBlob = await this.mergeRecordedSegments(segments, recordingQuality);
     } catch (error) {
       if (wasCancelled()) {
         this._settleProcessingPipeline(processingPipeline);
@@ -2135,6 +2168,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       chunks: this.audioChunks,
       segments: this._batchSegments,
       mimeType: this.recordingMimeType,
+      recordingQuality: this._recordingQuality,
     };
   }
 
@@ -2160,6 +2194,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     chunks,
     segments,
     mimeType,
+    recordingQuality,
   }) {
     // This must run after MediaRecorder's final dataavailable event, so decide
     // whether to retain the discarded audio from the snapshot rather than live
@@ -2173,7 +2208,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       void (async () => {
         try {
           const current = new Blob(chunks, { type: mimeType });
-          const blob = await this.mergeRecordedSegments([...segments, current]);
+          const blob = await this.mergeRecordedSegments([...segments, current], recordingQuality);
           if (blob)
             await this.saveDiscardedTranscription(blob, durationSeconds, analyticsOccurredAt);
         } catch (error) {
@@ -4989,10 +5024,13 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     }
   }
 
-  async _saveInterruptedRecording({ segments, startedAt, durationMs, routeKind }, errorMessage) {
+  async _saveInterruptedRecording(
+    { segments, startedAt, durationMs, routeKind, recordingQuality },
+    errorMessage
+  ) {
     let audio;
     try {
-      audio = await this.mergeRecordedSegments(segments);
+      audio = await this.mergeRecordedSegments(segments, recordingQuality);
     } catch (error) {
       logger.warn("Failed to merge interrupted recording", { error: error.message }, "audio");
       audio = this.getLargestRecordedSegment(segments);
@@ -5228,7 +5266,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
   startStreamingFallbackRecorder(stream) {
     try {
       const chunks = [];
-      const recorder = new MediaRecorder(stream);
+      const recorder = createDictationRecorder(stream, this._recordingQuality);
       const spoolChunk = this._recordingSpool?.addSegment(recorder.mimeType || "audio/webm");
       recorder.ondataavailable = (event) => {
         if (event.data?.size > 0) {
@@ -5439,6 +5477,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
 
       // Start fallback recorder in case streaming produces no results.
       this._streamingFallbackSegments = [];
+      this._recordingQuality = currentRecordingQuality();
       this._recordingSpool = this._startRecordingSpool();
       this.startStreamingFallbackRecorder(stream);
 
@@ -5893,6 +5932,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
 
     const cancellationGeneration = this._streamingCancellationGeneration;
     const wasCancelled = () => cancellationGeneration !== this._streamingCancellationGeneration;
+    const recordingQuality = this._recordingQuality;
     const abandonFinalization = async () => {
       this.cleanupStreamingAudio();
       this.cleanupStreamingListeners(sessionId);
@@ -5992,7 +6032,10 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     await this.finishStreamingFallbackSegment();
     if (wasCancelled()) return abandonFinalization();
     try {
-      fallbackBlob = await this.mergeRecordedSegments(this._streamingFallbackSegments);
+      fallbackBlob = await this.mergeRecordedSegments(
+        this._streamingFallbackSegments,
+        recordingQuality
+      );
     } catch (error) {
       logger.warn(
         "Failed to merge streaming fallback audio",

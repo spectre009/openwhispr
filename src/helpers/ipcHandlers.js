@@ -53,7 +53,10 @@ const { createNoteAttendeesLookup, searchContacts } = require("./connectors/cont
 const { registerCopilotIpc } = require("./copilot/copilotIpc");
 const { registerCustomConnectionIpc } = require("./customConnectionIpc");
 const { registerLogIpc } = require("./logIpc");
+const { registerStorageInventoryIpc, defaultStorageResources } = require("./storageInventory");
 const { logText } = require("../utils/logText.js");
+const { mergeBitrateFor } = require("../utils/recordingQuality.js");
+const { recordingSweepDays } = require("../utils/retentionPeriods.js");
 const { getBuildInfo } = require("./buildInfo");
 // The renderer's ModelRegistry is not main-loadable; the raw registry data is
 // packaged, and the route resolver only needs {id, baseUrl} per provider.
@@ -1412,8 +1415,11 @@ class IPCHandlers {
         }
         if (analyticsPurged > 0) broadcastToWindows("analytics-changed");
       }
-      if (audioRetentionDays > 0) {
-        this.audioStorageManager.cleanupExpiredAudio(audioRetentionDays, this.databaseManager);
+      // Never kept longer than their transcripts: a file the expiry above
+      // missed goes with the sweep at the shorter limit.
+      const sweepDays = recordingSweepDays(audioRetentionDays, transcriptRetentionDays);
+      if (sweepDays > 0) {
+        this.audioStorageManager.cleanupExpiredAudio(sweepDays, this.databaseManager);
       }
     } catch (error) {
       debugLogger.error("Retention cleanup failed", { error: error.message }, "audio-storage");
@@ -2230,7 +2236,7 @@ class IPCHandlers {
       return result;
     });
 
-    ipcMain.handle("merge-audio-segments", async (_event, segments) => {
+    ipcMain.handle("merge-audio-segments", async (_event, segments, options) => {
       try {
         if (!Array.isArray(segments) || segments.length < 2 || segments.length > 100) {
           throw new Error("Invalid audio segment count");
@@ -2242,7 +2248,10 @@ class IPCHandlers {
           return { buffer: Buffer.from(segment.buffer), mimeType: segment.mimeType };
         });
         const { mergeAudioSegments } = require("./ffmpegUtils");
-        const buffer = await mergeAudioSegments(normalized);
+        // The recording's quality (an unknown one merges as Original).
+        const buffer = await mergeAudioSegments(normalized, {
+          bitrate: mergeBitrateFor(options?.quality),
+        });
         // Slice to a real ArrayBuffer: Buffers sent over IPC arrive as Uint8Array,
         // and pooled Buffers share a larger underlying allocation.
         return {
@@ -2289,6 +2298,18 @@ class IPCHandlers {
       return this.audioStorageManager.getStorageUsage();
     });
 
+    // Storage › Recordings: main resolves the folder (created when missing).
+    ipcMain.handle("open-recordings-folder", async () => {
+      try {
+        const audioDir = this.audioStorageManager.getAudioDir();
+        await fs.promises.mkdir(audioDir, { recursive: true });
+        const error = await shell.openPath(audioDir);
+        return error ? { success: false, error } : { success: true };
+      } catch (error) {
+        return { success: false, error: error.message };
+      }
+    });
+
     ipcMain.on(
       "retention-settings-changed",
       createRetentionSettingsHandler({
@@ -2310,23 +2331,10 @@ class IPCHandlers {
       })
     );
 
+    // Clear all recordings: only the rows whose files were deleted lose their
+    // audio flag; { deleted, failed } says what's left.
     ipcMain.handle("delete-all-audio", async () => {
-      const result = this.audioStorageManager.deleteAllAudio();
-      try {
-        const rows = this.databaseManager.db
-          .prepare("SELECT id FROM transcriptions WHERE has_audio = 1")
-          .all();
-        if (rows.length > 0) {
-          this.databaseManager.clearAudioFlags(rows.map((r) => r.id));
-        }
-      } catch (error) {
-        debugLogger.error(
-          "Failed to clear audio flags after delete-all",
-          { error: error.message },
-          "audio-storage"
-        );
-      }
-      return result;
+      return this.audioStorageManager.clearAllRecordings(this.databaseManager);
     });
 
     ipcMain.handle("get-transcription-by-id", async (event, id) => {
@@ -6296,6 +6304,23 @@ class IPCHandlers {
       environmentManager: this.environmentManager,
       broadcast: broadcastToWindows,
       openPath: (folder) => shell.openPath(folder),
+    });
+
+    // Storage: what's kept where and how big (sizes, Open, Clear by fixed id).
+    registerStorageInventoryIpc({
+      ipcMain,
+      resolveResources: () =>
+        defaultStorageResources({
+          userData: app.getPath("userData"),
+          logsDir: debugLogger.getLogsDir(),
+          audioDir: this.audioStorageManager.getAudioDir(),
+        }),
+      getDatabase: () => this.databaseManager?.db ?? null,
+      openPath: (target) => shell.openPath(target),
+      showItemInFolder: (target) => shell.showItemInFolder(target),
+      clearRecordings: () => this.audioStorageManager.clearAllRecordings(this.databaseManager),
+      clearLogs: () => debugLogger.clearLogs(),
+      getSession: () => session.defaultSession,
     });
 
     const SYSTEM_SETTINGS_URLS = {

@@ -14,9 +14,11 @@ import type {
   RecordingEdgeStripDisplays,
   RecordingEdgeStripMode,
   RecordingIndicatorStyle,
+  RecordingQuality,
   RecordingReminderMinutes,
   SelfHostedType,
 } from "../types/electron";
+import { normalizeRecordingQuality } from "../utils/recordingQuality.js";
 import {
   normalizeFloatingIconDisplay,
   normalizePanelPosition,
@@ -1103,6 +1105,7 @@ export interface SettingsState
   recordingAssistantColor: string;
   recordingTranslationColor: string;
   recordingReminderMinutes: RecordingReminderMinutes;
+  recordingQuality: RecordingQuality;
   showTranscriptionPreview: boolean;
   autoPasteEnabled: boolean;
   keepTranscriptionInClipboard: boolean;
@@ -1459,6 +1462,7 @@ export interface SettingsState
   setRecordingAssistantColor: (color: string) => void;
   setRecordingTranslationColor: (color: string) => void;
   setRecordingReminderMinutes: (minutes: number) => void;
+  setRecordingQuality: (quality: RecordingQuality) => void;
   setShowTranscriptionPreview: (value: boolean) => void;
   setAutoPasteEnabled: (value: boolean) => void;
   setKeepTranscriptionInClipboard: (value: boolean) => void;
@@ -2022,6 +2026,9 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   recordingReminderMinutes: normalizeRecordingReminderMinutes(
     readString("recordingReminderMinutes", "0")
   ) as RecordingReminderMinutes,
+  recordingQuality: normalizeRecordingQuality(
+    readString("recordingQuality", "original")
+  ) as RecordingQuality,
   showTranscriptionPreview: readBoolean("showTranscriptionPreview", false),
   autoPasteEnabled: readBoolean("autoPasteEnabled", true),
   keepTranscriptionInClipboard: readBoolean("keepTranscriptionInClipboard", false),
@@ -2962,6 +2969,13 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
     if (get().recordingReminderMinutes === next) return;
     if (isBrowser) localStorage.setItem("recordingReminderMinutes", String(next));
     set({ recordingReminderMinutes: next });
+  },
+  // Read by the audio manager when a recording session starts.
+  setRecordingQuality: (quality: RecordingQuality) => {
+    const next = normalizeRecordingQuality(quality) as RecordingQuality;
+    if (get().recordingQuality === next) return;
+    if (isBrowser) localStorage.setItem("recordingQuality", next);
+    set({ recordingQuality: next });
   },
 
   setShowTranscriptionPreview: createBooleanSetter("showTranscriptionPreview"),
@@ -4236,6 +4250,8 @@ export async function initializeSettings(): Promise<void> {
       value = normalizeRecordingModeColor(newValue, "translation");
     } else if (key === "recordingReminderMinutes") {
       value = normalizeRecordingReminderMinutes(newValue);
+    } else if (key === "recordingQuality") {
+      value = normalizeRecordingQuality(newValue);
     } else if (key === "customConnection") {
       value = parseCustomConnection(newValue);
     } else {

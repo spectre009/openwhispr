@@ -1521,6 +1521,81 @@ export interface ClearLogsResult {
   failed: string[];
 }
 
+/** Settings › Storage › Recordings: how new dictations are recorded. */
+export type RecordingQuality = "smaller" | "balanced" | "original";
+
+/** Clear all recordings (`delete-all-audio`): files deleted, and files still there. */
+export interface DeleteAllAudioResult {
+  deleted: number;
+  failed: number;
+}
+
+/** The fixed places OpenWhispr keeps data (Settings › Storage); main owns their paths. */
+export type StorageResourceId =
+  | "recordings"
+  | "logs"
+  | "database"
+  | "settings"
+  | "secrets"
+  | "models"
+  | "searchIndex"
+  | "appCache"
+  | "cliBridge"
+  | "selfhost";
+
+export interface StorageInventoryItem {
+  id: StorageResourceId;
+  /** Where Open goes (a folder, or the file Show in folder selects), the user profile masked. */
+  path: string | null;
+  /** Every measured part's path, masked. */
+  paths: Array<string | null>;
+  target: "folder" | "file";
+  exists: boolean;
+  /** Null when not measured (the self-hosted builds folder). */
+  bytes: number | null;
+  files: number | null;
+  /** Per part: models by kind (whisper, parakeet, diarization, llm, embedding), app cache by folder. */
+  parts: Array<{ key: string; bytes: number; exists: boolean }>;
+  clearable: boolean;
+}
+
+export interface HistoryDatabaseCounts {
+  dictations: number;
+  stepRecords: number;
+  reviews: number;
+  testCases: number;
+  dictionaryWords: number;
+  glossaryRules: number;
+  notes: number;
+}
+
+/** Dictations a day over the last 30 days of history and their average recorded length. */
+export interface RecordingPace {
+  windowDays: number;
+  spanDays: number;
+  dictations: number;
+  perDay: number;
+  averageSeconds: number | null;
+  minutesPerDay: number | null;
+}
+
+export interface StorageInventoryResult {
+  measuredAt: string;
+  /** Served from main's one-minute cache. */
+  cached: boolean;
+  totalBytes: number;
+  items: StorageInventoryItem[];
+  database: { counts: HistoryDatabaseCounts | null };
+  recordingPace: RecordingPace | null;
+}
+
+export interface StorageActionResult {
+  success: boolean;
+  error?: string;
+  deleted?: number;
+  failed?: number;
+}
+
 export interface WhisperDownloadProgressData {
   type: "progress" | "installing" | "complete" | "error";
   model: string;
@@ -2043,7 +2118,8 @@ declare global {
         metadata?: { durationMs?: number; provider?: string; model?: string }
       ) => Promise<{ success: boolean; path?: string }>;
       mergeAudioSegments: (
-        segments: Array<{ buffer: ArrayBuffer; mimeType: string }>
+        segments: Array<{ buffer: ArrayBuffer; mimeType: string }>,
+        options?: { quality?: RecordingQuality }
       ) => Promise<
         | { success: true; buffer: ArrayBuffer; mimeType: "audio/webm" }
         | { success: false; error: string }
@@ -2053,7 +2129,11 @@ declare global {
       getAudioBuffer: (id: number) => Promise<ArrayBuffer | null>;
       deleteTranscriptionAudio: (id: number) => Promise<{ success: boolean }>;
       getAudioStorageUsage: () => Promise<{ fileCount: number; totalBytes: number }>;
-      deleteAllAudio: () => Promise<{ deleted: number }>;
+      deleteAllAudio: () => Promise<DeleteAllAudioResult>;
+      openRecordingsFolder?: () => Promise<{ success: boolean; error?: string }>;
+      getStorageInventory?: (options?: { refresh?: boolean }) => Promise<StorageInventoryResult>;
+      openStorageItem?: (id: StorageResourceId) => Promise<StorageActionResult>;
+      clearStorageItem?: (id: StorageResourceId) => Promise<StorageActionResult>;
       syncRetentionSettings?: (settings: {
         audioRetentionDays: number;
         transcriptRetentionDays: number;

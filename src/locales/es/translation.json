@@ -2468,7 +2468,7 @@
         "description": "Esto elimina permanentemente tu cuenta de OpenWhispr y tus datos personales. El contenido de los espacios de trabajo y los datos de otros usuarios locales permanecen en este dispositivo.",
         "confirmText": "Eliminar cuenta",
         "eraseDeviceLabel": "Eliminar también todos los datos de este dispositivo",
-        "eraseDeviceDescription": "Elimina las notas y cachés de espacios de todos los usuarios locales, modelos descargados, ajustes, calendarios, credenciales y grabaciones.",
+        "eraseDeviceDescription": "Elimina las notas y cachés de espacios de todos los usuarios locales, modelos descargados, el índice de búsqueda, ajustes, calendarios, credenciales y grabaciones. Los registros se mantienen; bórralos en Almacenamiento › Registros.",
         "eraseDeviceWarning": "Este borrado de todo el dispositivo no se puede deshacer y afecta a todos los usuarios locales.",
         "successTitle": "Cuenta eliminada",
         "successDescription": "Tu cuenta y datos personales se eliminaron. Se conservaron los demás usuarios locales, espacios de trabajo, modelos y ajustes del dispositivo.",
@@ -2594,11 +2594,8 @@
       }
     },
     "developer": {
-      "clearCache": "Borrar caché",
-      "dataManagementDescription": "Administra modelos en caché y datos de la app",
       "dataManagementTitle": "Gestión de datos",
       "modelCache": "Caché de modelos",
-      "open": "Abrir",
       "removeModels": {
         "confirmText": "Eliminar modelos",
         "description": "Esto elimina todos los modelos de Whisper almacenados en caché local ({{path}}) y libera espacio en disco. Puedes descargarlos nuevamente desde el selector de modelos.",
@@ -2612,7 +2609,7 @@
       "removing": "Eliminando...",
       "resetAll": {
         "confirmText": "Eliminar todo",
-        "description": "Esta acción eliminará permanentemente todas las configuraciones locales, transcripciones, grabaciones de audio, modelos de IA descargados, conexiones de calendario y datos en caché. Los datos en la nube y tu cuenta no se verán afectados. La app se reiniciará después del restablecimiento.",
+        "description": "Esta acción eliminará permanentemente todas las configuraciones locales, transcripciones, notas, grabaciones de audio, claves de API e inicios de sesión, conexiones de calendario, modelos de IA descargados, el índice de búsqueda y los datos en caché. Los registros se mantienen; bórralos en Almacenamiento › Registros. Los datos en la nube y tu cuenta no se verán afectados. La app se reiniciará después del restablecimiento.",
         "failedDescription": "Algo salió mal. Inténtalo de nuevo o reinstala la app.",
         "failedTitle": "No se pudo restablecer",
         "successDescription": "Todo ha sido restablecido. La app se reiniciará ahora.",
@@ -2620,7 +2617,7 @@
         "title": "Restablecer todos los datos de la app"
       },
       "resetAppData": "Restablecer datos de la app",
-      "resetAppDataDescription": "Eliminar permanentemente todas las configuraciones locales, transcripciones, grabaciones de audio, modelos descargados y datos en caché"
+      "resetAppDataDescription": "Elimina todo lo que OpenWhispr guarda en este equipo (historial, notas, grabaciones, ajustes, claves e inicios de sesión, modelos descargados y el índice de búsqueda) y luego se reinicia. Los registros se mantienen; bórralos en Almacenamiento › Registros."
     },
     "dictionary": {
       "title": "Diccionario personalizado",
@@ -3013,19 +3010,18 @@
       "justNow": "ahora mismo",
       "lastSynced": "Última sincronización {{time}}",
       "minutesAgo": "hace {{count}}m",
-      "audioRetention": "Retención de audio",
-      "audioRetentionDescription": "Almacena el audio de dictado localmente para volver a transcribir y descargar. Los archivos se eliminan automáticamente tras el periodo de retención. El audio de las reuniones nunca se almacena.",
       "saveDiscarded": "Guardar dictados descartados",
       "saveDiscardedDescription": "Cuando cancelas un dictado con Escape, conserva su audio en el historial para poder recuperarlo. Requiere tener activadas la retención de datos y de audio.",
-      "audioRetentionDisabled": "Desactivado",
       "retentionDays_one": "{{count}} día",
       "retentionDays_other": "{{count}} días",
-      "audioStorageUsage": "Uso de almacenamiento",
-      "audioStorageUsageDescription": "Archivos de audio almacenados en este dispositivo",
-      "audioStorageFiles": "{{count}} archivos, {{size}}",
-      "audioStorageEmpty": "No hay archivos de audio almacenados",
-      "clearAllAudio": "Eliminar todo el audio",
-      "clearAllAudioConfirm": "¿Eliminar todos los archivos de audio almacenados? Esta acción no se puede deshacer."
+      "recordingsSummary": {
+        "label": "Grabaciones",
+        "kept": "Se conservan {{period}}",
+        "notSaved": "No se guardan"
+      },
+      "logsSummary": {
+        "label": "Registros"
+      }
     },
     "prompts": {
       "description": "Visualiza, personaliza y prueba el prompt de sistema unificado que impulsa la corrección de texto y la detección de instrucciones",
@@ -3467,6 +3463,141 @@
             "fatal": "Grave"
           }
         }
+      },
+      "retentionPeriods": {
+        "sixMonths": "6 meses",
+        "oneYear": "1 año"
+      },
+      "measuring": "Midiendo…",
+      "measureFailed": "No se pudieron medir los tamaños. Prueba Actualizar.",
+      "overview": {
+        "title": "En este equipo",
+        "total": "{{size}} en total",
+        "description": "Los tamaños se miden al abrir esta página y se conservan un minuto; Actualizar los vuelve a medir. Aquí solo se pueden borrar las grabaciones, los registros y la caché de la app.",
+        "other": "Ajustes, claves y CLI"
+      },
+      "recordings": {
+        "title": "Grabaciones",
+        "description": "El audio de cada dictado, para reproducirlo en el Historial y volver a transcribirlo.",
+        "retention": {
+          "label": "Conservar grabaciones durante",
+          "description": "Las grabaciones más antiguas se eliminan automáticamente. El audio de las reuniones nunca se guarda.",
+          "off": "Desactivado (no conservar)",
+          "historyOff": "No se guardan mientras el historial local está desactivado (Privacidad y datos).",
+          "neverLonger": "Nunca se conserva más tiempo que su transcripción.",
+          "effective": "Las transcripciones se conservan {{period}}, así que las grabaciones se van con ellas a los {{period}}."
+        },
+        "quality": {
+          "label": "Calidad de grabación",
+          "description": "Cómo se graban los nuevos dictados, que también es el audio que se envía a un servicio de voz a texto en la nube. El cambio se aplica desde la siguiente grabación. No afecta a las reuniones, los archivos subidos ni los mensajes de voz del chat.",
+          "default": "Predeterminada",
+          "smaller": {
+            "name": "Más pequeña",
+            "detail": "Opus, 32 kbps. Voz clara con alrededor de una cuarta parte del tamaño."
+          },
+          "balanced": {
+            "name": "Equilibrada",
+            "detail": "Opus, 64 kbps. Aproximadamente la mitad del tamaño."
+          },
+          "original": {
+            "name": "Original",
+            "detail": "Opus, unos 128 kbps, como se grababa hasta ahora."
+          },
+          "perMinute": "~{{size}} KB / min",
+          "estimate": "~{{size}} en {{period}} (estimación)",
+          "pace": "Las estimaciones usan tu ritmo: unos {{minutes}} de grabación al día en los últimos 30 días del historial.",
+          "noPace": "Aún no hay estimación: no hay grabaciones con duración en los últimos 30 días del historial.",
+          "noEstimateKept": "Las grabaciones no se conservan, así que no hay nada que estimar; la calidad sigue decidiendo lo que se envía a un servicio de voz a texto en la nube.",
+          "measured": "Medido con 30 dictados en Azure gpt-4o-transcribe: no se encontró diferencia hasta 32 kbps. Aún no se ha comprobado con otros proveedores."
+        },
+        "folder": {
+          "label": "Carpeta de grabaciones",
+          "empty": "No hay grabaciones guardadas",
+          "open": "Abrir carpeta",
+          "openFailed": "No se pudo abrir la carpeta de grabaciones."
+        },
+        "clear": {
+          "button": "Borrar todas las grabaciones",
+          "title": "¿Borrar todas las grabaciones?",
+          "description": "Elimina todas las grabaciones guardadas. Las transcripciones se quedan en el Historial. No se puede deshacer.",
+          "done": "Se borraron todas las grabaciones.",
+          "partial": "Algunas grabaciones no se pudieron borrar (¿en uso?) y siguen en la carpeta: {{remaining}}.",
+          "failed": "No se pudieron borrar las grabaciones."
+        }
+      },
+      "database": {
+        "title": "Base de datos del historial",
+        "description": "Un archivo SQLite con lo que dictaste y cómo se procesó. El historial se borra en Privacidad y datos.",
+        "counts": {
+          "dictations": "Dictados",
+          "stepRecords": "Registros de pasos",
+          "reviews": "Valoraciones",
+          "testCases": "Casos de prueba",
+          "dictionaryWords": "Palabras del diccionario",
+          "glossaryRules": "Reglas del glosario",
+          "notes": "Notas"
+        },
+        "countsUnavailable": "No se pudo leer su contenido.",
+        "file": "Archivo",
+        "clearHistory": "Borrar el historial en Privacidad y datos"
+      },
+      "everythingElse": {
+        "title": "Todo lo demás",
+        "description": "Tienen sus propias formas seguras de cambiarse y aquí nunca se borran como archivos; solo se puede vaciar la caché de la app."
+      },
+      "items": {
+        "settings": {
+          "label": "Ajustes",
+          "description": "Tus preferencias, en el almacenamiento del navegador de la app, más algunas en .env que necesita el arranque."
+        },
+        "secrets": {
+          "label": "Claves de API e inicios de sesión",
+          "description": "Archivos cifrados; la clave que los abre está en el almacén de credenciales del sistema."
+        },
+        "models": {
+          "label": "Modelos locales",
+          "description": "Modelos de voz a texto, detección de hablantes, lenguaje y búsqueda de notas en este equipo."
+        },
+        "searchIndex": {
+          "label": "Índice de búsqueda",
+          "description": "Encuentra notas por su significado. Reserva espacio en bloques grandes, así que puede ocupar mucho incluso con pocas notas; si se borra, se reconstruye."
+        },
+        "appCache": {
+          "label": "Caché de la app",
+          "description": "Las cachés web, de código y de GPU de Chromium. Se puede vaciar sin riesgo: no contiene nada que hayas guardado."
+        },
+        "cliBridge": {
+          "label": "Puente de línea de comandos",
+          "description": "El token que usa la herramienta de línea de comandos openwhispr para llegar a esta app."
+        },
+        "selfhost": {
+          "label": "Compilaciones propias",
+          "description": "Versiones, copias de datos y registros de envío de selfhost.js. No se mide, y Restablecer datos de la app no lo toca.",
+          "tag": "este fork"
+        }
+      },
+      "modelKinds": {
+        "whisper": "Whisper",
+        "parakeet": "Parakeet y Cohere",
+        "diarization": "Detección de hablantes",
+        "llm": "Modelos de lenguaje",
+        "embedding": "Búsqueda de notas"
+      },
+      "actions": {
+        "copyPath": "Copiar ruta",
+        "openFolder": "Abrir carpeta",
+        "showInFolder": "Mostrar en la carpeta",
+        "clear": "Vaciar",
+        "openFailed": "No se pudo abrir. Puede que aún no exista.",
+        "notCreated": "Aún no creado",
+        "manageModels": "Gestionar en Conexiones de IA",
+        "removeModels": "Eliminar todos los modelos"
+      },
+      "appCache": {
+        "clearTitle": "¿Vaciar la caché de la app?",
+        "clearDescription": "Vacía las cachés web y de código de Chromium. No toca los ajustes, el historial ni los inicios de sesión; la app puede ir algo más lenta mientras se vuelven a llenar.",
+        "cleared": "Caché de la app vaciada.",
+        "clearFailed": "No se pudo vaciar la caché de la app."
       }
     },
     "diagnostics": {

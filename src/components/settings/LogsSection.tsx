@@ -67,7 +67,14 @@ function ProblemList({ problems, locale }: { problems: readonly LogProblem[]; lo
  * dictated text, its size and folder (Open, Clear logs), recent problems and
  * Copy diagnostics. Reads main when the page shows and after each action.
  */
-export default function LogsSection({ showing }: { showing: boolean }) {
+export default function LogsSection({
+  showing,
+  onCleared,
+}: {
+  showing: boolean;
+  /** After Clear logs (the Storage page measures again). */
+  onCleared?: () => void;
+}) {
   const { t, i18n } = useTranslation();
   const settingsVisible = useSettingsVisible();
   const { info, setInfo, problems, failed, refresh } = useLogInfo(showing && settingsVisible);
@@ -110,6 +117,7 @@ export default function LogsSection({ showing }: { showing: boolean }) {
       setNotice({ tone: "error", text: t("settingsPage.storage.logs.clear.failed") });
     }
     void refresh();
+    onCleared?.();
   };
 
   const openFolder = async () => {

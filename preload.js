@@ -195,13 +195,19 @@ contextBridge.exposeInMainWorld("electronAPI", {
   // Audio storage functions
   saveTranscriptionAudio: (id, audioBuffer, metadata) =>
     ipcRenderer.invoke("save-transcription-audio", id, audioBuffer, metadata),
-  mergeAudioSegments: (segments) => ipcRenderer.invoke("merge-audio-segments", segments),
+  mergeAudioSegments: (segments, options) =>
+    ipcRenderer.invoke("merge-audio-segments", segments, options),
   getAudioPath: (id) => ipcRenderer.invoke("get-audio-path", id),
   showAudioInFolder: (id) => ipcRenderer.invoke("show-audio-in-folder", id),
   getAudioBuffer: (id) => ipcRenderer.invoke("get-audio-buffer", id),
   deleteTranscriptionAudio: (id) => ipcRenderer.invoke("delete-transcription-audio", id),
   getAudioStorageUsage: () => ipcRenderer.invoke("get-audio-storage-usage"),
   deleteAllAudio: () => ipcRenderer.invoke("delete-all-audio"),
+  openRecordingsFolder: () => ipcRenderer.invoke("open-recordings-folder"),
+  // Settings › Storage: resources by fixed id; main owns every path.
+  getStorageInventory: (options) => ipcRenderer.invoke("storage-inventory", options),
+  openStorageItem: (id) => ipcRenderer.invoke("storage-open", id),
+  clearStorageItem: (id) => ipcRenderer.invoke("storage-clear", id),
   syncRetentionSettings: (settings) => ipcRenderer.send("retention-settings-changed", settings),
   retryTranscription: (id, settings) => ipcRenderer.invoke("retry-transcription", id, settings),
   updateTranscriptionText: (id, text, rawText, options) =>

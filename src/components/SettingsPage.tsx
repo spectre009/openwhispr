@@ -9,7 +9,6 @@ import {
   Download,
   Mic,
   Shield,
-  FolderOpen,
   LogOut,
   UserCircle,
   Sun,
@@ -85,6 +84,9 @@ import LinuxPttSetupInfo from "./ui/LinuxPttSetupInfo";
 import { Toggle } from "./ui/toggle";
 import DiagnosticsSection from "./settings/DiagnosticsSection";
 import StoragePage from "./settings/StoragePage";
+import PrivacyStorageSummary from "./settings/PrivacyStorageSummary";
+import { retentionPeriodLabel } from "./settings/storageFormat";
+import { transcriptRetentionChoices } from "../utils/retentionPeriods.js";
 import ChatAgentSettings from "./settings/ChatAgentSettings";
 import DictationAgentSettings from "./settings/DictationAgentSettings";
 import DictationTranslationSettings from "./settings/DictationTranslationSettings";
@@ -116,12 +118,7 @@ import {
   initializeNotesTree,
 } from "../stores/noteStore.js";
 import { syncService } from "../services/SyncService.js";
-import { formatBytes } from "../utils/formatBytes";
-import {
-  clearMissingLocalModelSelections,
-  useSettingsStore,
-  type HotkeyRegistrationResult,
-} from "../stores/settingsStore";
+import { useSettingsStore, type HotkeyRegistrationResult } from "../stores/settingsStore";
 import { useWorkspaceStore } from "../stores/workspaceStore";
 import { highestPlan } from "../lib/usageStore";
 import { decideProPlanCardCta, resolveAccountPlan, storeSubscriptionsUrl } from "../lib/upsell";
@@ -132,7 +129,6 @@ import {
   isAgentAllowed,
   isCloudBackupAllowed,
   lockedLocalHistoryValue,
-  maxAudioRetentionDays,
 } from "../stores/policyRules";
 import { usePolicySnapshot } from "../hooks/usePolicy";
 import { stopRecording } from "../stores/meetingRecordingStore";
@@ -203,8 +199,6 @@ const UI_LANGUAGE_OPTIONS: import("./ui/LanguageSelector").LanguageOption[] = [
   { value: "zh-CN", label: "简体中文", flag: "🇨🇳" },
   { value: "zh-TW", label: "繁體中文", flag: "🇹🇼" },
 ];
-
-const RETENTION_DAY_OPTIONS = [1, 7, 14, 30, 60, 90];
 
 const RETENTION_SELECT_CLASS =
   "h-7 rounded border border-border/70 bg-surface-1/80 px-2.5 text-xs font-medium text-foreground shadow-sm hover:border-border-hover hover:bg-surface-2/70 focus:outline-none focus:ring-2 focus:ring-ring/30 focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50 transition-colors duration-200";
@@ -877,7 +871,6 @@ export default function SettingsPage({
     telemetryEnabled,
     setTelemetryEnabled,
     audioRetentionDays,
-    setAudioRetentionDays,
     transcriptRetentionDays,
     setTranscriptRetentionDays,
     dataRetentionEnabled,
@@ -930,7 +923,6 @@ export default function SettingsPage({
     dataRetentionEnabled
   );
   const cloudBackupPolicyAllowed = isCloudBackupAllowed(settingsPolicyState);
-  const audioRetentionCap = maxAudioRetentionDays(settingsPolicyState);
   const enforcedAudioRetentionDays = effectiveAudioRetentionDays(
     settingsPolicyState,
     audioRetentionDays
@@ -940,20 +932,6 @@ export default function SettingsPage({
   const { toast } = useToast();
 
   const [currentVersion, setCurrentVersion] = useState<string>("");
-  const [isRemovingModels, setIsRemovingModels] = useState(false);
-  const [cachePathHint, setCachePathHint] = useState(
-    typeof navigator !== "undefined" && /Windows/i.test(navigator.userAgent)
-      ? "%USERPROFILE%\\.cache\\openwhispr"
-      : "~/.cache/openwhispr"
-  );
-  useEffect(() => {
-    window.electronAPI
-      ?.getModelCacheRoot?.()
-      .then((root) => {
-        if (root) setCachePathHint(root);
-      })
-      .catch(() => {});
-  }, []);
 
   const {
     status: updateStatus,
@@ -977,20 +955,6 @@ export default function SettingsPage({
   const permissionsHook = usePermissions(showAlertDialog, { active: settingsVisible });
   const systemAudio = useSystemAudioPermission();
   useClipboard(showAlertDialog);
-  const [audioStorageUsage, setAudioStorageUsage] = useState<{
-    fileCount: number;
-    totalBytes: number;
-  }>({ fileCount: 0, totalBytes: 0 });
-
-  useEffect(() => {
-    if (!settingsVisible || page !== "privacyData") return;
-    window.electronAPI
-      ?.getAudioStorageUsage?.()
-      .then((usage: { fileCount: number; totalBytes: number }) => {
-        if (usage) setAudioStorageUsage(usage);
-      })
-      .catch(() => {});
-  }, [page, settingsVisible]);
 
   // Lazy keep-alive: a page mounts on its first visit, then stays mounted
   // (hidden) so editor drafts, model-download progress and IPC listeners
@@ -1002,17 +966,6 @@ export default function SettingsPage({
   if (!visitedPages.has(page)) {
     setVisitedPages(new Set([...visitedPages, page]));
   }
-
-  const handleClearAllAudio = async () => {
-    if (!window.electronAPI?.deleteAllAudio) return;
-    try {
-      await window.electronAPI.deleteAllAudio();
-      setAudioStorageUsage({ fileCount: 0, totalBytes: 0 });
-      toast({ title: t("settingsPage.privacy.clearAllAudio"), variant: "default" });
-    } catch {
-      // silent fail
-    }
-  };
 
   // Wayland paste tool status for diagnostics.
   const [ydotoolStatus, setYdotoolStatus] = useState<{
@@ -1437,54 +1390,6 @@ export default function SettingsPage({
       },
     });
   };
-
-  const handleRemoveModels = useCallback(() => {
-    if (isRemovingModels) return;
-
-    showConfirmDialog({
-      title: t("settingsPage.developer.removeModels.title"),
-      description: t("settingsPage.developer.removeModels.description", { path: cachePathHint }),
-      confirmText: t("settingsPage.developer.removeModels.confirmText"),
-      variant: "destructive",
-      onConfirm: async () => {
-        setIsRemovingModels(true);
-        try {
-          const results = await Promise.allSettled([
-            window.electronAPI?.deleteAllWhisperModels?.(),
-            window.electronAPI?.deleteAllParakeetModels?.(),
-            window.electronAPI?.modelDeleteAll?.(),
-          ]);
-
-          const anyFailed = results.some(
-            (r) =>
-              r.status === "rejected" || (r.status === "fulfilled" && r.value && !r.value.success)
-          );
-
-          if (anyFailed) {
-            showAlertDialog({
-              title: t("settingsPage.developer.removeModels.failedTitle"),
-              description: t("settingsPage.developer.removeModels.failedDescription"),
-            });
-          } else {
-            // Every local model is gone, so no local selection can still resolve.
-            clearMissingLocalModelSelections(() => false);
-            window.dispatchEvent(new Event("openwhispr-models-cleared"));
-            showAlertDialog({
-              title: t("settingsPage.developer.removeModels.successTitle"),
-              description: t("settingsPage.developer.removeModels.successDescription"),
-            });
-          }
-        } catch {
-          showAlertDialog({
-            title: t("settingsPage.developer.removeModels.failedTitle"),
-            description: t("settingsPage.developer.removeModels.failedDescriptionShort"),
-          });
-        } finally {
-          setIsRemovingModels(false);
-        }
-      },
-    });
-  }, [isRemovingModels, cachePathHint, showConfirmDialog, showAlertDialog, t]);
 
   const { isSignedIn, isLoaded, user, refetch } = useAuth();
   const {
@@ -4214,76 +4119,7 @@ EOF`,
               )}
             </div>
 
-            {/* Audio Retention */}
-            <div className="border-t border-border/70 pt-6">
-              <SectionHeader
-                title={t("settingsPage.privacy.audioRetention")}
-                description={t("settingsPage.privacy.audioRetentionDescription")}
-              />
-
-              <SettingsPanel>
-                <SettingsPanelRow data-setting-id="privacy.audioRetention">
-                  <SettingsRow
-                    label={t("settingsPage.privacy.audioRetention")}
-                    description={t("settingsPage.privacy.audioRetentionDescription")}
-                  >
-                    <select
-                      value={enforcedAudioRetentionDays}
-                      onChange={(e) => {
-                        const days = parseInt(e.target.value, 10);
-                        if (audioRetentionCap !== null && days > audioRetentionCap) return;
-                        setAudioRetentionDays(days);
-                      }}
-                      className={RETENTION_SELECT_CLASS}
-                    >
-                      <option value={0}>{t("settingsPage.privacy.audioRetentionDisabled")}</option>
-                      {enforcedAudioRetentionDays > 0 &&
-                        !RETENTION_DAY_OPTIONS.includes(enforcedAudioRetentionDays) && (
-                          <option value={enforcedAudioRetentionDays}>
-                            {t("settingsPage.privacy.retentionDays", {
-                              count: enforcedAudioRetentionDays,
-                            })}
-                          </option>
-                        )}
-                      {RETENTION_DAY_OPTIONS.map((days) => (
-                        <option
-                          key={days}
-                          value={days}
-                          disabled={audioRetentionCap !== null && days > audioRetentionCap}
-                        >
-                          {t("settingsPage.privacy.retentionDays", { count: days })}
-                        </option>
-                      ))}
-                    </select>
-                  </SettingsRow>
-                </SettingsPanelRow>
-                <SettingsPanelRow data-setting-id="privacy.audioStorage">
-                  <SettingsRow
-                    label={t("settingsPage.privacy.audioStorageUsage")}
-                    description={
-                      audioStorageUsage.fileCount > 0
-                        ? t("settingsPage.privacy.audioStorageFiles", {
-                            count: audioStorageUsage.fileCount,
-                            size: formatBytes(audioStorageUsage.totalBytes),
-                          })
-                        : t("settingsPage.privacy.audioStorageEmpty")
-                    }
-                  >
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-7 text-xs"
-                      disabled={audioStorageUsage.fileCount === 0}
-                      onClick={handleClearAllAudio}
-                    >
-                      {t("settingsPage.privacy.clearAllAudio")}
-                    </Button>
-                  </SettingsRow>
-                </SettingsPanelRow>
-              </SettingsPanel>
-            </div>
-
-            {/* Data Retention */}
+            {/* Data Retention (recordings and logs are managed on Storage; summarized here) */}
             <div className="border-t border-border/70 pt-6">
               <SettingsPanel>
                 <SettingsPanelRow data-setting-id="privacy.history">
@@ -4313,12 +4149,11 @@ EOF`,
                       onChange={(e) => setTranscriptRetentionDays(parseInt(e.target.value, 10))}
                       className={RETENTION_SELECT_CLASS}
                     >
-                      <option value={0}>
-                        {t("settingsPage.privacy.transcriptRetentionForever")}
-                      </option>
-                      {RETENTION_DAY_OPTIONS.map((days) => (
+                      {transcriptRetentionChoices(transcriptRetentionDays).map((days) => (
                         <option key={days} value={days}>
-                          {t("settingsPage.privacy.retentionDays", { count: days })}
+                          {days === 0
+                            ? t("settingsPage.privacy.transcriptRetentionForever")
+                            : retentionPeriodLabel(days, t)}
                         </option>
                       ))}
                     </select>
@@ -4336,6 +4171,7 @@ EOF`,
                     />
                   </SettingsRow>
                 </SettingsPanelRow>
+                <PrivacyStorageSummary showing={page === "privacyData"} />
               </SettingsPanel>
             </div>
 
@@ -4635,48 +4471,11 @@ EOF`,
               <DiagnosticsSection showing={page === "system"} />
             </div>
 
-            {/* Data Management */}
+            {/* Reset (the model cache, sizes and folders are on Storage) */}
             <div className="border-t border-border/70 pt-6">
-              <SectionHeader
-                title={t("settingsPage.developer.dataManagementTitle")}
-                description={t("settingsPage.developer.dataManagementDescription")}
-              />
+              <SectionHeader title={t("settingsPage.developer.dataManagementTitle")} />
 
               <div className="space-y-4">
-                <SettingsPanel>
-                  <SettingsPanelRow data-setting-id="system.data.modelCache">
-                    <SettingsRow
-                      label={t("settingsPage.developer.modelCache")}
-                      description={
-                        <span dir="ltr" className="block break-all">
-                          {cachePathHint}
-                        </span>
-                      }
-                    >
-                      <div className="flex items-center gap-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => window.electronAPI?.openWhisperModelsFolder?.()}
-                        >
-                          <FolderOpen className="me-1.5 h-3.5 w-3.5" />
-                          {t("settingsPage.developer.open")}
-                        </Button>
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          onClick={handleRemoveModels}
-                          disabled={isRemovingModels}
-                        >
-                          {isRemovingModels
-                            ? t("settingsPage.developer.removing")
-                            : t("settingsPage.developer.clearCache")}
-                        </Button>
-                      </div>
-                    </SettingsRow>
-                  </SettingsPanelRow>
-                </SettingsPanel>
-
                 <SettingsPanel>
                   <SettingsPanelRow data-setting-id="system.data.reset">
                     <SettingsRow

@@ -55,7 +55,7 @@ function discardSession(sessionId) {
   write((store) => store.delete(IDBKeyRange.bound([sessionId, 0], [sessionId, Infinity])));
 }
 
-export function startRecordingSpool(routeKind = null) {
+export function startRecordingSpool(routeKind = null, { recordingQuality = null } = {}) {
   const sessionId = crypto.randomUUID();
   const startedAt = Date.now();
   let seq = 0;
@@ -76,6 +76,8 @@ export function startRecordingSpool(routeKind = null) {
           segment,
           mimeType,
           routeKind,
+          // The recording's quality, so a recovered one merges at its own bitrate.
+          recordingQuality,
           startedAt,
           at: Date.now(),
           chunk,
@@ -112,6 +114,7 @@ export async function takeInterruptedRecordings() {
       session = {
         startedAt: row.startedAt,
         routeKind: row.routeKind,
+        recordingQuality: row.recordingQuality ?? null,
         lastAt: row.at,
         segments: [],
       };
@@ -127,6 +130,7 @@ export async function takeInterruptedRecordings() {
     startedAt: session.startedAt,
     durationMs: session.lastAt - session.startedAt,
     routeKind: session.routeKind,
+    recordingQuality: session.recordingQuality,
     segments: session.segments
       .filter(Boolean)
       .map(({ mimeType, chunks }) => new Blob(chunks, { type: mimeType })),

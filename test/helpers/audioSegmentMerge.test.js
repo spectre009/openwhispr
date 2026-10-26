@@ -63,3 +63,65 @@ test("merges independent WebM recorder segments into one decodable timeline", as
     fs.rmSync(tempDir, { recursive: true, force: true });
   }
 });
+
+function loadFfmpegUtils() {
+  const originalLoad = Module._load;
+  Module._load = function loadWithElectronStub(request, parent, isMain) {
+    if (request === "electron") return { app: { isReady: () => false } };
+    return originalLoad.call(this, request, parent, isMain);
+  };
+  try {
+    return require("../../src/helpers/ffmpegUtils");
+  } finally {
+    Module._load = originalLoad;
+  }
+}
+
+// The merge encodes at the recording's quality (Settings › Storage ›
+// Recordings): Smaller's 32k comes out about half the size of the 64k that
+// Balanced and Original use; a malformed bitrate falls back to 64k.
+test("merged audio takes the bitrate it's given", async (t) => {
+  const ffmpeg = loadFfmpegUtils();
+  const ffmpegPath = ffmpeg.getFFmpegPath();
+  if (!ffmpegPath) {
+    t.skip("FFmpeg is not available");
+    return;
+  }
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "openwhispr-merge-bitrate-"));
+  try {
+    const segments = [];
+    for (let index = 0; index < 2; index += 1) {
+      const segmentPath = path.join(tempDir, `noise-${index}.webm`);
+      const generated = spawnSync(
+        ffmpegPath,
+        [
+          "-f",
+          "lavfi",
+          "-i",
+          `anoisesrc=color=pink:sample_rate=48000:seed=${index + 1}`,
+          "-t",
+          "4",
+          "-c:a",
+          "libopus",
+          "-b:a",
+          "128k",
+          "-y",
+          segmentPath,
+        ],
+        { windowsHide: true }
+      );
+      assert.equal(generated.status, 0, generated.stderr?.toString());
+      segments.push({ buffer: fs.readFileSync(segmentPath), mimeType: "audio/webm" });
+    }
+    const at32 = await ffmpeg.mergeAudioSegments(segments, { bitrate: "32k" });
+    const at64 = await ffmpeg.mergeAudioSegments(segments, { bitrate: "64k" });
+    const fallback = await ffmpeg.mergeAudioSegments(segments, { bitrate: "64k; rm -rf" });
+    assert.ok(at32.length < at64.length * 0.75, `32k ${at32.length} vs 64k ${at64.length}`);
+    assert.ok(
+      Math.abs(fallback.length - at64.length) < at64.length * 0.1,
+      `fallback ${fallback.length} vs 64k ${at64.length}`
+    );
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+});

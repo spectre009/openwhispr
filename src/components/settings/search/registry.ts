@@ -1063,24 +1063,31 @@ export const SETTINGS_SEARCH_DESCRIPTORS: readonly SettingDescriptor[] = [
     aliases: ["telemetry", "analytics", "tracking", "usage data"],
     available: cloudOn,
   }),
-  row("privacy.audioRetention", PRIVACY, "settingsPage.privacy.audioRetention", {
-    descriptionKey: "settingsPage.privacy.audioRetentionDescription",
-    aliases: ["recordings", "audio files", "keep audio", "retention", "delete audio"],
-  }),
-  row("privacy.audioStorage", PRIVACY, "settingsPage.privacy.audioStorageUsage", {
-    aliases: ["disk space", "delete audio", "clear audio", "storage"],
-  }),
   row("privacy.history", PRIVACY, "settingsPage.privacy.dataRetention", {
     descriptionKey: "settingsPage.privacy.dataRetentionDescription",
     aliases: ["history", "save transcriptions", "transcript history", "local history"],
   }),
   row("privacy.transcriptRetention", PRIVACY, "settingsPage.privacy.transcriptRetention", {
     descriptionKey: "settingsPage.privacy.transcriptRetentionDescription",
-    aliases: ["delete history", "retention", "auto delete", "keep transcripts"],
+    aliases: [
+      "delete history",
+      "retention",
+      "auto delete",
+      "keep transcripts",
+      "6 months",
+      "1 year",
+    ],
   }),
   row("privacy.saveDiscarded", PRIVACY, "settingsPage.privacy.saveDiscarded", {
     descriptionKey: "settingsPage.privacy.saveDiscardedDescription",
     aliases: ["cancelled", "discarded", "canceled recordings"],
+  }),
+  // Summaries of what Storage manages; the settings themselves moved there.
+  row("privacy.recordingsSummary", PRIVACY, "settingsPage.privacy.recordingsSummary.label", {
+    aliases: ["recordings summary", "manage recordings"],
+  }),
+  row("privacy.logsSummary", PRIVACY, "settingsPage.privacy.logsSummary.label", {
+    aliases: ["logs summary", "manage logs"],
   }),
   row("privacy.permissions", PRIVACY, "settingsPage.permissions.title", {
     descriptionKey: "settingsPage.permissions.description",
@@ -1117,7 +1124,85 @@ export const SETTINGS_SEARCH_DESCRIPTORS: readonly SettingDescriptor[] = [
 
   // ── Storage ──────────────────────────────────────────────────────────────
   page("page.storage", "storage", {
-    aliases: ["storage", "disk space", "disk usage", "where data lives", "logs", "debug"],
+    aliases: [
+      "storage",
+      "disk space",
+      "disk usage",
+      "where data lives",
+      "where are my files",
+      "logs",
+      "debug",
+      "recordings",
+      "cache",
+      "database",
+      "folder",
+    ],
+  }),
+  row("storage.inventory", STORAGE, "settingsPage.storage.overview.title", {
+    descriptionKey: "settingsPage.storage.overview.description",
+    aliases: [
+      "disk space",
+      "disk usage",
+      "storage",
+      "size",
+      "what takes space",
+      "where are my files",
+      "where data lives",
+    ],
+  }),
+  // These two keep their ids from when audio retention and storage were on Privacy & Data.
+  row("privacy.audioRetention", STORAGE, "settingsPage.storage.recordings.retention.label", {
+    descriptionKey: "settingsPage.storage.recordings.retention.description",
+    groupKey: "settingsPage.storage.recordings.title",
+    aliases: [
+      "recordings",
+      "audio files",
+      "keep audio",
+      "keep recordings",
+      "audio retention",
+      "retention",
+      "delete audio",
+      "6 months",
+      "1 year",
+    ],
+  }),
+  row("privacy.audioStorage", STORAGE, "settingsPage.storage.recordings.folder.label", {
+    groupKey: "settingsPage.storage.recordings.title",
+    aliases: [
+      "disk space",
+      "delete audio",
+      "clear audio",
+      "clear recordings",
+      "delete recordings",
+      "recordings size",
+      "storage",
+    ],
+    aliasKeys: ["settingsPage.storage.recordings.clear.button"],
+  }),
+  row("storage.recordings.quality", STORAGE, "settingsPage.storage.recordings.quality.label", {
+    descriptionKey: "settingsPage.storage.recordings.quality.description",
+    groupKey: "settingsPage.storage.recordings.title",
+    aliases: [
+      "recording quality",
+      "audio quality",
+      "bitrate",
+      "kbps",
+      "opus",
+      "file size",
+      "smaller recordings",
+      "compress audio",
+    ],
+  }),
+  row("storage.recordings.folder", STORAGE, "settingsPage.storage.recordings.folder.open", {
+    groupKey: "settingsPage.storage.recordings.title",
+    aliases: [
+      "recordings folder",
+      "audio folder",
+      "open recordings folder",
+      "where are my recordings",
+      "where are my files",
+      "folder",
+    ],
   }),
   // These two keep their ids from when the debug switch and the logs folder were on System.
   row("system.developer.debug", STORAGE, "settingsPage.storage.logs.level.label", {
@@ -1165,6 +1250,68 @@ export const SETTINGS_SEARCH_DESCRIPTORS: readonly SettingDescriptor[] = [
     descriptionKey: "settingsPage.diagnostics.copy.description",
     groupKey: "settingsPage.storage.logs.title",
     aliases: ["copy diagnostics", "diagnostics", "bug report", "support info", "logs"],
+  }),
+  row("storage.database", STORAGE, "settingsPage.storage.database.title", {
+    descriptionKey: "settingsPage.storage.database.description",
+    aliases: [
+      "database",
+      "history database",
+      "sqlite",
+      "transcriptions.db",
+      "where are my files",
+      "folder",
+    ],
+  }),
+  row("storage.settings", STORAGE, "settingsPage.storage.items.settings.label", {
+    descriptionKey: "settingsPage.storage.items.settings.description",
+    groupKey: "settingsPage.storage.everythingElse.title",
+    aliases: ["settings file", "local storage", ".env", "where are my settings", "folder"],
+  }),
+  row("storage.secrets", STORAGE, "settingsPage.storage.items.secrets.label", {
+    descriptionKey: "settingsPage.storage.items.secrets.description",
+    groupKey: "settingsPage.storage.everythingElse.title",
+    aliases: ["api keys", "keys", "secure keys", "credentials", "where are my keys"],
+  }),
+  row("storage.models", STORAGE, "settingsPage.storage.items.models.label", {
+    descriptionKey: "settingsPage.storage.items.models.description",
+    groupKey: "settingsPage.storage.everythingElse.title",
+    aliases: [
+      "models folder",
+      "model size",
+      "downloaded models",
+      "where are my models",
+      "disk space",
+      "folder",
+    ],
+  }),
+  // Keeps its id from when the model cache row was on System.
+  row("system.data.modelCache", STORAGE, "settingsPage.storage.actions.removeModels", {
+    groupKey: "settingsPage.storage.items.models.label",
+    aliases: [
+      "model cache",
+      "delete models",
+      "remove models",
+      "clear cache",
+      "disk space",
+      "downloaded models",
+      "storage",
+    ],
+    aliasKeys: ["settingsPage.developer.modelCache"],
+  }),
+  row("storage.searchIndex", STORAGE, "settingsPage.storage.items.searchIndex.label", {
+    descriptionKey: "settingsPage.storage.items.searchIndex.description",
+    groupKey: "settingsPage.storage.everythingElse.title",
+    aliases: ["search index", "qdrant", "vector index", "note search", "cache", "disk space"],
+  }),
+  row("storage.appCache", STORAGE, "settingsPage.storage.items.appCache.label", {
+    descriptionKey: "settingsPage.storage.items.appCache.description",
+    groupKey: "settingsPage.storage.everythingElse.title",
+    aliases: ["cache", "clear cache", "app cache", "gpu cache", "browser cache", "disk space"],
+  }),
+  row("storage.cliBridge", STORAGE, "settingsPage.storage.items.cliBridge.label", {
+    descriptionKey: "settingsPage.storage.items.cliBridge.description",
+    groupKey: "settingsPage.storage.everythingElse.title",
+    aliases: ["cli", "command line", "cli bridge", "token", "terminal"],
   }),
 
   // ── System ───────────────────────────────────────────────────────────────
@@ -1220,10 +1367,6 @@ export const SETTINGS_SEARCH_DESCRIPTORS: readonly SettingDescriptor[] = [
       "problems",
     ],
     aliasKeys: ["settingsPage.diagnostics.copy.label", "settingsPage.diagnostics.manage"],
-  }),
-  row("system.data.modelCache", SYSTEM, "settingsPage.developer.modelCache", {
-    groupKey: "settingsPage.developer.dataManagementTitle",
-    aliases: ["delete models", "clear cache", "disk space", "downloaded models", "storage"],
   }),
   row("system.data.reset", SYSTEM, "settingsPage.developer.resetAppData", {
     descriptionKey: "settingsPage.developer.resetAppDataDescription",

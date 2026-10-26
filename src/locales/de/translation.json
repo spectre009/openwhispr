@@ -2710,7 +2710,7 @@
         "description": "Dies löscht dauerhaft Ihr OpenWhispr-Konto und Ihre persönlichen Daten. Arbeitsbereichsdaten und Daten anderer lokaler Benutzer bleiben auf diesem Gerät erhalten.",
         "confirmText": "Konto löschen",
         "eraseDeviceLabel": "Auch alle Daten von diesem Gerät löschen",
-        "eraseDeviceDescription": "Löscht Notizen und Arbeitsbereichscaches aller lokalen Benutzer, heruntergeladene Modelle, Einstellungen, Kalenderverbindungen, Anmeldedaten und Aufnahmen.",
+        "eraseDeviceDescription": "Löscht Notizen und Arbeitsbereichscaches aller lokalen Benutzer, heruntergeladene Modelle, den Suchindex, Einstellungen, Kalenderverbindungen, Anmeldedaten und Aufnahmen. Protokolle bleiben erhalten; du löschst sie unter Speicher › Protokolle.",
         "eraseDeviceWarning": "Diese geräteweite Löschung kann nicht rückgängig gemacht werden und betrifft alle lokalen Benutzer.",
         "successTitle": "Konto gelöscht",
         "successDescription": "Ihr Konto und Ihre persönlichen Daten wurden gelöscht. Andere lokale Benutzer, Arbeitsbereiche, Modelle und Geräteeinstellungen blieben erhalten.",
@@ -2836,11 +2836,8 @@
       }
     },
     "developer": {
-      "clearCache": "Cache leeren",
-      "dataManagementDescription": "Zwischengespeicherte Modelle und App-Daten verwalten",
       "dataManagementTitle": "Datenverwaltung",
       "modelCache": "Modell-Cache",
-      "open": "Öffnen",
       "removeModels": {
         "confirmText": "Modelle löschen",
         "description": "Dadurch werden alle lokal zwischengespeicherten Whisper-Modelle ({{path}}) gelöscht und Speicherplatz freigegeben. Sie können sie über die Modellauswahl erneut herunterladen.",
@@ -2854,7 +2851,7 @@
       "removing": "Wird entfernt...",
       "resetAll": {
         "confirmText": "Alles löschen",
-        "description": "Dies löscht dauerhaft alle lokalen Einstellungen, Transkriptionen, Audioaufnahmen, heruntergeladene KI-Modelle, Kalenderverbindungen und zwischengespeicherte Daten. Cloud-Daten und Ihr Konto werden nicht beeinträchtigt. Die App wird nach dem Zurücksetzen neu gestartet.",
+        "description": "Dies löscht dauerhaft alle lokalen Einstellungen, Transkriptionen, Notizen, Audioaufnahmen, API-Schlüssel und Anmeldungen, Kalenderverbindungen, heruntergeladene KI-Modelle, den Suchindex und zwischengespeicherte Daten. Protokolle bleiben erhalten; du löschst sie unter Speicher › Protokolle. Cloud-Daten und Ihr Konto werden nicht beeinträchtigt. Die App wird nach dem Zurücksetzen neu gestartet.",
         "failedDescription": "Etwas ist schiefgelaufen. Bitte versuchen Sie es erneut oder installieren Sie die App neu.",
         "failedTitle": "Zurücksetzen fehlgeschlagen",
         "successDescription": "Alles wurde zurückgesetzt. Die App wird jetzt neu gestartet.",
@@ -2862,7 +2859,7 @@
         "title": "Alle App-Daten zurücksetzen"
       },
       "resetAppData": "App-Daten zurücksetzen",
-      "resetAppDataDescription": "Alle lokalen Einstellungen, Transkriptionen, Audioaufnahmen, heruntergeladene Modelle und zwischengespeicherte Daten dauerhaft löschen"
+      "resetAppDataDescription": "Löscht alles, was OpenWhispr auf diesem Computer speichert (Verlauf, Notizen, Aufnahmen, Einstellungen, Schlüssel und Anmeldungen, heruntergeladene Modelle und den Suchindex), und startet dann neu. Protokolle bleiben erhalten; du löschst sie unter Speicher › Protokolle."
     },
     "dictionary": {
       "title": "Benutzerwörterbuch",
@@ -3246,17 +3243,8 @@
       "leaderboardRequiresHistory": "Aktivieren Sie die Datenaufbewahrung, bevor Sie Bestenlisten beitreten.",
       "usageAnalytics": "Nutzungsanalysen",
       "usageAnalyticsDescription": "Helfen Sie uns, OpenWhispr zu verbessern, indem Sie anonyme Leistungsdaten teilen. Wir senden niemals Transkriptionsinhalte – nur Timing- und Fehlerdaten.",
-      "audioRetention": "Audio-Aufbewahrung",
-      "audioRetentionDescription": "Diktat-Audio lokal für erneute Transkription und Download speichern. Dateien werden nach Ablauf der Aufbewahrungsfrist automatisch gelöscht. Meeting-Audio wird niemals gespeichert.",
-      "audioRetentionDisabled": "Deaktiviert",
       "retentionDays_one": "{{count}} Tag",
       "retentionDays_other": "{{count}} Tage",
-      "audioStorageUsage": "Speicherverbrauch",
-      "audioStorageUsageDescription": "Auf diesem Gerät gespeicherte Audiodateien",
-      "audioStorageFiles": "{{count}} Dateien, {{size}}",
-      "audioStorageEmpty": "Keine Audiodateien gespeichert",
-      "clearAllAudio": "Alle Audiodateien löschen",
-      "clearAllAudioConfirm": "Alle gespeicherten Audiodateien löschen? Dies kann nicht rückgängig gemacht werden.",
       "dataRetention": "Datenaufbewahrung",
       "dataRetentionDescription": "Transkriptionen und Audio lokal im Verlauf speichern. Wenn deaktiviert, werden Transkriptionen eingefügt, aber nicht gespeichert.",
       "transcriptRetention": "Transkript-Aufbewahrung",
@@ -3267,7 +3255,15 @@
       "lastSynced": "Zuletzt synchronisiert {{time}}",
       "minutesAgo": "vor {{count}} Min.",
       "saveDiscarded": "Verworfene Diktate speichern",
-      "saveDiscardedDescription": "Wenn Sie ein Diktat mit Escape abbrechen, bleibt das Audio im Verlauf, damit Sie es wiederherstellen können. Erfordert aktive Daten- und Audio-Aufbewahrung."
+      "saveDiscardedDescription": "Wenn Sie ein Diktat mit Escape abbrechen, bleibt das Audio im Verlauf, damit Sie es wiederherstellen können. Erfordert aktive Daten- und Audio-Aufbewahrung.",
+      "recordingsSummary": {
+        "label": "Aufnahmen",
+        "kept": "{{period}} behalten",
+        "notSaved": "Nicht gespeichert"
+      },
+      "logsSummary": {
+        "label": "Protokolle"
+      }
     },
     "prompts": {
       "description": "Den einheitlichen System-Prompt anzeigen, anpassen und testen, der Textbereinigung und Anweisungserkennung steuert",
@@ -3509,6 +3505,141 @@
             "fatal": "Schwerwiegend"
           }
         }
+      },
+      "retentionPeriods": {
+        "sixMonths": "6 Monate",
+        "oneYear": "1 Jahr"
+      },
+      "measuring": "Wird gemessen…",
+      "measureFailed": "Die Größen konnten nicht gemessen werden. Versuche „Aktualisieren“.",
+      "overview": {
+        "title": "Auf diesem Computer",
+        "total": "{{size}} insgesamt",
+        "description": "Die Größen werden beim Öffnen dieser Seite gemessen und eine Minute lang behalten; „Aktualisieren“ misst neu. Hier lassen sich nur Aufnahmen, Protokolle und der App-Cache löschen.",
+        "other": "Einstellungen, Schlüssel und CLI"
+      },
+      "recordings": {
+        "title": "Aufnahmen",
+        "description": "Das Audio jedes Diktats, damit du es im Verlauf abspielen und erneut transkribieren kannst.",
+        "retention": {
+          "label": "Aufnahmen behalten für",
+          "description": "Ältere Aufnahmen werden automatisch gelöscht. Meeting-Audio wird nie gespeichert.",
+          "off": "Aus (nicht behalten)",
+          "historyOff": "Wird nicht gespeichert, solange der lokale Verlauf aus ist (Datenschutz & Daten).",
+          "neverLonger": "Nie länger behalten als das zugehörige Transkript.",
+          "effective": "Transkripte werden {{period}} lang behalten, daher gehen die Aufnahmen nach {{period}} mit ihnen."
+        },
+        "quality": {
+          "label": "Aufnahmequalität",
+          "description": "Wie neue Diktate aufgenommen werden; das ist auch das Audio, das an einen Cloud-Spracherkennungsdienst geht. Eine Änderung gilt ab der nächsten Aufnahme. Meetings, hochgeladene Dateien und Sprachnachrichten im Chat sind nicht betroffen.",
+          "default": "Standard",
+          "smaller": {
+            "name": "Kleiner",
+            "detail": "Opus, 32 kbit/s. Klare Sprache bei etwa einem Viertel der Größe."
+          },
+          "balanced": {
+            "name": "Ausgewogen",
+            "detail": "Opus, 64 kbit/s. Etwa die halbe Größe."
+          },
+          "original": {
+            "name": "Original",
+            "detail": "Opus, etwa 128 kbit/s, wie bisher aufgenommen."
+          },
+          "perMinute": "~{{size}} KB / Min.",
+          "estimate": "~{{size}} für {{period}} (Schätzung)",
+          "pace": "Schätzungen nach deinem Tempo: etwa {{minutes}} Aufnahmen pro Tag in den letzten 30 Tagen des Verlaufs.",
+          "noPace": "Noch keine Schätzung: keine Aufnahmen mit bekannter Länge in den letzten 30 Tagen des Verlaufs.",
+          "noEstimateKept": "Aufnahmen werden nicht behalten, es gibt also nichts zu schätzen; die Qualität bestimmt trotzdem, was an einen Cloud-Spracherkennungsdienst geht.",
+          "measured": "Gemessen an 30 Diktaten mit Azure gpt-4o-transcribe: bis hinunter zu 32 kbit/s kein Unterschied. Mit anderen Anbietern noch nicht geprüft."
+        },
+        "folder": {
+          "label": "Aufnahmeordner",
+          "empty": "Keine Aufnahmen gespeichert",
+          "open": "Ordner öffnen",
+          "openFailed": "Der Aufnahmeordner konnte nicht geöffnet werden."
+        },
+        "clear": {
+          "button": "Alle Aufnahmen löschen",
+          "title": "Alle Aufnahmen löschen?",
+          "description": "Löscht jede gespeicherte Aufnahme. Transkripte bleiben im Verlauf. Das lässt sich nicht rückgängig machen.",
+          "done": "Alle Aufnahmen gelöscht.",
+          "partial": "Einige Aufnahmen konnten nicht gelöscht werden (in Verwendung?) und liegen noch im Ordner: {{remaining}}.",
+          "failed": "Die Aufnahmen konnten nicht gelöscht werden."
+        }
+      },
+      "database": {
+        "title": "Verlaufsdatenbank",
+        "description": "Eine SQLite-Datei mit dem, was du diktiert hast, und wie es verarbeitet wurde. Den Verlauf löschst du unter Datenschutz & Daten.",
+        "counts": {
+          "dictations": "Diktate",
+          "stepRecords": "Schrittprotokolle",
+          "reviews": "Bewertungen",
+          "testCases": "Testfälle",
+          "dictionaryWords": "Wörterbucheinträge",
+          "glossaryRules": "Glossarregeln",
+          "notes": "Notizen"
+        },
+        "countsUnavailable": "Der Inhalt konnte nicht gelesen werden.",
+        "file": "Datei",
+        "clearHistory": "Verlauf unter Datenschutz & Daten löschen"
+      },
+      "everythingElse": {
+        "title": "Alles andere",
+        "description": "Diese Daten haben eigene sichere Wege, sie zu ändern, und werden hier nie als Dateien gelöscht; nur der App-Cache lässt sich leeren."
+      },
+      "items": {
+        "settings": {
+          "label": "Einstellungen",
+          "description": "Deine Einstellungen im Browserspeicher der App, dazu einige in .env, die der Start braucht."
+        },
+        "secrets": {
+          "label": "API-Schlüssel und Anmeldungen",
+          "description": "Verschlüsselte Dateien; der Schlüssel dazu liegt im Anmeldeinformationsspeicher des Systems."
+        },
+        "models": {
+          "label": "Lokale Modelle",
+          "description": "Modelle für Spracherkennung, Sprechererkennung, Sprachverarbeitung und Notizsuche auf diesem Computer."
+        },
+        "searchIndex": {
+          "label": "Suchindex",
+          "description": "Findet Notizen nach Bedeutung. Er reserviert Platz in großen Blöcken und kann daher schon bei wenigen Notizen groß sein; gelöscht wird er neu aufgebaut."
+        },
+        "appCache": {
+          "label": "App-Cache",
+          "description": "Die Web-, Code- und GPU-Caches von Chromium. Kann gefahrlos geleert werden: Nichts Gespeichertes liegt darin."
+        },
+        "cliBridge": {
+          "label": "Kommandozeilen-Brücke",
+          "description": "Das Token, mit dem das Kommandozeilenwerkzeug openwhispr diese App erreicht."
+        },
+        "selfhost": {
+          "label": "Selbst gebaute Versionen",
+          "description": "Releases, Datensicherungen und Ship-Protokolle von selfhost.js. Wird nicht gemessen, und „App-Daten zurücksetzen“ lässt den Ordner unberührt.",
+          "tag": "dieser Fork"
+        }
+      },
+      "modelKinds": {
+        "whisper": "Whisper",
+        "parakeet": "Parakeet und Cohere",
+        "diarization": "Sprechererkennung",
+        "llm": "Sprachmodelle",
+        "embedding": "Notizsuche"
+      },
+      "actions": {
+        "copyPath": "Pfad kopieren",
+        "openFolder": "Ordner öffnen",
+        "showInFolder": "Im Ordner anzeigen",
+        "clear": "Leeren",
+        "openFailed": "Konnte nicht geöffnet werden. Vielleicht gibt es das noch nicht.",
+        "notCreated": "Noch nicht angelegt",
+        "manageModels": "In KI-Verbindungen verwalten",
+        "removeModels": "Alle Modelle entfernen"
+      },
+      "appCache": {
+        "clearTitle": "App-Cache leeren?",
+        "clearDescription": "Leert die Web- und Code-Caches von Chromium. Einstellungen, Verlauf und Anmeldungen bleiben unberührt; die App kann etwas langsamer sein, bis sich die Caches wieder füllen.",
+        "cleared": "App-Cache geleert.",
+        "clearFailed": "Der App-Cache konnte nicht geleert werden."
       }
     },
     "diagnostics": {

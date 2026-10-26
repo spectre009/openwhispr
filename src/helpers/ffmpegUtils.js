@@ -464,11 +464,13 @@ function splitAudioFile(inputPath, outputDir, options = {}) {
   });
 }
 
-async function mergeAudioSegments(segments) {
+async function mergeAudioSegments(segments, { bitrate = "64k" } = {}) {
   if (!Array.isArray(segments) || segments.length === 0) {
     throw new Error("At least one audio segment is required");
   }
   if (segments.length === 1) return Buffer.from(segments[0].buffer);
+  // The recording's quality decides it (utils/recordingQuality.js mergeBitrateFor).
+  const audioBitrate = /^\d{2,3}k$/.test(bitrate) ? bitrate : "64k";
 
   const ffmpegPath = getFFmpegPath();
   if (!ffmpegPath) throw new Error("FFmpeg not found - required for audio segment recovery");
@@ -506,7 +508,7 @@ async function mergeAudioSegments(segments) {
         "-c:a",
         "libopus",
         "-b:a",
-        "64k",
+        audioBitrate,
         "-y",
         outputPath
       );

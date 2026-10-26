@@ -2710,7 +2710,7 @@
         "description": "Cela supprime définitivement votre compte OpenWhispr et vos données personnelles. Le contenu des espaces de travail et les données des autres utilisateurs locaux restent sur cet appareil.",
         "confirmText": "Supprimer le compte",
         "eraseDeviceLabel": "Effacer aussi toutes les données de cet appareil",
-        "eraseDeviceDescription": "Supprime les notes et caches d’espaces de tous les utilisateurs locaux, les modèles téléchargés, paramètres, calendriers, identifiants et enregistrements.",
+        "eraseDeviceDescription": "Supprime les notes et caches d’espaces de tous les utilisateurs locaux, les modèles téléchargés, l’index de recherche, paramètres, calendriers, identifiants et enregistrements. Les journaux sont conservés ; effacez-les dans Stockage › Journaux.",
         "eraseDeviceWarning": "Cet effacement de l’appareil est irréversible et affecte tous les utilisateurs locaux.",
         "successTitle": "Compte supprimé",
         "successDescription": "Votre compte et vos données personnelles ont été supprimés. Les autres utilisateurs locaux, espaces de travail, modèles et paramètres ont été conservés.",
@@ -2836,11 +2836,8 @@
       }
     },
     "developer": {
-      "clearCache": "Vider le cache",
-      "dataManagementDescription": "Gérez les modèles en cache et les données de l'application",
       "dataManagementTitle": "Gestion des données",
       "modelCache": "Cache des modèles",
-      "open": "Ouvrir",
       "removeModels": {
         "confirmText": "Supprimer les modèles",
         "description": "Cela supprime tous les modèles Whisper mis en cache localement ({{path}}) et libère de l'espace disque. Vous pouvez les retélécharger depuis le sélecteur de modèles.",
@@ -2854,7 +2851,7 @@
       "removing": "Suppression...",
       "resetAll": {
         "confirmText": "Tout supprimer",
-        "description": "Cela supprimera définitivement tous les paramètres locaux, transcriptions, enregistrements audio, modèles IA téléchargés, connexions de calendrier et données en cache. Les données cloud et votre compte ne seront pas affectés. L'application redémarrera après la réinitialisation.",
+        "description": "Cela supprimera définitivement tous les paramètres locaux, transcriptions, notes, enregistrements audio, clés d’API et connexions, connexions de calendrier, modèles IA téléchargés, l’index de recherche et les données en cache. Les journaux sont conservés ; effacez-les dans Stockage › Journaux. Les données cloud et votre compte ne seront pas affectés. L'application redémarrera après la réinitialisation.",
         "failedDescription": "Un problème est survenu. Veuillez réessayer ou réinstaller l'application.",
         "failedTitle": "Impossible de réinitialiser",
         "successDescription": "Tout a été réinitialisé. L'application va redémarrer.",
@@ -2862,7 +2859,7 @@
         "title": "Réinitialiser toutes les données de l'application"
       },
       "resetAppData": "Réinitialiser les données de l'application",
-      "resetAppDataDescription": "Supprimer définitivement tous les paramètres locaux, transcriptions, enregistrements audio, modèles téléchargés et données en cache"
+      "resetAppDataDescription": "Supprime tout ce qu’OpenWhispr conserve sur cet ordinateur (historique, notes, enregistrements, paramètres, clés et connexions, modèles téléchargés et index de recherche), puis redémarre. Les journaux restent ; effacez-les dans Stockage › Journaux."
     },
     "dictionary": {
       "title": "Dictionnaire personnalisé",
@@ -3246,17 +3243,8 @@
       "leaderboardRequiresHistory": "Activez la conservation des données avant de rejoindre les classements.",
       "usageAnalytics": "Analyse d'utilisation",
       "usageAnalyticsDescription": "Aidez-nous à améliorer OpenWhispr en partageant des métriques de performance anonymes. Nous n'envoyons jamais le contenu de vos transcriptions — uniquement des données de performance et d'erreurs.",
-      "audioRetention": "Conservation de l'audio",
-      "audioRetentionDescription": "Stocke l'audio de dictée localement pour la retranscription et le téléchargement. Les fichiers sont automatiquement supprimés après la période de conservation. L'audio des réunions n'est jamais stocké.",
-      "audioRetentionDisabled": "Désactivé",
       "retentionDays_one": "{{count}} jour",
       "retentionDays_other": "{{count}} jours",
-      "audioStorageUsage": "Espace utilisé",
-      "audioStorageUsageDescription": "Fichiers audio stockés sur cet appareil",
-      "audioStorageFiles": "{{count}} fichiers, {{size}}",
-      "audioStorageEmpty": "Aucun fichier audio stocké",
-      "clearAllAudio": "Supprimer tous les fichiers audio",
-      "clearAllAudioConfirm": "Supprimer tous les fichiers audio stockés ? Cette action est irréversible.",
       "dataRetention": "Conservation des données",
       "dataRetentionDescription": "Stocker les transcriptions et l'audio localement dans votre historique. Lorsque désactivé, les transcriptions sont collées mais pas enregistrées.",
       "transcriptRetention": "Conservation des transcriptions",
@@ -3267,7 +3255,15 @@
       "lastSynced": "Dernière synchronisation {{time}}",
       "minutesAgo": "il y a {{count}}min",
       "saveDiscarded": "Enregistrer les dictées abandonnées",
-      "saveDiscardedDescription": "Quand vous annulez une dictée avec Échap, conserve son audio dans l'historique pour pouvoir la récupérer. Nécessite la conservation des données et de l'audio."
+      "saveDiscardedDescription": "Quand vous annulez une dictée avec Échap, conserve son audio dans l'historique pour pouvoir la récupérer. Nécessite la conservation des données et de l'audio.",
+      "recordingsSummary": {
+        "label": "Enregistrements",
+        "kept": "Conservés {{period}}",
+        "notSaved": "Non conservés"
+      },
+      "logsSummary": {
+        "label": "Journaux"
+      }
     },
     "prompts": {
       "description": "Affichez, personnalisez et testez le prompt système unifié qui gère la correction du texte et la détection des instructions",
@@ -3509,6 +3505,141 @@
             "fatal": "Fatale"
           }
         }
+      },
+      "retentionPeriods": {
+        "sixMonths": "6 mois",
+        "oneYear": "1 an"
+      },
+      "measuring": "Mesure en cours…",
+      "measureFailed": "Impossible de mesurer les tailles. Essayez Actualiser.",
+      "overview": {
+        "title": "Sur cet ordinateur",
+        "total": "{{size}} au total",
+        "description": "Les tailles sont mesurées à l’ouverture de cette page et conservées une minute ; Actualiser les mesure à nouveau. Seuls les enregistrements, les journaux et le cache de l’application peuvent être effacés ici.",
+        "other": "Paramètres, clés et CLI"
+      },
+      "recordings": {
+        "title": "Enregistrements",
+        "description": "L’audio de chaque dictée, pour pouvoir la réécouter dans l’Historique et la transcrire à nouveau.",
+        "retention": {
+          "label": "Conserver les enregistrements",
+          "description": "Les enregistrements plus anciens sont supprimés automatiquement. L’audio des réunions n’est jamais conservé.",
+          "off": "Désactivé (ne pas conserver)",
+          "historyOff": "Rien n’est enregistré tant que l’historique local est désactivé (Confidentialité & données).",
+          "neverLonger": "Jamais conservé plus longtemps que sa transcription.",
+          "effective": "Les transcriptions sont conservées {{period}} : les enregistrements partent avec elles au bout de {{period}}."
+        },
+        "quality": {
+          "label": "Qualité d’enregistrement",
+          "description": "La façon dont les nouvelles dictées sont enregistrées, qui est aussi l’audio envoyé à un service de reconnaissance vocale dans le cloud. Un changement s’applique à partir du prochain enregistrement. Les réunions, les fichiers importés et les messages vocaux du chat ne sont pas concernés.",
+          "default": "Par défaut",
+          "smaller": {
+            "name": "Plus léger",
+            "detail": "Opus, 32 kbit/s. Une voix claire pour environ un quart de la taille."
+          },
+          "balanced": {
+            "name": "Équilibré",
+            "detail": "Opus, 64 kbit/s. Environ la moitié de la taille."
+          },
+          "original": {
+            "name": "Original",
+            "detail": "Opus, environ 128 kbit/s, comme jusqu’à présent."
+          },
+          "perMinute": "~{{size}} Ko / min",
+          "estimate": "~{{size}} pour {{period}} (estimation)",
+          "pace": "Les estimations suivent votre rythme : environ {{minutes}} d’enregistrement par jour sur les 30 derniers jours d’historique.",
+          "noPace": "Pas encore d’estimation : aucun enregistrement avec une durée dans les 30 derniers jours d’historique.",
+          "noEstimateKept": "Les enregistrements ne sont pas conservés, il n’y a donc rien à estimer ; la qualité décide quand même de ce qui est envoyé à un service de reconnaissance vocale dans le cloud.",
+          "measured": "Mesuré sur 30 dictées avec Azure gpt-4o-transcribe : aucune différence jusqu’à 32 kbit/s. Pas encore vérifié avec d’autres fournisseurs."
+        },
+        "folder": {
+          "label": "Dossier des enregistrements",
+          "empty": "Aucun enregistrement conservé",
+          "open": "Ouvrir le dossier",
+          "openFailed": "Impossible d’ouvrir le dossier des enregistrements."
+        },
+        "clear": {
+          "button": "Effacer tous les enregistrements",
+          "title": "Effacer tous les enregistrements ?",
+          "description": "Supprime tous les enregistrements conservés. Les transcriptions restent dans l’Historique. Action irréversible.",
+          "done": "Tous les enregistrements ont été supprimés.",
+          "partial": "Certains enregistrements n’ont pas pu être supprimés (en cours d’utilisation ?) et sont toujours dans le dossier : {{remaining}}.",
+          "failed": "Impossible d’effacer les enregistrements."
+        }
+      },
+      "database": {
+        "title": "Base de données de l’historique",
+        "description": "Un fichier SQLite avec ce que vous avez dicté et comment cela a été traité. L’historique s’efface dans Confidentialité & données.",
+        "counts": {
+          "dictations": "Dictées",
+          "stepRecords": "Étapes enregistrées",
+          "reviews": "Évaluations",
+          "testCases": "Cas de test",
+          "dictionaryWords": "Mots du dictionnaire",
+          "glossaryRules": "Règles du glossaire",
+          "notes": "Notes"
+        },
+        "countsUnavailable": "Impossible de lire son contenu.",
+        "file": "Fichier",
+        "clearHistory": "Effacer l’historique dans Confidentialité & données"
+      },
+      "everythingElse": {
+        "title": "Tout le reste",
+        "description": "Ces données ont leurs propres moyens sûrs d’être modifiées et ne sont jamais supprimées ici en tant que fichiers ; seul le cache de l’application peut être vidé."
+      },
+      "items": {
+        "settings": {
+          "label": "Paramètres",
+          "description": "Vos choix, dans le stockage navigateur de l’application, plus quelques-uns dans .env dont le démarrage a besoin."
+        },
+        "secrets": {
+          "label": "Clés d’API et connexions",
+          "description": "Fichiers chiffrés ; la clé qui les ouvre est dans le gestionnaire d’identifiants du système."
+        },
+        "models": {
+          "label": "Modèles locaux",
+          "description": "Modèles de reconnaissance vocale, de détection des intervenants, de langage et de recherche de notes sur cet ordinateur."
+        },
+        "searchIndex": {
+          "label": "Index de recherche",
+          "description": "Retrouve les notes par leur sens. Il réserve de l’espace par gros blocs et peut donc être volumineux même pour peu de notes ; il est reconstruit s’il est supprimé."
+        },
+        "appCache": {
+          "label": "Cache de l’application",
+          "description": "Les caches web, de code et GPU de Chromium. Sans risque à vider : rien de ce que vous avez enregistré ne s’y trouve."
+        },
+        "cliBridge": {
+          "label": "Passerelle en ligne de commande",
+          "description": "Le jeton que l’outil en ligne de commande openwhispr utilise pour joindre cette application."
+        },
+        "selfhost": {
+          "label": "Versions auto-compilées",
+          "description": "Versions, instantanés de données et journaux de livraison de selfhost.js. Non mesuré, et Réinitialiser les données de l’application n’y touche pas.",
+          "tag": "ce fork"
+        }
+      },
+      "modelKinds": {
+        "whisper": "Whisper",
+        "parakeet": "Parakeet et Cohere",
+        "diarization": "Détection des intervenants",
+        "llm": "Modèles de langage",
+        "embedding": "Recherche de notes"
+      },
+      "actions": {
+        "copyPath": "Copier le chemin",
+        "openFolder": "Ouvrir le dossier",
+        "showInFolder": "Afficher dans le dossier",
+        "clear": "Vider",
+        "openFailed": "Impossible de l’ouvrir. Il n’existe peut-être pas encore.",
+        "notCreated": "Pas encore créé",
+        "manageModels": "Gérer dans Connexions IA",
+        "removeModels": "Supprimer tous les modèles"
+      },
+      "appCache": {
+        "clearTitle": "Vider le cache de l’application ?",
+        "clearDescription": "Vide les caches web et de code de Chromium. Les paramètres, l’historique et les connexions ne sont pas touchés ; l’application peut être un peu plus lente le temps que les caches se remplissent.",
+        "cleared": "Cache de l’application vidé.",
+        "clearFailed": "Impossible de vider le cache de l’application."
       }
     },
     "diagnostics": {

@@ -2710,7 +2710,7 @@
         "description": "This permanently deletes your OpenWhispr account and personal data. Workspace-owned content and data belonging to other local users stay on this device.",
         "confirmText": "Delete Account",
         "eraseDeviceLabel": "Also erase all data from this device",
-        "eraseDeviceDescription": "Deletes every local user's notes and workspace cache, downloaded models, settings, calendar connections, credentials, and recordings.",
+        "eraseDeviceDescription": "Deletes every local user's notes and workspace cache, downloaded models, the search index, settings, calendar connections, credentials, and recordings. Logs are kept; clear them in Storage › Logs.",
         "eraseDeviceWarning": "This device-wide erasure cannot be undone and affects every local user.",
         "successTitle": "Account Deleted",
         "successDescription": "Your account and personal data were deleted. Other local users, workspaces, models, and device settings were preserved.",
@@ -2836,11 +2836,8 @@
       }
     },
     "developer": {
-      "clearCache": "Clear Cache",
-      "dataManagementDescription": "Manage cached models and app data",
       "dataManagementTitle": "Data Management",
       "modelCache": "Model cache",
-      "open": "Open",
       "removeModels": {
         "confirmText": "Delete Models",
         "description": "This deletes all locally cached Whisper models ({{path}}) and frees disk space. You can download them again from the model picker.",
@@ -2854,7 +2851,7 @@
       "removing": "Removing...",
       "resetAll": {
         "confirmText": "Delete Everything",
-        "description": "This will permanently delete all local settings, transcriptions, audio recordings, downloaded AI models, calendar connections, and cached data. Cloud data and your account will not be affected. The app will restart after reset.",
+        "description": "This will permanently delete all local settings, transcriptions, notes, audio recordings, API keys and sign-ins, calendar connections, downloaded AI models, the search index and cached data. Logs are kept; clear them in Storage › Logs. Cloud data and your account will not be affected. The app will restart after reset.",
         "failedDescription": "Something went wrong. Please try again or reinstall the app.",
         "failedTitle": "Couldn't reset",
         "successDescription": "Everything has been reset. The app will restart now.",
@@ -2862,7 +2859,7 @@
         "title": "Reset All App Data"
       },
       "resetAppData": "Reset app data",
-      "resetAppDataDescription": "Permanently delete all local settings, transcriptions, audio recordings, downloaded models, and cached data"
+      "resetAppDataDescription": "Deletes everything OpenWhispr keeps on this computer (history, notes, recordings, settings, keys and sign-ins, downloaded models and the search index), then restarts. Logs stay; clear them in Storage › Logs."
     },
     "dictionary": {
       "title": "Custom Dictionary",
@@ -3246,17 +3243,8 @@
       "leaderboardDescription": "Show your name, email, and activity on eligible workspace and work-domain leaderboards. Transcripts stay private.",
       "leaderboardRequiresAccount": "Sign in to manage leaderboard participation.",
       "leaderboardRequiresHistory": "Turn on data retention before joining leaderboards.",
-      "audioRetention": "Audio Retention",
-      "audioRetentionDescription": "Store dictation audio locally for re-transcription and download. Files are automatically deleted after the retention period. Meeting audio is never stored.",
-      "audioRetentionDisabled": "Disabled",
       "retentionDays_one": "{{count}} day",
       "retentionDays_other": "{{count}} days",
-      "audioStorageUsage": "Storage Usage",
-      "audioStorageUsageDescription": "Audio files stored on this device",
-      "audioStorageFiles": "{{count}} files, {{size}}",
-      "audioStorageEmpty": "No audio files stored",
-      "clearAllAudio": "Clear All Audio",
-      "clearAllAudioConfirm": "Delete all stored audio files? This cannot be undone.",
       "dataRetention": "Data Retention",
       "dataRetentionDescription": "Store transcriptions and audio locally in your history. When disabled, transcriptions are pasted but not saved.",
       "transcriptRetention": "Transcript Retention",
@@ -3267,7 +3255,15 @@
       "lastSynced": "Last synced {{time}}",
       "minutesAgo": "{{count}}m ago",
       "saveDiscarded": "Save discarded dictations",
-      "saveDiscardedDescription": "When you cancel a dictation with Escape, keep its audio in history so you can recover it. Requires data and audio retention to be on."
+      "saveDiscardedDescription": "When you cancel a dictation with Escape, keep its audio in history so you can recover it. Requires data and audio retention to be on.",
+      "recordingsSummary": {
+        "label": "Recordings",
+        "kept": "Kept {{period}}",
+        "notSaved": "Not saved"
+      },
+      "logsSummary": {
+        "label": "Logs"
+      }
     },
     "prompts": {
       "description": "View, customize, and test the unified system prompt that powers text cleanup and instruction detection",
@@ -3509,6 +3505,141 @@
             "fatal": "Fatal"
           }
         }
+      },
+      "retentionPeriods": {
+        "sixMonths": "6 months",
+        "oneYear": "1 year"
+      },
+      "measuring": "Measuring…",
+      "measureFailed": "Couldn't measure the sizes. Try Refresh.",
+      "overview": {
+        "title": "On this computer",
+        "total": "{{size}} in all",
+        "description": "Sizes are measured when this page opens and kept for a minute; Refresh measures again. Only recordings, logs and the app cache can be cleared here.",
+        "other": "Settings, keys and CLI"
+      },
+      "recordings": {
+        "title": "Recordings",
+        "description": "The audio of each dictation, so you can play it back in History and transcribe it again.",
+        "retention": {
+          "label": "Keep recordings for",
+          "description": "Older recordings are deleted automatically. Meeting audio is never stored.",
+          "off": "Off (don't keep)",
+          "historyOff": "Not saved while local history is off (Privacy & Data).",
+          "neverLonger": "Never kept longer than its transcript.",
+          "effective": "Transcripts are kept {{period}}, so recordings go with them after {{period}}."
+        },
+        "quality": {
+          "label": "Recording quality",
+          "description": "How new dictations are recorded, which is also the audio sent to a cloud speech-to-text service. A change applies from the next recording. Meetings, file uploads and chat voice messages aren't affected.",
+          "default": "Default",
+          "smaller": {
+            "name": "Smaller",
+            "detail": "Opus, 32 kbps. Clear speech at about a quarter of the size."
+          },
+          "balanced": {
+            "name": "Balanced",
+            "detail": "Opus, 64 kbps. About half the size."
+          },
+          "original": {
+            "name": "Original",
+            "detail": "Opus, about 128 kbps, as recorded until now."
+          },
+          "perMinute": "~{{size}} KB / min",
+          "estimate": "~{{size}} for {{period}} (estimate)",
+          "pace": "Estimates use your pace: about {{minutes}} of recordings a day over the last 30 days of history.",
+          "noPace": "No estimate yet: no recordings with a length in the last 30 days of history.",
+          "noEstimateKept": "Recordings aren't kept, so there's nothing to estimate; the quality still decides what's sent to a cloud speech-to-text service.",
+          "measured": "Measured on 30 dictations with Azure gpt-4o-transcribe: no difference found down to 32 kbps. Not yet checked with other providers."
+        },
+        "folder": {
+          "label": "Recordings folder",
+          "empty": "No recordings stored",
+          "open": "Open folder",
+          "openFailed": "Couldn't open the recordings folder."
+        },
+        "clear": {
+          "button": "Clear all recordings",
+          "title": "Clear all recordings?",
+          "description": "Deletes every saved recording. Transcripts stay in History. This can't be undone.",
+          "done": "All recordings deleted.",
+          "partial": "Some recordings couldn't be deleted (in use?) and are still in the folder: {{remaining}}.",
+          "failed": "Couldn't clear the recordings."
+        }
+      },
+      "database": {
+        "title": "History database",
+        "description": "One SQLite file with what you dictated and how it was processed. Clearing history is in Privacy & Data.",
+        "counts": {
+          "dictations": "Dictations",
+          "stepRecords": "Step records",
+          "reviews": "Reviews",
+          "testCases": "Test cases",
+          "dictionaryWords": "Dictionary words",
+          "glossaryRules": "Glossary rules",
+          "notes": "Notes"
+        },
+        "countsUnavailable": "Couldn't read what it holds.",
+        "file": "File",
+        "clearHistory": "Clear history in Privacy & Data"
+      },
+      "everythingElse": {
+        "title": "Everything else",
+        "description": "These have their own safe ways to change them and are never deleted as files here; only the app cache can be cleared."
+      },
+      "items": {
+        "settings": {
+          "label": "Settings",
+          "description": "Your choices, in the app's browser storage, plus a few in .env that start-up needs."
+        },
+        "secrets": {
+          "label": "API keys and sign-ins",
+          "description": "Encrypted files; the key that unlocks them is in the system's credential store."
+        },
+        "models": {
+          "label": "Local models",
+          "description": "Speech-to-text, speaker detection, language and note search models on this computer."
+        },
+        "searchIndex": {
+          "label": "Search index",
+          "description": "Finds notes by meaning. It reserves space in large blocks, so it can be big even for a few notes; it's rebuilt if deleted."
+        },
+        "appCache": {
+          "label": "App cache",
+          "description": "Chromium's web, code and GPU caches. Safe to clear: nothing you saved is in them."
+        },
+        "cliBridge": {
+          "label": "Command-line bridge",
+          "description": "The token the openwhispr command-line tool uses to reach this app."
+        },
+        "selfhost": {
+          "label": "Self-hosted builds",
+          "description": "Releases, data snapshots and ship logs from selfhost.js. Not measured, and Reset app data leaves it alone.",
+          "tag": "this fork"
+        }
+      },
+      "modelKinds": {
+        "whisper": "Whisper",
+        "parakeet": "Parakeet and Cohere",
+        "diarization": "Speaker detection",
+        "llm": "Language models",
+        "embedding": "Note search"
+      },
+      "actions": {
+        "copyPath": "Copy path",
+        "openFolder": "Open folder",
+        "showInFolder": "Show in folder",
+        "clear": "Clear",
+        "openFailed": "Couldn't open it. It may not exist yet.",
+        "notCreated": "Not created yet",
+        "manageModels": "Manage in AI Connections",
+        "removeModels": "Remove all models"
+      },
+      "appCache": {
+        "clearTitle": "Clear the app cache?",
+        "clearDescription": "Clears Chromium's web and code caches. Settings, history and sign-ins aren't touched; the app may be a little slower while the caches fill again.",
+        "cleared": "App cache cleared.",
+        "clearFailed": "Couldn't clear the app cache."
       }
     },
     "diagnostics": {

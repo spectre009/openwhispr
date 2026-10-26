@@ -495,3 +495,66 @@ test("Storage › Logs holds the logging rows, the old System ids included, and 
     assert.ok(ids.includes(id), `"${query}" finds ${id} (${ids.slice(0, 5).join(", ")})`);
   }
 });
+
+test("Storage holds recordings and the inventory: moved ids keep their names, search finds the new rows", async () => {
+  const { findSettingDescriptor, settingsSearchAction } = await load();
+  const anchors = sourceAnchors();
+  const file = (name) => path.join("components", "settings", name);
+  // Audio retention and storage came from Privacy & Data, the model cache from System.
+  for (const [id, where] of [
+    ["privacy.audioRetention", "RecordingsSection.tsx"],
+    ["privacy.audioStorage", "RecordingsSection.tsx"],
+    ["storage.recordings.quality", "RecordingsSection.tsx"],
+    ["storage.recordings.folder", "RecordingsSection.tsx"],
+    ["storage.inventory", "StorageInventorySections.tsx"],
+    ["storage.database", "StorageInventorySections.tsx"],
+    ["storage.settings", "StorageInventorySections.tsx"],
+    ["storage.secrets", "StorageInventorySections.tsx"],
+    ["storage.models", "StorageInventorySections.tsx"],
+    ["system.data.modelCache", "StorageInventorySections.tsx"],
+    ["storage.searchIndex", "StorageInventorySections.tsx"],
+    ["storage.appCache", "StorageInventorySections.tsx"],
+    ["storage.cliBridge", "StorageInventorySections.tsx"],
+  ]) {
+    const descriptor = findSettingDescriptor(id);
+    assert.equal(descriptor?.location.page, "storage", id);
+    assert.equal(descriptor.anchor, id);
+    assert.equal(descriptor.fallbackAnchor, undefined, `${id} always renders`);
+    assert.deepEqual([...(anchors.get(id) ?? [])], [file(where)], id);
+  }
+  // Privacy & Data keeps summaries with anchors of their own.
+  for (const id of ["privacy.recordingsSummary", "privacy.logsSummary"]) {
+    assert.equal(findSettingDescriptor(id)?.location.page, "privacyData", id);
+    assert.deepEqual([...anchors.get(id)], [file("PrivacyStorageSummary.tsx")], id);
+  }
+  assert.deepEqual(settingsSearchAction({ id: "privacy.audioRetention" }), {
+    kind: "navigate",
+    location: { page: "storage" },
+    settingId: "privacy.audioRetention",
+    destination: "#privacy.audioRetention",
+  });
+
+  const { index, rankSettings } = await searchIndex(makeContext());
+  assert.equal(rankSettings(index, "recording quality")[0]?.entry.id, "storage.recordings.quality");
+  assert.equal(rankSettings(index, "keep recordings")[0]?.entry.id, "privacy.audioRetention");
+  for (const [query, id] of [
+    ["audio retention", "privacy.audioRetention"],
+    ["1 year", "privacy.audioRetention"],
+    ["bitrate", "storage.recordings.quality"],
+    ["clear recordings", "privacy.audioStorage"],
+    ["recordings folder", "storage.recordings.folder"],
+    ["disk space", "storage.inventory"],
+    ["storage", "storage.inventory"],
+    ["where are my files", "storage.inventory"],
+    ["folder", "storage.recordings.folder"],
+    ["database", "storage.database"],
+    ["cache", "storage.appCache"],
+    ["model cache", "system.data.modelCache"],
+    ["delete models", "system.data.modelCache"],
+    ["search index", "storage.searchIndex"],
+    ["api keys", "storage.secrets"],
+  ]) {
+    const ids = rankSettings(index, query).map((result) => result.entry.id);
+    assert.ok(ids.includes(id), `"${query}" finds ${id} (${ids.slice(0, 5).join(", ")})`);
+  }
+});

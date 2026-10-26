@@ -2416,7 +2416,7 @@
         "description": "OpenWhispr アカウントと個人データを完全に削除します。ワークスペース所有のコンテンツと他のローカルユーザーのデータはこのデバイスに残ります。",
         "confirmText": "アカウントを削除",
         "eraseDeviceLabel": "このデバイス上のすべてのデータも消去する",
-        "eraseDeviceDescription": "すべてのローカルユーザーのノートとワークスペースキャッシュ、ダウンロード済みモデル、設定、カレンダー接続、認証情報、録音を削除します。",
+        "eraseDeviceDescription": "すべてのローカルユーザーのノートとワークスペースキャッシュ、ダウンロード済みモデル、検索インデックス、設定、カレンダー接続、認証情報、録音を削除します。ログは残ります。「ストレージ › ログ」で消去できます。",
         "eraseDeviceWarning": "このデバイス全体の消去は元に戻せず、すべてのローカルユーザーに影響します。",
         "successTitle": "アカウントが削除されました",
         "successDescription": "アカウントと個人データが削除されました。他のローカルユーザー、ワークスペース、モデル、デバイス設定は保持されました。",
@@ -2542,11 +2542,8 @@
       }
     },
     "developer": {
-      "clearCache": "キャッシュをクリア",
-      "dataManagementDescription": "キャッシュされたモデルとアプリデータを管理",
       "dataManagementTitle": "データ管理",
       "modelCache": "モデルキャッシュ",
-      "open": "開く",
       "removeModels": {
         "confirmText": "モデルを削除",
         "description": "ローカルにキャッシュされたすべての Whisper モデル（{{path}}）を削除し、ディスク容量を解放します。モデルピッカーから再度ダウンロードできます。",
@@ -2560,7 +2557,7 @@
       "removing": "削除中...",
       "resetAll": {
         "confirmText": "すべて削除",
-        "description": "すべてのローカル設定、文字起こし、音声録音、ダウンロード済みAIモデル、カレンダー接続、キャッシュデータが完全に削除されます。クラウドデータとアカウントは影響を受けません。リセット後にアプリが再起動します。",
+        "description": "すべてのローカル設定、文字起こし、ノート、音声録音、API キーとサインイン、カレンダー接続、ダウンロード済みAIモデル、検索インデックス、キャッシュデータが完全に削除されます。ログは残ります。「ストレージ › ログ」で消去できます。クラウドデータとアカウントは影響を受けません。リセット後にアプリが再起動します。",
         "failedDescription": "問題が発生しました。もう一度試すか、アプリを再インストールしてください。",
         "failedTitle": "リセットできませんでした",
         "successDescription": "すべてリセットされました。アプリを再起動します。",
@@ -2568,7 +2565,7 @@
         "title": "すべてのアプリデータをリセット"
       },
       "resetAppData": "アプリデータをリセット",
-      "resetAppDataDescription": "すべてのローカル設定、文字起こし、音声録音、ダウンロード済みモデル、キャッシュデータを完全に削除"
+      "resetAppDataDescription": "OpenWhispr がこのコンピューターに保存しているもの (履歴、ノート、録音、設定、キーとサインイン、ダウンロード済みモデル、検索インデックス) をすべて削除してから再起動します。ログは残ります。「ストレージ › ログ」で消去できます。"
     },
     "dictionary": {
       "title": "カスタム辞書",
@@ -2961,19 +2958,18 @@
       "justNow": "たった今",
       "lastSynced": "最終同期 {{time}}",
       "minutesAgo": "{{count}}分前",
-      "audioRetention": "音声の保持",
-      "audioRetentionDescription": "再文字起こしやダウンロードのために、ディクテーションの音声をローカルに保存します。ファイルは保持期間が過ぎると自動的に削除されます。会議の音声は保存されません。",
-      "audioRetentionDisabled": "無効",
       "retentionDays_one": "{{count}}日",
       "retentionDays_other": "{{count}}日",
-      "audioStorageUsage": "ストレージ使用量",
-      "audioStorageUsageDescription": "このデバイスに保存された音声ファイル",
-      "audioStorageFiles": "{{count}}ファイル、{{size}}",
-      "audioStorageEmpty": "保存された音声ファイルはありません",
-      "clearAllAudio": "すべての音声を削除",
-      "clearAllAudioConfirm": "保存されたすべての音声ファイルを削除しますか？この操作は元に戻せません。",
       "saveDiscarded": "破棄したディクテーションを保存",
-      "saveDiscardedDescription": "Escape でディクテーションをキャンセルしたとき、音声を履歴に残して後で復元できるようにします。データと音声の保持を有効にする必要があります。"
+      "saveDiscardedDescription": "Escape でディクテーションをキャンセルしたとき、音声を履歴に残して後で復元できるようにします。データと音声の保持を有効にする必要があります。",
+      "recordingsSummary": {
+        "label": "録音",
+        "kept": "{{period}}保存",
+        "notSaved": "保存しない"
+      },
+      "logsSummary": {
+        "label": "ログ"
+      }
     },
     "prompts": {
       "description": "テキスト補正と指示検出を行う統合システムプロンプトの表示、カスタマイズ、テスト",
@@ -3415,6 +3411,141 @@
             "fatal": "致命的"
           }
         }
+      },
+      "retentionPeriods": {
+        "sixMonths": "6か月",
+        "oneYear": "1年"
+      },
+      "measuring": "計測中…",
+      "measureFailed": "サイズを計測できませんでした。「更新」をお試しください。",
+      "overview": {
+        "title": "このコンピューター上",
+        "total": "合計 {{size}}",
+        "description": "サイズはこのページを開いたときに計測し、1分間保持します。「更新」で再計測します。ここで消去できるのは録音、ログ、アプリのキャッシュだけです。",
+        "other": "設定、キー、CLI"
+      },
+      "recordings": {
+        "title": "録音",
+        "description": "各ディクテーションの音声です。履歴で再生したり、もう一度文字起こししたりできます。",
+        "retention": {
+          "label": "録音の保存期間",
+          "description": "古い録音は自動的に削除されます。会議の音声は保存されません。",
+          "off": "オフ (保存しない)",
+          "historyOff": "ローカル履歴がオフの間は保存されません (プライバシーとデータ)。",
+          "neverLonger": "文字起こしより長く保存されることはありません。",
+          "effective": "文字起こしの保存期間が {{period}} のため、録音も {{period}} で一緒に削除されます。"
+        },
+        "quality": {
+          "label": "録音品質",
+          "description": "新しいディクテーションの録音方法です。クラウドの音声認識サービスに送る音声もこれになります。変更は次の録音から適用されます。会議、アップロードしたファイル、チャットの音声メッセージには影響しません。",
+          "default": "既定",
+          "smaller": {
+            "name": "小さめ",
+            "detail": "Opus、32 kbps。約4分の1のサイズで明瞭な音声。"
+          },
+          "balanced": {
+            "name": "バランス",
+            "detail": "Opus、64 kbps。約半分のサイズ。"
+          },
+          "original": {
+            "name": "オリジナル",
+            "detail": "Opus、約128 kbps。これまでどおりの録音。"
+          },
+          "perMinute": "約 {{size}} KB / 分",
+          "estimate": "{{period}}で約 {{size}} (推定)",
+          "pace": "推定はあなたのペースに基づきます: 直近30日間の履歴で1日あたり約{{minutes}}の録音。",
+          "noPace": "まだ推定できません: 直近30日間の履歴に長さのわかる録音がありません。",
+          "noEstimateKept": "録音は保存されないため推定はありません。品質はクラウドの音声認識サービスに送る音声には引き続き適用されます。",
+          "measured": "Azure gpt-4o-transcribe で30件のディクテーションを計測: 32 kbps まで差は見られませんでした。ほかのプロバイダーではまだ確認していません。"
+        },
+        "folder": {
+          "label": "録音フォルダー",
+          "empty": "保存された録音はありません",
+          "open": "フォルダーを開く",
+          "openFailed": "録音フォルダーを開けませんでした。"
+        },
+        "clear": {
+          "button": "すべての録音を消去",
+          "title": "すべての録音を消去しますか?",
+          "description": "保存されたすべての録音を削除します。文字起こしは履歴に残ります。元に戻せません。",
+          "done": "すべての録音を削除しました。",
+          "partial": "一部の録音を削除できず (使用中?)、フォルダーに残っています: {{remaining}}。",
+          "failed": "録音を消去できませんでした。"
+        }
+      },
+      "database": {
+        "title": "履歴データベース",
+        "description": "ディクテーションの内容と処理の記録を収めた SQLite ファイルです。履歴の消去は「プライバシーとデータ」で行います。",
+        "counts": {
+          "dictations": "ディクテーション",
+          "stepRecords": "ステップ記録",
+          "reviews": "評価",
+          "testCases": "テストケース",
+          "dictionaryWords": "辞書の単語",
+          "glossaryRules": "用語集のルール",
+          "notes": "ノート"
+        },
+        "countsUnavailable": "内容を読み取れませんでした。",
+        "file": "ファイル",
+        "clearHistory": "「プライバシーとデータ」で履歴を消去"
+      },
+      "everythingElse": {
+        "title": "その他すべて",
+        "description": "これらにはそれぞれ安全な変更方法があり、ここでファイルとして削除されることはありません。消去できるのはアプリのキャッシュだけです。"
+      },
+      "items": {
+        "settings": {
+          "label": "設定",
+          "description": "アプリのブラウザーストレージにある選択内容と、起動時に必要な .env の一部です。"
+        },
+        "secrets": {
+          "label": "API キーとサインイン",
+          "description": "暗号化されたファイルです。復号するキーはシステムの資格情報ストアにあります。"
+        },
+        "models": {
+          "label": "ローカルモデル",
+          "description": "このコンピューター上の音声認識、話者検出、言語、ノート検索のモデルです。"
+        },
+        "searchIndex": {
+          "label": "検索インデックス",
+          "description": "意味でノートを検索します。大きなブロック単位で領域を確保するため、ノートが少なくても大きくなることがあります。削除すると再構築されます。"
+        },
+        "appCache": {
+          "label": "アプリのキャッシュ",
+          "description": "Chromium のウェブ、コード、GPU キャッシュです。保存したものは含まれないため、安全に消去できます。"
+        },
+        "cliBridge": {
+          "label": "コマンドラインブリッジ",
+          "description": "openwhispr コマンドラインツールがこのアプリに接続するためのトークンです。"
+        },
+        "selfhost": {
+          "label": "セルフビルド",
+          "description": "selfhost.js のリリース、データのスナップショット、出荷ログです。計測されず、「アプリデータをリセット」でも削除されません。",
+          "tag": "このフォーク"
+        }
+      },
+      "modelKinds": {
+        "whisper": "Whisper",
+        "parakeet": "Parakeet と Cohere",
+        "diarization": "話者検出",
+        "llm": "言語モデル",
+        "embedding": "ノート検索"
+      },
+      "actions": {
+        "copyPath": "パスをコピー",
+        "openFolder": "フォルダーを開く",
+        "showInFolder": "フォルダーに表示",
+        "clear": "消去",
+        "openFailed": "開けませんでした。まだ作成されていない可能性があります。",
+        "notCreated": "未作成",
+        "manageModels": "AI 接続で管理",
+        "removeModels": "すべてのモデルを削除"
+      },
+      "appCache": {
+        "clearTitle": "アプリのキャッシュを消去しますか?",
+        "clearDescription": "Chromium のウェブとコードのキャッシュを消去します。設定、履歴、サインインには影響しません。キャッシュが再び溜まるまで、アプリが少し遅くなることがあります。",
+        "cleared": "アプリのキャッシュを消去しました。",
+        "clearFailed": "アプリのキャッシュを消去できませんでした。"
       }
     },
     "diagnostics": {
