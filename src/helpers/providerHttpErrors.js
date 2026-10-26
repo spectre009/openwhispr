@@ -3,6 +3,7 @@
 // both sides classify a provider failure the same way.
 
 import { LLM_REQUEST_TIMEOUT_CODE } from "./llmRequestTimeout.js";
+import { TRANSCRIPTION_REQUEST_TIMEOUT_CODE } from "./transcriptionRequestDeadline.js";
 
 export const PROVIDER_ERROR_CODES = Object.freeze({
   AUTH_FAILED: "PROVIDER_AUTH_FAILED",
@@ -323,6 +324,11 @@ export function asProviderError(err, ctx) {
       status: inner.statusCode,
       body: inner.responseBody ?? inner.message,
       headers: inner.responseHeaders,
+    });
+  } else if (inner.code === TRANSCRIPTION_REQUEST_TIMEOUT_CODE) {
+    classified = providerError(C.TIMEOUT, {
+      ...ctx,
+      technicalDetails: { underlyingError: TRANSCRIPTION_REQUEST_TIMEOUT_CODE },
     });
   } else if (inner.code === LLM_REQUEST_TIMEOUT_CODE || inner.name === "TimeoutError") {
     classified = providerError(C.TIMEOUT, ctx);

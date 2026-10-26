@@ -36,6 +36,7 @@ import { createAssistantResponseDelivery } from "../helpers/assistantResponseDel
 import { recordCleanupFailure } from "../stores/cleanupFailureStore";
 import { resolveStyleForRecording } from "../stores/styleStore";
 import { traceStyle } from "../helpers/postTranscription";
+import { createDictationCancelHotkey } from "../helpers/dictationCancelHotkey";
 
 // Maps a failed selection-replacement code to its `selectionEditing.*` toast
 // detail key; unlisted codes fall back to the generic "unavailable" message.
@@ -85,7 +86,24 @@ export const useAudioRecording = (toast, options = {}) => {
   const [micCaptureStatus, setMicCaptureStatus] = useState("inactive");
   const [transcript, setTranscript] = useState("");
   const [partialTranscript, setPartialTranscript] = useState("");
+  // Processing has run long and Esc now cancels it: the pill says so.
+  const [slowProcessingHint, setSlowProcessingHint] = useState(false);
   const audioManagerRef = useRef(null);
+  // The one owner of the global Esc: while recording, and once processing has
+  // run long (dictationCancelHotkey.js). Created once, never per render.
+  const cancelHotkeyRef = useRef(null);
+  if (cancelHotkeyRef.current === null) {
+    cancelHotkeyRef.current = createDictationCancelHotkey({
+      register: (purpose) =>
+        window.electronAPI?.registerCancelHotkey?.("Escape", { purpose }) ?? { success: false },
+      unregister: () => window.electronAPI?.unregisterCancelHotkey?.(),
+      onHintChange: setSlowProcessingHint,
+    });
+  }
+  // The failed recording the current error card's Retry re-sends, with that
+  // card's generation; released when the card goes.
+  const keptRecordingRef = useRef(null);
+  const resendingRef = useRef(false);
   const startLockRef = useRef(false);
   const stopRequestedDuringStartRef = useRef(false);
   const pushForceStoppedRef = useRef(false);
@@ -119,6 +137,8 @@ export const useAudioRecording = (toast, options = {}) => {
   useEffect(
     () => () => {
       dictationErrorGenerationRef.current += 1;
+      keptRecordingRef.current = null;
+      cancelHotkeyRef.current?.dispose();
     },
     []
   );
@@ -320,6 +340,7 @@ export const useAudioRecording = (toast, options = {}) => {
           markStartTrace(trace, "recordingStarted");
           trace.details = { ...trace.details, ...audioManagerRef.current.lastStartInfo };
           dictationErrorGenerationRef.current += 1;
+          keptRecordingRef.current = null;
           dismissDictationError?.();
         }
 
@@ -328,7 +349,7 @@ export const useAudioRecording = (toast, options = {}) => {
         // until the next hotkey press. Honor it now that we started.
         if (didStart && stopRequestedDuringStartRef.current) {
           logStartTrace(trace, "stopped-during-start");
-          window.electronAPI?.unregisterCancelHotkey?.();
+          cancelHotkeyRef.current.setPhase("idle");
           // Cue semantics mirror performStopRecording: unconditional for
           // streaming, gated on the stop landing for batch.
           if (audioManagerRef.current.getState().isStreaming) {
@@ -346,7 +367,7 @@ export const useAudioRecording = (toast, options = {}) => {
           if (getSettings().pauseMediaOnDictation) {
             window.electronAPI?.pauseMediaPlayback?.();
           }
-          window.electronAPI?.registerCancelHotkey?.("Escape");
+          cancelHotkeyRef.current.setPhase("recording");
           // Bounded: a wedged output device can leave the cue's resume pending,
           // and the start must still be logged.
           void Promise.race([
@@ -421,7 +442,7 @@ export const useAudioRecording = (toast, options = {}) => {
       const currentState = audioManagerRef.current.getState();
       if (!currentState.isRecording && !currentState.isStreamingStartInProgress) return false;
 
-      window.electronAPI?.unregisterCancelHotkey?.();
+      cancelHotkeyRef.current.setPhase("idle");
       setIsPreparing(false);
       setIsStopping(true);
       // Contract to the stable thinking state before MediaRecorder/streaming
@@ -470,7 +491,9 @@ export const useAudioRecording = (toast, options = {}) => {
       ).trim() || fallback.trim();
 
     // `onRetry` replaces the default Retry (a new recording) for a pill whose
-    // transcript is already kept and only needs delivering again.
+    // transcript is already kept and only needs delivering again. A
+    // `keptRecording` (failedRecordingRetry.js) makes Retry re-send that
+    // recording; it belongs to this card and is released when the card goes.
     const showDictationError = ({
       title,
       description,
@@ -479,11 +502,20 @@ export const useAudioRecording = (toast, options = {}) => {
       code,
       settingsLaunchFailed = false,
       onRetry,
+      keptRecording,
       settingsTarget,
       technicalDetails,
     }) => {
       const errorGeneration = ++dictationErrorGenerationRef.current;
       const isCurrent = () => errorGeneration === dictationErrorGenerationRef.current;
+      keptRecordingRef.current = keptRecording
+        ? { generation: errorGeneration, recording: keptRecording }
+        : null;
+      const releaseKeptRecording = () => {
+        if (keptRecordingRef.current?.generation === errorGeneration) {
+          keptRecordingRef.current = null;
+        }
+      };
       const recoverAssistant = Boolean(audioManagerRef.current?.voiceAgentRequested);
       onDictationError?.({ recoverAssistant });
       if (code === "ACCESSIBILITY_PERMISSION_REQUIRED") {
@@ -568,13 +600,16 @@ export const useAudioRecording = (toast, options = {}) => {
       const recoverableTranscript = getRecoverableTranscript(transcript);
       // A retried paste can wait on held keys with no visible progress, so a
       // second click is ignored until it settles, and a paste that lands after
-      // a newer pill or recording leaves that one alone.
+      // a newer pill or recording leaves that one alone. A re-send dismisses
+      // its own card when it starts, so it never dismisses one here.
+      const retryAction =
+        onRetry ?? (keptRecording ? () => resendKeptRecording(errorGeneration) : null);
       let retrying = false;
       const retry = async () => {
         if (retrying || !isCurrent()) return;
         retrying = true;
         try {
-          if ((await onRetry()) && isCurrent()) dismissDictationError?.();
+          if ((await retryAction()) && isCurrent()) dismissDictationError?.();
         } finally {
           retrying = false;
         }
@@ -584,7 +619,7 @@ export const useAudioRecording = (toast, options = {}) => {
           label: t("common.retry"),
           icon: "retry",
           dismissOnClick: false,
-          onClick: onRetry ? retry : () => performStartRecording(lastStartOptionsRef.current),
+          onClick: retryAction ? retry : () => performStartRecording(lastStartOptionsRef.current),
         },
       ];
 
@@ -607,7 +642,44 @@ export const useAudioRecording = (toast, options = {}) => {
         presentation: "dictation-error",
         duration,
         actions,
+        ...(keptRecording ? { onRemoved: releaseKeptRecording } : {}),
       });
+    };
+
+    // The card's Retry for a kept recording: one at a time, and only while
+    // that card is current and nothing else holds the pipeline. The re-send
+    // owns the recording from here; its card goes so the pill shows the
+    // processing, which the pill's cancel and Esc cancel like any other.
+    const resendKeptRecording = async (generation) => {
+      const kept = keptRecordingRef.current;
+      const manager = audioManagerRef.current;
+      if (!kept || kept.generation !== generation) return false;
+      if (generation !== dictationErrorGenerationRef.current) return false;
+      if (resendingRef.current || startLockRef.current || !manager) return false;
+      if (!canStartDictation(manager.getState())) return false;
+      if (
+        !isManagedTranscriptionActive() &&
+        !isTranscriptionContextAllowed(usePolicyStore.getState(), getSettings(), "dictation")
+      ) {
+        toast({ title: t("common.managedByOrg"), variant: "default" });
+        return false;
+      }
+      keptRecordingRef.current = null;
+      resendingRef.current = true;
+      dictationErrorGenerationRef.current += 1;
+      dismissDictationError?.();
+      // The keys that force-stopped the original are long released.
+      pushForceStoppedRef.current = false;
+      const style = kept.recording.style;
+      setRecordingStyleBadge(style ? { id: style.id, name: style.name, emoji: style.emoji } : null);
+      try {
+        await manager.resendFailedRecording(kept.recording);
+      } catch (error) {
+        logger.warn("Couldn't re-send the failed dictation", { error: error?.message }, "audio");
+      } finally {
+        resendingRef.current = false;
+      }
+      return false;
     };
 
     audioManagerRef.current.setCallbacks({
@@ -619,7 +691,8 @@ export const useAudioRecording = (toast, options = {}) => {
           onDemoEventRef.current?.({ kind: demoKindRef.current, status: "processing" });
         }
         if (!isRecording) {
-          window.electronAPI?.unregisterCancelHotkey?.();
+          // Esc stays global only once processing has run long.
+          cancelHotkeyRef.current.setPhase(isProcessing ? "processing" : "idle");
           // Resume media the instant recording ends, not after transcription.
           if (wasRecordingRef.current && getSettings().pauseMediaOnDictation) {
             window.electronAPI?.resumeMediaPlayback?.();
@@ -698,6 +771,7 @@ export const useAudioRecording = (toast, options = {}) => {
             duration: error?.code === "AUTH_EXPIRED" ? 8000 : undefined,
             code: error?.code,
             transcript: error?.transcript,
+            keptRecording: error?.keptRecording,
             settingsTarget: error?.settingsTarget,
             technicalDetails: error?.technicalDetails,
           });
@@ -841,6 +915,10 @@ export const useAudioRecording = (toast, options = {}) => {
               // The boundary's trace goes to main with the row (step history),
               // ending with what was pasted: snippets expanded above.
               ...(result.trace ? { trace: recordPastedText(result.trace, result.text) } : {}),
+              // A re-sent failed dictation completes its failed History row.
+              ...(Number.isInteger(result.replacesTranscriptionId)
+                ? { replacesTranscriptionId: result.replacesTranscriptionId }
+                : {}),
             })
             .then(
               (persisted) => {
@@ -1211,6 +1289,15 @@ export const useAudioRecording = (toast, options = {}) => {
       }
     });
 
+    // Esc held for a long-running dictation's processing: cancels it, as the
+    // pill's cancel does. Ignored unless this window still holds Esc for that,
+    // so a press that crossed a newer dictation leaves it alone.
+    const disposeCancelProcessing = window.electronAPI.onCancelProcessingHotkeyPressed?.(() => {
+      if (!cancelHotkeyRef.current.holdsProcessing) return;
+      setRecordingStyleBadge(null);
+      audioManagerRef.current?.cancelProcessing();
+    });
+
     // Cleanup
     return () => {
       reportLifecycle("idle");
@@ -1223,6 +1310,7 @@ export const useAudioRecording = (toast, options = {}) => {
       disposeCancelPreparation?.();
       disposeStop?.();
       disposeForceStopped?.();
+      disposeCancelProcessing?.();
       stopStallMonitor();
       if (audioManagerRef.current) {
         audioManagerRef.current.cleanup();
@@ -1247,7 +1335,7 @@ export const useAudioRecording = (toast, options = {}) => {
       // A cancelled recording's style ends with it; the next start resolves its own.
       setRecordingStyleBadge(null);
       audioManagerRef.current.cancelPreparedMicCapture?.();
-      window.electronAPI?.unregisterCancelHotkey?.();
+      cancelHotkeyRef.current.setPhase("idle");
       releaseCueOutput();
       const state = audioManagerRef.current.getState();
       if (getSettings().pauseMediaOnDictation) {
@@ -1334,5 +1422,7 @@ export const useAudioRecording = (toast, options = {}) => {
     cancelProcessing,
     toggleListening,
     getAudioLevel,
+    // Processing has run long and Esc now cancels it (shown on the pill).
+    slowProcessingHint: slowProcessingHint && isProcessing && !isRecording,
   };
 };

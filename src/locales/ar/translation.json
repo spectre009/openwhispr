@@ -2376,7 +2376,8 @@
       "recording": "جاري التسجيل...",
       "processing": "جاري المعالجة...",
       "clickToSpeak": "انقر للتحدث",
-      "waitingForMicrophone": "في انتظار الميكروفون…"
+      "waitingForMicrophone": "في انتظار الميكروفون…",
+      "slowProcessing": "يستغرق وقتًا أطول من المعتاد · Esc للإلغاء"
     },
     "buttons": {
       "cancelRecording": "إلغاء التسجيل",

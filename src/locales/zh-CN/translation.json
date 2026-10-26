@@ -4786,7 +4786,8 @@
       "recording": "录音中...",
       "processing": "处理中...",
       "clickToSpeak": "点击开始说话",
-      "waitingForMicrophone": "等待麦克风…"
+      "waitingForMicrophone": "等待麦克风…",
+      "slowProcessing": "比平时慢 · 按 Esc 取消"
     },
     "buttons": {
       "cancelRecording": "取消录音",

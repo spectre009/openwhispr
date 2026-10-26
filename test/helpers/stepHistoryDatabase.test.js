@@ -422,6 +422,96 @@ test("a retry with unchanged text still replaces its steps", (t) => {
   assert.deepEqual(ctx.prompts(), [PROMPT_B], "replaced, not appended");
 });
 
+// The dictation error card's Retry re-sent a failed recording.
+function failedRow(ctx) {
+  const { id } = ctx.db.saveTranscription("", null, {
+    status: "failed",
+    errorMessage: "OpenAI took too long to respond.",
+    errorCode: "PROVIDER_TIMEOUT",
+    routeKind: "style:teams",
+  });
+  ctx.db.updateTranscriptionAudio(id, {
+    hasAudio: 1,
+    audioDurationMs: 4600,
+    provider: null,
+    model: null,
+  });
+  return id;
+}
+
+test("a re-sent failed dictation becomes its row: text, steps, status and engine", (t) => {
+  const ctx = setup(t);
+  if (!ctx) return;
+  const id = failedRow(ctx);
+  const runId = ctx.history.beginRun({ transcriptionId: id });
+  const trace = makeTrace({ runId });
+
+  const result = ctx.history.completeFailedDictation(id, trace.finalText, trace.rawText, {
+    trace,
+    provider: "openai",
+    model: "gpt-4o-transcribe",
+  });
+
+  assert.equal(result.success, true);
+  assert.equal(result.stepsSaved, true);
+  const row = ctx.row(id);
+  assert.equal(row.status, "completed");
+  assert.equal(row.text, "Hello, Little Buddy.");
+  assert.equal(row.raw_text, "um hello littlebuddy");
+  assert.equal(row.error_message, null);
+  assert.equal(row.error_code, null);
+  assert.equal(row.route_kind, "style:teams");
+  assert.equal(row.has_audio, 1, "the recording stays with its row");
+  assert.equal(row.audio_duration_ms, 4600);
+  assert.equal(row.provider, "openai");
+  assert.equal(row.model, "gpt-4o-transcribe");
+  assert.equal(ctx.stepCount(id), 4);
+  assert.equal(result.transcription.id, id);
+  assert.equal(
+    ctx.db.db.prepare("SELECT COUNT(*) AS n FROM transcriptions").get().n,
+    1,
+    "no second row"
+  );
+});
+
+test("a re-send whose row is gone, completed or overtaken writes nothing", (t) => {
+  const ctx = setup(t);
+  if (!ctx) return;
+  assert.deepEqual(ctx.history.completeFailedDictation(424242, "Text.", "text"), {
+    success: false,
+    code: "NOT_FOUND",
+  });
+
+  const tombstoned = failedRow(ctx);
+  ctx.db.markTranscriptionSynced(tombstoned, "cloud-1");
+  ctx.db.deleteTranscription(tombstoned);
+  assert.equal(ctx.history.completeFailedDictation(tombstoned, "Text.", "text").code, "NOT_FOUND");
+
+  // History's Re-transcribe completed it meanwhile.
+  const completed = failedRow(ctx);
+  ctx.db.updateTranscriptionText(completed, "From History.", "from history");
+  ctx.db.updateTranscriptionStatus(completed, "completed");
+  assert.deepEqual(ctx.history.completeFailedDictation(completed, "Text.", "text"), {
+    success: false,
+    stale: true,
+  });
+  assert.equal(ctx.row(completed).text, "From History.");
+
+  // A newer retry of the row began after this one.
+  const overtaken = failedRow(ctx);
+  const older = ctx.history.beginRun({ transcriptionId: overtaken });
+  ctx.history.beginRun({ transcriptionId: overtaken });
+  const trace = makeTrace({ runId: older });
+  assert.deepEqual(
+    ctx.history.completeFailedDictation(overtaken, trace.finalText, trace.rawText, { trace }),
+    { success: false, stale: true }
+  );
+  const row = ctx.row(overtaken);
+  assert.equal(row.status, "failed");
+  assert.equal(row.text, "");
+  assert.equal(ctx.stepCount(overtaken), 0);
+});
+
 test("an account change mid-retry updates the text and leaves no steps", (t) => {
   const ctx = setup(t);
   if (!ctx) return;

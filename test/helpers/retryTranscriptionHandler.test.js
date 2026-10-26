@@ -9,6 +9,7 @@ const originalLoad = Module._load;
 // registered handler closures can be invoked directly against a fake `this`.
 const handlers = new Map();
 const fetches = [];
+const poolPartitions = [];
 let fetchResponse = () => ({
   ok: true,
   status: 200,
@@ -48,7 +49,17 @@ const electronStub = {
   dialog: {},
   screen: { getPrimaryDisplay: () => ({ workAreaSize: { width: 0, height: 0 } }) },
   systemPreferences: { getMediaAccessStatus: () => "granted" },
-  session: { fromPartition: () => ({}) },
+  // History's OpenAI-compatible re-sends go out on their own pool
+  // (connectionPool.js); its fetch is captured like net.fetch.
+  session: {
+    fromPartition: (partition) => {
+      poolPartitions.push(partition);
+      return {
+        fetch: (url, init) => electronStub.net.fetch(url, init),
+        closeAllConnections: async () => {},
+      };
+    },
+  },
   clipboard: {},
   nativeImage: {},
   globalShortcut: {},
@@ -254,6 +265,25 @@ test("retry: plain custom endpoints use Bearer auth at the configured URL", asyn
   assert.equal(result.success, true);
   assert.equal(fetches[0].url, "https://stt.parasail.example.com/v1/audio/transcriptions");
   assert.equal(fetches[0].init.headers.Authorization, "Bearer ck-custom");
+});
+
+test("retry: OpenAI-compatible re-sends get a deadline on History's own pool", async () => {
+  fetches.length = 0;
+  const result = await invoke({
+    cloudTranscriptionProvider: "openai",
+    cloudTranscriptionMode: "byok",
+    transcriptionMode: "providers",
+    cloudTranscriptionModel: "whisper-1",
+  });
+  assert.equal(result.success, true);
+  assert.ok(poolPartitions.includes("ow-history-stt"));
+  assert.ok(!poolPartitions.includes("ow-dictation-stt"), "never the live dictation's pool");
+  assert.ok(fetches[0].init.signal instanceof AbortSignal, "the deadline can abort it");
+  assert.deepEqual(
+    [...fetches[0].init.body.keys()],
+    ["file", "model"],
+    "the same form as before: no prompt, keywords or stream"
+  );
 });
 
 const CUSTOM_SETTINGS = {

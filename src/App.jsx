@@ -296,6 +296,7 @@ export default function App() {
     recordingInputKind,
     recordingStartedAt,
     dictationStyle,
+    slowProcessingHint,
   } = useAudioRecording(toast, {
     onToggle: handleDictationToggle,
     onDemoEvent: publishOnboardingDemoEvent,
@@ -596,6 +597,10 @@ export default function App() {
   };
 
   const micTooltip = getMicTooltip();
+  // Processing has run long and Esc now cancels it: said on the pill itself,
+  // not only on hover.
+  const slowProcessingNotice =
+    slowProcessingHint && micState === "processing" ? t("app.mic.slowProcessing") : null;
   const assistantVoiceState =
     isRecording && isAssistantVoice
       ? "listening"
@@ -776,6 +781,7 @@ export default function App() {
         >
           <PillTooltip
             content={canReopenLiveTranscript ? t("transcriptionPreview.label") : micTooltip}
+            notice={slowProcessingNotice}
             disabled={anyPanelMounted}
             align={voicePillPopoverAlign}
             side={voicePillPopoverSide}
@@ -859,7 +865,7 @@ export default function App() {
               }}
             />
           </PillTooltip>
-          {dictationStyle && pillHasLiveActivity && !anyPanelOpen && (
+          {dictationStyle && pillHasLiveActivity && !anyPanelOpen && !slowProcessingNotice && (
             <StyleBadge
               style={dictationStyle}
               side={voicePillPopoverSide}

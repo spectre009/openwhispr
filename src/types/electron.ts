@@ -123,6 +123,50 @@ export interface MainWindowInputRegion {
   height: number;
 }
 
+/** Live dictation's OpenAI-compatible transcription request, handed to main. */
+export interface DictationTranscriptionRequest {
+  /** The dictation window's id for it: its cancel names this id. */
+  requestId: string;
+  endpoint: string;
+  /** Only `Authorization` and `api-key` are sent. */
+  headers: Record<string, string>;
+  /** Form fields after the file, in order (`keywords[]` repeats). */
+  fields: Array<[string, string]>;
+  file: { bytes: ArrayBuffer; name: string; type: string };
+  audioSeconds: number | null;
+  stream: boolean;
+  /** The self-hosted route: the local deadline whatever its host. */
+  selfHosted: boolean;
+  errorContext: {
+    provider: string;
+    selfHosted: boolean;
+    model: string | null;
+    surface: "transcription";
+  };
+}
+
+/** Main's answer: the response (`body`, or a streamed `text`), a cancel, or a classified error. */
+export interface DictationTranscriptionReply {
+  success: boolean;
+  cancelled?: boolean;
+  ok?: boolean;
+  status?: number;
+  statusText?: string;
+  headers?: Record<string, string>;
+  body?: string;
+  streamed?: boolean;
+  text?: string;
+  stats?: { eventCount: number; eventTypes: Record<string, number>; usedFinalText: boolean };
+  attempts?: number;
+  error?: string;
+  code?: string;
+  messageKey?: string;
+  messageParams?: Record<string, string>;
+  settingsTarget?: string;
+  technicalDetails?: Record<string, unknown>;
+  surface?: string;
+}
+
 // Epoch-ms stamps for one push-to-talk press, set by the main process.
 export interface DictationPressTrace {
   pressId: number;
@@ -1958,6 +2002,14 @@ declare global {
       ) => () => void;
       onCancelDictationPreparation?: (callback: () => void) => () => void;
       onCancelDictation?: (callback: () => void) => () => void;
+      onCancelHotkeyPressed?: (callback: () => void) => () => void;
+      /** Esc held for a long-running dictation's processing (`purpose: "processing"`). */
+      onCancelProcessingHotkeyPressed?: (callback: () => void) => () => void;
+      registerCancelHotkey?: (
+        key: string,
+        options?: { purpose?: "recording" | "processing" }
+      ) => Promise<{ success: boolean; hotkey?: string; error?: string }>;
+      unregisterCancelHotkey?: () => Promise<{ success: boolean }>;
       onDictationForceStopped?: (
         callback: (payload?: { reason?: "timeout" | "reset" | "manual" }) => void
       ) => () => void;
@@ -2188,7 +2240,29 @@ declare global {
         /** A newer retry of the same row overtook this one; nothing was written. */
         stale?: boolean;
       }>;
-      beginStepHistoryRun?: () => Promise<{ runId: string | null }>;
+      beginStepHistoryRun?: (options?: {
+        /** A re-sent failed dictation's History row: its steps replace that row's. */
+        transcriptionId?: number;
+      }) => Promise<{ runId: string | null }>;
+      completeFailedDictationRetry?: (
+        id: number,
+        text: string,
+        rawText: string | null,
+        options?: {
+          trace?: PostTranscriptionTrace;
+          provider?: string | null;
+          model?: string | null;
+        }
+      ) => Promise<{
+        success: boolean;
+        transcription?: TranscriptionItem;
+        stepsSaved?: boolean;
+        /** The row completed meanwhile, or a newer retry overtook this one; nothing was written. */
+        stale?: boolean;
+        /** "NOT_FOUND": the row is gone; save the dictation as a new row. */
+        code?: string;
+        error?: string;
+      }>;
       getTranscriptionSteps?: (id: number) => Promise<TranscriptionStepsResult>;
       exportDictations?: () => Promise<ExportDictationsResult>;
       listHistory?: (request: HistoryListRequest) => Promise<HistoryListResult>;
@@ -3278,6 +3352,11 @@ declare global {
         } & PolicyFailureMetadata
       >;
       cancelCloudTranscription?: () => void;
+      /** Live dictation's OpenAI-compatible request, sent by main (deadline, one retry). */
+      transcribeDictationRequest?: (
+        request: DictationTranscriptionRequest
+      ) => Promise<DictationTranscriptionReply>;
+      cancelDictationTranscription?: (requestId: string) => void;
       cloudReason?: (
         text: string,
         opts: {

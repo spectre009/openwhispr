@@ -4786,7 +4786,8 @@
       "recording": "Gravando...",
       "processing": "Processando...",
       "clickToSpeak": "Clique para falar",
-      "waitingForMicrophone": "Aguardando microfone…"
+      "waitingForMicrophone": "Aguardando microfone…",
+      "slowProcessing": "Demorando mais que o normal · Esc para cancelar"
     },
     "buttons": {
       "cancelRecording": "Cancelar gravação",

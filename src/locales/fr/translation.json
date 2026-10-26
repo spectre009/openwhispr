@@ -4956,7 +4956,8 @@
       "recording": "Enregistrement...",
       "processing": "Traitement...",
       "clickToSpeak": "Cliquez pour parler",
-      "waitingForMicrophone": "En attente du microphone…"
+      "waitingForMicrophone": "En attente du microphone…",
+      "slowProcessing": "Plus long que d'habitude · Échap pour annuler"
     },
     "buttons": {
       "cancelRecording": "Annuler l’enregistrement",

@@ -7,6 +7,7 @@
 // `settingsKey` names the globalThis slot the suite swaps its settings
 // through — a unique key per suite keeps the per-test module caches isolated.
 const { createRendererServer, installBrowserGlobals } = require("../../lib/rendererTestHarness");
+const { createDictationTranscriptionBridge } = require("./dictationTranscriptionBridge");
 
 const defaultMockModules = (settingsKey) => ({
   "/utils/logger":
@@ -28,6 +29,8 @@ const defaultMockModules = (settingsKey) => ({
 
 async function loadAudioManager(t, { cachePrefix, settingsKey, settings, mockModules = {} } = {}) {
   const { window } = installBrowserGlobals(t);
+  // Main sends dictation's batch request; this serves it over globalThis.fetch.
+  Object.assign(window.electronAPI, createDictationTranscriptionBridge());
   const vite = await createRendererServer(t, {
     cachePrefix,
     mockModules: { ...defaultMockModules(settingsKey), ...mockModules },

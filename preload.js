@@ -214,7 +214,10 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.invoke("update-transcription-text", id, text, rawText, options),
   getTranscriptionById: (id) => ipcRenderer.invoke("get-transcription-by-id", id),
   // Step history: main owns ownership, policy and the export's Save dialog.
-  beginStepHistoryRun: () => ipcRenderer.invoke("step-history-begin-run"),
+  // `{ transcriptionId }` begins the run of a re-sent failed dictation.
+  beginStepHistoryRun: (options) => ipcRenderer.invoke("step-history-begin-run", options),
+  completeFailedDictationRetry: (id, text, rawText, options) =>
+    ipcRenderer.invoke("complete-failed-dictation-retry", id, text, rawText, options),
   getTranscriptionSteps: (id) => ipcRenderer.invoke("history-get-steps", id),
   exportDictations: () => ipcRenderer.invoke("history-export-dictations"),
   // The History view: a page of rows, the App filter's apps, one row by id.
@@ -676,7 +679,14 @@ contextBridge.exposeInMainWorld("electronAPI", {
 
   // Audio event listeners
   onCancelHotkeyPressed: registerListener("cancel-hotkey-pressed", (cb) => () => cb()),
-  registerCancelHotkey: (key) => ipcRenderer.invoke("register-cancel-hotkey", key),
+  // Esc while a long-running dictation is processing (registered with
+  // `{ purpose: "processing" }`): cancels that processing, never input resets.
+  onCancelProcessingHotkeyPressed: registerListener(
+    "cancel-processing-hotkey-pressed",
+    (cb) => () => cb()
+  ),
+  registerCancelHotkey: (key, options) =>
+    ipcRenderer.invoke("register-cancel-hotkey", key, options),
   unregisterCancelHotkey: () => ipcRenderer.invoke("unregister-cancel-hotkey"),
 
   // External link opener
@@ -908,6 +918,12 @@ contextBridge.exposeInMainWorld("electronAPI", {
   cloudHealthCheck: () => ipcRenderer.invoke("cloud-health-check"),
   cloudTranscribe: (audioBuffer, opts) => ipcRenderer.invoke("cloud-transcribe", audioBuffer, opts),
   cancelCloudTranscription: () => ipcRenderer.send("cloud-transcribe-cancel"),
+  // Live dictation's OpenAI-compatible request, sent by main on its own
+  // connection pool with a deadline and one retry; cancelled by its id.
+  transcribeDictationRequest: (request) =>
+    ipcRenderer.invoke("dictation-transcription-request", request),
+  cancelDictationTranscription: (requestId) =>
+    ipcRenderer.send("dictation-transcription-cancel", requestId),
   cloudReason: (text, opts) => ipcRenderer.invoke("cloud-reason", text, opts),
   cancelCloudReason: () => ipcRenderer.send("cloud-reason-cancel"),
   cloudStreamingUsage: (text, audioDurationSeconds, opts) =>

@@ -253,6 +253,14 @@ test("asProviderError classifies timeouts and network failures", async () => {
   const ctx = { provider: "Groq", surface: "llm" };
   assert.equal(asProviderError(Object.assign(new Error("t"), { code: "LLM_REQUEST_TIMEOUT" }), ctx).code, "PROVIDER_TIMEOUT");
   assert.equal(asProviderError(Object.assign(new Error("t"), { name: "TimeoutError" }), ctx).code, "PROVIDER_TIMEOUT");
+  // A transcription request's client deadline, by its marker code.
+  const deadline = asProviderError(
+    Object.assign(new Error("t"), { code: "TRANSCRIPTION_REQUEST_TIMEOUT" }),
+    { provider: "OpenAI", selfHosted: true, surface: "transcription" }
+  );
+  assert.equal(deadline.code, "PROVIDER_TIMEOUT");
+  assert.equal(deadline.messageKey, "providerErrors.selfHosted.timeout");
+  assert.equal(deadline.technicalDetails.underlyingError, "TRANSCRIPTION_REQUEST_TIMEOUT");
   const notFound = asProviderError(Object.assign(new Error("x"), { code: "ENOTFOUND" }), ctx);
   assert.equal(notFound.code, "PROVIDER_UNREACHABLE");
   assert.equal(notFound.technicalDetails.underlyingError, "ENOTFOUND");

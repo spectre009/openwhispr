@@ -36,6 +36,8 @@ export interface ToastProps {
   variant?: "default" | "destructive" | "success";
   duration?: number;
   onClose?: () => void;
+  /** Called once when the toast leaves for any reason: its timer, a close, a newer dictation error replacing it. */
+  onRemoved?: () => void;
   dismissible?: boolean;
 }
 

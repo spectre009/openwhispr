@@ -236,6 +236,12 @@ const { createAbortError } = require("./abortError");
 const { testProviderConnection } = require("./providerConnectionTest");
 const { createUploadCancelRegistry } = require("./uploadCancelRegistry");
 const { applyOpenWhisprOriginHeader } = require("./sessionHeaders");
+const { getConnectionPool } = require("./connectionPool");
+const {
+  registerDictationTranscriptionIpc,
+  runHistoryTranscriptionRequest,
+  transcriptionRequestFrom,
+} = require("./dictationTranscriptionRequest");
 const {
   CLOUD_UPLOAD_TIMEOUT_MS,
   CLOUD_CHUNK_MAX_ATTEMPTS,
@@ -263,15 +269,9 @@ const CLOUD_CHUNK_UPLOAD_SESSION_PARTITION = "ow-cloud-chunk-uploads";
 const CLOUD_INLINE_UPLOAD_SESSION_PARTITION = "ow-cloud-uploads";
 const cloudUploadSlots = createUploadSlots(CLOUD_CHUNK_GLOBAL_CONCURRENCY);
 const shouldDropUploadPool = createTeardownGate();
-const cloudUploadSessions = new Map();
 
 function getCloudUploadSession(partition) {
-  if (!cloudUploadSessions.has(partition)) {
-    const uploadSession = session.fromPartition(partition);
-    applyOpenWhisprOriginHeader(uploadSession);
-    cloudUploadSessions.set(partition, uploadSession);
-  }
-  return cloudUploadSessions.get(partition);
+  return getConnectionPool(partition, { configure: applyOpenWhisprOriginHeader });
 }
 
 function getChunkCloudUploadSession() {
@@ -1937,8 +1937,54 @@ class IPCHandlers {
       return result;
     });
 
-    // Begun when a recording starts: main captures who will own its steps.
-    ipcMain.handle("step-history-begin-run", () => ({ runId: this.stepHistory.beginRun() }));
+    // Begun when a recording starts: main captures who will own its steps. A
+    // re-sent failed dictation (the error card's Retry) passes its History
+    // row, so its steps replace that row's when it completes.
+    ipcMain.handle("step-history-begin-run", (_event, options) => {
+      const transcriptionId = Number.isInteger(options?.transcriptionId)
+        ? options.transcriptionId
+        : null;
+      return { runId: this.stepHistory.beginRun({ transcriptionId }) };
+    });
+
+    // The error card's Retry re-sent a failed dictation and it worked: its
+    // failed History row becomes that dictation (stepHistory.completeFailedDictation).
+    ipcMain.handle(
+      "complete-failed-dictation-retry",
+      async (_event, id, text, rawText, options = {}) => {
+        try {
+          if (!Number.isInteger(id) || typeof text !== "string") {
+            return { success: false, error: "Invalid retry completion" };
+          }
+          const completion = this.stepHistory.completeFailedDictation(
+            id,
+            text,
+            typeof rawText === "string" ? rawText : null,
+            {
+              trace: options?.trace ?? null,
+              provider: options?.provider ?? null,
+              model: options?.model ?? null,
+            }
+          );
+          const updated = completion.transcription;
+          if (completion.success && updated) {
+            setImmediate(() => {
+              broadcastToWindows("transcription-updated", updated);
+              // A row that just reached "completed" is newly eligible.
+              void this._ensureAnalyticsHistoryBackfilled();
+            });
+          }
+          return completion;
+        } catch (error) {
+          debugLogger.error(
+            "Failed to complete a re-sent dictation",
+            { id, error: error.message },
+            "audio-storage"
+          );
+          return { success: false, error: error.message };
+        }
+      }
+    );
 
     ipcMain.handle("history-get-steps", (_event, id) => {
       try {
@@ -4993,11 +5039,16 @@ class IPCHandlers {
       return this.windowManager.getHyprlandConfigStatus();
     });
 
-    ipcMain.handle("register-cancel-hotkey", async (event, key) => {
+    // The dictation window holds Esc while it records, and while a dictation's
+    // processing has run long (`purpose: "processing"`): that press is its own
+    // event, since `cancel-hotkey-pressed` also resets Fn and onboarding input
+    // and must never cancel a transcription.
+    ipcMain.handle("register-cancel-hotkey", async (event, key, options) => {
       const hotkeyManager = this.windowManager.hotkeyManager;
-      const mainWindow = this.windowManager.mainWindow;
+      const cancelsProcessing = options?.purpose === "processing";
       return hotkeyManager.registerSlot("cancel", key, () => {
-        mainWindow?.webContents?.send("cancel-hotkey-pressed");
+        if (cancelsProcessing) this.windowManager.sendCancelProcessingHotkey();
+        else this.windowManager.mainWindow?.webContents?.send("cancel-hotkey-pressed");
       });
     });
 
@@ -7051,6 +7102,14 @@ class IPCHandlers {
       isCloudDisabled: openWhisprCloudGate.isCloudDisabled,
     });
 
+    // Live dictation's OpenAI-compatible batch request, on its own connection
+    // pool with a deadline and one retry (dictationTranscriptionRequest.js).
+    registerDictationTranscriptionIpc({
+      ipcMain,
+      getPool: (partition) => getConnectionPool(partition),
+      logger: debugLogger,
+    });
+
     ipcMain.handle("cloud-transcribe", async (event, audioBuffer, opts = {}) => {
       const sender = event.sender;
       const senderId = sender.id;
@@ -7252,6 +7311,38 @@ class IPCHandlers {
           };
         }
 
+        // OpenAI-compatible re-sends (OpenAI, Groq, custom, self-hosted) get
+        // live dictation's deadline and retry, on History's own pool.
+        let storedAudioSeconds = null;
+        try {
+          const durationMs = this.databaseManager.getTranscriptionById(id)?.audio_duration_ms;
+          if (Number.isFinite(durationMs) && durationMs > 0) storedAudioSeconds = durationMs / 1000;
+        } catch {
+          // Unknown length: the deadline estimates it from the bytes.
+        }
+        const sendStoredAudio = ({ endpoint, headers = {}, fields, file, selfHosted = false }) =>
+          runHistoryTranscriptionRequest({
+            request: transcriptionRequestFrom({
+              endpoint,
+              headers,
+              fields,
+              file,
+              audioSeconds: storedAudioSeconds,
+              selfHosted,
+              errorContext: providerErrorContext,
+            }),
+            getPool: (partition) => getConnectionPool(partition),
+            logger: debugLogger,
+          });
+        // The body is the transcript: a parse failure never quotes it.
+        const readJsonAnswer = (answer) => {
+          try {
+            return JSON.parse(answer.body);
+          } catch {
+            throw new Error("Couldn't read the transcription response");
+          }
+        };
+
         if (route.transport === "managed") {
           const text = await this.executeManagedTranscription(event, route, {
             audioBuffer: buffer,
@@ -7260,33 +7351,28 @@ class IPCHandlers {
           });
           result = { text, source: "azure-managed", model: route.deployment };
         } else if (route.transport === "http-batch" && route.provider === "self-hosted") {
-          const formData = new FormData();
-          formData.append("file", new Blob([buffer], { type: "audio/webm" }), "audio.webm");
-          if (route.model) {
-            formData.append("model", route.model);
-          }
-          if (route.language) {
-            formData.append("language", route.language);
-          }
-
-          const response = await proxyFetch(route.endpoint, {
-            method: "POST",
-            body: formData,
+          const fields = [];
+          if (route.model) fields.push(["model", route.model]);
+          if (route.language) fields.push(["language", route.language]);
+          const answer = await sendStoredAudio({
+            endpoint: route.endpoint,
+            fields,
+            file: { bytes: buffer, type: "audio/webm", name: "audio.webm" },
+            selfHosted: true,
           });
-          if (!response.ok) {
-            const errorText = await response.text();
+          if (!answer.ok) {
             debugLogger.warn("Self-hosted retry failed", {
-              status: response.status,
-              body: redactProviderBody(errorText),
+              status: answer.status,
+              body: redactProviderBody(answer.body),
             });
             throw providerHttpError({
               ...providerErrorContext,
-              status: response.status,
-              body: errorText,
-              headers: response.headers,
+              status: answer.status,
+              body: answer.body,
+              headers: answer.headers,
             });
           }
-          const data = await response.json();
+          const data = readJsonAnswer(answer);
           if (data?.text) {
             result = {
               text: data.text,
@@ -7460,17 +7546,15 @@ class IPCHandlers {
             }
           }
 
-          const formData = new FormData();
-          formData.append("file", new Blob([uploadBuffer], { type: uploadType }), uploadName);
+          const fields = [];
           if (provider === "xai") {
             // xAI STT does not accept a model field; the route pre-filters language
             if (route.language) {
-              formData.append("language", route.language);
-              formData.append("format", "true");
+              fields.push(["language", route.language], ["format", "true"]);
             }
           } else {
-            formData.append("model", route.model);
-            if (route.language) formData.append("language", route.language);
+            fields.push(["model", String(route.model)]);
+            if (route.language) fields.push(["language", route.language]);
           }
           const headers = {};
           if (provider === "mistral") {
@@ -7483,22 +7567,44 @@ class IPCHandlers {
             }
           }
 
-          const response = await proxyFetch(endpoint, { method: "POST", headers, body: formData });
-          if (!response.ok) {
-            const errorText = await response.text();
+          let answer;
+          if (route.transport === "http-batch") {
+            answer = await sendStoredAudio({
+              endpoint,
+              headers,
+              fields,
+              file: { bytes: uploadBuffer, type: uploadType, name: uploadName },
+            });
+          } else {
+            const formData = new FormData();
+            formData.append("file", new Blob([uploadBuffer], { type: uploadType }), uploadName);
+            for (const [name, value] of fields) formData.append(name, value);
+            const response = await proxyFetch(endpoint, {
+              method: "POST",
+              headers,
+              body: formData,
+            });
+            answer = {
+              ok: response.ok,
+              status: response.status,
+              headers: response.headers,
+              body: await response.text(),
+            };
+          }
+          if (!answer.ok) {
             debugLogger.warn("Retry transcription provider failed", {
               provider,
-              status: response.status,
-              body: redactProviderBody(errorText),
+              status: answer.status,
+              body: redactProviderBody(answer.body),
             });
             throw providerHttpError({
               ...providerErrorContext,
-              status: response.status,
-              body: errorText,
-              headers: response.headers,
+              status: answer.status,
+              body: answer.body,
+              headers: answer.headers,
             });
           }
-          const data = await response.json();
+          const data = readJsonAnswer(answer);
           if (data?.text) {
             result = { text: data.text, source: provider, model: route.model };
           }

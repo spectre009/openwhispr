@@ -4836,7 +4836,8 @@
       "recording": "Запись...",
       "processing": "Обработка...",
       "clickToSpeak": "Нажмите для записи",
-      "waitingForMicrophone": "Ожидание микрофона…"
+      "waitingForMicrophone": "Ожидание микрофона…",
+      "slowProcessing": "Дольше обычного · Esc для отмены"
     },
     "buttons": {
       "cancelRecording": "Отменить запись",

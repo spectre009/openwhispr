@@ -115,7 +115,7 @@ function parseIPv4Literal(hostname) {
   return octets;
 }
 
-function isPrivateHost(hostname) {
+export function isPrivateHost(hostname) {
   const h = hostname.toLowerCase().replace(/^\[|\]$/g, "");
   if (h === "localhost" || h === "0.0.0.0" || h === "::1") return true;
   const ipv4 = parseIPv4Literal(h);

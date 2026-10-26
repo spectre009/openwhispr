@@ -342,6 +342,29 @@ function createStepHistory({ db, getOwner, isEnabled, runs = createStepRunRegist
     return { lines, dictations: dictations.length, withSteps: stepsById.size };
   }
 
+  /**
+   * update-transcription-text after a retry from history: the row's text and
+   * its steps are replaced together. A completion a newer retry overtook
+   * changes nothing.
+   */
+  function completeRetry(id, text, rawText, options = {}) {
+    const trace = options?.trace;
+    if (!trace) {
+      db.updateTranscriptionText(id, text, rawText);
+      return { success: true, stepsSaved: false };
+    }
+    const run = runs.take(trace.runId);
+    if (run && (run.transcriptionId !== id || !runs.isCurrent(run))) {
+      log("Stale retry completion dropped", { reason: "superseded" });
+      return { success: false, stale: true };
+    }
+    const verdict = stepsFor(run, trace, rawText);
+    if (!verdict.steps) log("Retry saved without steps", { reason: verdict.reason });
+    // Null steps still replace: the old ones described text that is gone.
+    db.updateTranscriptionText(id, text, rawText, { steps: verdict.steps });
+    return { success: true, stepsSaved: Boolean(verdict.steps) };
+  }
+
   return {
     currentOwner,
 
@@ -366,27 +389,39 @@ function createStepHistory({ db, getOwner, isEnabled, runs = createStepRunRegist
       return db.saveTranscription(text, rawText, { ...rowOptions, steps });
     },
 
+    completeRetry,
+
     /**
-     * update-transcription-text after a retry from history: the row's text and
-     * its steps are replaced together. A completion a newer retry overtook
-     * changes nothing.
+     * The error card's Retry re-sent a failed dictation and it worked: its
+     * failed row becomes that dictation (text, steps, status, engine) instead
+     * of a second row. The run was begun with the row's id. `NOT_FOUND` when
+     * the row is gone or tombstoned (the caller saves a new row); `stale` when
+     * it completed meanwhile (History's Re-transcribe) or a newer retry
+     * overtook this run, and nothing is written.
      */
-    completeRetry(id, text, rawText, options = {}) {
-      const trace = options?.trace;
-      if (!trace) {
-        db.updateTranscriptionText(id, text, rawText);
-        return { success: true, stepsSaved: false };
-      }
-      const run = runs.take(trace.runId);
-      if (run && (run.transcriptionId !== id || !runs.isCurrent(run))) {
-        log("Stale retry completion dropped", { reason: "superseded" });
-        return { success: false, stale: true };
-      }
-      const verdict = stepsFor(run, trace, rawText);
-      if (!verdict.steps) log("Retry saved without steps", { reason: verdict.reason });
-      // Null steps still replace: the old ones described text that is gone.
-      db.updateTranscriptionText(id, text, rawText, { steps: verdict.steps });
-      return { success: true, stepsSaved: Boolean(verdict.steps) };
+    completeFailedDictation(
+      id,
+      text,
+      rawText,
+      { trace = null, provider = null, model = null } = {}
+    ) {
+      const existing = db.getTranscriptionById(id);
+      if (!existing || existing.deleted_at) return { success: false, code: "NOT_FOUND" };
+      if (existing.status !== "failed") return { success: false, stale: true };
+      const completion = completeRetry(id, text, rawText, trace ? { trace } : {});
+      if (completion.stale) return { success: false, stale: true };
+      db.updateTranscriptionStatus(id, "completed");
+      db.updateTranscriptionAudio(id, {
+        hasAudio: existing.has_audio ? 1 : 0,
+        audioDurationMs: existing.audio_duration_ms ?? null,
+        provider: shortText(provider),
+        model: shortText(model),
+      });
+      return {
+        success: true,
+        stepsSaved: completion.stepsSaved,
+        transcription: db.getTranscriptionById(id),
+      };
     },
 
     /** The current owner's steps for one history row. */

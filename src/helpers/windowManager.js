@@ -1578,6 +1578,15 @@ class WindowManager {
     }
   }
 
+  // Esc while a dictation has been processing for long (the dictation window
+  // holds it then): cancels that processing only. Kept apart from
+  // cancel-hotkey-pressed, which sendCancelDictation's input resets share.
+  sendCancelProcessingHotkey() {
+    if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+      this.mainWindow.webContents.send("cancel-processing-hotkey-pressed");
+    }
+  }
+
   getActivationMode() {
     return this._cachedActivationMode;
   }

@@ -100,10 +100,22 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [toasts, setToasts] = React.useState<ToastState[]>([]);
   const toastsRef = React.useRef<ToastState[]>([]);
   const timersRef = React.useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const removedRef = React.useRef<Set<string>>(new Set());
 
   React.useEffect(() => {
     toastsRef.current = toasts;
   }, [toasts]);
+
+  // Each toast hears its removal once, however it goes.
+  const notifyRemoved = React.useCallback((item: ToastState | undefined) => {
+    if (!item?.onRemoved || removedRef.current.has(item.id)) return;
+    removedRef.current.add(item.id);
+    try {
+      item.onRemoved();
+    } catch {
+      // A listener's failure must not keep the toast on screen.
+    }
+  }, []);
 
   const clearTimer = React.useCallback((id: string) => {
     const timer = timersRef.current[id];
@@ -113,12 +125,16 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   }, []);
 
-  const startExitAnimation = React.useCallback((id: string) => {
-    setToasts((prev) => prev.map((t) => (t.id === id ? { ...t, isExiting: true } : t)));
-    setTimeout(() => {
-      setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, 200);
-  }, []);
+  const startExitAnimation = React.useCallback(
+    (id: string) => {
+      setToasts((prev) => prev.map((t) => (t.id === id ? { ...t, isExiting: true } : t)));
+      setTimeout(() => {
+        notifyRemoved(toastsRef.current.find((t) => t.id === id));
+        setToasts((prev) => prev.filter((t) => t.id !== id));
+      }, 200);
+    },
+    [notifyRemoved]
+  );
 
   const toast = React.useCallback(
     (props: Omit<ToastProps, "id">): string => {
@@ -147,7 +163,9 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         // The new error replaces any current one; its auto-dismiss timer must
         // not fire (and re-schedule exit work) for the removed toast.
         for (const item of toastsRef.current) {
-          if (item.presentation === "dictation-error") clearTimer(item.id);
+          if (item.presentation !== "dictation-error") continue;
+          clearTimer(item.id);
+          notifyRemoved(item);
         }
       }
       setToasts((prev) =>
@@ -175,7 +193,7 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
       return id;
     },
-    [clearTimer, startExitAnimation]
+    [clearTimer, notifyRemoved, startExitAnimation]
   );
 
   const dismissByPresentation = React.useCallback(

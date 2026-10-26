@@ -6,6 +6,7 @@ import {
 import logger from "../utils/logger";
 import { logText } from "../utils/logText.js";
 import { markStartTrace } from "../utils/dictationStartTrace";
+import { canStartDictation } from "../utils/dictationReadiness";
 import { assertValidCleanupOutput } from "../utils/cleanupOutput";
 import { isAzureOpenAIEndpoint } from "../utils/urlUtils";
 import { withSessionRefresh } from "../lib/auth";
@@ -95,6 +96,8 @@ import {
   resolveStreamingStartFallback,
 } from "./transcriptionFallback";
 import { transcriptionFailureOutcome } from "./transcriptionFailureOutcome";
+import { isResendableFailure, keptRecordingFor } from "./failedRecordingRetry";
+import { sendDictationTranscription } from "./dictationTranscriptionClient";
 import { IPC_ERROR_FIELDS, errorFromIpcResult } from "./ipcErrorFields";
 import { asProviderError, providerHttpError, redactProviderBody } from "./providerHttpErrors";
 import {
@@ -199,10 +202,15 @@ const STEP_HISTORY_RUN_WAIT_MS = 250;
 
 // Asks main to begin a step-history run: main captures who owns this
 // dictation's steps now, and checks it again when the dictation is saved.
+// `{ transcriptionId }` begins a re-sent failed dictation's run on its row.
 // Resolves the run id, or null without one (no bridge, or an older main).
-function requestStepHistoryRun() {
-  const request =
-    typeof window !== "undefined" ? window.electronAPI?.beginStepHistoryRun?.() : undefined;
+function requestStepHistoryRun(options) {
+  const api = typeof window !== "undefined" ? window.electronAPI : undefined;
+  const request = api?.beginStepHistoryRun
+    ? options
+      ? api.beginStepHistoryRun(options)
+      : api.beginStepHistoryRun()
+    : undefined;
   if (!request) return Promise.resolve(null);
   return Promise.resolve(request)
     .then((reply) => (typeof reply?.runId === "string" ? reply.runId : null))
@@ -2286,6 +2294,60 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     return false;
   }
 
+  // The dictation error card's Retry for a failure a second try can fix
+  // (failedRecordingRetry.js): runs this dictation pipeline again on the kept
+  // recording, with its translation and style intent, so transcription,
+  // glossary, cleanup or style, step history and paste behave as for a
+  // dictation. It pastes where the user is now (the target is captured
+  // afresh) and completes the failed History row; failing again brings the
+  // card back for the same row. Cancelled like any processing. False when a
+  // recording or another dictation holds the pipeline, or a cancel came first.
+  async resendFailedRecording(kept) {
+    if (!kept?.blob || !canStartDictation(this.getState())) return false;
+    this.setVoiceAgentRequested(false);
+    this.setTranslationRequested(kept.translationRequested === true);
+    this.setRecordingStyle(kept.style ?? null);
+    this.lastAudioBlob = kept.blob;
+    this.lastAudioMetadata = null;
+    const pipeline = this._startProcessingPipeline();
+    this.isProcessing = true;
+    this.onStateChange?.({ isRecording: false, isProcessing: true });
+
+    const api = window.electronAPI;
+    const capture = api?.captureDictationTarget?.();
+    this.recordingTargetPromise = capture
+      ? Promise.resolve(capture)
+          .then(() => api?.getDictationTargetApp?.() ?? null)
+          .catch(() => null)
+      : null;
+    let rowId = null;
+    try {
+      rowId = await kept.rowId;
+    } catch {
+      rowId = null;
+    }
+    pipeline.resend = { rowId: Number.isInteger(rowId) ? rowId : null };
+    this.stepHistoryRunPromise = requestStepHistoryRun(
+      pipeline.resend.rowId !== null ? { transcriptionId: pipeline.resend.rowId } : undefined
+    );
+    if (this._shouldAbandonProcessingPipeline(pipeline)) {
+      this._settleProcessingPipeline(pipeline);
+      return false;
+    }
+    logger.info(
+      "Re-sending a failed dictation",
+      {
+        historyId: pipeline.resend.rowId,
+        blobSize: kept.blob.size,
+        durationSeconds: kept.metadata?.durationSeconds ?? null,
+      },
+      "audio"
+    );
+    await this.processAudio(kept.blob, { ...kept.metadata }, pipeline);
+    await pipeline.resultHandled;
+    return true;
+  }
+
   async processAudio(audioBlob, metadata = {}, processingPipeline = null) {
     const pipeline = processingPipeline ?? this._startProcessingPipeline();
     if (processingPipeline && this._activeProcessingPipeline !== processingPipeline) return;
@@ -2397,6 +2459,10 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
           ? { analyticsOccurredAt: metadata.analyticsOccurredAt }
           : {}),
         ...this._takePendingResultExtras(),
+        // A re-sent failed dictation completes its failed History row.
+        ...(Number.isInteger(pipeline.resend?.rowId)
+          ? { replacesTranscriptionId: pipeline.resend.rowId }
+          : {}),
       };
       // Settles once the result is delivered and saved; the recording's spool
       // waits for it, so a main process that hangs on the paste or the save
@@ -2450,13 +2516,39 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
 
       const outcome = transcriptionFailureOutcome(error);
       noAudioDetected = outcome.noAudio;
-      if (outcome.report) this.onError?.(outcome.report);
-      if (outcome.keepAudio && this.lastAudioBlob) {
+      // A failure a second try can fix keeps its recording for the card's
+      // Retry, which re-sends it. A re-send that fails again keeps its row.
+      const completesRow = Number.isInteger(pipeline.resend?.rowId);
+      let resolveRowId = null;
+      const keptRecording =
+        outcome.report && isResendableFailure(error)
+          ? keptRecordingFor({
+              error,
+              blob: audioBlob,
+              metadata,
+              retention: getEffectiveRetentionPreferences(),
+              voiceAgentRequested: this.voiceAgentRequested,
+              translationRequested: this.translationRequested,
+              style: this.getActiveRecordingStyle(),
+              rowId: completesRow
+                ? pipeline.resend.rowId
+                : new Promise((resolve) => {
+                    resolveRowId = resolve;
+                  }),
+            })
+          : null;
+      if (outcome.report) {
+        this.onError?.(keptRecording ? { ...outcome.report, keptRecording } : outcome.report);
+      }
+      if (outcome.keepAudio && this.lastAudioBlob && !completesRow) {
         pipeline.resultHandled = this.saveFailedTranscription(
           error.message,
           error.code || null,
-          metadata
+          metadata,
+          resolveRowId ? { onRowSaved: resolveRowId } : undefined
         );
+      } else {
+        resolveRowId?.(null);
       }
     } finally {
       const shouldNotifyNoAudio =
@@ -3794,146 +3886,6 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     return normalized.startsWith("gpt-4o-mini-transcribe");
   }
 
-  async readTranscriptionStream(response) {
-    const reader = response.body?.getReader();
-    if (!reader) {
-      logger.error("Streaming response body not available", {}, "transcription");
-      throw new Error("Streaming response body not available");
-    }
-
-    const decoder = new TextDecoder("utf-8");
-    let buffer = "";
-    let collectedText = "";
-    let finalText = null;
-    let eventCount = 0;
-    const eventTypes = {};
-
-    const handleEvent = (payload) => {
-      if (!payload || typeof payload !== "object") {
-        return;
-      }
-      eventCount++;
-      const eventType = payload.type || "unknown";
-      eventTypes[eventType] = (eventTypes[eventType] || 0) + 1;
-
-      logger.debug(
-        "Stream event received",
-        {
-          type: eventType,
-          eventNumber: eventCount,
-          payloadKeys: Object.keys(payload),
-        },
-        "transcription"
-      );
-
-      if (payload.type === "transcript.text.delta" && typeof payload.delta === "string") {
-        collectedText += payload.delta;
-        return;
-      }
-      if (payload.type === "transcript.text.segment" && typeof payload.text === "string") {
-        collectedText += payload.text;
-        return;
-      }
-      if (payload.type === "transcript.text.done" && typeof payload.text === "string") {
-        finalText = payload.text;
-        logger.debug(
-          "Final transcript received",
-          {
-            textLength: payload.text.length,
-          },
-          "transcription"
-        );
-      }
-    };
-
-    logger.debug("Starting to read transcription stream", {}, "transcription");
-
-    while (true) {
-      const { value, done } = await reader.read();
-      if (done) {
-        logger.debug(
-          "Stream reading complete",
-          {
-            eventCount,
-            eventTypes,
-            collectedTextLength: collectedText.length,
-            hasFinalText: finalText !== null,
-          },
-          "transcription"
-        );
-        break;
-      }
-      const chunk = decoder.decode(value, { stream: true });
-      buffer += chunk;
-
-      // The first chunk's size only: its SSE events carry the transcript.
-      if (eventCount === 0 && chunk.length > 0) {
-        logger.debug(
-          "First stream chunk received",
-          {
-            chunkLength: chunk.length,
-          },
-          "transcription"
-        );
-      }
-
-      // Process complete lines from the buffer
-      // Each SSE event is "data: <json>\n" followed by empty line
-      const lines = buffer.split("\n");
-      buffer = "";
-
-      for (const line of lines) {
-        const trimmedLine = line.trim();
-
-        // Skip empty lines
-        if (!trimmedLine) {
-          continue;
-        }
-
-        // Extract data from "data: " prefix
-        let data = "";
-        if (trimmedLine.startsWith("data: ")) {
-          data = trimmedLine.slice(6);
-        } else if (trimmedLine.startsWith("data:")) {
-          data = trimmedLine.slice(5).trim();
-        } else {
-          // Not a data line, could be leftover - keep in buffer
-          buffer += line + "\n";
-          continue;
-        }
-
-        // Handle [DONE] marker
-        if (data === "[DONE]") {
-          finalText = finalText ?? collectedText;
-          continue;
-        }
-
-        // Try to parse JSON
-        try {
-          const parsed = JSON.parse(data);
-          handleEvent(parsed);
-        } catch (error) {
-          // Incomplete JSON - put back in buffer for next iteration
-          buffer += line + "\n";
-        }
-      }
-    }
-
-    const result = finalText ?? collectedText;
-    logger.debug(
-      "Stream processing complete",
-      {
-        resultLength: result.length,
-        usedFinalText: finalText !== null,
-        eventCount,
-        eventTypes,
-      },
-      "transcription"
-    );
-
-    return result;
-  }
-
   async processWithOpenWhisprCloud(audioBlob, metadata = {}, wasCancelled = neverCancelled) {
     if (!navigator.onLine) {
       const err = new Error("You're offline. Cloud transcription requires an internet connection.");
@@ -4377,7 +4329,9 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       // Decoding can outlive cancellation and a newer recording's request.
       if (wasCancelled()) throw new DOMException("Transcription cancelled", "AbortError");
 
-      const formData = new FormData();
+      // Main sends the request (dictationTranscriptionRequest.js); the window
+      // hands it the form fields, in order, after the file.
+      const fields = [];
       // Determine the correct file extension based on the blob type
       const mimeType = uploadAudio.type || "audio/webm";
       const extension = audioExtensionForMime(mimeType);
@@ -4393,11 +4347,10 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
         "transcription"
       );
 
-      formData.append("file", uploadAudio, `audio.${extension}`);
-      formData.append("model", model);
+      fields.push(["model", model]);
 
       if (language && model !== "orukeet-v0.1.0") {
-        formData.append("language", language);
+        fields.push(["language", language]);
       }
 
       const endpoint = this.getTranscriptionEndpoint(route);
@@ -4448,17 +4401,17 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
             "transcription"
           );
         }
-        formData.append("prompt", dictionaryPrompt);
+        fields.push(["prompt", dictionaryPrompt]);
       }
       if (usesKeywords) {
         for (const keyword of dictionaryKeywords(dictionary)) {
-          formData.append("keywords[]", keyword);
+          fields.push(["keywords[]", keyword]);
         }
       }
 
       const shouldStream = this.shouldStreamTranscription(model, provider);
       if (shouldStream) {
-        formData.append("stream", "true");
+        fields.push(["stream", "true"]);
       }
 
       const apiCallStart = performance.now();
@@ -4511,12 +4464,23 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       this._activeTranscriptionAbortController = requestController;
       let response;
       try {
-        response = await fetch(endpoint, {
-          method: "POST",
-          headers,
-          body: formData,
-          signal: requestController.signal,
-        });
+        response = await sendDictationTranscription(
+          {
+            endpoint,
+            headers,
+            fields,
+            file: {
+              bytes: await uploadAudio.arrayBuffer(),
+              name: `audio.${extension}`,
+              type: mimeType,
+            },
+            audioSeconds: durationSeconds,
+            stream: shouldStream,
+            selfHosted: route.provider === "self-hosted",
+            errorContext: providerErrorContext,
+          },
+          requestController.signal
+        );
       } catch (err) {
         throw asProviderError(err, providerErrorContext);
       }
@@ -4530,6 +4494,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
           statusText: response.statusText,
           contentType: responseContentType,
           ok: response.ok,
+          attempts: response.attempts,
         },
         "transcription"
       );
@@ -4555,15 +4520,17 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       let result;
       const contentType = responseContentType;
 
-      if (shouldStream && contentType.includes("text/event-stream")) {
-        logger.debug("Processing streaming response", { contentType }, "transcription");
-        const streamedText = await this.readTranscriptionStream(response);
+      if (response.streamed) {
+        // Main read the stream to its terminal event (transcriptionEventStream.js).
+        const streamedText = response.streamedText;
         result = { text: streamedText };
         logger.debug(
           "Streaming response parsed",
           {
+            contentType,
             hasText: !!streamedText,
             textLength: streamedText?.length,
+            ...(response.streamStats || {}),
           },
           "transcription"
         );
@@ -4815,7 +4782,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
   async saveTranscription(
     text,
     rawText = null,
-    { clientTranscriptionId, analyticsOccurredAt, trace } = {}
+    { clientTranscriptionId, analyticsOccurredAt, trace, replacesTranscriptionId } = {}
   ) {
     const { dataRetentionEnabled, audioRetentionDays } = getEffectiveRetentionPreferences();
     if (!dataRetentionEnabled) {
@@ -4823,6 +4790,19 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       this.lastAudioBlob = null;
       this.lastAudioMetadata = null;
       return true;
+    }
+
+    // A re-sent failed dictation completes its failed History row, which
+    // already has the recording. A Cloud result names its own cloud row, so
+    // it is saved as a new one.
+    if (Number.isInteger(replacesTranscriptionId) && !clientTranscriptionId) {
+      const completed = await this._completeResentDictation(
+        replacesTranscriptionId,
+        text,
+        rawText,
+        trace
+      );
+      if (completed !== null) return completed;
     }
 
     const eventId = clientTranscriptionId || crypto.randomUUID();
@@ -4903,15 +4883,66 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     }
   }
 
-  async saveFailedTranscription(errorMessage, errorCode = null, metadata = {}) {
+  // The failed row becomes the re-sent dictation (main's
+  // completeFailedDictation): true when written or overtaken (nothing to
+  // save), false on failure, null when the row is gone and the dictation
+  // should be saved as a new one.
+  async _completeResentDictation(id, text, rawText, trace) {
+    const metadata = this.lastAudioMetadata || {};
+    const complete = window.electronAPI?.completeFailedDictationRetry;
+    if (!complete) return null;
+    try {
+      const result = await complete(id, text, rawText, {
+        ...(trace ? { trace } : {}),
+        provider: metadata.provider ?? null,
+        model: metadata.model ?? null,
+      });
+      if (result?.code === "NOT_FOUND") return null;
+      if (result?.success) syncService.debouncedPush("transcription", id);
+      logger.debug(
+        "Re-sent dictation saved",
+        {
+          historyId: id,
+          replaced: result?.success === true,
+          stale: result?.stale === true,
+          runId: trace?.runId ?? null,
+        },
+        "audio"
+      );
+      this.lastAudioBlob = null;
+      this.lastAudioMetadata = null;
+      return result?.success === true || result?.stale === true;
+    } catch (error) {
+      logger.warn(
+        "Failed to complete a re-sent dictation's row",
+        { error: error.message, historyId: id },
+        "audio"
+      );
+      this.lastAudioBlob = null;
+      this.lastAudioMetadata = null;
+      return false;
+    }
+  }
+
+  // `onRowSaved(id)` hears the failed row's id once it exists (null when none
+  // was saved), so the error card's Retry can complete that row.
+  async saveFailedTranscription(errorMessage, errorCode = null, metadata = {}, options = {}) {
+    let rowReported = false;
+    const reportRow = (id) => {
+      if (rowReported) return;
+      rowReported = true;
+      options?.onRowSaved?.(Number.isInteger(id) ? id : null);
+    };
     const { dataRetentionEnabled, audioRetentionDays } = getEffectiveRetentionPreferences();
     if (!dataRetentionEnabled) {
       logger.debug("Skipping failed transcription save — data retention disabled", {}, "audio");
       this.lastAudioBlob = null;
       this.lastAudioMetadata = null;
+      reportRow(null);
       return;
     }
 
+    let savedId = null;
     try {
       const result = await window.electronAPI.saveTranscription("", null, {
         status: "failed",
@@ -4922,6 +4953,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
           ? { analyticsOccurredAt: metadata.analyticsOccurredAt }
           : {}),
       });
+      savedId = result?.id ?? null;
       if (result?.id) syncService.debouncedPush("transcription", result.id);
 
       if (result?.id && this.lastAudioBlob) {
@@ -4957,6 +4989,9 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
         },
         "audio"
       );
+    } finally {
+      // After the audio: a Retry that completes the row must not race its save.
+      reportRow(savedId);
     }
   }
 

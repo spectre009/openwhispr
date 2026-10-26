@@ -3,8 +3,9 @@ const assert = require("node:assert/strict");
 const { loadAudioManager } = require("./harness/audioManager");
 
 // processWithOpenAIAPI classifies BYOK transcription failures from the throw
-// shapes production sees: a renderer fetch Response or TypeError for direct
-// providers, and the { error } fields main serialises for proxied ones.
+// shapes production sees: main's classified reply for the request it sends
+// (dictationTranscriptionRequest.js, served here over the mocked fetch by the
+// harness bridge), and the { error } fields main serialises for proxied ones.
 async function loadManager(t, settings, window = {}) {
   const loaded = await loadAudioManager(t, {
     cachePrefix: "openwhispr-provider-errors-test-",
@@ -57,29 +58,41 @@ test("a self-hosted 404 blames the user's server, not OpenAI", async (t) => {
   assert.doesNotMatch(error.message, /OpenAI/);
 });
 
-test('a direct-fetch "Failed to fetch" asks to check the key and connection', async (t) => {
+test("main's network failure for a direct provider names that provider", async (t) => {
   const manager = await loadManager(t, { cloudTranscriptionProvider: "groq" });
+  // What Electron's net.fetch rejects with: a plain Error naming the net error.
   t.mock.method(globalThis, "fetch", async () => {
-    throw new TypeError("Failed to fetch");
+    throw new Error("net::ERR_INTERNET_DISCONNECTED");
   });
 
   const error = await rejection(manager.processWithOpenAIAPI(recording()));
 
-  assert.equal(error.code, "PROVIDER_NO_RESPONSE");
-  assert.equal(error.messageKey, "providerErrors.noResponse");
-  assert.equal(error.settingsTarget, "speechToText");
+  assert.equal(error.code, "PROVIDER_UNREACHABLE");
+  assert.equal(error.messageKey, "providerErrors.unreachable");
   assert.equal(error.messageParams.provider, "Groq");
   assert.equal(error.surface, "transcription");
 });
 
-test("a cancelled direct fetch stays an AbortError", async (t) => {
+test("a cancelled request stays an AbortError, with no card fields", async (t) => {
   const manager = await loadManager(t, { cloudTranscriptionProvider: "openai" });
-  t.mock.method(globalThis, "fetch", async () => {
-    throw new DOMException("The operation was aborted.", "AbortError");
-  });
+  let requestSignal;
+  t.mock.method(
+    globalThis,
+    "fetch",
+    (_url, init) =>
+      new Promise((_resolve, reject) => {
+        requestSignal = init.signal;
+        init.signal.addEventListener("abort", () =>
+          reject(new DOMException("The operation was aborted.", "AbortError"))
+        );
+        // The cancel the pill (or Esc) sends while the request waits in main.
+        setImmediate(() => manager._activeTranscriptionAbortController.abort());
+      })
+  );
 
   const error = await rejection(manager.processWithOpenAIAPI(recording()));
 
+  assert.equal(requestSignal.aborted, true, "the cancel reaches the request in main");
   assert.equal(error.name, "AbortError");
   assert.equal(error.code, 20);
   assert.equal(error.messageKey, undefined);

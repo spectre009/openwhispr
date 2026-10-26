@@ -4786,7 +4786,8 @@
       "recording": "録音中...",
       "processing": "処理中...",
       "clickToSpeak": "クリックして話す",
-      "waitingForMicrophone": "マイクを待っています…"
+      "waitingForMicrophone": "マイクを待っています…",
+      "slowProcessing": "いつもより時間がかかっています · Esc でキャンセル"
     },
     "buttons": {
       "cancelRecording": "録音をキャンセル",
