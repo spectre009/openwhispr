@@ -16,6 +16,7 @@ const BYOK_KEY_BRIDGES = [
   { base: "corti", get: "getCortiKey", save: "saveCortiKey" },
   { base: "deepgram", get: "getDeepgramKey", save: "saveDeepgramKey" },
   { base: "assemblyai", get: "getAssemblyAIKey", save: "saveAssemblyAIKey" },
+  { base: "azure-speech", get: "getAzureSpeechKey", save: "saveAzureSpeechKey" },
   {
     base: "note-formatting-custom",
     get: "getNoteFormattingCustomKey",

@@ -59,3 +59,14 @@ export function getOnboardingSetupAvailability({
 export function hasAvailableOnboardingSetup(availability: OnboardingSetupAvailability): boolean {
   return Object.values(availability).some(Boolean);
 }
+
+// Azure Speech needs its resource endpoint beside the key, which only AI
+// Connections takes: onboarding's key step can't set it up.
+const SET_UP_ON_AI_CONNECTIONS_ONLY: ReadonlySet<string> = new Set(["azure-speech"]);
+
+/** The speech-to-text providers onboarding's bring-your-own-key step can offer. */
+export function onboardingTranscriptionProviders<T extends ProviderOption>(
+  providers: readonly T[]
+): T[] {
+  return providers.filter((provider) => !SET_UP_ON_AI_CONNECTIONS_ONLY.has(provider.id));
+}

@@ -1298,7 +1298,9 @@
         "providerKeyMissing": "No API key is set for your transcription provider. Add it in Settings → Speech to Text.",
         "cleanupTruncated": "The AI model ran out of room before it finished cleaning up your dictation.",
         "cleanupDuplicated": "AI cleanup repeated the transcript. The original text was kept.",
-        "cleanupEmptyReply": "The AI model returned an empty reply instead of the cleaned-up dictation."
+        "cleanupEmptyReply": "The AI model returned an empty reply instead of the cleaned-up dictation.",
+        "azureSpeechEndpointMissing": "Add your Azure Speech endpoint in Settings → AI Connections & Local Models.",
+        "azureSpeechConversionFailed": "The recording couldn't be converted for Azure Speech, which takes WAV, MP3 or FLAC."
       },
       "translationFallback": {
         "unreachableTitle": "Translation unavailable",
@@ -3716,7 +3718,8 @@
         "deepgram_nova_3": "Deepgram's most accurate realtime model",
         "assemblyai_universal_streaming_english": "Immutable realtime transcripts, English",
         "assemblyai_universal_streaming_multilingual": "Immutable realtime transcripts, multilingual",
-        "assemblyai_universal_3_5_pro": "Highest accuracy realtime, 18 languages"
+        "assemblyai_universal_3_5_pro": "Highest accuracy realtime, 18 languages",
+        "azure_speech_mai_transcribe_2": "Microsoft's speech-to-text, through your Azure Speech resource"
       },
       "cloud": {
         "openai_gpt_5_2": "Strong reasoning model",
@@ -5948,6 +5951,12 @@
       "accessDenied": "GitHub Copilot refused this request. Your plan or your organization's policy may not allow this model.",
       "notSignedIn": "You're not signed in to GitHub Copilot. Sign in under Settings → AI Connections & Local Models.",
       "unsupportedRequest": "GitHub Copilot can only clean up dictation, format notes and translate. Choose another model for Chat and the Voice Assistant in Settings."
+    },
+    "azureSpeech": {
+      "endpointNotFound": "Azure Speech couldn't find this endpoint. Check it in Settings → AI Connections & Local Models.",
+      "audioTooLong": "This recording is longer than Azure Speech accepts (under 2 hours).",
+      "modelUnavailable": "{{model}} isn't available on this Azure Speech resource. Use a Speech resource in a region that offers it.",
+      "languageUnsupported": "Azure Speech doesn't support the selected language. Choose another language, or Auto-detect."
     }
   },
   "calendarOAuth": {
@@ -6066,7 +6075,8 @@
       "deepgram": "Deepgram",
       "assemblyai": "AssemblyAI",
       "copilot": "GitHub Copilot",
-      "cloud": "OpenWhispr Cloud"
+      "cloud": "OpenWhispr Cloud",
+      "azure-speech": "Azure Speech"
     },
     "search": {
       "providerDescription": "This provider's API key, whether it's saved, and the features that use it.",
@@ -6099,7 +6109,8 @@
       "signingIn": "Signing in…",
       "notSignedIn": "Not signed in",
       "off": "Off",
-      "noKey": "No key saved"
+      "noKey": "No key saved",
+      "endpointNeeded": "Endpoint needed"
     },
     "credentials": {
       "languageModelKey": "API key for language models"
@@ -6294,6 +6305,16 @@
       "search": {
         "description": "Your own Azure OpenAI or OpenAI-compatible endpoint, its key, and the features that use it."
       }
+    },
+    "azureSpeech": {
+      "endpointErrors": {
+        "invalidUrl": "This isn't a valid URL.",
+        "httpsRequired": "The endpoint must start with https://.",
+        "host": "This isn't an Azure Speech endpoint. It ends in .cognitiveservices.azure.com or .api.cognitive.microsoft.com.",
+        "resourceOnly": "Paste only the resource endpoint, such as https://<resource>.cognitiveservices.azure.com, without a path, port or query."
+      },
+      "endpointLabel": "Resource endpoint",
+      "help": "Paste the endpoint and a key from your Speech resource's Keys and Endpoint page."
     }
   },
   "modelPicker": {
@@ -6318,7 +6339,8 @@
       "signInCopilot": "Sign in on AI Connections",
       "addKey": "Add an API key",
       "openLocalModels": "AI Connections",
-      "manageCopilot": "Manage the GitHub sign-in in AI Connections"
+      "manageCopilot": "Manage the GitHub sign-in in AI Connections",
+      "setUpConnection": "Set up on AI Connections"
     },
     "cloud": {
       "automatic": "Automatic",
@@ -6413,7 +6435,8 @@
         "notDownloaded": "This model isn't downloaded",
         "needsStreaming": "Live recording needs a streaming model",
         "liveOnly": "A live-only provider: file transcription can't use it",
-        "noLocalModel": "No {{engine}} model downloaded: pick another model, or download one in AI Connections"
+        "noLocalModel": "No {{engine}} model downloaded: pick another model, or download one in AI Connections",
+        "needsEndpointAndKey": "Needs its endpoint and key"
       },
       "custom": {
         "sub": "Any OpenAI-compatible speech-to-text API",

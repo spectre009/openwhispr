@@ -99,7 +99,20 @@ import { transcriptionFailureOutcome } from "./transcriptionFailureOutcome";
 import { keptRecordingFor } from "./failedRecordingRetry";
 import { sendDictationTranscription } from "./dictationTranscriptionClient";
 import { IPC_ERROR_FIELDS, errorFromIpcResult } from "./ipcErrorFields";
-import { asProviderError, providerHttpError, redactProviderBody } from "./providerHttpErrors";
+import {
+  PROVIDER_ERROR_CODES,
+  asProviderError,
+  providerError,
+  providerHttpError,
+  redactProviderBody,
+} from "./providerHttpErrors";
+import {
+  AZURE_SPEECH_NAME,
+  AZURE_SPEECH_PROVIDER_ID,
+  buildAzureSpeechRequest,
+  parseAzureSpeechAnswer,
+  resolveMaiLocale,
+} from "./azureSpeechTranscription.js";
 import {
   executeTranslationChain,
   hasTextContent,
@@ -888,7 +901,13 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
   // request, the echo check and the Dictionary page: manual entries, then the
   // glossary's canonical forms, then snippet triggers, then auto-learned
   // entries, within the request budget and in the order the model reads.
-  getDictionaryHints({ settings = getSettings(), maxChars, order, includeSnippets } = {}) {
+  getDictionaryHints({
+    settings = getSettings(),
+    maxChars,
+    maxTerms,
+    order,
+    includeSnippets,
+  } = {}) {
     return buildDictionaryHints({
       dictionary: settings?.customDictionary,
       learnedWords: getLearnedDictionaryWords(),
@@ -896,6 +915,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       snippets: settings?.snippets,
       includeSnippets,
       maxChars,
+      maxTerms,
       order,
     });
   }
@@ -3054,6 +3074,15 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
         err.code = "API_KEY_MISSING";
         throw err;
       }
+    } else if (provider === AZURE_SPEECH_PROVIDER_ID) {
+      apiKey = s.azureSpeechApiKey?.trim();
+      if (!apiKey) apiKey = (await window.electronAPI.getAzureSpeechKey?.())?.trim();
+      if (!apiKey) {
+        throw providerError(PROVIDER_ERROR_CODES.KEY_MISSING, {
+          provider: AZURE_SPEECH_NAME,
+          surface: "transcription",
+        });
+      }
     } else {
       // Default to OpenAI
       // Prefer store value (user-entered via UI) over main process (.env)
@@ -4245,7 +4274,9 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       // Route before reading a key: the resolver's fail-closed guards name the
       // real problem (a realtime-only provider, or its missing key), whereas the
       // key read blames the OpenAI key for a provider that never uses it.
-      const route = managedResolution ? null : this.resolveBatchRoute(apiSettings, model);
+      const route = managedResolution
+        ? null
+        : this.resolveBatchRoute(apiSettings, model, { effectiveLanguage: language ?? "auto" });
       const apiKey = managedResolution ? null : await this.getAPIKey();
       const optimizedAudio = audioBlob;
 
@@ -4337,6 +4368,20 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
           timings,
           trace: post.trace,
         };
+      }
+
+      // Azure Speech has its own request shape (an `audio` part, a JSON
+      // definition, its own key header), so it never reaches the
+      // OpenAI-compatible request below.
+      if (route?.transport === "azure-speech") {
+        return await this.transcribeWithAzureSpeech(audioBlob, {
+          route,
+          apiKey,
+          apiSettings,
+          durationSeconds,
+          timings,
+          wasCancelled,
+        });
       }
 
       // Some Custom endpoints decode the upload and reject anything that isn't
@@ -4735,6 +4780,208 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     }
   }
 
+  // Azure Speech's fast transcription (MAI-Transcribe-2), sent through main's
+  // dictation request: the same deadline, retry and Esc cancel as the
+  // OpenAI-compatible providers. MAI takes WAV, MP3 or FLAC only, so a
+  // recording that can't be converted fails here instead of uploading WebM.
+  // The dictionary travels as its phrase list, a bias the model never
+  // continues: no dictionary-echo check, which would discard a correctly
+  // heard one-word dictation that equals the list.
+  async transcribeWithAzureSpeech(
+    audioBlob,
+    { route, apiKey, apiSettings, durationSeconds = null, timings, wasCancelled }
+  ) {
+    const errorContext = {
+      provider: AZURE_SPEECH_NAME,
+      providerId: AZURE_SPEECH_PROVIDER_ID,
+      selfHosted: false,
+      model: route.model,
+      surface: "transcription",
+    };
+
+    let uploadAudio = audioBlob;
+    if (needsWavConversion(AZURE_SPEECH_PROVIDER_ID, audioBlob.type, audioBlob.size)) {
+      try {
+        uploadAudio = await convertToWav(audioBlob);
+      } catch (conversionError) {
+        logger.warn(
+          "WAV re-encode failed; Azure Speech takes WAV, MP3 or FLAC only",
+          { error: conversionError?.message, type: audioBlob.type },
+          "transcription"
+        );
+        throw Object.assign(
+          new Error(
+            "The recording couldn't be converted for Azure Speech, which takes WAV, MP3 or FLAC."
+          ),
+          {
+            code: "AZURE_SPEECH_CONVERSION_FAILED",
+            messageKey: "hooks.audioRecording.errorDescriptions.azureSpeechConversionFailed",
+          }
+        );
+      }
+    }
+    // Decoding can outlive cancellation and a newer recording's request.
+    if (wasCancelled()) throw new DOMException("Transcription cancelled", "AbortError");
+    // The cap is on what's sent, after conversion.
+    if (uploadAudio.size > route.sizeCapBytes) {
+      throw providerError(PROVIDER_ERROR_CODES.PAYLOAD_TOO_LARGE, errorContext);
+    }
+
+    const hintTarget = resolveHintTarget({ engine: "byok", provider: AZURE_SPEECH_PROVIDER_ID });
+    const hints = this.getDictionaryHints({
+      settings: apiSettings,
+      maxChars: hintTarget.maxChars,
+      maxTerms: hintTarget.maxTerms,
+      order: hintTarget.order,
+    });
+    const request = buildAzureSpeechRequest({
+      endpoint: route.endpoint,
+      apiKey,
+      model: route.model,
+      locale: route.locale,
+      phrases: hints.terms,
+    });
+    if (!request) {
+      throw Object.assign(new Error("Azure Speech endpoint is invalid"), {
+        code: "AZURE_SPEECH_ENDPOINT_INVALID",
+      });
+    }
+
+    const { unsupported } = resolveMaiLocale(route.language);
+    if (unsupported) {
+      logger.info(
+        "MAI-Transcribe doesn't list this language; sent without a locale (auto-detect)",
+        { language: unsupported },
+        "transcription"
+      );
+    }
+    const mimeType = uploadAudio.type || "audio/wav";
+    // Counts only: the phrase list is the user's dictionary.
+    logger.debug(
+      "Making Azure Speech transcription request",
+      {
+        endpoint: request.endpoint,
+        model: route.model,
+        locale: route.locale,
+        phrases: hints.terms.length,
+        phrasesNotSent: hints.entries.length - hints.terms.length,
+        audioType: mimeType,
+        audioBytes: uploadAudio.size,
+        hasApiKey: !!apiKey,
+      },
+      "transcription"
+    );
+
+    const requestController = new AbortController();
+    this._activeTranscriptionAbortController = requestController;
+    try {
+      const apiCallStart = performance.now();
+      let response;
+      try {
+        response = await sendDictationTranscription(
+          {
+            ...request,
+            file: {
+              bytes: await uploadAudio.arrayBuffer(),
+              name: `audio.${audioExtensionForMime(mimeType)}`,
+              type: mimeType,
+            },
+            audioSeconds: durationSeconds,
+            stream: false,
+            selfHosted: false,
+            errorContext,
+          },
+          requestController.signal
+        );
+      } catch (err) {
+        throw asProviderError(err, errorContext);
+      }
+
+      logger.debug(
+        "Transcription API response received",
+        { status: response.status, ok: response.ok, attempts: response.attempts },
+        "transcription"
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        logger.error(
+          "Transcription API error response",
+          { status: response.status, errorText: redactProviderBody(errorText) },
+          "transcription"
+        );
+        throw providerHttpError({
+          ...errorContext,
+          status: response.status,
+          body: errorText,
+          headers: response.headers,
+        });
+      }
+
+      const rawBody = await response.text();
+      let answer;
+      try {
+        answer = JSON.parse(rawBody);
+      } catch (parseError) {
+        // A JSON.parse message quotes the text it choked on: its name only.
+        logger.error(
+          "Failed to parse JSON response",
+          { parseError: parseError.name, fullLength: rawBody.length },
+          "transcription"
+        );
+        throw new Error(`Failed to parse API response: ${parseError.name}`);
+      }
+      const text = parseAzureSpeechAnswer(answer);
+      timings.transcriptionProcessingDurationMs = Math.round(performance.now() - apiCallStart);
+
+      if (!text) {
+        // The same path as any provider's empty answer (MAI returns none for silence).
+        logger.info(
+          "Transcription returned empty - check audio input",
+          {
+            model: route.model,
+            provider: AZURE_SPEECH_PROVIDER_ID,
+            endpoint: request.endpoint,
+            blobSize: audioBlob.size,
+            blobType: audioBlob.type,
+            resultKeys: Object.keys(answer || {}),
+          },
+          "transcription"
+        );
+        throw new Error(
+          "No text transcribed - audio may be too short, silent, or in an unsupported format"
+        );
+      }
+
+      const reasoningStart = performance.now();
+      const post = await this.processTranscription(text, AZURE_SPEECH_PROVIDER_ID, wasCancelled, {
+        provider: AZURE_SPEECH_PROVIDER_ID,
+        model: route.model,
+        ms: timings.transcriptionProcessingDurationMs,
+      });
+      timings.reasoningProcessingDurationMs = Math.round(performance.now() - reasoningStart);
+      const source = (await this.isReasoningAvailable())
+        ? `${AZURE_SPEECH_PROVIDER_ID}-reasoned`
+        : AZURE_SPEECH_PROVIDER_ID;
+      logger.debug(
+        "Transcription successful",
+        {
+          originalLength: text.length,
+          processedLength: post.text?.length ?? 0,
+          source,
+          transcriptionProcessingDurationMs: timings.transcriptionProcessingDurationMs,
+          reasoningProcessingDurationMs: timings.reasoningProcessingDurationMs,
+        },
+        "transcription"
+      );
+      return { success: true, text: post.text, rawText: text, source, timings, trace: post.trace };
+    } finally {
+      if (this._activeTranscriptionAbortController === requestController) {
+        this._activeTranscriptionAbortController = null;
+      }
+    }
+  }
+
   getTranscriptionModel() {
     try {
       const s = getSettings();
@@ -4754,7 +5001,9 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
 
   // Local-vs-cloud is decided upstream, so useLocalWhisper is forced off here:
   // the local→cloud fallback resolves its cloud endpoint through this too.
-  resolveBatchRoute(settings, deploymentName = "") {
+  // `effectiveLanguage` is the translation-aware one ("auto" sends none), so a
+  // translation from Auto never carries the ordinary preferred language.
+  resolveBatchRoute(settings, deploymentName = "", { effectiveLanguage } = {}) {
     const route = resolveTranscriptionRoute({
       settings: { ...settings, useLocalWhisper: false },
       policy: usePolicyStore.getState(),
@@ -4762,12 +5011,16 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       hasProviderKey: Boolean(
         getTranscriptionApiKey(settings.cloudTranscriptionProvider || "openai", settings)
       ),
-      request: { model: deploymentName },
+      request: {
+        model: deploymentName,
+        ...(effectiveLanguage !== undefined ? { effectiveLanguage } : {}),
+      },
     });
     if (route.transport === "error") {
       const error = new Error(route.message);
       if (route.code) error.code = route.code;
       if (route.messageKey) error.messageKey = route.messageKey;
+      if (route.settingsTarget) error.settingsTarget = route.settingsTarget;
       throw error;
     }
     return route;

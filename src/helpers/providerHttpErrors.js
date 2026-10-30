@@ -4,6 +4,14 @@
 
 import { LLM_REQUEST_TIMEOUT_CODE } from "./llmRequestTimeout.js";
 import { TRANSCRIPTION_REQUEST_TIMEOUT_CODE } from "./transcriptionRequestDeadline.js";
+import {
+  AZURE_SPEECH_DEFAULT_MODEL,
+  AZURE_SPEECH_PROVIDER_ID,
+} from "./azureSpeechTranscription.js";
+
+// Azure Speech's endpoint is missing or isn't a Speech resource: the route's
+// fail-closed error and a 404 share it (transcriptionRoute.ts names it too).
+const AZURE_SPEECH_ENDPOINT_INVALID = "AZURE_SPEECH_ENDPOINT_INVALID";
 
 export const PROVIDER_ERROR_CODES = Object.freeze({
   AUTH_FAILED: "PROVIDER_AUTH_FAILED",
@@ -37,6 +45,8 @@ const FIXABLE = new Set([
   C.MODEL_NOT_FOUND,
   C.NO_RESPONSE,
   C.KEY_MISSING,
+  // Azure Speech's endpoint: missing (the route) or not a Speech resource (a 404).
+  AZURE_SPEECH_ENDPOINT_INVALID,
 ]);
 
 /**
@@ -117,6 +127,14 @@ const ENGLISH = {
     "You're not signed in to GitHub Copilot. Sign in under Settings → AI Connections & Local Models.",
   "providerErrors.copilot.unsupportedRequest":
     "GitHub Copilot can only clean up dictation, format notes and translate. Choose another model for Chat and the Voice Assistant in Settings.",
+  "providerErrors.azureSpeech.endpointNotFound":
+    "Azure Speech couldn't find this endpoint. Check it in Settings → AI Connections & Local Models.",
+  "providerErrors.azureSpeech.audioTooLong":
+    "This recording is longer than Azure Speech accepts (under 2 hours).",
+  "providerErrors.azureSpeech.modelUnavailable":
+    "{{model}} isn't available on this Azure Speech resource. Use a Speech resource in a region that offers it.",
+  "providerErrors.azureSpeech.languageUnsupported":
+    "Azure Speech doesn't support the selected language. Choose another language, or Auto-detect.",
 };
 
 /** Every message key a classified provider error can carry (the keys of ENGLISH). */
@@ -206,6 +224,7 @@ function requestIdFrom(headers) {
   return (
     readHeader(headers, "x-request-id") ||
     readHeader(headers, "request-id") ||
+    readHeader(headers, "apim-request-id") ||
     readHeader(headers, "cf-ray")
   );
 }
@@ -227,6 +246,58 @@ function codeForStatus(status, text, selfHosted) {
   if (status === 408 || status === 504) return C.TIMEOUT;
   if (status >= 500 && status < 600) return C.UNAVAILABLE;
   return C.ERROR;
+}
+
+// Azure Speech answers `{"error":{"code","message","innerError":{"code"}}}`.
+// Its 404 is a wrong endpoint (not a Speech resource), never a model, and its
+// 400s name the reason in innerError.code. Those get their own sentences;
+// 401/403, 429 and 5xx classify as for any provider.
+const AZURE_SPEECH_MODEL_CODES = new Set([
+  "InvalidModel",
+  "InvalidBaseModel",
+  "ModelDeprecated",
+  "ModelNotDeployable",
+]);
+const AZURE_SPEECH_LOCALE_CODES = new Set(["InvalidLocale", "UnsupportedLanguageCode"]);
+
+function azureSpeechErrorShape(text) {
+  try {
+    const error = JSON.parse(text)?.error;
+    if (!error || typeof error !== "object") return { inner: "", message: "" };
+    return {
+      inner: typeof error.innerError?.code === "string" ? error.innerError.code : "",
+      message: typeof error.message === "string" ? error.message : "",
+    };
+  } catch {
+    return { inner: "", message: "" };
+  }
+}
+
+function azureSpeechClassification(status, text) {
+  if (status === 404) {
+    return {
+      code: AZURE_SPEECH_ENDPOINT_INVALID,
+      messageKey: "providerErrors.azureSpeech.endpointNotFound",
+    };
+  }
+  if (status !== 400 && status !== 422) return null;
+  const { inner, message } = azureSpeechErrorShape(text);
+  if (inner === "AudioLengthLimitExceeded") {
+    return { code: C.PAYLOAD_TOO_LARGE, messageKey: "providerErrors.azureSpeech.audioTooLong" };
+  }
+  // Regions without MAI answer "Enhanced mode with model is currently not supported yet".
+  if (AZURE_SPEECH_MODEL_CODES.has(inner) || /enhanced mode/i.test(message)) {
+    return { code: C.MODEL_NOT_FOUND, messageKey: "providerErrors.azureSpeech.modelUnavailable" };
+  }
+  if (AZURE_SPEECH_LOCALE_CODES.has(inner) || /\blocale/i.test(message)) {
+    // The language is a Recognition setting, so this one points there too.
+    return {
+      code: C.BAD_REQUEST,
+      messageKey: "providerErrors.azureSpeech.languageUnsupported",
+      settingsTarget: true,
+    };
+  }
+  return null;
 }
 
 function buildClassification(
@@ -283,6 +354,29 @@ export function providerHttpError(args) {
   const text = bodyToText(body);
   const underlyingError = redactProviderBody(text);
   const requestId = requestIdFrom(headers);
+  const technicalDetails = {
+    status,
+    ...(requestId ? { requestId } : {}),
+    ...(underlyingError ? { underlyingError } : {}),
+  };
+  const azure =
+    providerId === AZURE_SPEECH_PROVIDER_ID ? azureSpeechClassification(status, text) : null;
+  if (azure) {
+    const ctx = {
+      provider,
+      providerId,
+      model: model || AZURE_SPEECH_DEFAULT_MODEL,
+      surface,
+      selfHosted: false,
+      technicalDetails,
+    };
+    const classification = buildClassification(azure.code, ctx);
+    classification.messageKey = azure.messageKey;
+    if (azure.code === C.MODEL_NOT_FOUND) classification.messageParams.model = ctx.model;
+    const target = SETTINGS_TARGET_BY_SURFACE[surface];
+    if (azure.settingsTarget && target) classification.settingsTarget = target;
+    return toError(classification, { status });
+  }
   return toError(
     buildClassification(codeForStatus(status, text, selfHosted), {
       provider,
@@ -290,11 +384,7 @@ export function providerHttpError(args) {
       model,
       surface,
       selfHosted,
-      technicalDetails: {
-        status,
-        ...(requestId ? { requestId } : {}),
-        ...(underlyingError ? { underlyingError } : {}),
-      },
+      technicalDetails,
     }),
     { status }
   );

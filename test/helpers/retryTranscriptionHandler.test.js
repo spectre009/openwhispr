@@ -81,6 +81,10 @@ const CONVERTED_WAV = Buffer.concat([WAV_BUFFER, Buffer.from("converted")]);
 // make it slow and dependent on the runner having a usable binary.
 const wavConversions = [];
 let convertBehavior = async () => CONVERTED_WAV;
+// File-to-file conversions (Azure Speech uploads of a container it doesn't take).
+const wavFileConversions = [];
+let convertFileBehavior = async (_input, output) =>
+  require("node:fs").writeFileSync(output, CONVERTED_WAV);
 
 const cortiCalls = [];
 const tinfoilCalls = [];
@@ -118,6 +122,10 @@ Module._load = function loadWithMocks(request, parent, isMain) {
         convertBufferToWav: async (buffer, options) => {
           wavConversions.push(buffer);
           return convertBehavior(buffer, options);
+        },
+        convertToWav: async (input, output, options) => {
+          wavFileConversions.push(input);
+          return convertFileBehavior(input, output, options);
         },
       };
     }
@@ -179,6 +187,7 @@ function buildFakeThis() {
       getCustomTranscriptionKey: () => "ck-custom",
       getCortiClientId: () => "corti-id",
       getCortiClientSecret: () => "corti-secret",
+      getAzureSpeechKey: () => "az-speech-key",
     },
   };
   return new Proxy(target, {
@@ -895,4 +904,249 @@ test("upload: an HTTP failure logs its status and a redacted body", async (t) =>
   assert.equal(failure.meta.status, 401);
   assert.match(failure.meta.body, /Incorrect API key provided/);
   assert.equal(failure.meta.body.includes("sk-proj-leakedKey12345"), false);
+});
+
+// ── Azure Speech (MAI-Transcribe-2) ──────────────────────────────────────────
+
+const AZURE_ENDPOINT = "https://res.cognitiveservices.azure.com";
+const AZURE_TRANSCRIBE_URL =
+  "https://res.cognitiveservices.azure.com/speechtotext/transcriptions:transcribe?api-version=2025-10-15";
+const AZURE_SETTINGS = {
+  cloudTranscriptionProvider: "azure-speech",
+  cloudTranscriptionMode: "byok",
+  transcriptionMode: "providers",
+  cloudTranscriptionModel: "MAI-Transcribe-2",
+  azureSpeechEndpoint: AZURE_ENDPOINT,
+  preferredLanguage: "en",
+};
+const azureAnswer =
+  (body, status = 200) =>
+  () => ({
+    ok: status >= 200 && status < 300,
+    status,
+    json: async () => JSON.parse(body),
+    text: async () => body,
+  });
+const AZURE_OK = azureAnswer(
+  JSON.stringify({ combinedPhrases: [{ text: " Heard " }, { text: "" }, { text: "again." }] })
+);
+const definitionOf = (fetch) => JSON.parse(fetch.init.body.get("definition"));
+
+async function withFetchResponse(response, run) {
+  const original = fetchResponse;
+  fetchResponse = response;
+  try {
+    return await run();
+  } finally {
+    fetchResponse = original;
+  }
+}
+
+test("retry: Azure Speech converts the stored WebM and sends main's key to the resource", async () => {
+  fetches.length = 0;
+  wavConversions.length = 0;
+  fakeThis.databaseManager.writes.length = 0;
+  const result = await withFetchResponse(AZURE_OK, () => invoke(AZURE_SETTINGS));
+
+  assert.equal(result.success, true);
+  assert.equal(wavConversions.length, 1, "MAI takes WAV, MP3 or FLAC only");
+  assert.equal(fetches.length, 1);
+  const [request] = fetches;
+  assert.equal(request.url, AZURE_TRANSCRIBE_URL);
+  assert.deepEqual(request.init.headers, { "Ocp-Apim-Subscription-Key": "az-speech-key" });
+  assert.deepEqual([...request.init.body.keys()], ["audio", "definition"]);
+  const audio = request.init.body.get("audio");
+  assert.equal(audio.type, "audio/wav");
+  assert.equal(audio.size, CONVERTED_WAV.length);
+  // The retry settings' language, and no dictionary: Re-transcribe sends none.
+  assert.deepEqual(definitionOf(request), {
+    locales: ["en"],
+    enhancedMode: { enabled: true, model: "MAI-Transcribe-2" },
+  });
+  assert.ok(poolPartitions.includes("ow-history-stt"), "History's own pool, with its deadline");
+  // The run-revision guard still writes it, joined from combinedPhrases.
+  assert.deepEqual(fakeThis.databaseManager.writes[0].slice(0, 3), ["text", 7, "Heard again."]);
+  assert.deepEqual(fakeThis.databaseManager.writes.at(-1).slice(0, 4), [
+    "audio",
+    7,
+    "azure-speech",
+    "MAI-Transcribe-2",
+  ]);
+});
+
+test("retry: Azure Speech fails closed without a valid endpoint, sending nothing", async () => {
+  for (const azureSpeechEndpoint of [
+    "",
+    "https://res.openai.azure.com",
+    "https://evil.example.com",
+    "http://res.cognitiveservices.azure.com",
+  ]) {
+    fetches.length = 0;
+    const result = await invoke({ ...AZURE_SETTINGS, azureSpeechEndpoint });
+    assert.equal(result.success, false, azureSpeechEndpoint);
+    assert.equal(result.code, "AZURE_SPEECH_ENDPOINT_INVALID", azureSpeechEndpoint);
+    assert.equal(
+      result.messageKey,
+      "hooks.audioRecording.errorDescriptions.azureSpeechEndpointMissing"
+    );
+    assert.equal(fetches.length, 0, "no fall-through to another provider");
+  }
+});
+
+test("retry: Azure Speech without a saved key is a classified error before any request", async () => {
+  fetches.length = 0;
+  const original = fakeThis.environmentManager.getAzureSpeechKey;
+  fakeThis.environmentManager.getAzureSpeechKey = () => "";
+  try {
+    const result = await invoke(AZURE_SETTINGS);
+    assert.equal(result.code, "API_KEY_MISSING");
+    assert.deepEqual(result.messageParams, { provider: "Azure Speech" });
+    assert.equal(fetches.length, 0);
+  } finally {
+    fakeThis.environmentManager.getAzureSpeechKey = original;
+  }
+});
+
+test("retry: Azure Speech's conversion failure is worded, never a WebM upload", async () => {
+  fetches.length = 0;
+  convertBehavior = async () => {
+    throw new Error("FFmpeg exited with code 1");
+  };
+  try {
+    const result = await invoke(AZURE_SETTINGS);
+    assert.equal(result.success, false);
+    assert.equal(result.code, "AZURE_SPEECH_CONVERSION_FAILED");
+    assert.equal(
+      result.messageKey,
+      "hooks.audioRecording.errorDescriptions.azureSpeechConversionFailed"
+    );
+    assert.equal(fetches.length, 0);
+  } finally {
+    convertBehavior = async () => CONVERTED_WAV;
+  }
+});
+
+test("retry: Azure Speech's 404 reads as a wrong endpoint, not a model", async () => {
+  const body = JSON.stringify({ error: { code: "404", message: "Resource not found" } });
+  const result = await withFetchResponse(azureAnswer(body, 404), () => invoke(AZURE_SETTINGS));
+  assert.equal(result.code, "AZURE_SPEECH_ENDPOINT_INVALID");
+  assert.equal(result.messageKey, "providerErrors.azureSpeech.endpointNotFound");
+  assert.equal(result.settingsTarget, "speechToText");
+});
+
+const azureUploadFile = (extension) => {
+  const file = pathNode.join(osNode.tmpdir(), `openwhispr-azure-upload-test.${extension}`);
+  fsNode.writeFileSync(file, Buffer.from([1, 2, 3, 4, 5]));
+  return file;
+};
+const invokeAzureUpload = (extension, payload = {}) =>
+  handlers.get("transcribe-audio-file-byok")(
+    { sender: {} },
+    {
+      filePath: azureUploadFile(extension),
+      apiKey: "renderer-azure-key",
+      baseUrl: "",
+      model: "MAI-Transcribe-2",
+      provider: "azure-speech",
+      language: "de",
+      transcriptionMode: "providers",
+      azureSpeechEndpoint: AZURE_ENDPOINT,
+      ...payload,
+    }
+  );
+
+test("upload: Azure Speech sends WAV, MP3 and FLAC as they are, with no locale or phrases", async () => {
+  for (const [extension, type] of [
+    ["wav", "audio/wav"],
+    ["mp3", "audio/mpeg"],
+    ["flac", "audio/flac"],
+  ]) {
+    fetches.length = 0;
+    wavFileConversions.length = 0;
+    const result = await withFetchResponse(AZURE_OK, () => invokeAzureUpload(extension));
+    assert.deepEqual(result, { success: true, text: "Heard again." }, extension);
+    assert.equal(wavFileConversions.length, 0, extension);
+    const [request] = fetches;
+    assert.equal(request.url, AZURE_TRANSCRIBE_URL);
+    assert.deepEqual(request.init.headers, { "Ocp-Apim-Subscription-Key": "renderer-azure-key" });
+    assert.deepEqual([...request.init.body.keys()], ["audio", "definition"]);
+    assert.equal(request.init.body.get("audio").type, type);
+    assert.equal(request.init.body.get("audio").size, 5);
+    // An imported file is often in another language: no locale, even with "de" set.
+    assert.deepEqual(definitionOf(request), {
+      enhancedMode: { enabled: true, model: "MAI-Transcribe-2" },
+    });
+    assert.equal(request.init.body.get("file"), null, "never the upload's own `file` part");
+  }
+});
+
+test("upload: Azure Speech converts any other container to WAV first", async () => {
+  fetches.length = 0;
+  wavFileConversions.length = 0;
+  const result = await withFetchResponse(AZURE_OK, () => invokeAzureUpload("webm"));
+  assert.equal(result.success, true);
+  assert.equal(wavFileConversions.length, 1);
+  const audio = fetches[0].init.body.get("audio");
+  assert.equal(audio.type, "audio/wav");
+  assert.equal(audio.size, CONVERTED_WAV.length);
+
+  // A conversion that fails fails the upload; nothing is sent.
+  fetches.length = 0;
+  convertFileBehavior = async () => {
+    throw new Error("FFmpeg exited with code 1");
+  };
+  try {
+    const failed = await invokeAzureUpload("m4a");
+    assert.equal(failed.success, false);
+    assert.equal(failed.code, "AZURE_SPEECH_CONVERSION_FAILED");
+    assert.equal(fetches.length, 0);
+  } finally {
+    convertFileBehavior = async (_input, output) => fsNode.writeFileSync(output, CONVERTED_WAV);
+  }
+});
+
+test("upload: Azure Speech's cap is 250 MB on the audio as sent, after conversion", async () => {
+  fetches.length = 0;
+  convertFileBehavior = async (_input, output) =>
+    fsNode.writeFileSync(output, Buffer.alloc(250 * 1024 * 1024 + 1));
+  try {
+    const result = await invokeAzureUpload("ogg");
+    assert.deepEqual(result, {
+      success: false,
+      error: "File too large. Maximum size for bring-your-own-key is 250 MB.",
+    });
+    assert.equal(fetches.length, 0);
+  } finally {
+    convertFileBehavior = async (_input, output) => fsNode.writeFileSync(output, CONVERTED_WAV);
+  }
+});
+
+test("upload: Azure Speech falls back to main's key, and fails closed without an endpoint", async () => {
+  fetches.length = 0;
+  const result = await withFetchResponse(AZURE_OK, () => invokeAzureUpload("wav", { apiKey: "" }));
+  assert.equal(result.success, true);
+  assert.equal(fetches[0].init.headers["Ocp-Apim-Subscription-Key"], "az-speech-key");
+
+  fetches.length = 0;
+  const closed = await invokeAzureUpload("wav", {
+    azureSpeechEndpoint: "https://evil.example.com",
+  });
+  assert.equal(closed.success, false);
+  assert.equal(closed.code, "AZURE_SPEECH_ENDPOINT_INVALID");
+  assert.equal(fetches.length, 0);
+});
+
+test("upload: Azure Speech's over-2-hours answer is worded", async () => {
+  const body = JSON.stringify({
+    error: {
+      code: "InvalidRequest",
+      message: "The audio is too long.",
+      innerError: { code: "AudioLengthLimitExceeded" },
+    },
+  });
+  const result = await withFetchResponse(azureAnswer(body, 400), () => invokeAzureUpload("wav"));
+  assert.equal(result.success, false);
+  assert.equal(result.code, "PROVIDER_PAYLOAD_TOO_LARGE");
+  assert.equal(result.messageKey, "providerErrors.azureSpeech.audioTooLong");
+  assert.equal(result.error, "This recording is longer than Azure Speech accepts (under 2 hours).");
 });

@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { Fragment, useCallback, useEffect, useId, useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { useShallow } from "zustand/react/shallow";
 import {
@@ -14,6 +14,7 @@ import {
   X,
 } from "../icons";
 import { Button } from "../ui/button";
+import { Input } from "../ui/input";
 import ApiKeyInput from "../ui/ApiKeyInput";
 import { GetApiKeyLink } from "../ui/GetApiKeyLink";
 import { ProviderIcon } from "../ui/ProviderIcon";
@@ -79,7 +80,7 @@ import {
 import {
   CONNECTION_PROVIDERS,
   findConnectionProvider,
-  hasSavedCredential,
+  hasSavedConnection,
   type ConnectionCredential,
   type ConnectionProviderDef,
   type ConnectionProviderId,
@@ -296,7 +297,105 @@ function useProviderCredentials(provider: ConnectionProviderDef) {
   const setters = useSettingsStore(
     useShallow((s) => provider.credentials.map((credential) => s[credential.setter]))
   );
-  return { values, setters };
+  const endpoint = useSettingsStore((s) =>
+    provider.endpoint ? (s[provider.endpoint.key] ?? "") : ""
+  );
+  return { values, setters, endpoint };
+}
+
+type ProviderStatus = "managed" | "ready" | "endpointNeeded" | "notConnected";
+
+/**
+ * What the pill or row says: connected only with a key and, where the
+ * provider has one, a valid endpoint (a key alone "needs its endpoint").
+ */
+function providerStatus(
+  provider: ConnectionProviderDef,
+  allowed: boolean,
+  values: readonly string[],
+  endpoint: string
+): ProviderStatus {
+  if (!allowed) return "managed";
+  if (!values.some((value) => !!value.trim())) return "notConnected";
+  if (provider.endpoint && provider.endpoint.validate(endpoint) !== null) return "endpointNeeded";
+  return "ready";
+}
+
+const STATUS_TONE: Record<ProviderStatus, PillTone> = {
+  managed: "managed",
+  ready: "ok",
+  endpointNeeded: "busy",
+  notConnected: "muted",
+};
+
+const STATUS_LABEL_KEY: Record<ProviderStatus, string> = {
+  managed: "common.managedByOrg",
+  ready: "connections.status.keySaved",
+  endpointNeeded: "connections.status.endpointNeeded",
+  notConnected: "connections.status.notConnected",
+};
+
+/**
+ * A provider's resource endpoint (Azure Speech), a plain setting shown in
+ * full: written as typed, tidied when the field is left (a bare host reads as
+ * https, a valid one is kept as its origin), and what's wrong with it said
+ * under it once the field is left.
+ */
+function ProviderEndpointField({
+  provider,
+  endpoint,
+  allowed,
+}: {
+  provider: ConnectionProviderDef;
+  endpoint: string;
+  allowed: boolean;
+}) {
+  const { t } = useTranslation();
+  const field = provider.endpoint;
+  const setEndpoint = useSettingsStore((s) => (field ? s[field.setter] : undefined));
+  const inputId = useId();
+  const errorId = useId();
+  const [editing, setEditing] = useState(false);
+  if (!field || !setEndpoint) return null;
+  const reason = endpoint.trim() ? field.validate(endpoint) : null;
+  const shownReason = !editing && reason;
+  if (!allowed) {
+    return endpoint ? (
+      <p dir="ltr" className="truncate font-mono text-xs text-muted-foreground">
+        {endpoint}
+      </p>
+    ) : null;
+  }
+  return (
+    <div className="space-y-1">
+      <label htmlFor={inputId} className="block text-xs font-medium text-foreground">
+        {t(field.labelKey)}
+      </label>
+      <Input
+        id={inputId}
+        dir="ltr"
+        value={endpoint}
+        placeholder={field.placeholder}
+        spellCheck={false}
+        autoComplete="off"
+        aria-invalid={shownReason ? true : undefined}
+        aria-describedby={shownReason ? errorId : undefined}
+        onFocus={() => setEditing(true)}
+        onChange={(event) => setEndpoint(event.target.value)}
+        onBlur={() => {
+          setEditing(false);
+          const next = field.normalize(endpoint);
+          if (next !== endpoint) setEndpoint(next);
+        }}
+        className="h-8 font-mono text-xs"
+      />
+      {shownReason && (
+        <p id={errorId} className="text-xs text-destructive">
+          {t(`${field.errorKeyPrefix}.${shownReason}`)}
+        </p>
+      )}
+    </div>
+  );
 }
 
 function RemoveKeyButton({ onClick }: { onClick: () => void }) {
@@ -315,29 +414,39 @@ function RemoveKeyButton({ onClick }: { onClick: () => void }) {
 }
 
 /**
- * A provider's credentials, on its card or opened under its row: a
- * replace-only field and Remove for each, or (where policy forbids the
- * provider) the masked values with no editor.
+ * A provider's credentials, on its card or opened under its row: its
+ * endpoint field when it has one, then a replace-only field and Remove for
+ * each credential, or (where policy forbids the provider) the masked values
+ * with no editor.
  */
 function ProviderCredentials({
   provider,
   values,
   setters,
+  endpoint,
   allowed,
   onRemove,
 }: {
   provider: ConnectionProviderDef;
   values: readonly string[];
   setters: ReadonlyArray<(value: string) => void>;
+  endpoint: string;
   allowed: boolean;
   onRemove: (request: RemoveRequest) => void;
 }) {
   const { t } = useTranslation();
   return (
     <div className="space-y-2">
+      {provider.endpoint && (
+        <ProviderEndpointField provider={provider} endpoint={endpoint} allowed={allowed} />
+      )}
       {provider.credentials.map((credential, index) => {
         const value = values[index];
-        const label = credential.labelKey ? t(credential.labelKey) : undefined;
+        const label = credential.labelKey
+          ? t(credential.labelKey)
+          : provider.endpoint && allowed
+            ? t("common.apiKey")
+            : undefined;
         return (
           <div key={credential.key} className="space-y-1">
             {label && <p className="text-xs font-medium text-foreground">{label}</p>}
@@ -374,6 +483,9 @@ function ProviderCredentials({
           </div>
         );
       })}
+      {provider.endpoint && allowed && (
+        <p className="text-xs text-muted-foreground">{t(provider.endpoint.helpKey)}</p>
+      )}
     </div>
   );
 }
@@ -387,24 +499,16 @@ function ProviderKeyCard({
 }: ProviderConnectionProps) {
   const { t } = useTranslation();
   const provider = findConnectionProvider(providerId) as ConnectionProviderDef;
-  const { values, setters } = useProviderCredentials(provider);
+  const { values, setters, endpoint } = useProviderCredentials(provider);
   const allowed = providerAllowed(policy, provider);
-  const saved = values.some((value) => !!value.trim());
+  const status = providerStatus(provider, allowed, values, endpoint);
 
   return (
     <ConnectionCard
       settingId={settingId}
       icon={<ProviderIcon provider={provider.id} className="h-4 w-4" />}
       name={provider.name}
-      pill={
-        !allowed ? (
-          <StatusPill tone="managed">{t("common.managedByOrg")}</StatusPill>
-        ) : saved ? (
-          <StatusPill tone="ok">{t("connections.status.keySaved")}</StatusPill>
-        ) : (
-          <StatusPill tone="muted">{t("connections.status.notConnected")}</StatusPill>
-        )
-      }
+      pill={<StatusPill tone={STATUS_TONE[status]}>{t(STATUS_LABEL_KEY[status])}</StatusPill>}
       usages={usagesOfProvider(usages, provider.id)}
       footer={allowed ? <GetApiKeyLink url={provider.keyUrl} /> : undefined}
     >
@@ -412,6 +516,7 @@ function ProviderKeyCard({
         provider={provider}
         values={values}
         setters={setters}
+        endpoint={endpoint}
         allowed={allowed}
         onRemove={onRemove}
       />
@@ -422,7 +527,8 @@ function ProviderKeyCard({
 /**
  * A provider on one line: its key field (masked and "Replace" when saved,
  * "Paste your API key" when not) with Remove or "Get your API key". Corti's
- * three credentials open under the line instead.
+ * three credentials and Azure Speech's endpoint and key open under the line
+ * instead.
  */
 function ProviderKeyRow({
   provider: providerId,
@@ -433,10 +539,10 @@ function ProviderKeyRow({
 }: ProviderConnectionProps) {
   const { t } = useTranslation();
   const provider = findConnectionProvider(providerId) as ConnectionProviderDef;
-  const { values, setters } = useProviderCredentials(provider);
+  const { values, setters, endpoint } = useProviderCredentials(provider);
   const [open, setOpen] = useState(false);
   const allowed = providerAllowed(policy, provider);
-  const saved = values.some((value) => !!value.trim());
+  const saved = values.some((value) => !!value.trim()) || !!endpoint.trim();
   const own = usagesOfProvider(usages, provider.id);
   const getKey =
     allowed && !saved ? (
@@ -452,7 +558,8 @@ function ProviderKeyRow({
     below: own.length > 0 ? <UsedBy usages={own} /> : undefined,
   };
 
-  if (provider.credentials.length > 1) {
+  if (provider.credentials.length > 1 || provider.endpoint) {
+    const status = providerStatus(provider, allowed, values, endpoint);
     return (
       <ConnectionRow
         {...line}
@@ -469,18 +576,13 @@ function ProviderKeyRow({
             provider={provider}
             values={values}
             setters={setters}
+            endpoint={endpoint}
             allowed={allowed}
             onRemove={onRemove}
           />
         }
       >
-        {!allowed ? (
-          <RowStatus tone="managed">{t("common.managedByOrg")}</RowStatus>
-        ) : (
-          <RowStatus tone={saved ? "ok" : "muted"}>
-            {t(saved ? "connections.status.keySaved" : "connections.status.notConnected")}
-          </RowStatus>
-        )}
+        <RowStatus tone={STATUS_TONE[status]}>{t(STATUS_LABEL_KEY[status])}</RowStatus>
       </ConnectionRow>
     );
   }
@@ -784,7 +886,7 @@ function ConnectionsSection({
   const { isCompact } = useSettingsLayout();
   const { confirmDialog, showConfirmDialog, hideConfirmDialog } = useDialogs();
   const secrets = useSettingsStore(
-    useShallow((s) => CONNECTION_PROVIDERS.map((provider) => hasSavedCredential(provider, s)))
+    useShallow((s) => CONNECTION_PROVIDERS.map((provider) => hasSavedConnection(provider, s)))
   );
   const secretsHydrated = useSettingsStore((s) => s.secretsHydrated);
   const isSignedIn = useSettingsStore((s) => s.isSignedIn);
@@ -957,6 +1059,14 @@ function ConnectionsSection({
         view={view}
         provider="assemblyai"
         data-setting-id="connections.assemblyai"
+      />
+    ),
+    "azure-speech": (view) => (
+      <ProviderConnection
+        {...shared}
+        view={view}
+        provider="azure-speech"
+        data-setting-id="connections.azureSpeech"
       />
     ),
     cloud: (view) => (

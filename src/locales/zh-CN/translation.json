@@ -1298,7 +1298,9 @@
         "providerKeyMissing": "尚未为您的转录服务商设置 API 密钥。请在“设置 → 语音转文字”中添加。",
         "cleanupTruncated": "AI 模型的输出长度达到上限，未能完成听写清理。",
         "cleanupDuplicated": "AI 清理重复了转录内容。已保留原始文本。",
-        "cleanupEmptyReply": "AI 模型返回了空响应，没有生成清理后的文本。"
+        "cleanupEmptyReply": "AI 模型返回了空响应，没有生成清理后的文本。",
+        "azureSpeechEndpointMissing": "请在“设置 → AI 连接与本地模型”中添加你的 Azure Speech 端点。",
+        "azureSpeechConversionFailed": "无法为 Azure Speech 转换此录音，它只接受 WAV、MP3 或 FLAC。"
       },
       "translationFallback": {
         "unreachableTitle": "翻译不可用",
@@ -3618,7 +3620,8 @@
         "deepgram_nova_3": "Deepgram 最精准的实时模型",
         "assemblyai_universal_streaming_english": "不会变动的实时转录（英语）",
         "assemblyai_universal_streaming_multilingual": "不会变动的实时转录（多语言）",
-        "assemblyai_universal_3_5_pro": "最高精度实时转录，支持 18 种语言"
+        "assemblyai_universal_3_5_pro": "最高精度实时转录，支持 18 种语言",
+        "azure_speech_mai_transcribe_2": "Microsoft 的语音转文字，通过你的 Azure Speech 资源"
       },
       "cloud": {
         "openai_gpt_5_2": "强大的推理模型",
@@ -5948,6 +5951,12 @@
       "accessDenied": "GitHub Copilot 拒绝了此请求。您的套餐或组织策略可能不允许使用此模型。",
       "notSignedIn": "您尚未登录 GitHub Copilot。请在“设置 → AI 连接与本地模型”中登录。",
       "unsupportedRequest": "GitHub Copilot 只能清理听写、格式化笔记和翻译。请在“设置”中为聊天和语音助手选择其他模型。"
+    },
+    "azureSpeech": {
+      "endpointNotFound": "Azure Speech 找不到此端点。请在“设置 → AI 连接与本地模型”中检查。",
+      "audioTooLong": "此录音超过了 Azure Speech 接受的时长（不到 2 小时）。",
+      "modelUnavailable": "{{model}} 在此 Azure Speech 资源上不可用。请使用提供该模型的区域中的 Speech 资源。",
+      "languageUnsupported": "Azure Speech 不支持所选语言。请选择其他语言或自动检测。"
     }
   },
   "calendarOAuth": {
@@ -6066,7 +6075,8 @@
       "deepgram": "Deepgram",
       "assemblyai": "AssemblyAI",
       "copilot": "GitHub Copilot",
-      "cloud": "OpenWhispr Cloud"
+      "cloud": "OpenWhispr Cloud",
+      "azure-speech": "Azure Speech"
     },
     "search": {
       "providerDescription": "此提供商的 API 密钥、是否已保存，以及使用它的功能。",
@@ -6099,7 +6109,8 @@
       "signingIn": "正在登录…",
       "notSignedIn": "未登录",
       "off": "已关闭",
-      "noKey": "未保存密钥"
+      "noKey": "未保存密钥",
+      "endpointNeeded": "需要端点"
     },
     "credentials": {
       "languageModelKey": "语言模型的 API 密钥"
@@ -6294,6 +6305,16 @@
       "search": {
         "description": "您自己的 Azure OpenAI 或兼容 OpenAI 的端点、其密钥以及使用它的功能。"
       }
+    },
+    "azureSpeech": {
+      "endpointErrors": {
+        "invalidUrl": "这不是有效的 URL。",
+        "httpsRequired": "端点必须以 https:// 开头。",
+        "host": "这不是 Azure Speech 端点。它以 .cognitiveservices.azure.com 或 .api.cognitive.microsoft.com 结尾。",
+        "resourceOnly": "只粘贴资源端点，例如 https://<resource>.cognitiveservices.azure.com，不要包含路径、端口或查询参数。"
+      },
+      "endpointLabel": "资源端点",
+      "help": "粘贴 Speech 资源“Keys and Endpoint”页面中的端点和一个密钥。"
     }
   },
   "modelPicker": {
@@ -6318,7 +6339,8 @@
       "signInCopilot": "在 AI 连接中登录",
       "addKey": "添加 API 密钥",
       "openLocalModels": "AI 连接",
-      "manageCopilot": "在 AI 连接中管理 GitHub 登录"
+      "manageCopilot": "在 AI 连接中管理 GitHub 登录",
+      "setUpConnection": "在 AI 连接中设置"
     },
     "cloud": {
       "automatic": "自动",
@@ -6413,7 +6435,8 @@
         "notDownloaded": "此模型尚未下载",
         "needsStreaming": "实时录音需要流式模型",
         "liveOnly": "仅支持实时的服务商：文件转录无法使用",
-        "noLocalModel": "未下载 {{engine}} 模型：请选择其他模型，或在“AI 连接”中下载"
+        "noLocalModel": "未下载 {{engine}} 模型：请选择其他模型，或在“AI 连接”中下载",
+        "needsEndpointAndKey": "需要端点和密钥"
       },
       "custom": {
         "sub": "任何兼容 OpenAI 的语音转文字 API",

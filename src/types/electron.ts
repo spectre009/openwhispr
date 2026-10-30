@@ -128,10 +128,15 @@ export interface DictationTranscriptionRequest {
   /** The dictation window's id for it: its cancel names this id. */
   requestId: string;
   endpoint: string;
-  /** Only `Authorization` and `api-key` are sent. */
+  /**
+   * Only `Authorization`, `api-key` and `Ocp-Apim-Subscription-Key` are sent;
+   * main sends the last only to an Azure Speech resource's transcribe URL.
+   */
   headers: Record<string, string>;
   /** Form fields after the file, in order (`keywords[]` repeats). */
   fields: Array<[string, string]>;
+  /** The audio part's name: `file` (default) or `audio` (Azure Speech). */
+  audioPart?: "file" | "audio";
   file: { bytes: ArrayBuffer; name: string; type: string };
   audioSeconds: number | null;
   stream: boolean;
@@ -139,6 +144,8 @@ export interface DictationTranscriptionRequest {
   selfHosted: boolean;
   errorContext: {
     provider: string;
+    /** "azure-speech" reads Azure Speech's error shapes. */
+    providerId?: string;
     selfHosted: boolean;
     model: string | null;
     surface: "transcription";
@@ -306,6 +313,8 @@ export type TranscriptionErrorCode =
   | "INVALID_KEY"
   | "MODEL_NOT_AVAILABLE"
   | "CUSTOM_ENDPOINT_INVALID"
+  | "AZURE_SPEECH_ENDPOINT_INVALID"
+  | "AZURE_SPEECH_CONVERSION_FAILED"
   | "PROVIDER_AUTH_FAILED"
   | "PROVIDER_ACCESS_DENIED"
   | "PROVIDER_QUOTA_EXHAUSTED"
@@ -2234,6 +2243,8 @@ declare global {
           cloudTranscriptionBaseUrl?: string;
           cortiEnvironment?: string;
           cortiTenant?: string;
+          /** Azure Speech's resource endpoint; main re-checks it before sending the key. */
+          azureSpeechEndpoint?: string;
           parakeetModel: string;
           cohereModel: string;
           whisperModel: string;
@@ -3124,6 +3135,8 @@ declare global {
       saveDeepgramKey?: (key: string) => Promise<void>;
       getAssemblyAIKey?: () => Promise<string | null>;
       saveAssemblyAIKey?: (key: string) => Promise<void>;
+      getAzureSpeechKey?: () => Promise<string | null>;
+      saveAzureSpeechKey?: (key: string) => Promise<void>;
 
       // Custom endpoint API keys
       getCustomTranscriptionKey?: () => Promise<string | null>;
@@ -3549,6 +3562,8 @@ declare global {
         transcriptionMode?: string;
         remoteTranscriptionUrl?: string;
         remoteTranscriptionModel?: string;
+        /** Azure Speech's resource endpoint; main re-checks it before sending the key. */
+        azureSpeechEndpoint?: string;
         managed?: {
           kind: "managed";
           provider: "azure";

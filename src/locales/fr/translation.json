@@ -1298,7 +1298,9 @@
         "providerKeyMissing": "Aucune clé API n'est définie pour votre fournisseur de transcription. Ajoutez-la dans Réglages → Parole en texte.",
         "cleanupTruncated": "Le modèle d'IA a manqué de place avant de terminer le nettoyage de votre dictée.",
         "cleanupDuplicated": "Le nettoyage par IA a répété la transcription. Le texte original a été conservé.",
-        "cleanupEmptyReply": "Le modèle d'IA a renvoyé une réponse vide au lieu de la dictée nettoyée."
+        "cleanupEmptyReply": "Le modèle d'IA a renvoyé une réponse vide au lieu de la dictée nettoyée.",
+        "azureSpeechEndpointMissing": "Ajoutez le point de terminaison Azure Speech dans Réglages → Connexions IA et modèles locaux.",
+        "azureSpeechConversionFailed": "L’enregistrement n’a pas pu être converti pour Azure Speech, qui n’accepte que WAV, MP3 ou FLAC."
       },
       "translationFallback": {
         "unreachableTitle": "Traduction indisponible",
@@ -3716,7 +3718,8 @@
         "deepgram_nova_3": "Le modèle temps réel le plus précis de Deepgram",
         "assemblyai_universal_streaming_english": "Transcriptions temps réel immuables, anglais",
         "assemblyai_universal_streaming_multilingual": "Transcriptions temps réel immuables, multilingues",
-        "assemblyai_universal_3_5_pro": "Précision maximale en temps réel, 18 langues"
+        "assemblyai_universal_3_5_pro": "Précision maximale en temps réel, 18 langues",
+        "azure_speech_mai_transcribe_2": "La reconnaissance vocale de Microsoft, via votre ressource Azure Speech"
       },
       "cloud": {
         "openai_gpt_5_2": "Modèle de raisonnement performant",
@@ -5948,6 +5951,12 @@
       "accessDenied": "GitHub Copilot a refusé cette requête. Votre forfait ou la politique de votre organisation n’autorise peut-être pas ce modèle.",
       "notSignedIn": "Vous n’êtes pas connecté à GitHub Copilot. Connectez-vous dans Réglages → Connexions IA et modèles locaux.",
       "unsupportedRequest": "GitHub Copilot sait seulement nettoyer les dictées, mettre en forme les notes et traduire. Choisissez un autre modèle pour le Chat et l’Assistant vocal dans les Réglages."
+    },
+    "azureSpeech": {
+      "endpointNotFound": "Azure Speech n’a pas trouvé ce point de terminaison. Vérifiez-le dans Réglages → Connexions IA et modèles locaux.",
+      "audioTooLong": "Cet enregistrement est plus long que ce qu’accepte Azure Speech (moins de 2 heures).",
+      "modelUnavailable": "{{model}} n’est pas disponible sur cette ressource Azure Speech. Utilisez une ressource Speech dans une région qui le propose.",
+      "languageUnsupported": "Azure Speech ne prend pas en charge la langue sélectionnée. Choisissez une autre langue ou la détection automatique."
     }
   },
   "calendarOAuth": {
@@ -6066,7 +6075,8 @@
       "deepgram": "Deepgram",
       "assemblyai": "AssemblyAI",
       "copilot": "GitHub Copilot",
-      "cloud": "OpenWhispr Cloud"
+      "cloud": "OpenWhispr Cloud",
+      "azure-speech": "Azure Speech"
     },
     "search": {
       "providerDescription": "La clé API de ce fournisseur, si elle est enregistrée, et les fonctionnalités qui l'utilisent.",
@@ -6099,7 +6109,8 @@
       "signingIn": "Connexion…",
       "notSignedIn": "Non connecté",
       "off": "Désactivé",
-      "noKey": "Aucune clé enregistrée"
+      "noKey": "Aucune clé enregistrée",
+      "endpointNeeded": "Point de terminaison requis"
     },
     "credentials": {
       "languageModelKey": "Clé API pour les modèles de langage"
@@ -6294,6 +6305,16 @@
       "search": {
         "description": "Votre propre point de terminaison Azure OpenAI ou compatible OpenAI, sa clé et les fonctionnalités qui l'utilisent."
       }
+    },
+    "azureSpeech": {
+      "endpointErrors": {
+        "invalidUrl": "Cette URL n’est pas valide.",
+        "httpsRequired": "Le point de terminaison doit commencer par https://.",
+        "host": "Ce n’est pas un point de terminaison Azure Speech. Il se termine par .cognitiveservices.azure.com ou .api.cognitive.microsoft.com.",
+        "resourceOnly": "Collez uniquement le point de terminaison de la ressource, par exemple https://<resource>.cognitiveservices.azure.com, sans chemin, port ni requête."
+      },
+      "endpointLabel": "Point de terminaison de la ressource",
+      "help": "Collez le point de terminaison et une clé depuis la page Keys and Endpoint de votre ressource Speech."
     }
   },
   "modelPicker": {
@@ -6318,7 +6339,8 @@
       "signInCopilot": "Se connecter dans Connexions IA",
       "addKey": "Ajouter une clé API",
       "openLocalModels": "Connexions IA",
-      "manageCopilot": "Gérer la connexion GitHub dans Connexions IA"
+      "manageCopilot": "Gérer la connexion GitHub dans Connexions IA",
+      "setUpConnection": "Configurer dans Connexions IA"
     },
     "cloud": {
       "automatic": "Automatique",
@@ -6413,7 +6435,8 @@
         "notDownloaded": "Ce modèle n'est pas téléchargé",
         "needsStreaming": "L'enregistrement en direct nécessite un modèle en streaming",
         "liveOnly": "Un fournisseur uniquement en direct : la transcription de fichiers ne peut pas l'utiliser",
-        "noLocalModel": "Aucun modèle {{engine}} téléchargé : choisissez un autre modèle ou téléchargez-en un dans Connexions IA"
+        "noLocalModel": "Aucun modèle {{engine}} téléchargé : choisissez un autre modèle ou téléchargez-en un dans Connexions IA",
+        "needsEndpointAndKey": "Requiert son point de terminaison et sa clé"
       },
       "custom": {
         "sub": "Toute API de transcription compatible OpenAI",

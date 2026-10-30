@@ -10,8 +10,9 @@
 //
 // Whisper-family decoders (whisper-1, Groq's whisper-large-v3, whisper.cpp)
 // read only the last ~223 tokens of a prompt, so for them ("tail" order) the
-// highest priority is emitted LAST. Keyword channels and the gpt-4o transcribe
-// models read the whole list but caps keep its head, so they get "head" order.
+// highest priority is emitted LAST. Keyword channels, Azure Speech's phrase
+// list (199 entries at most) and the gpt-4o transcribe models read the whole
+// list but caps keep its head, so they get "head" order.
 // The emitted order never touches the stored dictionary: reordering by
 // deleting and re-adding words would churn cloud sync.
 //
@@ -26,6 +27,10 @@ import {
   dictionaryPromptLimit,
 } from "./dictionaryPromptCap.js";
 import { usesTranscriptionKeywords } from "./dictionaryKeywords.js";
+import {
+  AZURE_SPEECH_MAX_PHRASES,
+  AZURE_SPEECH_PROVIDER_ID,
+} from "../helpers/azureSpeechTranscription.js";
 import type { Snippet } from "./snippets";
 
 export type HintSource = "manual" | "glossary" | "snippet" | "learned";
@@ -53,13 +58,19 @@ export interface DictionaryHintPlan {
 }
 
 export interface HintTarget {
-  /** How the request carries the hints; "none" sends no hints at all. */
-  channel: "prompt" | "keywords" | "none";
+  /**
+   * How the request carries the hints: a prompt, keywords, a phrase list
+   * (Azure Speech's `phraseList`, a bias the model never continues, so no
+   * dictionary-echo check), or "none" when it sends no hints at all.
+   */
+  channel: "prompt" | "keywords" | "phrases" | "none";
   order: HintOrder;
   /** Request budget for the joined list. */
   maxChars: number;
   /** How much of the emitted list the model is estimated to read. */
   readChars: number;
+  /** A cap on the number of terms, where the request counts entries rather than characters. */
+  maxTerms?: number;
 }
 
 export const HINT_SEPARATOR = ", ";
@@ -75,6 +86,8 @@ export interface BuildDictionaryHintsOptions {
   snippets?: readonly Snippet[] | null;
   includeSnippets?: boolean;
   maxChars?: number;
+  /** At most this many terms, chosen by priority like the character budget. */
+  maxTerms?: number;
   order?: HintOrder;
   readChars?: number;
 }
@@ -86,6 +99,7 @@ export function buildDictionaryHints({
   snippets,
   includeSnippets = true,
   maxChars = Infinity,
+  maxTerms = Infinity,
   order = "tail",
   readChars = WHISPER_DECODER_PROMPT_CHARS,
 }: BuildDictionaryHintsOptions = {}): DictionaryHintPlan {
@@ -118,13 +132,14 @@ export function buildDictionaryHints({
   for (const word of words) add("learned", word);
 
   const budget = Number.isFinite(maxChars) ? Math.max(0, maxChars) : Infinity;
+  const termLimit = Number.isFinite(maxTerms) ? Math.max(0, Math.floor(maxTerms)) : Infinity;
   const selected = new Set<string>();
   let used = 0;
   let truncated = false;
   for (const source of PRIORITY) {
     for (const term of tiers[source]) {
       const cost = term.length + (selected.size > 0 ? HINT_SEPARATOR.length : 0);
-      if (used + cost <= budget) {
+      if (selected.size < termLimit && used + cost <= budget) {
         selected.add(term);
         used += cost;
       } else {
@@ -191,6 +206,16 @@ export function resolveHintTarget({
   // OpenWhispr Cloud picks its model server-side; Groq's request cap is the
   // tightest it may apply, so everything sent survives whatever it keeps.
   if (engine === "cloud") return whisperTail(GROQ_PROMPT_CHARS);
+  // Azure Speech's phrase list counts entries (at most 199), not characters.
+  if (provider === AZURE_SPEECH_PROVIDER_ID) {
+    return {
+      channel: "phrases",
+      order: "head",
+      maxChars: Infinity,
+      readChars: Infinity,
+      maxTerms: AZURE_SPEECH_MAX_PHRASES,
+    };
+  }
   if (usesTranscriptionKeywords(model)) {
     return { channel: "keywords", order: "head", maxChars: Infinity, readChars: Infinity };
   }

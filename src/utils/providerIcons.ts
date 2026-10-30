@@ -43,6 +43,8 @@ export const PROVIDER_ICONS: Record<string, string> = {
   liquidai: liquidaiIcon,
   bedrock: bedrockIcon,
   azure: azureIcon,
+  // Azure Speech (MAI-Transcribe) is an Azure service.
+  "azure-speech": azureIcon,
   vertex: vertexIcon,
   xai: xaiIcon,
   corti: cortiIcon,

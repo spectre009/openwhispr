@@ -2,9 +2,9 @@
 // platforms we ship, so every dictation reaches the upload path as WebM. Most
 // OpenAI-compatible transcription backends accept that, but some decode the
 // bytes themselves and reject anything outside WAV/MP3/FLAC — Azure's
-// MAI-Transcribe, reached through OpenRouter, is one. Those endpoints are only
-// selectable via the Custom provider, so the conversion is scoped there and
-// every built-in provider keeps sending Opus untouched.
+// MAI-Transcribe is one, whether reached through OpenRouter (a Custom
+// endpoint) or directly (the Azure Speech provider). The conversion is scoped
+// to those two, and every other built-in provider keeps sending Opus untouched.
 //
 // The rejection is by content, not by labelling: renaming the part or rewriting
 // its Content-Type does not help, so the audio has to actually be re-encoded.
@@ -29,7 +29,7 @@ export function needsWavConversion(
   mimeType: string | undefined,
   size?: number
 ): boolean {
-  if (provider !== "custom") return false;
+  if (provider !== "custom" && provider !== "azure-speech") return false;
   // An empty recording has nothing to decode; converting it would only turn a
   // silent no-op into a spurious "re-encode failed" warning.
   if (size === 0) return false;

@@ -419,6 +419,19 @@
           "streaming": true
         }
       ]
+    },
+    {
+      "id": "azure-speech",
+      "name": "Azure Speech",
+      "baseUrl": "",
+      "models": [
+        {
+          "id": "MAI-Transcribe-2",
+          "name": "MAI-Transcribe-2",
+          "description": "Microsoft's speech-to-text, through your Azure Speech resource",
+          "descriptionKey": "models.descriptions.transcription.azure_speech_mai_transcribe_2"
+        }
+      ]
     }
   ],
   "cloudProviders": [

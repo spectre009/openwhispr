@@ -797,6 +797,7 @@ export default function ControlPanel({ initialSettingsSection }: ControlPanelPro
           cloudTranscriptionBaseUrl: s.cloudTranscriptionBaseUrl,
           cortiEnvironment: s.cortiEnvironment,
           cortiTenant: s.cortiTenant,
+          azureSpeechEndpoint: s.azureSpeechEndpoint,
           parakeetModel: s.parakeetModel,
           cohereModel: s.cohereModel,
           whisperModel: s.whisperModel,

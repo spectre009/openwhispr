@@ -45,6 +45,11 @@ const {
   redactProviderBody,
 } = require("./providerHttpErrors");
 const {
+  buildAzureSpeechRequest,
+  isAzureSpeechAcceptedExtension,
+  parseAzureSpeechAnswer,
+} = require("./azureSpeechTranscription.js");
+const {
   registerConnectorIpc,
   createConnectorPolicyResolver,
   createConnectorAuthLookup,
@@ -225,6 +230,58 @@ const AUTO_LEARN_DEBOUNCE_MS = 1500;
 // the message reports the cap that actually applied.
 const byokSizeCapError = (sizeCapBytes) =>
   `File too large. Maximum size for bring-your-own-key is ${Math.floor(sizeCapBytes / (1024 * 1024))} MB.`;
+
+// MAI-Transcribe takes WAV, MP3 or FLAC only. Anything else is re-encoded to
+// 16 kHz mono WAV, and a conversion that fails fails the request instead of
+// sending what Azure would reject.
+const azureSpeechConversionError = () =>
+  Object.assign(
+    new Error(
+      "The recording couldn't be converted for Azure Speech, which takes WAV, MP3 or FLAC."
+    ),
+    {
+      code: "AZURE_SPEECH_CONVERSION_FAILED",
+      messageKey: "hooks.audioRecording.errorDescriptions.azureSpeechConversionFailed",
+    }
+  );
+
+// A stored dictation (WebM) for History's Re-transcribe.
+async function azureSpeechStoredAudio(buffer) {
+  const { convertBufferToWav, isWavFormat } = require("./ffmpegUtils");
+  if (isWavFormat(buffer)) return buffer;
+  try {
+    return await convertBufferToWav(buffer);
+  } catch (error) {
+    debugLogger.warn("WAV re-encode failed for Azure Speech", { error: error?.message });
+    throw azureSpeechConversionError();
+  }
+}
+
+// An uploaded file: WAV, MP3 and FLAC as they are, anything else as WAV.
+async function azureSpeechUploadAudio(filePath) {
+  if (isAzureSpeechAcceptedExtension(path.extname(filePath).slice(1))) {
+    return {
+      bytes: fs.readFileSync(filePath),
+      name: path.basename(filePath),
+      type: providerContentType(filePath),
+    };
+  }
+  const { convertToWav } = require("./ffmpegUtils");
+  const { getSafeTempDir } = require("./safeTempDir");
+  const wavPath = path.join(
+    getSafeTempDir(),
+    `ow-azure-speech-${Date.now()}-${crypto.randomBytes(4).toString("hex")}.wav`
+  );
+  try {
+    await convertToWav(filePath, wavPath);
+    return { bytes: fs.readFileSync(wavPath), name: "audio.wav", type: "audio/wav" };
+  } catch (error) {
+    debugLogger.warn("WAV re-encode failed for Azure Speech upload", { error: error?.message });
+    throw azureSpeechConversionError();
+  } finally {
+    fs.rmSync(wavPath, { force: true });
+  }
+}
 
 const CLOUD_INLINE_LIMIT = 4 * 1024 * 1024;
 // The enterprise "Test Connection" probe only needs one word back, but the
@@ -7325,19 +7382,23 @@ class IPCHandlers {
         // failures keep their own shape.
         if (
           (route.transport === "http-batch" && route.provider === "self-hosted") ||
-          ((route.transport === "http-batch" || route.transport === "proxied") &&
+          ((route.transport === "http-batch" ||
+            route.transport === "proxied" ||
+            route.transport === "azure-speech") &&
             settings?.cloudTranscriptionMode !== "openwhispr")
         ) {
           providerErrorContext = {
             provider: transcriptionProviderName(route.provider),
+            // Azure Speech's error shapes have their own sentences.
+            ...(route.transport === "azure-speech" ? { providerId: route.provider } : {}),
             selfHosted: route.provider === "self-hosted" || route.provider === "custom",
             model: route.model,
             surface: "transcription",
           };
         }
 
-        // OpenAI-compatible re-sends (OpenAI, Groq, custom, self-hosted) get
-        // live dictation's deadline and retry, on History's own pool.
+        // OpenAI-compatible re-sends (OpenAI, Groq, custom, self-hosted) and
+        // Azure Speech get live dictation's deadline and retry, on History's own pool.
         let storedAudioSeconds = null;
         try {
           const durationMs = this.databaseManager.getTranscriptionById(id)?.audio_duration_ms;
@@ -7345,13 +7406,21 @@ class IPCHandlers {
         } catch {
           // Unknown length: the deadline estimates it from the bytes.
         }
-        const sendStoredAudio = ({ endpoint, headers = {}, fields, file, selfHosted = false }) =>
+        const sendStoredAudio = ({
+          endpoint,
+          headers = {},
+          fields,
+          file,
+          audioPart,
+          selfHosted = false,
+        }) =>
           runHistoryTranscriptionRequest({
             request: transcriptionRequestFrom({
               endpoint,
               headers,
               fields,
               file,
+              audioPart,
               audioSeconds: storedAudioSeconds,
               selfHosted,
               errorContext: providerErrorContext,
@@ -7517,6 +7586,47 @@ class IPCHandlers {
             apiKey: this.environmentManager.getGeminiKey(),
           });
           if (text) result = { text, source: "gemini", model: route.model };
+        } else if (route.transport === "azure-speech") {
+          // The key from main's store, the endpoint from the retry settings
+          // (the route built it; main's request module checks it again before
+          // the key leaves). Like every provider, Re-transcribe sends no
+          // dictionary.
+          const apiKey = this.environmentManager.getAzureSpeechKey();
+          if (!apiKey) {
+            throw providerError(PROVIDER_ERROR_CODES.KEY_MISSING, {
+              provider: transcriptionProviderName(route.provider),
+              surface: "transcription",
+            });
+          }
+          const audio = await azureSpeechStoredAudio(buffer);
+          if (audio.length > route.sizeCapBytes) {
+            throw providerError(PROVIDER_ERROR_CODES.PAYLOAD_TOO_LARGE, providerErrorContext);
+          }
+          const request = buildAzureSpeechRequest({
+            endpoint: route.endpoint,
+            apiKey,
+            model: route.model,
+            locale: route.locale,
+          });
+          const answer = await sendStoredAudio({
+            ...request,
+            file: { bytes: audio, type: "audio/wav", name: "audio.wav" },
+          });
+          if (!answer.ok) {
+            debugLogger.warn("Retry transcription provider failed", {
+              provider: route.provider,
+              status: answer.status,
+              body: redactProviderBody(answer.body),
+            });
+            throw providerHttpError({
+              ...providerErrorContext,
+              status: answer.status,
+              body: answer.body,
+              headers: answer.headers,
+            });
+          }
+          const text = parseAzureSpeechAnswer(readJsonAnswer(answer));
+          if (text) result = { text, source: route.provider, model: route.model };
         } else {
           // mistral/xai have no OpenAI-compatible endpoint — main talks to them
           // directly; everything else consumes the route endpoint as-is.
@@ -11041,6 +11151,7 @@ class IPCHandlers {
           transcriptionMode,
           remoteTranscriptionUrl,
           remoteTranscriptionModel,
+          azureSpeechEndpoint,
           managed,
         }
       ) => {
@@ -11065,6 +11176,7 @@ class IPCHandlers {
               cloudTranscriptionBaseUrl: baseUrl,
               cortiEnvironment: environment,
               cortiTenant: tenant,
+              azureSpeechEndpoint,
             },
             providers: transcriptionProviderBaseUrls(),
             managed,
@@ -11100,6 +11212,8 @@ class IPCHandlers {
           // Every branch below calls a BYOK provider or the user's own server.
           providerErrorContext = {
             provider: transcriptionProviderName(route.provider),
+            // Azure Speech's error shapes have their own sentences.
+            ...(route.transport === "azure-speech" ? { providerId: route.provider } : {}),
             selfHosted: route.provider === "self-hosted" || route.provider === "custom",
             model: route.model,
             surface: "transcription",
@@ -11126,6 +11240,60 @@ class IPCHandlers {
               });
             }
             return { success: true, text: data.data.text };
+          }
+
+          if (route.transport === "azure-speech") {
+            // Its own request (the `audio` part, a JSON definition, its key
+            // header) through main's request code, never the multipart builder
+            // below. No locale: an imported file is often in another language,
+            // and no dictionary, as for every upload. Speaker labels come from
+            // the local diarizer.
+            const azureKey = apiKey || this.environmentManager.getAzureSpeechKey();
+            if (!azureKey) {
+              throw providerError(PROVIDER_ERROR_CODES.KEY_MISSING, {
+                provider: transcriptionProviderName(route.provider),
+                surface: "transcription",
+              });
+            }
+            const audio = await azureSpeechUploadAudio(realByok);
+            // The cap is on what's sent, after any conversion.
+            if (audio.bytes.length > route.sizeCapBytes) {
+              return { success: false, error: byokSizeCapError(route.sizeCapBytes) };
+            }
+            const request = buildAzureSpeechRequest({
+              endpoint: route.endpoint,
+              apiKey: azureKey,
+              model: route.model,
+            });
+            const answer = await runHistoryTranscriptionRequest({
+              request: transcriptionRequestFrom({
+                ...request,
+                file: audio,
+                errorContext: providerErrorContext,
+              }),
+              getPool: (partition) => getConnectionPool(partition),
+              logger: debugLogger,
+            });
+            if (!answer.ok) {
+              debugLogger.warn("BYOK file transcription failed", {
+                provider: route.provider,
+                status: answer.status,
+                body: redactProviderBody(answer.body),
+              });
+              throw providerHttpError({
+                ...providerErrorContext,
+                status: answer.status,
+                body: answer.body,
+                headers: answer.headers,
+              });
+            }
+            let data;
+            try {
+              data = JSON.parse(answer.body);
+            } catch {
+              throw new Error("Couldn't read the transcription response");
+            }
+            return { success: true, text: parseAzureSpeechAnswer(data) };
           }
 
           const fileSize = fs.statSync(realByok).size;

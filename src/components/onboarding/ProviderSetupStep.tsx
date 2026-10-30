@@ -49,6 +49,7 @@ import {
 } from "./pendingLocalModels";
 import { isLocalStageDownloadActive } from "./localDownloadState";
 import { isBlankByokDraft, resolveSavedByokConfig } from "./savedByokConfig";
+import { onboardingTranscriptionProviders } from "./setupEligibility";
 
 export function SetupStageStepper({ stepId }: { stepId: OnboardingStepId }) {
   const { t } = useTranslation();
@@ -342,7 +343,7 @@ export function ByokProviderStep({
             modelRegistry
               .getCloudProviders()
               .filter((provider) => provider.id !== COPILOT_PROVIDER_ID)
-          : getTranscriptionProviders(),
+          : onboardingTranscriptionProviders(getTranscriptionProviders()),
         scope,
         policy
       ),

@@ -73,6 +73,7 @@ export function useVoiceDraft({ onTranscript, onError }: UseVoiceDraftOptions) {
     transcriptionMode,
     remoteTranscriptionUrl,
     remoteTranscriptionModel,
+    azureSpeechEndpoint: settings.azureSpeechEndpoint,
   });
 
   // The chat mic always takes the batch file path, which a realtime-only

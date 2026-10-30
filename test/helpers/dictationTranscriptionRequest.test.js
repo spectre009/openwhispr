@@ -429,3 +429,119 @@ test("main's handler returns a timeout as classified fields that survive IPC", a
   assert.equal(invalid.success, false);
   assert.match(invalid.error, /endpoint/);
 });
+
+// ── Azure Speech: the two allowlisted extensions ─────────────────────────────
+
+const AZURE_URL =
+  "https://res.cognitiveservices.azure.com/speechtotext/transcriptions:transcribe?api-version=2025-10-15";
+
+test("Azure Speech: its key header and the `audio` part name are the only extensions", async () => {
+  const azure = request({
+    endpoint: AZURE_URL,
+    headers: {
+      "Ocp-Apim-Subscription-Key": "az-key",
+      Authorization: "Bearer other",
+      "api-key": "other",
+      Cookie: "session=1",
+    },
+    fields: [["definition", '{"enhancedMode":{"enabled":true,"model":"MAI-Transcribe-2"}}']],
+    audioPart: "audio",
+    errorContext: {
+      provider: "Azure Speech",
+      providerId: "azure-speech",
+      model: "MAI-Transcribe-2",
+    },
+  });
+  // The key travels alone: no other credential rides along with it.
+  assert.deepEqual(azure.headers, { "Ocp-Apim-Subscription-Key": "az-key" });
+  assert.equal(azure.audioPart, "audio");
+  assert.equal(azure.errorContext.providerId, "azure-speech");
+
+  const inits = [];
+  await runTranscriptionRequest({
+    request: azure,
+    fetch: async (_url, init) => {
+      inits.push(init);
+      return jsonAnswer("ok");
+    },
+  });
+  assert.deepEqual([...inits[0].body.keys()], ["audio", "definition"]);
+  assert.equal(inits[0].body.get("audio").name, "audio.wav");
+
+  // Any other part name is refused; none means `file`, as before.
+  assert.throws(() => request({ audioPart: "upload" }), /audio part/);
+  assert.equal(request().audioPart, "file");
+  // Another provider can't borrow Azure's error wording.
+  assert.equal(
+    request({ errorContext: { provider: "OpenAI", providerId: "copilot" } }).errorContext
+      .providerId,
+    undefined
+  );
+});
+
+test("Azure Speech: main refuses its key for anything but a Speech resource's transcribe URL", () => {
+  const withKey = (endpoint) =>
+    request({ endpoint, headers: { "ocp-apim-subscription-key": "az-key" }, audioPart: "audio" });
+  for (const endpoint of [
+    "https://stt.example.com/v1/audio/transcriptions",
+    "https://res.openai.azure.com/speechtotext/transcriptions:transcribe?api-version=2025-10-15",
+    "https://res.cognitiveservices.azure.com.evil.example/speechtotext/transcriptions:transcribe?api-version=2025-10-15",
+    "http://res.cognitiveservices.azure.com/speechtotext/transcriptions:transcribe?api-version=2025-10-15",
+    "https://res.cognitiveservices.azure.com/other?api-version=2025-10-15",
+    "https://res.cognitiveservices.azure.com:8443/speechtotext/transcriptions:transcribe?api-version=2025-10-15",
+    "https://user:pw@res.cognitiveservices.azure.com/speechtotext/transcriptions:transcribe?api-version=2025-10-15",
+  ]) {
+    assert.throws(() => withKey(endpoint), /Speech resource/, endpoint);
+  }
+  assert.equal(withKey(AZURE_URL).endpoint, AZURE_URL);
+  assert.equal(
+    withKey(
+      "https://westus2.api.cognitive.microsoft.com/speechtotext/transcriptions:transcribe?api-version=2025-10-15"
+    ).headers["Ocp-Apim-Subscription-Key"],
+    "az-key"
+  );
+});
+
+test("main's handler refuses an Azure key bound for another endpoint, sending nothing", async () => {
+  const ipc = fakeIpc();
+  const fetched = [];
+  registerDictationTranscriptionIpc({
+    ipcMain: ipc.ipcMain,
+    getPool: () => ({
+      fetch: async (url) => {
+        fetched.push(url);
+        return jsonAnswer("ok");
+      },
+    }),
+    logger: null,
+    env: {},
+  });
+  const reply = await ipc.invoke(fakeSender(1), {
+    ...payload("req-az"),
+    headers: { "Ocp-Apim-Subscription-Key": "az-key" },
+    audioPart: "audio",
+  });
+  assert.equal(reply.success, false);
+  assert.match(reply.error, /Speech resource/);
+  assert.deepEqual(fetched, []);
+});
+
+test("Azure's request id comes back with the answer", async () => {
+  const inits = [];
+  const answer = await runTranscriptionRequest({
+    request: request({
+      endpoint: AZURE_URL,
+      headers: { "Ocp-Apim-Subscription-Key": "az-key" },
+      audioPart: "audio",
+    }),
+    fetch: async (_url, init) => {
+      inits.push(init);
+      return new Response('{"error":{"code":"404","message":"Resource not found"}}', {
+        status: 404,
+        headers: { "apim-request-id": "apim-1" },
+      });
+    },
+  });
+  assert.equal(answer.status, 404);
+  assert.equal(answer.headers["apim-request-id"], "apim-1");
+});

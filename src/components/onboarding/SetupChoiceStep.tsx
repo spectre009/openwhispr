@@ -24,7 +24,11 @@ import {
 } from "../../models/ModelRegistry";
 import { COPILOT_PROVIDER_ID } from "../../config/copilot";
 import type { OnboardingSetupMode } from "./flow";
-import { getOnboardingSetupAvailability, hasAvailableOnboardingSetup } from "./setupEligibility";
+import {
+  getOnboardingSetupAvailability,
+  hasAvailableOnboardingSetup,
+  onboardingTranscriptionProviders,
+} from "./setupEligibility";
 import { BrandMark } from "./OnboardingShell";
 import { LOCAL_ASR_ORGANIZATIONS } from "../../helpers/localASROrganization";
 import { getProviderIcon, isMonochromeProvider } from "@/utils/providerIcons";
@@ -147,7 +151,7 @@ export default function SetupChoiceStep({
   const availability = getOnboardingSetupAvailability({
     policy,
     agentAllowed,
-    transcriptionProviders: getTranscriptionProviders(),
+    transcriptionProviders: onboardingTranscriptionProviders(getTranscriptionProviders()),
     // The BYOK assistant step can't offer GitHub Copilot (see ByokProviderStep).
     llmProviders: modelRegistry
       .getCloudProviders()

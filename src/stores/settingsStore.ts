@@ -1345,6 +1345,11 @@ export interface SettingsState
   setCustomTranscriptionApiKey: (key: string) => void;
   setCleanupCustomApiKey: (key: string) => void;
 
+  /** Azure Speech's resource endpoint (AI Connections), not a secret; its key is `azureSpeechApiKey`. */
+  azureSpeechEndpoint: string;
+  setAzureSpeechEndpoint: (value: string) => void;
+  setAzureSpeechApiKey: (key: string) => void;
+
   /** True once startup has read the secrets from main (never persisted). */
   secretsHydrated: boolean;
 
@@ -1612,6 +1617,7 @@ const SECRET_IPC_SAVERS = {
   tinfoil: "saveTinfoilKey",
   deepgram: "saveDeepgramKey",
   assemblyai: "saveAssemblyAIKey",
+  azureSpeech: "saveAzureSpeechKey",
   customTranscription: "saveCustomTranscriptionKey",
   cleanupCustom: "saveCleanupCustomKey",
   noteFormattingCustom: "saveNoteFormattingCustomKey",
@@ -1700,6 +1706,7 @@ const STALE_SECRET_LOCALSTORAGE_KEYS = [
   "tinfoilApiKey",
   "deepgramApiKey",
   "assemblyaiApiKey",
+  "azureSpeechApiKey",
   "customTranscriptionApiKey",
   "customReasoningApiKey",
   "cleanupCustomApiKey",
@@ -1857,6 +1864,8 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   tinfoilApiKey: "",
   deepgramApiKey: "",
   assemblyaiApiKey: "",
+  azureSpeechApiKey: "",
+  azureSpeechEndpoint: readString("azureSpeechEndpoint", ""),
   customTranscriptionApiKey: "",
   cleanupCustomApiKey: "",
   customConnectionApiKey: "",
@@ -2557,6 +2566,8 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   // STT-only, so there is no ReasoningService key cache to invalidate.
   setDeepgramApiKey: createSecretSetter("deepgramApiKey", "deepgram"),
   setAssemblyaiApiKey: createSecretSetter("assemblyaiApiKey", "assemblyai"),
+  setAzureSpeechApiKey: createSecretSetter("azureSpeechApiKey", "azureSpeech"),
+  setAzureSpeechEndpoint: createStringSetter("azureSpeechEndpoint"),
   setCustomTranscriptionApiKey: (key: string) => {
     set({ customTranscriptionApiKey: key });
     debouncedSaveSecret("customTranscription", key);
@@ -3145,6 +3156,7 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
     if (keys.tinfoilApiKey !== undefined) s.setTinfoilApiKey(keys.tinfoilApiKey);
     if (keys.deepgramApiKey !== undefined) s.setDeepgramApiKey(keys.deepgramApiKey);
     if (keys.assemblyaiApiKey !== undefined) s.setAssemblyaiApiKey(keys.assemblyaiApiKey);
+    if (keys.azureSpeechApiKey !== undefined) s.setAzureSpeechApiKey(keys.azureSpeechApiKey);
     if (keys.customTranscriptionApiKey !== undefined)
       s.setCustomTranscriptionApiKey(keys.customTranscriptionApiKey);
     if (keys.cleanupCustomApiKey !== undefined) s.setCleanupCustomApiKey(keys.cleanupCustomApiKey);
@@ -3797,6 +3809,7 @@ export async function initializeSettings(): Promise<void> {
         deepgram,
         assemblyai,
         customConnectionKey,
+        azureSpeech,
       ] = await Promise.all([
         window.electronAPI.getOpenAIKey?.(),
         window.electronAPI.getAnthropicKey?.(),
@@ -3824,6 +3837,7 @@ export async function initializeSettings(): Promise<void> {
         window.electronAPI.getDeepgramKey?.(),
         window.electronAPI.getAssemblyAIKey?.(),
         window.electronAPI.getCustomConnectionKey?.(),
+        window.electronAPI.getAzureSpeechKey?.(),
       ]);
 
       useSettingsStore.setState({
@@ -3858,6 +3872,7 @@ export async function initializeSettings(): Promise<void> {
         vertexApiKey: vertexApiKey || "",
         deepgramApiKey: deepgram || "",
         assemblyaiApiKey: assemblyai || "",
+        azureSpeechApiKey: azureSpeech || "",
         customConnectionApiKey: customConnectionKey || "",
       });
 

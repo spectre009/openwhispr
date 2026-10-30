@@ -1,11 +1,16 @@
 import type { SettingsState } from "../../stores/settingsStore";
+import {
+  azureSpeechEndpointError,
+  normalizeAzureSpeechEndpoint,
+} from "../../helpers/azureSpeechTranscription.js";
 
 /**
  * The shared API-key providers Settings › AI Connections & Local Models shows
  * as cards or rows (connectionGroups.ts): one key per provider, read by every
  * feature that picks it (the per-feature custom and self-hosted endpoints are
- * listed separately, never here). React-free, so search, the usage module and
- * tests read it too.
+ * listed separately, never here). A provider may also hold a resource
+ * endpoint beside its key (Azure Speech): a plain setting, not a secret.
+ * React-free, so search, the usage module and tests read it too.
  */
 
 export type ConnectionProviderId =
@@ -19,7 +24,8 @@ export type ConnectionProviderId =
   | "corti"
   | "xai"
   | "deepgram"
-  | "assemblyai";
+  | "assemblyai"
+  | "azure-speech";
 
 /** Store fields holding a shared provider secret (hydrated by the get-*-key IPCs). */
 export type ConnectionSecretKey = Extract<
@@ -37,6 +43,7 @@ export type ConnectionSecretKey = Extract<
   | "xaiApiKey"
   | "deepgramApiKey"
   | "assemblyaiApiKey"
+  | "azureSpeechApiKey"
 >;
 
 /** The store's debounced secret setter for each of those fields. */
@@ -55,6 +62,7 @@ export type ConnectionSecretSetter = Extract<
   | "setXaiApiKey"
   | "setDeepgramApiKey"
   | "setAssemblyaiApiKey"
+  | "setAzureSpeechApiKey"
 >;
 
 export interface ConnectionCredential {
@@ -64,6 +72,22 @@ export interface ConnectionCredential {
   labelKey?: string;
   /** What reads it: language models, speech-to-text, or both. */
   serves: "llm" | "transcription" | "both";
+}
+
+/** A resource endpoint kept beside the key: a plain setting, shown in full. */
+export interface ConnectionEndpoint {
+  key: Extract<keyof SettingsState, "azureSpeechEndpoint">;
+  setter: Extract<keyof SettingsState, "setAzureSpeechEndpoint">;
+  /** What the field shows while empty (a URL shape, never translated). */
+  placeholder: string;
+  /** Why the key may not be sent there (a reason under `errorKeyPrefix`), or null. */
+  validate: (value: string) => string | null;
+  /** The value as stored once editing ends (a bare host gets https, a valid one its origin). */
+  normalize: (value: string) => string;
+  labelKey: string;
+  /** Where to find the endpoint and key. */
+  helpKey: string;
+  errorKeyPrefix: string;
 }
 
 export interface ConnectionProviderDef {
@@ -76,6 +100,8 @@ export interface ConnectionProviderDef {
   llm: boolean;
   transcription: boolean;
   credentials: readonly ConnectionCredential[];
+  /** A resource endpoint the key belongs to; connected only with both, and the endpoint valid. */
+  endpoint?: ConnectionEndpoint;
   /** The provider's console, for "Get your API key". */
   keyUrl: string;
 }
@@ -206,6 +232,26 @@ export const CONNECTION_PROVIDERS: readonly ConnectionProviderDef[] = [
     credentials: single("assemblyaiApiKey", "setAssemblyaiApiKey", "transcription"),
     keyUrl: "https://www.assemblyai.com/dashboard/api-keys",
   },
+  {
+    id: "azure-speech",
+    name: "Azure Speech",
+    common: false,
+    llm: false,
+    transcription: true,
+    credentials: single("azureSpeechApiKey", "setAzureSpeechApiKey", "transcription"),
+    endpoint: {
+      key: "azureSpeechEndpoint",
+      setter: "setAzureSpeechEndpoint",
+      placeholder: "https://<resource>.cognitiveservices.azure.com",
+      validate: azureSpeechEndpointError,
+      normalize: normalizeAzureSpeechEndpoint,
+      labelKey: "connections.azureSpeech.endpointLabel",
+      helpKey: "connections.azureSpeech.help",
+      errorKeyPrefix: "connections.azureSpeech.endpointErrors",
+    },
+    keyUrl:
+      "https://portal.azure.com/#view/Microsoft_Azure_ProjectOxford/CognitiveServicesHub/~/SpeechServices",
+  },
 ];
 
 const BY_ID = new Map<string, ConnectionProviderDef>(
@@ -216,9 +262,13 @@ export function findConnectionProvider(id: string | undefined): ConnectionProvid
   return id ? BY_ID.get(id) : undefined;
 }
 
-/** A connection's search anchor and destination id, on its card or row ("connections.openai"). */
+/**
+ * A connection's search anchor and destination id, on its card or row
+ * ("connections.openai"). Anchors are camelCase, so a hyphenated id reads
+ * "connections.azureSpeech".
+ */
 export function connectionAnchor(id: ConnectionProviderId | "copilot" | "cloud"): string {
-  return `connections.${id}`;
+  return `connections.${id.replace(/-([a-z])/g, (_, letter: string) => letter.toUpperCase())}`;
 }
 
 /** The page destination that opens a connection's card or row ("connections#connections.openai"). */
@@ -232,4 +282,29 @@ export function hasSavedCredential(
   settings: Pick<SettingsState, ConnectionSecretKey>
 ): boolean {
   return provider.credentials.some((credential) => !!settings[credential.key]?.trim());
+}
+
+/** Something to keep: a saved credential, or the endpoint a key goes with. */
+export function hasSavedConnection(
+  provider: ConnectionProviderDef,
+  settings: Pick<SettingsState, ConnectionSecretKey | "azureSpeechEndpoint">
+): boolean {
+  return (
+    hasSavedCredential(provider, settings) ||
+    (!!provider.endpoint && !!settings[provider.endpoint.key]?.trim())
+  );
+}
+
+/**
+ * Whether the provider can be used: a credential saved and, where it has an
+ * endpoint, that endpoint valid. Reads presence only.
+ */
+export function isConnectionReady(
+  provider: ConnectionProviderDef,
+  settings: Pick<SettingsState, ConnectionSecretKey | "azureSpeechEndpoint">
+): boolean {
+  if (!hasSavedCredential(provider, settings)) return false;
+  return (
+    !provider.endpoint || provider.endpoint.validate(settings[provider.endpoint.key] ?? "") === null
+  );
 }

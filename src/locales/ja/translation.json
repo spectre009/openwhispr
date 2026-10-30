@@ -1298,7 +1298,9 @@
         "providerKeyMissing": "文字起こしプロバイダーのAPIキーが設定されていません。設定 → 音声テキスト変換 から追加してください。",
         "cleanupTruncated": "AI モデルの出力が上限に達し、ディクテーションのクリーンアップが完了しませんでした。",
         "cleanupDuplicated": "AI クリーンアップが文字起こしを繰り返しました。元のテキストを保持しました。",
-        "cleanupEmptyReply": "AI モデルが空の応答を返したため、クリーンアップされたテキストがありません。"
+        "cleanupEmptyReply": "AI モデルが空の応答を返したため、クリーンアップされたテキストがありません。",
+        "azureSpeechEndpointMissing": "設定 → AI 接続とローカルモデル で Azure Speech のエンドポイントを追加してください。",
+        "azureSpeechConversionFailed": "録音を Azure Speech 用に変換できませんでした。Azure Speech は WAV、MP3、FLAC のみ受け付けます。"
       },
       "translationFallback": {
         "unreachableTitle": "翻訳を利用できません",
@@ -3618,7 +3620,8 @@
         "deepgram_nova_3": "Deepgram で最も高精度なリアルタイムモデル",
         "assemblyai_universal_streaming_english": "変化しないリアルタイム文字起こし（英語）",
         "assemblyai_universal_streaming_multilingual": "変化しないリアルタイム文字起こし（多言語）",
-        "assemblyai_universal_3_5_pro": "最高精度のリアルタイム、18言語"
+        "assemblyai_universal_3_5_pro": "最高精度のリアルタイム、18言語",
+        "azure_speech_mai_transcribe_2": "Azure Speech リソース経由で使う Microsoft の音声認識"
       },
       "cloud": {
         "openai_gpt_5_2": "強力な推論モデル",
@@ -5948,6 +5951,12 @@
       "accessDenied": "GitHub Copilot がこのリクエストを拒否しました。プランまたは組織のポリシーで、このモデルが許可されていない可能性があります。",
       "notSignedIn": "GitHub Copilot にサインインしていません。設定 → AI 接続とローカルモデル からサインインしてください。",
       "unsupportedRequest": "GitHub Copilot で使えるのは、ディクテーションのクリーンアップ、ノートのフォーマット、翻訳だけです。チャットと音声アシスタントには、設定で別のモデルを選択してください。"
+    },
+    "azureSpeech": {
+      "endpointNotFound": "Azure Speech がこのエンドポイントを見つけられませんでした。設定 → AI 接続とローカルモデル で確認してください。",
+      "audioTooLong": "この録音は Azure Speech が受け付ける長さ（2 時間未満）を超えています。",
+      "modelUnavailable": "{{model}} はこの Azure Speech リソースでは使えません。提供されているリージョンの Speech リソースを使ってください。",
+      "languageUnsupported": "Azure Speech は選択した言語に対応していません。別の言語か自動検出を選んでください。"
     }
   },
   "calendarOAuth": {
@@ -6066,7 +6075,8 @@
       "deepgram": "Deepgram",
       "assemblyai": "AssemblyAI",
       "copilot": "GitHub Copilot",
-      "cloud": "OpenWhispr Cloud"
+      "cloud": "OpenWhispr Cloud",
+      "azure-speech": "Azure Speech"
     },
     "search": {
       "providerDescription": "このプロバイダーの API キー、保存状況、使用している機能。",
@@ -6099,7 +6109,8 @@
       "signingIn": "サインイン中…",
       "notSignedIn": "未サインイン",
       "off": "オフ",
-      "noKey": "キーが保存されていません"
+      "noKey": "キーが保存されていません",
+      "endpointNeeded": "エンドポイントが必要"
     },
     "credentials": {
       "languageModelKey": "言語モデル用 API キー"
@@ -6294,6 +6305,16 @@
       "search": {
         "description": "独自の Azure OpenAI または OpenAI 互換のエンドポイント、そのキー、それを使う機能。"
       }
+    },
+    "azureSpeech": {
+      "endpointErrors": {
+        "invalidUrl": "有効な URL ではありません。",
+        "httpsRequired": "エンドポイントは https:// で始まる必要があります。",
+        "host": "Azure Speech のエンドポイントではありません。末尾は .cognitiveservices.azure.com または .api.cognitive.microsoft.com です。",
+        "resourceOnly": "リソースのエンドポイント（例: https://<resource>.cognitiveservices.azure.com）だけを、パス・ポート・クエリなしで貼り付けてください。"
+      },
+      "endpointLabel": "リソースのエンドポイント",
+      "help": "Speech リソースの Keys and Endpoint ページにあるエンドポイントとキーを貼り付けてください。"
     }
   },
   "modelPicker": {
@@ -6318,7 +6339,8 @@
       "signInCopilot": "AI 接続でサインイン",
       "addKey": "API キーを追加",
       "openLocalModels": "AI 接続",
-      "manageCopilot": "AI 接続で GitHub のサインインを管理"
+      "manageCopilot": "AI 接続で GitHub のサインインを管理",
+      "setUpConnection": "AI 接続で設定"
     },
     "cloud": {
       "automatic": "自動",
@@ -6413,7 +6435,8 @@
         "notDownloaded": "このモデルはダウンロードされていません",
         "needsStreaming": "ライブ録音にはストリーミングモデルが必要です",
         "liveOnly": "ライブ専用のプロバイダーです。ファイルの文字起こしでは使えません",
-        "noLocalModel": "{{engine}} のモデルがダウンロードされていません。別のモデルを選ぶか、AI 接続でダウンロードしてください"
+        "noLocalModel": "{{engine}} のモデルがダウンロードされていません。別のモデルを選ぶか、AI 接続でダウンロードしてください",
+        "needsEndpointAndKey": "エンドポイントとキーが必要です"
       },
       "custom": {
         "sub": "OpenAI 互換の任意の音声認識 API",

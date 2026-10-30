@@ -31,6 +31,7 @@ import { applyCloudSwitchToModeOptions } from "../../../utils/openWhisprCloudMod
 import { API_ENDPOINTS, normalizeBaseUrl } from "../../../config/constants";
 import type { InferenceMode } from "../../../types/electron";
 import { connectionDestination, findConnectionProvider } from "../connectionProviders";
+import { isAzureSpeechEndpoint } from "../../../helpers/azureSpeechTranscription.js";
 import { endpointHost, type UsageFeature } from "../connectionUsage";
 import {
   CONNECTION_ENTER_ID,
@@ -130,6 +131,7 @@ export const STT_PICKER_PROVIDERS = [
   "tinfoil",
   "deepgram",
   "assemblyai",
+  "azure-speech",
 ] as const;
 
 export type SttKeyProvider = (typeof STT_PICKER_PROVIDERS)[number];
@@ -146,9 +148,15 @@ type SttKeyFields = Pick<
   | "tinfoilApiKey"
   | "deepgramApiKey"
   | "assemblyaiApiKey"
+  | "azureSpeechApiKey"
+  | "azureSpeechEndpoint"
 >;
 
-/** Which speech-to-text credentials are saved (presence only, never a key). Corti needs both client credentials. */
+/**
+ * Which speech-to-text credentials are saved (presence only, never a key).
+ * Corti needs both client credentials; Azure Speech its key and a valid
+ * resource endpoint.
+ */
 export function sttKeyPresence(settings: SttKeyFields): Record<SttKeyProvider, boolean> {
   const has = (value: string | undefined) => !!value?.trim();
   return {
@@ -161,6 +169,8 @@ export function sttKeyPresence(settings: SttKeyFields): Record<SttKeyProvider, b
     tinfoil: has(settings.tinfoilApiKey),
     deepgram: has(settings.deepgramApiKey),
     assemblyai: has(settings.assemblyaiApiKey),
+    "azure-speech":
+      has(settings.azureSpeechApiKey) && isAzureSpeechEndpoint(settings.azureSpeechEndpoint),
   };
 }
 
@@ -360,16 +370,21 @@ export interface SttPick {
 
 function noKey(provider: string): PickerUnavailable {
   const card = findConnectionProvider(provider);
-  return {
-    reasonKey: "modelPicker.reasons.noKey",
-    link: card
-      ? {
-          kind: "settings",
-          destination: connectionDestination(card.id),
-          labelKey: "modelPicker.links.addKey",
-        }
-      : undefined,
-  };
+  const link = card
+    ? {
+        kind: "settings" as const,
+        destination: connectionDestination(card.id),
+        labelKey: "modelPicker.links.addKey",
+      }
+    : undefined;
+  // A key alone isn't enough where the connection also takes an endpoint.
+  if (card?.endpoint && link) {
+    return {
+      reasonKey: "modelPicker.stt.reasons.needsEndpointAndKey",
+      link: { ...link, labelKey: "modelPicker.links.setUpConnection" },
+    };
+  }
+  return { reasonKey: "modelPicker.reasons.noKey", link };
 }
 
 function sherpaUnavailable(ctx: SttPickerContext): PickerUnavailable {

@@ -20,6 +20,7 @@ const PREFIX_VALIDATED_PROVIDERS = [
   "gemini",
   "deepgram",
   "assemblyai",
+  "azure-speech",
 ];
 
 test("every shipping registry model survives resolveByokModel", async () => {

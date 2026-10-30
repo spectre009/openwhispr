@@ -50,7 +50,9 @@
         "providerKeyMissing": "لم يتم تعيين مفتاح API لمزود التفريغ الخاص بك. أضفه في الإعدادات ← تحويل الكلام إلى نص (Speech to Text).",
         "cleanupTruncated": "نفدت مساحة الإخراج لدى نموذج الذكاء الاصطناعي قبل أن يُكمل تنقيح إملائك.",
         "cleanupDuplicated": "كرر تنقيح الذكاء الاصطناعي النص. تم الاحتفاظ بالنص الأصلي.",
-        "cleanupEmptyReply": "أرجع نموذج الذكاء الاصطناعي ردًا فارغًا بدلًا من الإملاء المنقَّح."
+        "cleanupEmptyReply": "أرجع نموذج الذكاء الاصطناعي ردًا فارغًا بدلًا من الإملاء المنقَّح.",
+        "azureSpeechEndpointMissing": "أضف نقطة نهاية Azure Speech في الإعدادات ← اتصالات الذكاء الاصطناعي والنماذج المحلية.",
+        "azureSpeechConversionFailed": "تعذّر تحويل التسجيل إلى صيغة يقبلها Azure Speech، فهو لا يقبل إلا WAV أو MP3 أو FLAC."
       },
       "translationFallback": {
         "unreachableTitle": "الترجمة غير متاحة",
@@ -268,7 +270,8 @@
         "deepgram_nova_3": "نموذج Deepgram الأكثر دقة في الوقت الفعلي",
         "assemblyai_universal_streaming_english": "نصوص مفرَّغة ثابتة في الوقت الفعلي، الإنجليزية",
         "assemblyai_universal_streaming_multilingual": "نصوص مفرَّغة ثابتة في الوقت الفعلي، متعددة اللغات",
-        "assemblyai_universal_3_5_pro": "أعلى دقة في الوقت الفعلي، 18 لغة"
+        "assemblyai_universal_3_5_pro": "أعلى دقة في الوقت الفعلي، 18 لغة",
+        "azure_speech_mai_transcribe_2": "تحويل الكلام إلى نص من Microsoft عبر مورد Azure Speech الخاص بك"
       },
       "cloud": {
         "openai_gpt_5_2": "نموذج استنتاج قوي",
@@ -6082,6 +6085,12 @@
       "accessDenied": "رفض GitHub Copilot هذا الطلب. قد لا تسمح خطتك أو سياسة مؤسستك بهذا النموذج.",
       "notSignedIn": "لم تسجّل الدخول إلى GitHub Copilot. سجّل الدخول من الإعدادات ← اتصالات الذكاء الاصطناعي والنماذج المحلية.",
       "unsupportedRequest": "يقتصر GitHub Copilot على تنظيف الإملاء وتنسيق الملاحظات والترجمة. اختر نموذجًا آخر للدردشة والمساعد الصوتي من الإعدادات."
+    },
+    "azureSpeech": {
+      "endpointNotFound": "لم يعثر Azure Speech على نقطة النهاية هذه. تحقق منها في الإعدادات ← اتصالات الذكاء الاصطناعي والنماذج المحلية.",
+      "audioTooLong": "هذا التسجيل أطول مما يقبله Azure Speech (أقل من ساعتين).",
+      "modelUnavailable": "{{model}} غير متاح على مورد Azure Speech هذا. استخدم مورد Speech في منطقة توفّره.",
+      "languageUnsupported": "لا يدعم Azure Speech اللغة المحددة. اختر لغة أخرى أو الاكتشاف التلقائي."
     }
   },
   "calendarOAuth": {
@@ -6200,7 +6209,8 @@
       "deepgram": "Deepgram",
       "assemblyai": "AssemblyAI",
       "copilot": "GitHub Copilot",
-      "cloud": "OpenWhispr Cloud"
+      "cloud": "OpenWhispr Cloud",
+      "azure-speech": "Azure Speech"
     },
     "search": {
       "providerDescription": "مفتاح API لهذا المزوّد، وهل هو محفوظ، والميزات التي تستخدمه.",
@@ -6233,7 +6243,8 @@
       "signingIn": "جارٍ تسجيل الدخول…",
       "notSignedIn": "لم يتم تسجيل الدخول",
       "off": "متوقف",
-      "noKey": "لا يوجد مفتاح محفوظ"
+      "noKey": "لا يوجد مفتاح محفوظ",
+      "endpointNeeded": "نقطة النهاية مطلوبة"
     },
     "credentials": {
       "languageModelKey": "مفتاح API لنماذج اللغة"
@@ -6428,6 +6439,16 @@
       "search": {
         "description": "نقطتك الطرفية الخاصة من Azure OpenAI أو المتوافقة مع OpenAI، ومفتاحها، والميزات التي تستخدمها."
       }
+    },
+    "azureSpeech": {
+      "endpointErrors": {
+        "invalidUrl": "هذا ليس عنوان URL صالحًا.",
+        "httpsRequired": "يجب أن تبدأ نقطة النهاية بـ https://.",
+        "host": "هذه ليست نقطة نهاية Azure Speech. تنتهي بـ .cognitiveservices.azure.com أو .api.cognitive.microsoft.com.",
+        "resourceOnly": "الصق نقطة نهاية المورد فقط، مثل https://<resource>.cognitiveservices.azure.com، دون مسار أو منفذ أو استعلام."
+      },
+      "endpointLabel": "نقطة نهاية المورد",
+      "help": "الصق نقطة النهاية ومفتاحًا من صفحة Keys and Endpoint لمورد Speech الخاص بك."
     }
   },
   "modelPicker": {
@@ -6452,7 +6473,8 @@
       "signInCopilot": "سجّل الدخول في اتصالات الذكاء الاصطناعي",
       "addKey": "أضف مفتاح API",
       "openLocalModels": "اتصالات الذكاء الاصطناعي",
-      "manageCopilot": "إدارة تسجيل الدخول إلى GitHub في اتصالات الذكاء الاصطناعي"
+      "manageCopilot": "إدارة تسجيل الدخول إلى GitHub في اتصالات الذكاء الاصطناعي",
+      "setUpConnection": "الإعداد في اتصالات الذكاء الاصطناعي"
     },
     "cloud": {
       "automatic": "تلقائي",
@@ -6547,7 +6569,8 @@
         "notDownloaded": "هذا النموذج غير منزَّل",
         "needsStreaming": "يحتاج التسجيل المباشر إلى نموذج بثّ",
         "liveOnly": "مزوّد للبث المباشر فقط: لا يمكن لنسخ الملفات استخدامه",
-        "noLocalModel": "لم يُنزَّل أي نموذج {{engine}}: اختر نموذجًا آخر أو نزّل نموذجًا من اتصالات الذكاء الاصطناعي"
+        "noLocalModel": "لم يُنزَّل أي نموذج {{engine}}: اختر نموذجًا آخر أو نزّل نموذجًا من اتصالات الذكاء الاصطناعي",
+        "needsEndpointAndKey": "تحتاج إلى نقطة النهاية والمفتاح"
       },
       "custom": {
         "sub": "أي واجهة API لتحويل الكلام إلى نص متوافقة مع OpenAI",

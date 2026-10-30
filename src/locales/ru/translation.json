@@ -1298,7 +1298,9 @@
         "providerKeyMissing": "Для вашего провайдера транскрипции не задан API-ключ. Добавьте его в Настройках → Речь в текст.",
         "cleanupTruncated": "У ИИ-модели закончилось место, и она не завершила очистку диктовки.",
         "cleanupDuplicated": "При обработке ИИ повторил расшифровку. Исходный текст сохранён.",
-        "cleanupEmptyReply": "ИИ-модель вернула пустой ответ вместо очищенной диктовки."
+        "cleanupEmptyReply": "ИИ-модель вернула пустой ответ вместо очищенной диктовки.",
+        "azureSpeechEndpointMissing": "Добавьте эндпоинт Azure Speech в Настройках → ИИ-подключения и локальные модели.",
+        "azureSpeechConversionFailed": "Не удалось преобразовать запись для Azure Speech: он принимает только WAV, MP3 или FLAC."
       },
       "translationFallback": {
         "unreachableTitle": "Перевод недоступен",
@@ -3640,7 +3642,8 @@
         "deepgram_nova_3": "Самая точная модель Deepgram для реального времени",
         "assemblyai_universal_streaming_english": "Неизменяемые расшифровки в реальном времени, английский",
         "assemblyai_universal_streaming_multilingual": "Неизменяемые расшифровки в реальном времени, многоязычные",
-        "assemblyai_universal_3_5_pro": "Максимальная точность в реальном времени, 18 языков"
+        "assemblyai_universal_3_5_pro": "Максимальная точность в реальном времени, 18 языков",
+        "azure_speech_mai_transcribe_2": "Распознавание речи от Microsoft через ваш ресурс Azure Speech"
       },
       "cloud": {
         "openai_gpt_5_2": "Сильная модель рассуждения",
@@ -6000,6 +6003,12 @@
       "accessDenied": "GitHub Copilot отклонил этот запрос. Возможно, ваш тариф или политика вашей организации не разрешает эту модель.",
       "notSignedIn": "Вы не вошли в GitHub Copilot. Войдите в Настройках → ИИ-подключения и локальные модели.",
       "unsupportedRequest": "GitHub Copilot умеет только очищать диктовку, форматировать заметки и переводить. Выберите другую модель для чата и голосового помощника в Настройках."
+    },
+    "azureSpeech": {
+      "endpointNotFound": "Azure Speech не нашёл этот эндпоинт. Проверьте его в Настройках → ИИ-подключения и локальные модели.",
+      "audioTooLong": "Эта запись длиннее, чем принимает Azure Speech (меньше 2 часов).",
+      "modelUnavailable": "{{model}} недоступна в этом ресурсе Azure Speech. Используйте ресурс Speech в регионе, где она есть.",
+      "languageUnsupported": "Azure Speech не поддерживает выбранный язык. Выберите другой язык или автоопределение."
     }
   },
   "calendarOAuth": {
@@ -6118,7 +6127,8 @@
       "deepgram": "Deepgram",
       "assemblyai": "AssemblyAI",
       "copilot": "GitHub Copilot",
-      "cloud": "OpenWhispr Cloud"
+      "cloud": "OpenWhispr Cloud",
+      "azure-speech": "Azure Speech"
     },
     "search": {
       "providerDescription": "API-ключ этого провайдера, сохранён ли он, и функции, которые его используют.",
@@ -6151,7 +6161,8 @@
       "signingIn": "Вход…",
       "notSignedIn": "Вход не выполнен",
       "off": "Выключено",
-      "noKey": "Ключ не сохранён"
+      "noKey": "Ключ не сохранён",
+      "endpointNeeded": "Нужен эндпоинт"
     },
     "credentials": {
       "languageModelKey": "API-ключ для языковых моделей"
@@ -6346,6 +6357,16 @@
       "search": {
         "description": "Ваш собственный эндпоинт Azure OpenAI или совместимый с OpenAI, его ключ и функции, которые его используют."
       }
+    },
+    "azureSpeech": {
+      "endpointErrors": {
+        "invalidUrl": "Это недопустимый URL.",
+        "httpsRequired": "Эндпоинт должен начинаться с https://.",
+        "host": "Это не эндпоинт Azure Speech. Он оканчивается на .cognitiveservices.azure.com или .api.cognitive.microsoft.com.",
+        "resourceOnly": "Вставьте только эндпоинт ресурса, например https://<resource>.cognitiveservices.azure.com, без пути, порта и параметров запроса."
+      },
+      "endpointLabel": "Эндпоинт ресурса",
+      "help": "Вставьте эндпоинт и ключ со страницы Keys and Endpoint вашего ресурса Speech."
     }
   },
   "modelPicker": {
@@ -6370,7 +6391,8 @@
       "signInCopilot": "Войти в разделе «ИИ-подключения»",
       "addKey": "Добавить API-ключ",
       "openLocalModels": "ИИ-подключения",
-      "manageCopilot": "Управлять входом в GitHub в разделе «ИИ-подключения»"
+      "manageCopilot": "Управлять входом в GitHub в разделе «ИИ-подключения»",
+      "setUpConnection": "Настроить в разделе «ИИ-подключения»"
     },
     "cloud": {
       "automatic": "Автоматически",
@@ -6465,7 +6487,8 @@
         "notDownloaded": "Эта модель не загружена",
         "needsStreaming": "Для записи вживую нужна потоковая модель",
         "liveOnly": "Провайдер только для потоковой записи: расшифровка файлов не может его использовать",
-        "noLocalModel": "Не загружено ни одной модели {{engine}}: выберите другую модель или загрузите её в разделе «ИИ-подключения»"
+        "noLocalModel": "Не загружено ни одной модели {{engine}}: выберите другую модель или загрузите её в разделе «ИИ-подключения»",
+        "needsEndpointAndKey": "Нужны эндпоинт и ключ"
       },
       "custom": {
         "sub": "Любой API распознавания речи, совместимый с OpenAI",

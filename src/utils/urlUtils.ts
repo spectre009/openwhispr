@@ -101,6 +101,10 @@ export function isAzureOpenAIEndpoint(url: string): boolean {
   }
 }
 
+// Azure Speech takes a different host list and its own header, so it has its
+// own validator (in a plain ESM module, since main checks it before sending).
+export { isAzureSpeechEndpoint } from "../helpers/azureSpeechTranscription.js";
+
 // Azure OpenAI doesn't expose the plain OpenAI `{base}/audio/transcriptions`
 // shape — it routes by deployment in the path and requires an `api-version`
 // query string. Given the user's resource endpoint and the deployment name

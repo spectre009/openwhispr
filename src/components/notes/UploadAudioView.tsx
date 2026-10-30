@@ -47,6 +47,7 @@ import {
   getAllReasoningModels,
   getBatchTranscriptionModel,
   getParakeetModelInfo,
+  getTranscriptionProvider,
   getTranscriptionProviders,
   isSherpaLocalProvider,
 } from "../../models/ModelRegistry";
@@ -79,6 +80,7 @@ import { usePolicyStore } from "../../stores/policyStore";
 import { useOpenWhisprCloudDisabled } from "../../stores/openWhisprCloudStore";
 import { usePolicySnapshot, useTranscriptionContextAllowed } from "../../hooks/usePolicy";
 import { byokFileSizeLimit, resolveTranscriptionRoute } from "../../helpers/transcriptionRoute";
+import { AZURE_SPEECH_PROVIDER_ID } from "../../helpers/azureSpeechTranscription.js";
 import { saveUploadNote, uploadTitleFallback } from "../../services/uploadNotes";
 import { useManagedScopeResolution } from "../../stores/enterpriseIdentityStore";
 import { isManagedTranscriptionActive } from "../../services/managedTranscription";
@@ -283,6 +285,8 @@ export default function UploadAudioView({ onNoteCreated, onOpenSettings }: Uploa
     deepgramApiKey,
     assemblyaiApiKey,
     customTranscriptionApiKey,
+    azureSpeechApiKey,
+    azureSpeechEndpoint,
   } = apiKeys;
   const policyState = usePolicySnapshot();
 
@@ -341,7 +345,7 @@ export default function UploadAudioView({ onNoteCreated, onOpenSettings }: Uploa
 
   // Mode-aware file size validation
   // Local: no limits at all
-  // BYOK: 25 MB hard max regardless of plan (14 MB for Gemini's inline cap)
+  // BYOK: the provider's cap, byokFileSizeLimit (25 MB; Gemini 14 MB, Azure Speech 250 MB)
   // Cloud free: 25 MB max (upgrade to Pro for more)
   // Cloud pro: 500 MB max
   const byokMaxFileSize = byokFileSizeLimit(cloudTranscriptionProvider);
@@ -436,6 +440,12 @@ export default function UploadAudioView({ onNoteCreated, onOpenSettings }: Uploa
             providers: getTranscriptionProviders(),
           });
           if (!cancelled) setProviderReady(route.transport !== "error");
+        } else if (cloudTranscriptionProvider === AZURE_SPEECH_PROVIDER_ID) {
+          // Needs both: a key and a resource endpoint the route accepts.
+          const route = resolveTranscriptionRoute({
+            settings: { cloudTranscriptionProvider, azureSpeechEndpoint },
+          });
+          if (!cancelled) setProviderReady(route.transport !== "error" && !!azureSpeechApiKey);
         } else if (cloudTranscriptionProvider === "corti") {
           if (!cancelled) setProviderReady(!!(cortiClientId && cortiClientSecret));
         } else {
@@ -492,6 +502,8 @@ export default function UploadAudioView({ onNoteCreated, onOpenSettings }: Uploa
     deepgramApiKey,
     assemblyaiApiKey,
     customTranscriptionApiKey,
+    azureSpeechApiKey,
+    azureSpeechEndpoint,
     cortiClientId,
     cortiClientSecret,
   ]);
@@ -511,7 +523,8 @@ export default function UploadAudioView({ onNoteCreated, onOpenSettings }: Uploa
     const name =
       cloudTranscriptionProvider === "custom"
         ? t("notes.upload.custom")
-        : cloudTranscriptionProvider.charAt(0).toUpperCase() + cloudTranscriptionProvider.slice(1);
+        : (getTranscriptionProvider(cloudTranscriptionProvider)?.name ??
+          cloudTranscriptionProvider.charAt(0).toUpperCase() + cloudTranscriptionProvider.slice(1));
     const model = getBatchTranscriptionModel(cloudTranscriptionProvider) ?? cloudTranscriptionModel;
     return `${name} · ${model}`;
   };
@@ -534,6 +547,7 @@ export default function UploadAudioView({ onNoteCreated, onOpenSettings }: Uploa
     transcriptionMode,
     remoteTranscriptionUrl,
     remoteTranscriptionModel,
+    azureSpeechEndpoint,
   });
 
   // Batch counterpart of the single-file size gating above; returns keys under notes.upload.*.

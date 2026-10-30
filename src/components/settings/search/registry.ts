@@ -8,7 +8,11 @@ import type {
   SettingsSearchValueKey,
 } from "./types";
 import { SETTINGS_PAGES, type SettingsPageId } from "../settingsPages";
-import { CONNECTION_PROVIDERS, type ConnectionProviderId } from "../connectionProviders";
+import {
+  CONNECTION_PROVIDERS,
+  connectionAnchor,
+  type ConnectionProviderId,
+} from "../connectionProviders";
 import type { Platform } from "../../../utils/platform";
 
 /**
@@ -196,6 +200,17 @@ const PROVIDER_ALIASES: Record<ConnectionProviderId, readonly string[]> = {
   xai: ["xai key", "grok"],
   deepgram: ["deepgram key", "deepgram"],
   assemblyai: ["assemblyai key", "assembly ai"],
+  "azure-speech": [
+    "azure speech key",
+    "azure",
+    "azure speech",
+    "speech resource",
+    "mai",
+    "mai-transcribe",
+    "microsoft",
+    "cognitive services",
+    "endpoint",
+  ],
 };
 
 const FLOATING_ICON = "settingsPage.general.floatingIcon.title";
@@ -663,6 +678,8 @@ export const SETTINGS_SEARCH_DESCRIPTORS: readonly SettingDescriptor[] = [
       "assemblyai",
       "elevenlabs",
       "mistral",
+      "azure speech",
+      "mai-transcribe",
       "api key",
       "self-hosted",
       "enterprise",
@@ -938,7 +955,7 @@ export const SETTINGS_SEARCH_DESCRIPTORS: readonly SettingDescriptor[] = [
     aliases: ["api key", "api keys", "keys", "byok", "credentials", "replace key", "remove key"],
   }),
   ...CONNECTION_PROVIDERS.map((provider) =>
-    row(`connections.${provider.id}`, CONNECTIONS, `connections.names.${provider.id}`, {
+    row(connectionAnchor(provider.id), CONNECTIONS, `connections.names.${provider.id}`, {
       descriptionKey: "connections.search.providerDescription",
       groupKey: "connections.sections.providers.title",
       aliases: [

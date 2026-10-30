@@ -28,6 +28,13 @@ import {
   type TranscriptionProviderBaseUrl,
 } from "../services/transcriptionBaseUrl.ts";
 import type { ManagedEnterpriseRequestContext } from "../types/enterpriseIdentity.ts";
+import {
+  AZURE_SPEECH_DEFAULT_MODEL,
+  AZURE_SPEECH_PROVIDER_ID,
+  AZURE_SPEECH_SIZE_CAP_BYTES,
+  buildAzureSpeechTranscribeUrl,
+  maiLocale,
+} from "./azureSpeechTranscription.js";
 
 const BYOK_FILE_SIZE_LIMIT = 25 * 1024 * 1024;
 
@@ -35,8 +42,12 @@ const BYOK_FILE_SIZE_LIMIT = 25 * 1024 * 1024;
 // request cap; base64 inflates 4/3, so cap the raw audio lower.
 const GEMINI_FILE_SIZE_LIMIT = 14 * 1024 * 1024;
 
+// One cap per provider: the upload gates, dictation's converted-WAV check and
+// the route all read it.
 export function byokFileSizeLimit(provider: string): number {
-  return provider === "gemini" ? GEMINI_FILE_SIZE_LIMIT : BYOK_FILE_SIZE_LIMIT;
+  if (provider === "gemini") return GEMINI_FILE_SIZE_LIMIT;
+  if (provider === AZURE_SPEECH_PROVIDER_ID) return AZURE_SPEECH_SIZE_CAP_BYTES;
+  return BYOK_FILE_SIZE_LIMIT;
 }
 
 const CUSTOM_ENDPOINT_INVALID_MESSAGE_KEY =
@@ -49,6 +60,10 @@ const STREAMING_ONLY_PROVIDER_MESSAGE_KEY =
 
 const PROVIDER_KEY_MISSING_MESSAGE_KEY =
   "hooks.audioRecording.errorDescriptions.providerKeyMissing";
+
+export const AZURE_SPEECH_ENDPOINT_INVALID_CODE = "AZURE_SPEECH_ENDPOINT_INVALID";
+const AZURE_SPEECH_ENDPOINT_INVALID_MESSAGE_KEY =
+  "hooks.audioRecording.errorDescriptions.azureSpeechEndpointMissing";
 
 // Deepgram and AssemblyAI have no OpenAI-compatible /audio/transcriptions, so
 // they exist only as realtime providers. A batch/upload/retry request for them
@@ -71,6 +86,8 @@ export interface TranscriptionRouteSettings {
   cortiEnvironment?: string;
   cortiTenant?: string;
   preferredLanguage?: string;
+  /** Azure Speech's resource endpoint (AI Connections); not a secret. */
+  azureSpeechEndpoint?: string;
 }
 
 /**
@@ -106,13 +123,23 @@ export interface TranscriptionRouteInput {
   request?: {
     /** Explicit model override; doubles as the Azure deployment name. */
     model?: string;
-    /** Translation-aware language (dictation's getEffectiveSttLanguage) — wins over preferredLanguage. */
+    /**
+     * Translation-aware language (dictation's getEffectiveSttLanguage) — wins
+     * over preferredLanguage when given; "auto" means none.
+     */
     effectiveLanguage?: string;
   };
 }
 
 export type TranscriptionRoute =
-  | { transport: "error"; message: string; code?: string; messageKey?: string }
+  | {
+      transport: "error";
+      message: string;
+      code?: string;
+      messageKey?: string;
+      /** Where Settings fixes it, when it's a setting the user can change. */
+      settingsTarget?: "speechToText";
+    }
   | { transport: "local" }
   | {
       transport: "proxied";
@@ -131,6 +158,22 @@ export type TranscriptionRoute =
       auth: { scheme: "bearer" | "azure-api-key" | "none"; keyRef: string | null };
       sizeCapBytes: number | null;
       language?: string;
+    }
+  | {
+      // Azure Speech's fast transcription (MAI-Transcribe-2): its own request
+      // shape (`Ocp-Apim-Subscription-Key`, an `audio` part and a JSON
+      // `definition`), never an OpenAI-compatible endpoint.
+      transport: "azure-speech";
+      provider: "azure-speech";
+      /** The transcribe operation on the resource's origin. */
+      endpoint: string;
+      model: string;
+      /** The app's base language code, as other routes carry it. */
+      language?: string;
+      /** What `definition.locales` sends: MAI's code, or null for "auto" and unlisted languages. */
+      locale: string | null;
+      sizeCapBytes: number;
+      auth: { scheme: "azure-speech-key"; keyRef: "azure-speech" };
     }
   | {
       // Workspace-managed Azure STT. Executed only in the main process, which
@@ -192,7 +235,8 @@ export function resolveByokModel(provider: string, configuredModel?: string): st
       (provider === "gemini" && trimmed.startsWith("gemini-")) ||
       (provider === "deepgram" && (trimmed.startsWith("nova-") || trimmed.startsWith("flux-"))) ||
       (provider === "assemblyai" &&
-        (trimmed.startsWith("universal-") || trimmed.startsWith("slam-")));
+        (trimmed.startsWith("universal-") || trimmed.startsWith("slam-"))) ||
+      (provider === AZURE_SPEECH_PROVIDER_ID && trimmed.startsWith("MAI-Transcribe-"));
     if (matchesProvider) return trimmed;
   }
   if (provider === "groq") return "whisper-large-v3-turbo";
@@ -202,11 +246,23 @@ export function resolveByokModel(provider: string, configuredModel?: string): st
   if (provider === "gemini") return "gemini-3.5-transcribe";
   if (provider === "deepgram") return "nova-3";
   if (provider === "assemblyai") return "universal-3-5-pro";
+  if (provider === AZURE_SPEECH_PROVIDER_ID) return AZURE_SPEECH_DEFAULT_MODEL;
   return "gpt-transcribe";
 }
 
-function error(message: string, code?: string, messageKey?: string): TranscriptionRoute {
-  return { transport: "error", message, code, messageKey };
+function error(
+  message: string,
+  code?: string,
+  messageKey?: string,
+  settingsTarget?: "speechToText"
+): TranscriptionRoute {
+  return {
+    transport: "error",
+    message,
+    code,
+    messageKey,
+    ...(settingsTarget && { settingsTarget }),
+  };
 }
 
 // Azure routes by deployment in the path and needs an api-version query, so the
@@ -245,11 +301,15 @@ export function resolveTranscriptionRoute({
 }: TranscriptionRouteInput): TranscriptionRoute {
   const s = settings || {};
   const managed = policy?.status === "managed";
+  const requestedLanguage = request?.effectiveLanguage;
   const language =
-    request?.effectiveLanguage ??
-    (!s.preferredLanguage || s.preferredLanguage === "auto"
-      ? undefined
-      : s.preferredLanguage.split("-")[0]);
+    requestedLanguage !== undefined
+      ? !requestedLanguage || requestedLanguage === "auto"
+        ? undefined
+        : requestedLanguage
+      : !s.preferredLanguage || s.preferredLanguage === "auto"
+        ? undefined
+        : s.preferredLanguage.split("-")[0];
 
   // Managed enterprise STT outranks every personal setting; the resolution is
   // already policy-checked where it was computed (enterpriseIdentityStore /
@@ -363,6 +423,30 @@ export function resolveTranscriptionRoute({
       sizeCapBytes: BYOK_FILE_SIZE_LIMIT,
       cortiEnvironment: s.cortiEnvironment || "us",
       cortiTenant: (s.cortiTenant || "").trim() || "base",
+    };
+  }
+
+  if (provider === AZURE_SPEECH_PROVIDER_ID) {
+    // Fail closed: without a valid resource endpoint the key goes nowhere,
+    // and nothing falls through to another provider.
+    const endpoint = buildAzureSpeechTranscribeUrl(s.azureSpeechEndpoint || "");
+    if (!endpoint) {
+      return error(
+        "Add your Azure Speech endpoint in Settings → AI Connections & Local Models.",
+        AZURE_SPEECH_ENDPOINT_INVALID_CODE,
+        AZURE_SPEECH_ENDPOINT_INVALID_MESSAGE_KEY,
+        "speechToText"
+      );
+    }
+    return {
+      transport: "azure-speech",
+      provider: AZURE_SPEECH_PROVIDER_ID,
+      endpoint,
+      model,
+      language,
+      locale: maiLocale(language),
+      sizeCapBytes: AZURE_SPEECH_SIZE_CAP_BYTES,
+      auth: { scheme: "azure-speech-key", keyRef: "azure-speech" },
     };
   }
 

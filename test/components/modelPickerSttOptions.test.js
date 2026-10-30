@@ -40,6 +40,7 @@ const ALL_KEYS = {
   tinfoil: true,
   deepgram: true,
   assemblyai: true,
+  "azure-speech": true,
 };
 
 const DOWNLOADED = [
@@ -110,6 +111,7 @@ test("a full setup offers every connection the surface can run, in order", async
     "provider:tinfoil",
     "provider:deepgram",
     "provider:assemblyai",
+    "provider:azure-speech",
     "custom",
     "local",
     "selfHosted",
@@ -161,6 +163,7 @@ test("a full setup offers every connection the surface can run, in order", async
     "provider:gemini",
     "provider:corti",
     "provider:tinfoil",
+    "provider:azure-speech",
     "custom",
     "local",
     "selfHosted",
@@ -268,6 +271,76 @@ test("a provider without saved credentials is one entry linking to its key", asy
   assert.ok(
     Object.values(presence).every((value) => typeof value === "boolean"),
     "never a key"
+  );
+});
+
+test("Azure Speech: Recognition and uploads only, available with its key and a valid endpoint", async (t) => {
+  const { buildSttPickerOptions, sttKeyPresence, sttSelectionIssue } = await load(t);
+  const setUp = {
+    reasonKey: "modelPicker.stt.reasons.needsEndpointAndKey",
+    link: {
+      kind: "settings",
+      destination: "connections#connections.azureSpeech",
+      labelKey: "modelPicker.links.setUpConnection",
+    },
+  };
+  const ready = { ...ALL_KEYS, "azure-speech": true };
+  for (const surface of ["dictation", "fileTranscription"]) {
+    const groups = buildSttPickerOptions(surface, context({ keys: ready }));
+    assert.deepEqual(groupOptions(groups, "provider:azure-speech"), [
+      "provider:azure-speech:MAI-Transcribe-2",
+    ]);
+    assert.equal(find(groups, "provider:azure-speech:MAI-Transcribe-2").available, true);
+    const missing = buildSttPickerOptions(
+      surface,
+      context({ keys: { ...ALL_KEYS, "azure-speech": false } })
+    );
+    assert.deepEqual(find(missing, "provider:azure-speech:addKey").available, setUp, surface);
+  }
+  // Not a streaming model: Live Recording never lists it.
+  assert.equal(
+    groupIds(buildSttPickerOptions("liveRecording", context({ keys: ready }))).includes(
+      "provider:azure-speech"
+    ),
+    false
+  );
+  // A selection without the connection warns with the same reason and link.
+  assert.deepEqual(
+    sttSelectionIssue(
+      "dictation",
+      context({
+        keys: { ...ALL_KEYS, "azure-speech": false },
+        current: { cloudProvider: "azure-speech", cloudModel: "MAI-Transcribe-2" },
+      })
+    ),
+    setUp
+  );
+
+  // Presence needs both: the key and a Speech resource's https origin.
+  const key = { azureSpeechApiKey: "k" };
+  const presence = (endpoint) =>
+    sttKeyPresence({ ...key, azureSpeechEndpoint: endpoint })["azure-speech"];
+  assert.equal(presence("https://res.cognitiveservices.azure.com"), true);
+  assert.equal(presence("https://westus2.api.cognitive.microsoft.com/"), true);
+  assert.equal(presence(""), false);
+  assert.equal(presence("https://res.openai.azure.com"), false);
+  assert.equal(presence("https://res.cognitiveservices.azure.com/speechtotext"), false);
+  assert.equal(
+    sttKeyPresence({ azureSpeechEndpoint: "https://res.cognitiveservices.azure.com" })[
+      "azure-speech"
+    ],
+    false,
+    "an endpoint without its key"
+  );
+
+  // An organization allowlist that doesn't name it hides it.
+  const policy = managedPolicy({ allowedModes: ["providers"], allowedByokProviders: ["openai"] });
+  assert.equal(
+    find(
+      buildSttPickerOptions("dictation", context({ policy, keys: ready })),
+      "provider:azure-speech:MAI-Transcribe-2"
+    ),
+    undefined
   );
 });
 

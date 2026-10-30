@@ -311,7 +311,8 @@ test("AI Connections & Local Models opens from Setup, its cards and its links", 
   const { SETTINGS_NAV, resolveSettingsDestination, locateSetting, settingsBreadcrumbKeys } =
     await load();
   const providers = await import("../../src/components/settings/connectionProviders.ts");
-  const { CONNECTION_PROVIDERS, connectionDestination } = providers.default ?? providers;
+  const { CONNECTION_PROVIDERS, connectionAnchor, connectionDestination } =
+    providers.default ?? providers;
 
   // First in Setup, before App & Controls, on its own (no parent).
   const setup = SETTINGS_NAV.find((group) => group.id === "setup");
@@ -331,10 +332,12 @@ test("AI Connections & Local Models opens from Setup, its cards and its links", 
     page: "connections",
   });
   // Every provider card, Copilot and Cloud ("Manage keys in AI Connections ›").
+  // Anchors are camelCase: Azure Speech's id is "azure-speech", its anchor "connections.azureSpeech".
+  assert.equal(connectionAnchor("azure-speech"), "connections.azureSpeech");
   for (const id of [...CONNECTION_PROVIDERS.map((provider) => provider.id), "copilot", "cloud"]) {
     assert.deepEqual(resolve(connectionDestination(id)), {
       page: "connections",
-      settingId: `connections.${id}`,
+      settingId: connectionAnchor(id),
     });
   }
   assert.deepEqual(resolve("#connections.localModels"), {

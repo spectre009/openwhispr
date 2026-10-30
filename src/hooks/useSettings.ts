@@ -102,6 +102,8 @@ export interface ApiKeySettings {
   tinfoilApiKey: string;
   deepgramApiKey: string;
   assemblyaiApiKey: string;
+  /** Azure Speech's key; its endpoint is `azureSpeechEndpoint`. */
+  azureSpeechApiKey: string;
   customTranscriptionApiKey: string;
   cleanupCustomApiKey: string;
 }
@@ -342,6 +344,8 @@ function useSettingsInternal() {
     tinfoilApiKey: store.tinfoilApiKey,
     deepgramApiKey: store.deepgramApiKey,
     assemblyaiApiKey: store.assemblyaiApiKey,
+    azureSpeechApiKey: store.azureSpeechApiKey,
+    azureSpeechEndpoint: store.azureSpeechEndpoint,
     dictationKey: store.dictationKey,
     meetingKey: store.meetingKey,
     voiceAgentKey: store.voiceAgentKey,

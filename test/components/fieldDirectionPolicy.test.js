@@ -101,6 +101,8 @@ const EXPECTED_SHARED_FIELD_DIRECTIONS = {
   "src/components/settings/ProfileSection.tsx": ["auto", "ltr", "ltr", "ltr"],
   // A speech-to-text custom endpoint's URL and model id, and Corti's tenant id.
   "src/components/settings/TranscriptionConfigEditor.tsx": ["ltr", "ltr", "ltr"],
+  // Azure Speech's resource endpoint (a URL).
+  "src/components/settings/AiConnectionsPage.tsx": ["ltr"],
   "src/components/settings/WorkspaceDeveloperTab.tsx": ["auto"],
   "src/components/settings/WorkspaceSection.tsx": ["auto"],
   "src/components/ui/ApiKeyInput.tsx": ["ltr"],

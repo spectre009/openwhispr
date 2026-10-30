@@ -1298,7 +1298,9 @@
         "providerKeyMissing": "Für Ihren Transkriptionsanbieter ist kein API-Schlüssel hinterlegt. Fügen Sie ihn unter Einstellungen → Sprache zu Text hinzu.",
         "cleanupTruncated": "Dem KI-Modell ging der Platz aus, bevor es dein Diktat fertig bereinigt hatte.",
         "cleanupDuplicated": "Die KI-Bereinigung hat das Transkript wiederholt. Der Originaltext wurde beibehalten.",
-        "cleanupEmptyReply": "Das KI-Modell lieferte eine leere Antwort statt des bereinigten Diktats."
+        "cleanupEmptyReply": "Das KI-Modell lieferte eine leere Antwort statt des bereinigten Diktats.",
+        "azureSpeechEndpointMissing": "Fügen Sie Ihren Azure-Speech-Endpunkt unter Einstellungen → KI-Verbindungen & lokale Modelle hinzu.",
+        "azureSpeechConversionFailed": "Die Aufnahme konnte nicht für Azure Speech umgewandelt werden, das nur WAV, MP3 oder FLAC annimmt."
       },
       "translationFallback": {
         "unreachableTitle": "Übersetzung nicht verfügbar",
@@ -3716,7 +3718,8 @@
         "deepgram_nova_3": "Deepgrams genauestes Echtzeitmodell",
         "assemblyai_universal_streaming_english": "Unveränderliche Echtzeit-Transkripte, Englisch",
         "assemblyai_universal_streaming_multilingual": "Unveränderliche Echtzeit-Transkripte, mehrsprachig",
-        "assemblyai_universal_3_5_pro": "Höchste Genauigkeit in Echtzeit, 18 Sprachen"
+        "assemblyai_universal_3_5_pro": "Höchste Genauigkeit in Echtzeit, 18 Sprachen",
+        "azure_speech_mai_transcribe_2": "Spracherkennung von Microsoft über Ihre Azure-Speech-Ressource"
       },
       "cloud": {
         "openai_gpt_5_2": "Starkes Reasoning-Modell",
@@ -5948,6 +5951,12 @@
       "accessDenied": "GitHub Copilot hat diese Anfrage abgelehnt. Ihr Tarif oder die Richtlinie Ihrer Organisation erlaubt dieses Modell möglicherweise nicht.",
       "notSignedIn": "Sie sind nicht bei GitHub Copilot angemeldet. Melden Sie sich unter Einstellungen → KI-Verbindungen & lokale Modelle an.",
       "unsupportedRequest": "GitHub Copilot kann nur Diktate bereinigen, Notizen formatieren und übersetzen. Wählen Sie für Chat und Sprachassistent in den Einstellungen ein anderes Modell."
+    },
+    "azureSpeech": {
+      "endpointNotFound": "Azure Speech hat diesen Endpunkt nicht gefunden. Prüfen Sie ihn unter Einstellungen → KI-Verbindungen & lokale Modelle.",
+      "audioTooLong": "Diese Aufnahme ist länger, als Azure Speech annimmt (unter 2 Stunden).",
+      "modelUnavailable": "{{model}} ist für diese Azure-Speech-Ressource nicht verfügbar. Verwenden Sie eine Speech-Ressource in einer Region, die es anbietet.",
+      "languageUnsupported": "Azure Speech unterstützt die ausgewählte Sprache nicht. Wählen Sie eine andere Sprache oder die automatische Erkennung."
     }
   },
   "calendarOAuth": {
@@ -6066,7 +6075,8 @@
       "deepgram": "Deepgram",
       "assemblyai": "AssemblyAI",
       "copilot": "GitHub Copilot",
-      "cloud": "OpenWhispr Cloud"
+      "cloud": "OpenWhispr Cloud",
+      "azure-speech": "Azure Speech"
     },
     "search": {
       "providerDescription": "Der API-Schlüssel dieses Anbieters, ob er gespeichert ist, und die Funktionen, die ihn nutzen.",
@@ -6099,7 +6109,8 @@
       "signingIn": "Anmeldung…",
       "notSignedIn": "Nicht angemeldet",
       "off": "Aus",
-      "noKey": "Kein Schlüssel gespeichert"
+      "noKey": "Kein Schlüssel gespeichert",
+      "endpointNeeded": "Endpunkt fehlt"
     },
     "credentials": {
       "languageModelKey": "API-Schlüssel für Sprachmodelle"
@@ -6294,6 +6305,16 @@
       "search": {
         "description": "Ihr eigener Azure-OpenAI- oder OpenAI-kompatibler Endpunkt, sein Schlüssel und die Funktionen, die ihn nutzen."
       }
+    },
+    "azureSpeech": {
+      "endpointErrors": {
+        "invalidUrl": "Das ist keine gültige URL.",
+        "httpsRequired": "Der Endpunkt muss mit https:// beginnen.",
+        "host": "Das ist kein Azure-Speech-Endpunkt. Er endet auf .cognitiveservices.azure.com oder .api.cognitive.microsoft.com.",
+        "resourceOnly": "Fügen Sie nur den Ressourcen-Endpunkt ein, etwa https://<resource>.cognitiveservices.azure.com, ohne Pfad, Port oder Abfrage."
+      },
+      "endpointLabel": "Ressourcen-Endpunkt",
+      "help": "Fügen Sie den Endpunkt und einen Schlüssel von der Seite „Keys and Endpoint“ Ihrer Speech-Ressource ein."
     }
   },
   "modelPicker": {
@@ -6318,7 +6339,8 @@
       "signInCopilot": "Unter KI-Verbindungen anmelden",
       "addKey": "API-Schlüssel hinzufügen",
       "openLocalModels": "KI-Verbindungen",
-      "manageCopilot": "GitHub-Anmeldung unter KI-Verbindungen verwalten"
+      "manageCopilot": "GitHub-Anmeldung unter KI-Verbindungen verwalten",
+      "setUpConnection": "Unter KI-Verbindungen einrichten"
     },
     "cloud": {
       "automatic": "Automatisch",
@@ -6413,7 +6435,8 @@
         "notDownloaded": "Dieses Modell ist nicht heruntergeladen",
         "needsStreaming": "Die Live-Aufnahme braucht ein Streaming-Modell",
         "liveOnly": "Ein reiner Live-Anbieter: Die Dateitranskription kann ihn nicht nutzen",
-        "noLocalModel": "Kein {{engine}}-Modell heruntergeladen: Wähle ein anderes Modell oder lade eines unter KI-Verbindungen herunter"
+        "noLocalModel": "Kein {{engine}}-Modell heruntergeladen: Wähle ein anderes Modell oder lade eines unter KI-Verbindungen herunter",
+        "needsEndpointAndKey": "Benötigt Endpunkt und Schlüssel"
       },
       "custom": {
         "sub": "Jede OpenAI-kompatible Spracherkennungs-API",

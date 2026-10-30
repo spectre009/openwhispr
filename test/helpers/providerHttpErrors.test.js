@@ -557,3 +557,119 @@ test("Copilot's sign-in sentences are the en translations and exist in every loc
   assert.equal(refused.technicalDetails.underlyingError, "scope");
   assert.equal(refused.technicalDetails.provider, "GitHub Copilot");
 });
+
+// Azure Speech's error shapes ({"error":{"code","message","innerError":{"code"}}})
+// get their own sentences; the rest classify as for any provider.
+test("Azure Speech's error shapes become worded messages, in every locale", async () => {
+  const { providerHttpError } = await load();
+  const azure = (status, error) =>
+    providerHttpError({
+      provider: "Azure Speech",
+      providerId: "azure-speech",
+      model: "MAI-Transcribe-2",
+      surface: "transcription",
+      status,
+      body: error ? JSON.stringify({ error }) : "",
+      headers: { "apim-request-id": "apim-7" },
+    });
+  const cases = [
+    [
+      azure(404, { code: "404", message: "Resource not found" }),
+      "AZURE_SPEECH_ENDPOINT_INVALID",
+      "providerErrors.azureSpeech.endpointNotFound",
+    ],
+    [
+      azure(400, {
+        code: "InvalidRequest",
+        message: "Audio too long",
+        innerError: { code: "AudioLengthLimitExceeded" },
+      }),
+      "PROVIDER_PAYLOAD_TOO_LARGE",
+      "providerErrors.azureSpeech.audioTooLong",
+    ],
+    [
+      azure(400, {
+        code: "InvalidArgument",
+        message: "Invalid model",
+        innerError: { code: "InvalidModel" },
+      }),
+      "PROVIDER_MODEL_NOT_FOUND",
+      "providerErrors.azureSpeech.modelUnavailable",
+    ],
+    [
+      // East US 2: MAI isn't offered in every region.
+      azure(400, {
+        code: "InvalidRequest",
+        message: "Enhanced mode with model is currently not supported yet.",
+      }),
+      "PROVIDER_MODEL_NOT_FOUND",
+      "providerErrors.azureSpeech.modelUnavailable",
+    ],
+    [
+      azure(400, {
+        code: "InvalidArgument",
+        message: "Unsupported locale",
+        innerError: { code: "InvalidLocale" },
+      }),
+      "PROVIDER_BAD_REQUEST",
+      "providerErrors.azureSpeech.languageUnsupported",
+    ],
+  ];
+  for (const [error, code, messageKey] of cases) {
+    assert.equal(error.code, code, messageKey);
+    assert.equal(error.messageKey, messageKey);
+    // A recording that's too long isn't fixed in Settings; the rest are.
+    assert.equal(
+      error.settingsTarget,
+      code === "PROVIDER_PAYLOAD_TOO_LARGE" ? undefined : "speechToText",
+      messageKey
+    );
+    assert.equal(error.technicalDetails.requestId, "apim-7");
+    const template = lookup(en, messageKey);
+    const rendered = template.replace(/\{\{(\w+)\}\}/g, (_, name) => error.messageParams[name]);
+    assert.equal(error.message, rendered, messageKey);
+    for (const locale of LOCALES) {
+      const sentence = lookup(require(`../../src/locales/${locale}/translation.json`), messageKey);
+      assert.equal(typeof sentence, "string", `${locale}: ${messageKey}`);
+    }
+  }
+  assert.equal(
+    cases[2][0].message,
+    "MAI-Transcribe-2 isn't available on this Azure Speech resource. Use a Speech resource in a region that offers it."
+  );
+
+  // A rejected key, throttling, a server error and an unknown 400 classify as for any provider.
+  assert.equal(azure(401, { code: "401", message: "Access denied" }).code, "PROVIDER_AUTH_FAILED");
+  assert.equal(azure(429, { code: "TooManyRequests" }).code, "PROVIDER_RATE_LIMITED");
+  assert.equal(azure(500, { code: "InternalServerError" }).code, "PROVIDER_UNAVAILABLE");
+  const unknown = azure(400, { code: "InvalidRequest", message: "Something else" });
+  assert.equal(unknown.messageKey, "providerErrors.badRequest");
+  assert.equal(unknown.settingsTarget, undefined);
+  // Raw bodies stay in the technical details, redacted, never in the message.
+  assert.doesNotMatch(cases[0][0].message, /Resource not found/);
+
+  // Other providers' 404 is still a model.
+  const openai = providerHttpError({
+    provider: "OpenAI",
+    status: 404,
+    body: JSON.stringify({ error: { message: "Resource not found" } }),
+    surface: "transcription",
+    model: "whisper-1",
+  });
+  assert.equal(openai.code, "PROVIDER_MODEL_NOT_FOUND");
+});
+
+test("a failed History row that kept only AZURE_SPEECH_ENDPOINT_INVALID still offers Settings", async () => {
+  const { providerSettingsTargetFor } = await load();
+  assert.equal(
+    providerSettingsTargetFor("AZURE_SPEECH_ENDPOINT_INVALID", "transcription"),
+    "speechToText"
+  );
+  const { failureDescriptor } = await import("../../src/helpers/stepFailure.js");
+  const descriptor = failureDescriptor({
+    code: "PROVIDER_MODEL_NOT_FOUND",
+    messageKey: "providerErrors.azureSpeech.modelUnavailable",
+    messageParams: { provider: "Azure Speech", model: "MAI-Transcribe-2" },
+  });
+  assert.equal(descriptor.messageKey, "providerErrors.azureSpeech.modelUnavailable");
+});

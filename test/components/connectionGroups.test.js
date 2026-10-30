@@ -48,6 +48,7 @@ test("grouped: in use by uses, saved without a use, the rest to add", async () =
       "xai",
       "deepgram",
       "assemblyai",
+      "azure-speech",
       "cloud",
     ],
   });
@@ -126,7 +127,7 @@ test("first run: Copilot, the starters, saved providers and Cloud while on; the 
   assert.deepEqual(groupConnections(input), {
     layout: "firstRun",
     cards: ["copilot", "openai", "anthropic", "gemini", "groq", "openrouter", "cloud"],
-    fold: ["mistral", "tinfoil", "corti", "xai", "deepgram", "assemblyai"],
+    fold: ["mistral", "tinfoil", "corti", "xai", "deepgram", "assemblyai", "azure-speech"],
   });
 
   // Cloud off folds it; a custom connection (unused) is a card.

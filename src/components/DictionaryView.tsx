@@ -111,6 +111,7 @@ export default function DictionaryView() {
       glossaryTerms: glossaryCanonicalTerms(glossaryRules),
       snippets,
       maxChars: hintTarget.maxChars,
+      maxTerms: hintTarget.maxTerms,
       order: hintTarget.order,
       readChars: hintTarget.readChars,
     });

@@ -120,3 +120,17 @@ test("dictation-only policies ignore LLM availability when the agent is disabled
     selfHosted: true,
   });
 });
+
+// Azure Speech needs its resource endpoint, which only AI Connections takes.
+test("onboarding's key step never offers Azure Speech", async () => {
+  const { onboardingTranscriptionProviders } = await load();
+  const registry = require("../../src/models/modelRegistryData.json").transcriptionProviders;
+  const offered = onboardingTranscriptionProviders(registry).map((provider) => provider.id);
+  assert.ok(registry.some((provider) => provider.id === "azure-speech"));
+  assert.equal(offered.includes("azure-speech"), false);
+  assert.deepEqual(
+    offered,
+    registry.map((provider) => provider.id).filter((id) => id !== "azure-speech"),
+    "every other provider stays"
+  );
+});

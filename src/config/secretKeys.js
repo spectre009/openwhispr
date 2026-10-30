@@ -80,6 +80,14 @@ const BYOK_API_KEYS = [
     save: "saveAssemblyAIKey",
     storeKey: "assemblyaiApiKey",
   },
+  // Speech-to-text only; its resource endpoint is a plain setting (azureSpeechEndpoint).
+  {
+    base: "azure-speech",
+    env: "AZURE_SPEECH_API_KEY",
+    get: "getAzureSpeechKey",
+    save: "saveAzureSpeechKey",
+    storeKey: "azureSpeechApiKey",
+  },
   // Per-scope Custom-endpoint keys. Dictation cleanup's counterpart predates
   // this manifest and keeps its bespoke accessors (CUSTOM_CLEANUP_API_KEY).
   {

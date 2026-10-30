@@ -56,6 +56,8 @@ export interface FileTranscriptionConfig {
   transcriptionMode?: string;
   remoteTranscriptionUrl?: string;
   remoteTranscriptionModel?: string;
+  /** Azure Speech's resource endpoint (one per app, from AI Connections). */
+  azureSpeechEndpoint?: string;
 }
 
 export interface TranscriptionApiKeys {
@@ -68,6 +70,7 @@ export interface TranscriptionApiKeys {
   deepgramApiKey: string;
   assemblyaiApiKey: string;
   customTranscriptionApiKey?: string;
+  azureSpeechApiKey?: string;
 }
 
 export function getTranscriptionApiKey(provider: string, keys: TranscriptionApiKeys): string {
@@ -90,6 +93,8 @@ export function getTranscriptionApiKey(provider: string, keys: TranscriptionApiK
       return keys.assemblyaiApiKey;
     case "custom":
       return keys.customTranscriptionApiKey || "";
+    case "azure-speech":
+      return keys.azureSpeechApiKey || "";
     default:
       return "";
   }
@@ -113,6 +118,7 @@ export function resolveFileTranscriptionRoute(
       cloudTranscriptionBaseUrl: cfg.cloudTranscriptionBaseUrl,
       cortiEnvironment: cfg.cortiEnvironment,
       cortiTenant: cfg.cortiTenant,
+      azureSpeechEndpoint: cfg.azureSpeechEndpoint,
     },
     providers: getTranscriptionProviders(),
     managed,
@@ -196,6 +202,7 @@ export async function transcribeFile(
     transcriptionMode: cfg.transcriptionMode,
     remoteTranscriptionUrl: cfg.remoteTranscriptionUrl,
     remoteTranscriptionModel: cfg.remoteTranscriptionModel,
+    azureSpeechEndpoint: cfg.azureSpeechEndpoint,
   });
 }
 

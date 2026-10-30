@@ -1298,7 +1298,9 @@
         "providerKeyMissing": "No hay ninguna clave de API configurada para tu proveedor de transcripción. Añádela en Ajustes → Voz a texto.",
         "cleanupTruncated": "El modelo de IA se quedó sin espacio antes de terminar de limpiar tu dictado.",
         "cleanupDuplicated": "La limpieza con IA repitió la transcripción. Se conservó el texto original.",
-        "cleanupEmptyReply": "El modelo de IA devolvió una respuesta vacía en lugar del dictado limpio."
+        "cleanupEmptyReply": "El modelo de IA devolvió una respuesta vacía en lugar del dictado limpio.",
+        "azureSpeechEndpointMissing": "Añade el endpoint de Azure Speech en Ajustes → Conexiones de IA y modelos locales.",
+        "azureSpeechConversionFailed": "No se pudo convertir la grabación para Azure Speech, que solo admite WAV, MP3 o FLAC."
       },
       "translationFallback": {
         "unreachableTitle": "Traducción no disponible",
@@ -3670,7 +3672,8 @@
         "deepgram_nova_3": "El modelo en tiempo real más preciso de Deepgram",
         "assemblyai_universal_streaming_english": "Transcripciones en tiempo real inmutables, en inglés",
         "assemblyai_universal_streaming_multilingual": "Transcripciones en tiempo real inmutables, multilingües",
-        "assemblyai_universal_3_5_pro": "Máxima precisión en tiempo real, 18 idiomas"
+        "assemblyai_universal_3_5_pro": "Máxima precisión en tiempo real, 18 idiomas",
+        "azure_speech_mai_transcribe_2": "Voz a texto de Microsoft, a través de tu recurso de Azure Speech"
       },
       "cloud": {
         "openai_gpt_5_2": "Modelo fuerte de razonamiento",
@@ -5948,6 +5951,12 @@
       "accessDenied": "GitHub Copilot rechazó esta solicitud. Puede que tu plan o la política de tu organización no permitan este modelo.",
       "notSignedIn": "No has iniciado sesión en GitHub Copilot. Inicia sesión en Ajustes → Conexiones de IA y modelos locales.",
       "unsupportedRequest": "GitHub Copilot solo puede limpiar dictados, dar formato a notas y traducir. Elige otro modelo para el Chat y el Asistente de voz en Ajustes."
+    },
+    "azureSpeech": {
+      "endpointNotFound": "Azure Speech no encontró este endpoint. Revísalo en Ajustes → Conexiones de IA y modelos locales.",
+      "audioTooLong": "Esta grabación es más larga de lo que admite Azure Speech (menos de 2 horas).",
+      "modelUnavailable": "{{model}} no está disponible en este recurso de Azure Speech. Usa un recurso de Speech en una región que lo ofrezca.",
+      "languageUnsupported": "Azure Speech no admite el idioma seleccionado. Elige otro idioma o la detección automática."
     }
   },
   "calendarOAuth": {
@@ -6066,7 +6075,8 @@
       "deepgram": "Deepgram",
       "assemblyai": "AssemblyAI",
       "copilot": "GitHub Copilot",
-      "cloud": "OpenWhispr Cloud"
+      "cloud": "OpenWhispr Cloud",
+      "azure-speech": "Azure Speech"
     },
     "search": {
       "providerDescription": "La clave API de este proveedor, si está guardada y las funciones que la usan.",
@@ -6099,7 +6109,8 @@
       "signingIn": "Iniciando sesión…",
       "notSignedIn": "Sin sesión iniciada",
       "off": "Desactivado",
-      "noKey": "No hay clave guardada"
+      "noKey": "No hay clave guardada",
+      "endpointNeeded": "Falta el endpoint"
     },
     "credentials": {
       "languageModelKey": "Clave API para modelos de lenguaje"
@@ -6294,6 +6305,16 @@
       "search": {
         "description": "Tu propio endpoint de Azure OpenAI o compatible con OpenAI, su clave y las funciones que lo usan."
       }
+    },
+    "azureSpeech": {
+      "endpointErrors": {
+        "invalidUrl": "Esta URL no es válida.",
+        "httpsRequired": "El endpoint debe empezar por https://.",
+        "host": "Este no es un endpoint de Azure Speech. Termina en .cognitiveservices.azure.com o .api.cognitive.microsoft.com.",
+        "resourceOnly": "Pega solo el endpoint del recurso, como https://<resource>.cognitiveservices.azure.com, sin ruta, puerto ni consulta."
+      },
+      "endpointLabel": "Endpoint del recurso",
+      "help": "Pega el endpoint y una clave de la página Keys and Endpoint de tu recurso de Speech."
     }
   },
   "modelPicker": {
@@ -6318,7 +6339,8 @@
       "signInCopilot": "Inicia sesión en Conexiones de IA",
       "addKey": "Añadir una clave API",
       "openLocalModels": "Conexiones de IA",
-      "manageCopilot": "Gestionar el inicio de sesión de GitHub en Conexiones de IA"
+      "manageCopilot": "Gestionar el inicio de sesión de GitHub en Conexiones de IA",
+      "setUpConnection": "Configurar en Conexiones de IA"
     },
     "cloud": {
       "automatic": "Automático",
@@ -6413,7 +6435,8 @@
         "notDownloaded": "Este modelo no está descargado",
         "needsStreaming": "La grabación en vivo necesita un modelo de streaming",
         "liveOnly": "Un proveedor solo en vivo: la transcripción de archivos no puede usarlo",
-        "noLocalModel": "No hay ningún modelo de {{engine}} descargado: elige otro modelo o descarga uno en Conexiones de IA"
+        "noLocalModel": "No hay ningún modelo de {{engine}} descargado: elige otro modelo o descarga uno en Conexiones de IA",
+        "needsEndpointAndKey": "Necesita su endpoint y su clave"
       },
       "custom": {
         "sub": "Cualquier API de voz a texto compatible con OpenAI",

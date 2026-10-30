@@ -1,7 +1,8 @@
 // Live dictation's batch transcription request (OpenAI, Groq, custom endpoints,
-// self-hosted servers), sent from main. The dictation window chooses the route,
-// builds the prompt and keywords, converts the audio and parses the answer; it
-// hands main the request (endpoint, headers, form fields, audio bytes, length)
+// self-hosted servers, Azure Speech), sent from main. The dictation window
+// chooses the route, builds the prompt and keywords (or Azure's definition),
+// converts the audio and parses the answer; it hands main the request
+// (endpoint, headers, form fields, the audio part's name, audio bytes, length)
 // under a request id.
 //
 // - Its own connection pool (`ow-dictation-stt`), used for nothing else, so
@@ -35,6 +36,11 @@ const { asProviderError } = require("./providerHttpErrors");
 const { ipcErrorFields } = require("./ipcErrorFields");
 const { createTranscriptionEventParser } = require("./transcriptionEventStream");
 const AgentStreamRequestRegistry = require("./agentStreamRequestRegistry");
+const {
+  AZURE_SPEECH_KEY_HEADER,
+  AZURE_SPEECH_PROVIDER_ID,
+  isAzureSpeechTranscribeUrl,
+} = require("./azureSpeechTranscription.js");
 
 const DICTATION_STT_PARTITION = "ow-dictation-stt";
 // History's Re-transcribe: its own pool, so a live dictation's reset can't cut it.
@@ -42,9 +48,19 @@ const HISTORY_STT_PARTITION = "ow-history-stt";
 const MAX_ATTEMPTS = 2;
 // Live checks against a local server: give it the hosted budget.
 const TEST_HOSTED_DEADLINE_ENV = "OPENWHISPR_TEST_HOSTED_STT_DEADLINE";
-const ALLOWED_REQUEST_HEADERS = new Set(["authorization", "api-key"]);
+const AZURE_SPEECH_KEY = AZURE_SPEECH_KEY_HEADER.toLowerCase();
+const ALLOWED_REQUEST_HEADERS = new Set(["authorization", "api-key", AZURE_SPEECH_KEY]);
+// The audio part's name: OpenAI-compatible servers read `file`, Azure Speech `audio`.
+const AUDIO_PARTS = new Set(["file", "audio"]);
 // What the renderer's error classification reads; nothing else crosses back.
-const RESPONSE_HEADERS = ["content-type", "x-request-id", "request-id", "cf-ray", "retry-after"];
+const RESPONSE_HEADERS = [
+  "content-type",
+  "x-request-id",
+  "request-id",
+  "apim-request-id",
+  "cf-ray",
+  "retry-after",
+];
 // A form part's boundary and headers, roughly; the allowance is in seconds.
 const MULTIPART_PART_OVERHEAD_BYTES = 160;
 
@@ -65,7 +81,10 @@ function shortString(value, max = 200) {
 
 /**
  * Validates a renderer request: an http(s) endpoint, only the auth headers,
- * string form fields, and the audio as bytes.
+ * string form fields, the audio as bytes and its part's name (`file` or
+ * `audio`). Azure Speech's key goes only to the transcribe operation on a
+ * Speech resource (isAzureSpeechTranscribeUrl), alone: a request pairing it
+ * with any other endpoint is refused, whoever built it.
  */
 function transcriptionRequestFrom(payload) {
   if (!payload || typeof payload !== "object") {
@@ -82,11 +101,20 @@ function transcriptionRequestFrom(payload) {
   }
   const bytes = toBytes(payload.file?.bytes);
   if (!bytes) throw new TypeError("Transcription request has no audio");
-  const headers = {};
+  const audioPart = payload.audioPart ?? "file";
+  if (!AUDIO_PARTS.has(audioPart)) throw new TypeError("Invalid audio part");
+  let headers = {};
   for (const [name, value] of Object.entries(payload.headers || {})) {
     if (ALLOWED_REQUEST_HEADERS.has(name.toLowerCase()) && typeof value === "string") {
       headers[name] = value;
     }
+  }
+  const azureKey = Object.keys(headers).find((name) => name.toLowerCase() === AZURE_SPEECH_KEY);
+  if (azureKey) {
+    if (!isAzureSpeechTranscribeUrl(payload.endpoint)) {
+      throw new TypeError("Azure Speech requests go only to a Speech resource");
+    }
+    headers = { [AZURE_SPEECH_KEY_HEADER]: headers[azureKey] };
   }
   const fields = (Array.isArray(payload.fields) ? payload.fields : []).filter(
     (field) =>
@@ -100,6 +128,7 @@ function transcriptionRequestFrom(payload) {
     endpoint: payload.endpoint,
     headers,
     fields,
+    audioPart,
     file: {
       bytes,
       name: shortString(payload.file?.name) || "audio.webm",
@@ -113,6 +142,9 @@ function transcriptionRequestFrom(payload) {
     selfHosted: payload.selfHosted === true,
     errorContext: {
       provider: shortString(context.provider) || "OpenAI",
+      ...(context.providerId === AZURE_SPEECH_PROVIDER_ID
+        ? { providerId: AZURE_SPEECH_PROVIDER_ID }
+        : {}),
       selfHosted: context.selfHosted === true,
       model: shortString(context.model),
       surface: "transcription",
@@ -133,7 +165,7 @@ function requestBytes(request) {
 function buildForm(request) {
   const form = new FormData();
   form.append(
-    "file",
+    request.audioPart || "file",
     new Blob([request.file.bytes], { type: request.file.type }),
     request.file.name
   );

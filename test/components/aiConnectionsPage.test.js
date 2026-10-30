@@ -349,10 +349,10 @@ test(
       "cloud",
     ]);
     assert.equal(foldTrigger().getAttribute("aria-expanded"), "false");
-    assert.ok(foldTrigger().textContent.includes("More providers (7)"));
+    assert.ok(foldTrigger().textContent.includes("More providers (8)"));
     assert.ok(
       foldTrigger().textContent.includes(
-        "OpenRouter · Mistral · Tinfoil · Corti · xAI · Deepgram · AssemblyAI"
+        "OpenRouter · Mistral · Tinfoil · Corti · xAI · Deepgram · AssemblyAI · Azure Speech"
       )
     );
     assert.ok(entry("custom").querySelector("[data-custom-connection-add]"));
@@ -432,10 +432,10 @@ test(
 
     // The rest, folded: names only until opened.
     assert.equal(foldTrigger().getAttribute("aria-expanded"), "false");
-    assert.ok(foldTrigger().textContent.includes("Add a provider (9)"));
+    assert.ok(foldTrigger().textContent.includes("Add a provider (10)"));
     assert.ok(
       foldTrigger().textContent.includes(
-        "OpenAI · Anthropic · Mistral · Tinfoil · Corti · xAI · Deepgram · AssemblyAI · OpenWhispr Cloud"
+        "OpenAI · Anthropic · Mistral · Tinfoil · Corti · xAI · Deepgram · AssemblyAI · Azure Speech · OpenWhispr Cloud"
       )
     );
     assert.equal(entry("openai"), null, "folded rows aren't rendered");
@@ -453,6 +453,7 @@ test(
       "xai",
       "deepgram",
       "assemblyai",
+      "azureSpeech",
       "cloud",
     ]);
     const openaiRow = inFold("openai");
@@ -468,6 +469,43 @@ test(
       "true"
     );
     assert.equal(corti.querySelectorAll('button[aria-label="Add API key"]').length, 3);
+    // Azure Speech's endpoint and key open under its row; it reads connected
+    // only with a key and a valid endpoint.
+    const azureSpeech = () => inFold("azureSpeech");
+    assert.ok(azureSpeech().textContent.includes("Not connected"));
+    await act(() => azureSpeech().querySelector("[data-connection-toggle]").click());
+    const endpointField = () =>
+      azureSpeech().querySelector(
+        'input[placeholder="https://<resource>.cognitiveservices.azure.com"]'
+      );
+    assert.ok(endpointField(), "the endpoint field opened");
+    assert.equal(endpointField().getAttribute("dir"), "ltr");
+    assert.ok(azureSpeech().textContent.includes("Resource endpoint"));
+    assert.ok(
+      azureSpeech().textContent.includes(
+        "Paste the endpoint and a key from your Speech resource's Keys and Endpoint page."
+      )
+    );
+    assert.equal(azureSpeech().querySelectorAll('button[aria-label="Add API key"]').length, 1);
+    const leave = (input) =>
+      act(() => input.dispatchEvent(new happyWindow.FocusEvent("focusout", { bubbles: true })));
+    await type(endpointField(), "https://res.openai.azure.com");
+    await leave(endpointField());
+    assert.ok(azureSpeech().textContent.includes("This isn't an Azure Speech endpoint."));
+    assert.equal(endpointField().getAttribute("aria-invalid"), "true");
+    await act(() => useSettingsStore.setState({ azureSpeechApiKey: "az-speech-key-123456" }));
+    assert.ok(azureSpeech().textContent.includes("Endpoint needed"), "a key alone isn't enough");
+    await type(endpointField(), "res.cognitiveservices.azure.com/");
+    await leave(endpointField());
+    assert.equal(
+      useSettingsStore.getState().azureSpeechEndpoint,
+      "https://res.cognitiveservices.azure.com",
+      "tidied to the resource origin"
+    );
+    assert.equal(endpointField().getAttribute("aria-invalid"), null);
+    assert.ok(azureSpeech().textContent.includes("Key saved"));
+    assert.ok(!azureSpeech().outerHTML.includes("az-speech-key-123456"), "the key shows masked");
+    await act(() => useSettingsStore.setState({ azureSpeechApiKey: "", azureSpeechEndpoint: "" }));
     // Cloud, off: says so and links to Privacy & Data, never a sign-in.
     const cloud = inFold("cloud");
     assert.ok(cloud.textContent.includes("Off · Turned off in Privacy & Data"));
