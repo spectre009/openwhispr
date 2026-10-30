@@ -2,7 +2,7 @@ import ReasoningService from "./ReasoningService";
 import type { CleanupPromptInputs, ReasoningConfig } from "./BaseReasoningService";
 import { getEffectiveCleanupModel, getSettings, type SettingsState } from "../stores/settingsStore";
 import { buildDictationCleanupConfig } from "../helpers/dictationCleanupConfig";
-import { getDictionaryHintWords } from "../utils/snippets";
+import { selectCleanupDictionary } from "../utils/snippets";
 import { resolveCleanupLanguage } from "../utils/chineseScript";
 import type { CleanupPromptOverride } from "../config/prompts";
 
@@ -85,13 +85,14 @@ export function cleanupRouteKey(settings: SettingsState = getSettings()): string
 
 /**
  * The dictionary and languages a cleanup prompt is built with, read the way a
- * dictation reads them (BaseReasoningService), for a run to freeze.
+ * dictation reads them (cleanup's word set, BaseReasoningService's
+ * languages), for a run to freeze.
  */
 export function captureCleanupPromptInputs(
   settings: SettingsState = getSettings()
 ): CleanupPromptInputs {
   return {
-    customDictionary: getDictionaryHintWords(settings),
+    customDictionary: selectCleanupDictionary(settings).words,
     preferredLanguage: resolveCleanupLanguage(settings.preferredLanguage),
     uiLanguage: settings.uiLanguage || "en",
   };

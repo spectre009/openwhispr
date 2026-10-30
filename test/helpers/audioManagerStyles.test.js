@@ -33,7 +33,11 @@ const mocks = (key, { agentReachable = false } = {}) => ({
   "/stores/glossaryStore": `
     export const getGlossarySnapshot = () => globalThis.__amStyleGlossary ?? { revision: 0, rules: [] };
   `,
-  "/stores/dictionarySourcesStore": "export const getLearnedDictionaryWords = () => new Set();",
+  "/stores/dictionarySourcesStore": `
+    export const getLearnedDictionaryWords = () => new Set();
+    export const getPinnedDictionaryKeys = () => new Set();
+    export const isDictionarySourcesLoaded = () => true;
+  `,
   "/glossaryTerms": `
     export const getGlossaryCanonicalTerms = () => [];
     export const setGlossaryCanonicalTerms = () => {};
@@ -159,6 +163,13 @@ test("a styled recording: cleanup, then the restyle, recorded as a style step", 
   ]);
   const style = post.trace.steps.find((s) => s.kind === "style");
   assert.deepEqual(style.detail, { styleId: STYLE.id, runMode: "two-step" });
+  // Two steps: the cleanup step records the word set its request carried; the
+  // restyle has its own system prompt and no dictionary of its own.
+  const cleanupStep = post.trace.steps.find((s) => s.kind === "cleanup");
+  assert.deepEqual(
+    cleanupStep.detail.dictionaryScope,
+    model.calls[0].config.cleanupDictionary.scope
+  );
   assert.equal(style.provider, "copilot");
   assert.equal(style.prompt.text, model.calls[1].config.systemPrompt);
   const restyle = model.calls[1].config;
@@ -182,10 +193,16 @@ test("one step: a single request carrying the style, no plain cleanup", async (t
   );
   assert.equal(model.calls[0].config.systemPrompt, undefined, "never a system prompt");
   assert.equal(model.calls[0].config.cleanupStyle.name, "Teams chat");
-  assert.deepEqual(post.trace.steps.find((s) => s.kind === "style").detail, {
+  // One step is the cleanup request: its dictionary word set is decided once,
+  // and the style step records the very selection the request carried.
+  const detail = post.trace.steps.find((s) => s.kind === "style").detail;
+  assert.deepEqual(detail, {
     styleId: STYLE.id,
     runMode: "one-step",
+    dictionaryScope: model.calls[0].config.cleanupDictionary.scope,
   });
+  assert.equal(detail.dictionaryScope.setting, "all");
+  assert.equal(detail.dictionaryScope.applied, "all");
 });
 
 test("intent: a styled recording never wakes the assistant or edits a selection", async (t) => {

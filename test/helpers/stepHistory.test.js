@@ -192,6 +192,66 @@ test("only the snippets marker survives as finalize detail", () => {
   );
 });
 
+test("a cleanup or style step keeps its dictionary word set, enums and a count only", () => {
+  const scope = { setting: "typedPinnedMissed", applied: "all", words: 12 };
+  const normalized = normalizeTrace(
+    baseTrace({
+      steps: [
+        { kind: "cleanup", outcome: "ok", output: "a", detail: { dictionaryScope: scope } },
+        {
+          kind: "style",
+          outcome: "fallback",
+          output: "b",
+          detail: {
+            styleId: "teams",
+            runMode: "one-step",
+            dictionaryScope: { ...scope, words: 0, extra: "OpenWhispr" },
+            failure: { code: "PROVIDER_AUTH_FAILED" },
+          },
+        },
+        // Invented values and other kinds lose it.
+        {
+          kind: "cleanup",
+          outcome: "ok",
+          output: "c",
+          detail: { dictionaryScope: { setting: "most", applied: "all", words: 1 } },
+        },
+        {
+          kind: "cleanup",
+          outcome: "ok",
+          output: "d",
+          detail: { dictionaryScope: { setting: "all", applied: "all", words: 10_001 } },
+        },
+        {
+          kind: "cleanup",
+          outcome: "ok",
+          output: "e",
+          detail: { dictionaryScope: { setting: "all", applied: "all", words: 1.5 } },
+        },
+        { kind: "translation", outcome: "ok", output: "f", detail: { dictionaryScope: scope } },
+        { kind: "finalize", outcome: "ok", output: "g", detail: { dictionaryScope: scope } },
+      ],
+    })
+  );
+  assert.deepEqual(
+    normalized.steps.map((step) => step.detail),
+    [
+      { dictionaryScope: scope },
+      {
+        styleId: "teams",
+        runMode: "one-step",
+        dictionaryScope: { setting: "typedPinnedMissed", applied: "all", words: 0 },
+        failure: { code: "PROVIDER_AUTH_FAILED" },
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+    ]
+  );
+});
+
 test("a run completes once, and a newer retry overtakes an older one", () => {
   let ids = 0;
   let clock = 1_000;

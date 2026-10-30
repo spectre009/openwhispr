@@ -563,7 +563,15 @@ export const SETTINGS_SEARCH_DESCRIPTORS: readonly SettingDescriptor[] = [
   }),
   row("dictation.output.autoLearn", OUTPUT, "settingsPage.dictionary.autoLearnTitle", {
     descriptionKey: "settingsPage.dictionary.autoLearnDescription",
-    aliases: ["dictionary", "corrections", "learn words", "vocabulary"],
+    aliases: [
+      "dictionary",
+      "corrections",
+      "learn words",
+      "vocabulary",
+      "auto-learn",
+      "suggestions",
+      "suggest",
+    ],
   }),
   row("dictation.output.waylandPaste", OUTPUT, "settingsPage.general.waylandPaste.title", {
     descriptionKey: "settingsPage.general.waylandPaste.description",
@@ -816,6 +824,11 @@ export const SETTINGS_SEARCH_DESCRIPTORS: readonly SettingDescriptor[] = [
     fallbackAnchor: "dictation.cleanup.model",
     aliases: ["gpu", "cuda", "nvidia", "graphics card"],
     available: all(cleanupOn, multiGpu),
+  }),
+  row("dictation.cleanup.dictionaryWords", CLEANUP, "settingsPage.cleanupDictionary.title", {
+    descriptionKey: "settingsPage.cleanupDictionary.description",
+    aliases: ["dictionary", "words", "tokens", "prompt size", "vocabulary", "custom words"],
+    available: cleanupOn,
   }),
   row("dictation.cleanup.prompt", CLEANUP, "settingsPage.prompts.title", {
     descriptionKey: "settingsPage.prompts.description",

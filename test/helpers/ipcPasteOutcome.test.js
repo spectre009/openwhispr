@@ -67,7 +67,9 @@ test.before(() => {
   const Ctor = IPCHandlers.default || IPCHandlers;
   target = {
     sessionId: "test-session",
-    _autoLearnEnabled: false,
+    _autoLearnMode: "off",
+    _autoLearnSynced: true,
+    _autoLearnArmed: Ctor.prototype._autoLearnArmed,
     textEditMonitor: null,
     selectionManager: null,
   };
@@ -141,7 +143,7 @@ test("paste-text does not schedule AutoLearn monitoring after a clipboard-only f
   const originalSetTimeout = global.setTimeout;
   t.after(() => {
     global.setTimeout = originalSetTimeout;
-    target._autoLearnEnabled = false;
+    target._autoLearnMode = "off";
     target.textEditMonitor = null;
   });
   global.setTimeout = (callback) => {
@@ -149,7 +151,7 @@ test("paste-text does not schedule AutoLearn monitoring after a clipboard-only f
     return 1;
   };
   const monitored = [];
-  target._autoLearnEnabled = true;
+  target._autoLearnMode = "add";
   target.textEditMonitor = {
     lastTargetPid: 42,
     activateTargetPid: async () => true,
@@ -172,7 +174,7 @@ test("paste-text serializes only a copied Accessibility denial and skips AutoLea
   const originalTimeout = global.setTimeout;
   t.after(() => {
     global.setTimeout = originalTimeout;
-    target._autoLearnEnabled = false;
+    target._autoLearnMode = "off";
     target.textEditMonitor = null;
   });
   let scheduled = 0;
@@ -180,7 +182,7 @@ test("paste-text serializes only a copied Accessibility denial and skips AutoLea
     scheduled += 1;
     return 1;
   };
-  target._autoLearnEnabled = true;
+  target._autoLearnMode = "add";
   target.textEditMonitor = {
     activateTargetPid: async () => true,
     startMonitoring: () => assert.fail("must not monitor denial"),

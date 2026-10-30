@@ -3,10 +3,11 @@
 // the page says was sent is exactly what was sent.
 //
 // Priority within the provider's request budget, highest first:
-//   1. manual dictionary entries (typed by the user),
-//   2. the glossary's canonical forms (never its "heard as" spellings),
-//   3. snippet triggers (included as before, so a spoken trigger survives),
-//   4. auto-learned dictionary entries.
+//   1. pinned dictionary words (the user's "always send first"),
+//   2. manual dictionary entries (typed by the user),
+//   3. the glossary's canonical forms (never its "heard as" spellings),
+//   4. snippet triggers (included as before, so a spoken trigger survives),
+//   5. auto-learned dictionary entries.
 //
 // Whisper-family decoders (whisper-1, Groq's whisper-large-v3, whisper.cpp)
 // read only the last ~223 tokens of a prompt, so for them ("tail" order) the
@@ -27,13 +28,14 @@ import {
   dictionaryPromptLimit,
 } from "./dictionaryPromptCap.js";
 import { usesTranscriptionKeywords } from "./dictionaryKeywords.js";
+import { dictionaryWordKey } from "./dictionaryWordKey.js";
 import {
   AZURE_SPEECH_MAX_PHRASES,
   AZURE_SPEECH_PROVIDER_ID,
 } from "../helpers/azureSpeechTranscription.js";
 import type { Snippet } from "./snippets";
 
-export type HintSource = "manual" | "glossary" | "snippet" | "learned";
+export type HintSource = "pinned" | "manual" | "glossary" | "snippet" | "learned";
 export type HintCoverage = "read" | "unread" | "notSent";
 export type HintOrder = "tail" | "head";
 
@@ -74,13 +76,15 @@ export interface HintTarget {
 }
 
 export const HINT_SEPARATOR = ", ";
-const PRIORITY: HintSource[] = ["manual", "glossary", "snippet", "learned"];
+const PRIORITY: HintSource[] = ["pinned", "manual", "glossary", "snippet", "learned"];
 
 export interface BuildDictionaryHintsOptions {
   /** Stored dictionary words, in stored order. */
   dictionary?: readonly string[] | null;
   /** Lowercased words whose source is "learned"; any other word counts as manual. */
   learnedWords?: Iterable<string> | null;
+  /** Pinned words' keys (dictionaryWordKey); a pinned word leads, whatever its source. */
+  pinnedWords?: Iterable<string> | null;
   /** Canonical forms of the active glossary rules. */
   glossaryTerms?: readonly string[] | null;
   snippets?: readonly Snippet[] | null;
@@ -95,6 +99,7 @@ export interface BuildDictionaryHintsOptions {
 export function buildDictionaryHints({
   dictionary,
   learnedWords,
+  pinnedWords,
   glossaryTerms,
   snippets,
   includeSnippets = true,
@@ -107,7 +112,13 @@ export function buildDictionaryHints({
   for (const word of learnedWords ?? []) {
     if (typeof word === "string") learned.add(word.trim().toLowerCase());
   }
+  const pinned = new Set<string>();
+  for (const word of pinnedWords ?? []) {
+    const key = dictionaryWordKey(word);
+    if (key) pinned.add(key);
+  }
   const tiers: Record<HintSource, string[]> = {
+    pinned: [],
     manual: [],
     glossary: [],
     snippet: [],
@@ -124,6 +135,11 @@ export function buildDictionaryHints({
     tiers[source].push(term);
   };
   const words = Array.isArray(dictionary) ? dictionary : [];
+  if (pinned.size > 0) {
+    for (const word of words) {
+      if (typeof word === "string" && pinned.has(dictionaryWordKey(word))) add("pinned", word);
+    }
+  }
   for (const word of words) {
     if (typeof word === "string" && !learned.has(word.trim().toLowerCase())) add("manual", word);
   }

@@ -141,14 +141,15 @@ function findSubstitutions(origWords, editedWords) {
 }
 
 /**
- * Extract corrected words from a user's edits to pasted transcription text.
+ * Extract corrected words from a user's edits to pasted transcription text,
+ * each with the word it replaced.
  *
  * @param {string} originalText - The text that was originally pasted (from transcription)
  * @param {string} fieldValue - The current value of the text field (after user edits)
  * @param {string[]} existingDictionary - Words already in the custom dictionary
- * @returns {string[]} Array of corrected words to add to the dictionary
+ * @returns {{ word: string, replaced: string }[]} Corrected words and what each replaced
  */
-function extractCorrections(originalText, fieldValue, existingDictionary) {
+function extractCorrectionPairs(originalText, fieldValue, existingDictionary) {
   if (!originalText || !fieldValue) return [];
   if (originalText === fieldValue) return [];
 
@@ -184,11 +185,21 @@ function extractCorrections(originalText, fieldValue, existingDictionary) {
     const maxLen = Math.max(origWord.length, correctedWord.length);
     if (dist / maxLen > 0.65) continue;
 
-    results.push(correctedWord);
+    results.push({ word: correctedWord, replaced: origWord });
     seenCorrections.add(normalizedCorrected);
   }
 
   return results;
 }
 
-module.exports = { extractCorrections };
+/**
+ * Extract corrected words from a user's edits to pasted transcription text.
+ * Returns corrected words to add to the custom dictionary.
+ */
+function extractCorrections(originalText, fieldValue, existingDictionary) {
+  return extractCorrectionPairs(originalText, fieldValue, existingDictionary).map(
+    (pair) => pair.word
+  );
+}
+
+module.exports = { extractCorrectionPairs, extractCorrections };

@@ -34,6 +34,16 @@ const { ownerKeyFor } = require("./stepHistory");
 const { historyRevision } = require("./dictationFeedback");
 // ESM, through require(esm): the failed-step rule the History list shares.
 const { STEP_FAILURE_KINDS, STEP_FAILURE_OUTCOMES } = require("./stepFailure.js");
+// ESM, through require(esm): the one identity of a dictionary word.
+const { dictionaryWordKey } = require("../utils/dictionaryWordKey.js");
+
+// A learned word's evidence (dictionary_word_evidence): how many rows per word
+// and owner, how much of what it replaced, and the window a paste's dictation
+// must have been saved in (the save starts before the paste; it may land just after).
+const EVIDENCE_PER_WORD = 5;
+const EVIDENCE_REPLACED_MAX = 200;
+const EVIDENCE_LOOKBACK_MS = 10 * 60 * 1000;
+const EVIDENCE_SAVE_SLACK_MS = 60 * 1000;
 
 // Server-enforced trigger cap (openwhispr-api); enforced here so one oversized
 // trigger can't 400 the whole sync batch.
@@ -1599,7 +1609,30 @@ class DatabaseManager {
         this.promptTestCasesReady = false;
         debugLogger.error("Prompt test cases unavailable", { error: error.message }, "database");
       }
-      // Step history's and reviews' ON DELETE CASCADE need foreign keys. better-sqlite3
+      try {
+        this._initDictionaryState();
+      } catch (error) {
+        // Pins, suggestions and their evidence are aids: without their tables
+        // the dictionary itself works as before, and the history database opens.
+        this.dictionaryStateReady = false;
+        debugLogger.error(
+          "Dictionary pins and suggestions unavailable",
+          { error: error.message },
+          "database"
+        );
+      }
+      try {
+        this._initHistoryContentRevision();
+      } catch (error) {
+        // Without it the heard/written counts are recomputed on every request.
+        this.historyContentRevisionReady = false;
+        debugLogger.error(
+          "History content revision unavailable",
+          { error: error.message },
+          "database"
+        );
+      }
+      // Step history's, reviews' and evidence's ON DELETE CASCADE need foreign keys. better-sqlite3
       // turns them on by default and the folders rebuild above restores them,
       // but say so once more after every migration rather than rely on both.
       this.db.pragma("foreign_keys = ON");
@@ -2283,6 +2316,7 @@ class DatabaseManager {
         // keep none, and the hard-deleted ones would cascade anyway.
         this._deleteTranscriptionSteps("1 = 1");
         this._deleteDictationFeedback("1 = 1");
+        this._deleteDictionaryWordEvidence("1 = 1");
         const cleared = tombstone.run().changes + hardDelete.run().changes;
         updateDeviceClearState.run(clearedThrough);
         // The account-wide cutoff is what erases rows this device no longer
@@ -2358,6 +2392,7 @@ class DatabaseManager {
            )`;
         this._deleteTranscriptionSteps(tombstoned, cutoff);
         this._deleteDictationFeedback(tombstoned, cutoff);
+        this._deleteDictionaryWordEvidence(tombstoned, cutoff);
         tombstone.run(cutoff);
         hardDelete.run(cutoff);
         analyticsPurged =
@@ -2395,6 +2430,7 @@ class DatabaseManager {
       const result = this.db.transaction(() => {
         this._deleteTranscriptionSteps("transcription_id = ?", id);
         this._deleteDictationFeedback("transcription_id = ?", id);
+        this._deleteDictionaryWordEvidence("transcription_id = ?", id);
         return tombstone.run(id);
       })();
       return { success: result.changes > 0, id };
@@ -2614,6 +2650,14 @@ class DatabaseManager {
   _deleteDictationFeedback(whereSql, ...params) {
     if (!this.dictationFeedbackReady) return 0;
     return this.db.prepare(`DELETE FROM dictation_feedback WHERE ${whereSql}`).run(...params)
+      .changes;
+  }
+
+  // What a suggested word replaced, and where (see _initDictionaryState).
+  // Inside a caller's transaction; a no-op without the table.
+  _deleteDictionaryWordEvidence(whereSql, ...params) {
+    if (!this.dictionaryStateReady) return 0;
+    return this.db.prepare(`DELETE FROM dictionary_word_evidence WHERE ${whereSql}`).run(...params)
       .changes;
   }
 
@@ -3227,6 +3271,433 @@ class DatabaseManager {
     }
   }
 
+  // ─── Dictionary pins, suggestions and evidence ─────────────────────────
+  // Local only, never synced: upstream sync carries a dictionary row's word
+  // and source, so nothing else may ride on custom_dictionary. All three are
+  // keyed by dictionaryWordKey (trimmed, NFC, lowercased).
+  // - dictionary_pins: words always sent first. A pin follows its word
+  //   through every mutation below (delete, rename, replace, cloud pull).
+  // - dictionary_suggestions: auto-learn's inbox in Suggest mode. Device-wide
+  //   vocabulary state: the word and the user's decision, nothing from History.
+  // - dictionary_word_evidence: what a learned word replaced, in which app,
+  //   for which dictation. Owner-scoped and retired with History like the
+  //   reviews: a physical delete cascades, and every tombstone, clear-all,
+  //   expiry and account deletion deletes it in its own transaction.
+  _initDictionaryState() {
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS dictionary_pins (
+        word_key TEXT PRIMARY KEY,
+        pinned_at TEXT NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS dictionary_suggestions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        word TEXT NOT NULL,
+        word_key TEXT NOT NULL UNIQUE,
+        times INTEGER NOT NULL DEFAULT 1,
+        status TEXT NOT NULL CHECK (status IN ('pending', 'dismissed', 'accepted')),
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS dictionary_word_evidence (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        word_key TEXT NOT NULL,
+        owner TEXT NOT NULL,
+        transcription_id INTEGER NOT NULL
+          REFERENCES transcriptions(id) ON DELETE CASCADE,
+        replaced TEXT NOT NULL,
+        app TEXT,
+        created_at TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_dictionary_word_evidence_owner
+        ON dictionary_word_evidence(owner, word_key);
+      CREATE INDEX IF NOT EXISTS idx_dictionary_word_evidence_transcription
+        ON dictionary_word_evidence(transcription_id);
+    `);
+    this.dictionaryStateReady = true;
+  }
+
+  // Every write that can change what a transcription's text is (insert, a
+  // text or status rewrite, a tombstone, a delete) bumps one counter, so the
+  // heard/written counts know when to recompute (dictionaryUsage.js). Triggers,
+  // so no write path can be missed. The counter means nothing across devices.
+  _initHistoryContentRevision() {
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS history_content_revision (
+        id INTEGER PRIMARY KEY CHECK (id = 1),
+        revision INTEGER NOT NULL DEFAULT 0
+      );
+      INSERT OR IGNORE INTO history_content_revision (id, revision) VALUES (1, 0);
+      CREATE TRIGGER IF NOT EXISTS transcriptions_content_revision_insert
+      AFTER INSERT ON transcriptions
+      BEGIN
+        UPDATE history_content_revision SET revision = revision + 1 WHERE id = 1;
+      END;
+      CREATE TRIGGER IF NOT EXISTS transcriptions_content_revision_update
+      AFTER UPDATE OF text, raw_text, status, deleted_at, route_kind, created_at ON transcriptions
+      BEGIN
+        UPDATE history_content_revision SET revision = revision + 1 WHERE id = 1;
+      END;
+      CREATE TRIGGER IF NOT EXISTS transcriptions_content_revision_delete
+      AFTER DELETE ON transcriptions
+      BEGIN
+        UPDATE history_content_revision SET revision = revision + 1 WHERE id = 1;
+      END;
+    `);
+    this.historyContentRevisionReady = true;
+  }
+
+  /** The transcription content revision; null when it can't be read (recompute every time). */
+  getHistoryContentRevision() {
+    if (!this.db || !this.historyContentRevisionReady) return null;
+    try {
+      return (
+        this.db.prepare("SELECT revision FROM history_content_revision WHERE id = 1").get()
+          ?.revision ?? null
+      );
+    } catch {
+      return null;
+    }
+  }
+
+  // The keys of the live dictionary words, for the mutations below.
+  _liveDictionaryKeys() {
+    const keys = new Set();
+    for (const row of this.db
+      .prepare("SELECT word FROM custom_dictionary WHERE deleted_at IS NULL")
+      .all()) {
+      const key = dictionaryWordKey(row.word);
+      if (key) keys.add(key);
+    }
+    return keys;
+  }
+
+  // Drops every pin whose word left the dictionary. Called inside each
+  // dictionary mutation's transaction, so a pin never outlives its word,
+  // whichever path removed it (a delete, a replacement, a cloud pull).
+  _pruneDictionaryPins() {
+    if (!this.dictionaryStateReady) return 0;
+    const live = this._liveDictionaryKeys();
+    let removed = 0;
+    const drop = this.db.prepare("DELETE FROM dictionary_pins WHERE word_key = ?");
+    for (const { word_key: key } of this.db.prepare("SELECT word_key FROM dictionary_pins").all()) {
+      if (!live.has(key)) removed += drop.run(key).changes;
+    }
+    return removed;
+  }
+
+  // A renamed word keeps its pin (inside the rename's transaction).
+  _moveDictionaryPin(fromWord, toWord) {
+    if (!this.dictionaryStateReady) return;
+    const from = dictionaryWordKey(fromWord);
+    const to = dictionaryWordKey(toWord);
+    if (!from || !to || from === to) return;
+    const pin = this.db
+      .prepare("SELECT pinned_at FROM dictionary_pins WHERE word_key = ?")
+      .get(from);
+    if (!pin) return;
+    this.db.prepare("DELETE FROM dictionary_pins WHERE word_key = ?").run(from);
+    this.db
+      .prepare("INSERT OR REPLACE INTO dictionary_pins (word_key, pinned_at) VALUES (?, ?)")
+      .run(to, pin.pinned_at);
+  }
+
+  /** The pinned words' keys, oldest pin first. */
+  getDictionaryPins() {
+    if (!this.db) throw new Error("Database not initialized");
+    if (!this.dictionaryStateReady) return [];
+    return this.db
+      .prepare("SELECT word_key FROM dictionary_pins ORDER BY pinned_at ASC, word_key ASC")
+      .all()
+      .map((row) => row.word_key);
+  }
+
+  /**
+   * Pins or unpins one dictionary word. Only a word in the dictionary can be
+   * pinned (NOT_IN_DICTIONARY otherwise); unpinning is always allowed.
+   */
+  setDictionaryPin(word, pinned, { now = () => new Date().toISOString() } = {}) {
+    if (!this.db) throw new Error("Database not initialized");
+    if (!this.dictionaryStateReady) return { success: false, code: "UNAVAILABLE" };
+    const key = dictionaryWordKey(word);
+    if (!key) return { success: false, code: "INVALID_WORD" };
+    let changed = false;
+    let code = null;
+    this.db.transaction(() => {
+      if (pinned) {
+        if (!this._liveDictionaryKeys().has(key)) {
+          code = "NOT_IN_DICTIONARY";
+          return;
+        }
+        changed =
+          this.db
+            .prepare("INSERT OR IGNORE INTO dictionary_pins (word_key, pinned_at) VALUES (?, ?)")
+            .run(key, now()).changes > 0;
+      } else {
+        changed =
+          this.db.prepare("DELETE FROM dictionary_pins WHERE word_key = ?").run(key).changes > 0;
+      }
+    })();
+    if (code) return { success: false, code };
+    return { success: true, changed, pins: this.getDictionaryPins() };
+  }
+
+  /**
+   * Auto-learn in Suggest mode: records each word as a pending suggestion.
+   * A word already in the dictionary, or dismissed before, is never
+   * suggested; a pending one learned again counts once more; an accepted
+   * one whose word has since left the dictionary is suggested again.
+   * Returns the suggestions now pending for these words (`{ id, word, key }`).
+   */
+  recordDictionarySuggestions(words, { now = () => new Date().toISOString() } = {}) {
+    if (!this.db) throw new Error("Database not initialized");
+    if (!this.dictionaryStateReady || !Array.isArray(words)) return [];
+    const pending = [];
+    this.db.transaction(() => {
+      const live = this._liveDictionaryKeys();
+      const seen = new Set();
+      const select = this.db.prepare(
+        "SELECT id, status FROM dictionary_suggestions WHERE word_key = ?"
+      );
+      for (const raw of words) {
+        const word = typeof raw === "string" ? raw.trim().normalize("NFC") : "";
+        const key = dictionaryWordKey(word);
+        if (!key || seen.has(key) || live.has(key)) continue;
+        seen.add(key);
+        const at = now();
+        const existing = select.get(key);
+        if (!existing) {
+          const inserted = this.db
+            .prepare(
+              `INSERT INTO dictionary_suggestions (word, word_key, times, status, created_at, updated_at)
+               VALUES (?, ?, 1, 'pending', ?, ?)`
+            )
+            .run(word, key, at, at);
+          pending.push({ id: Number(inserted.lastInsertRowid), word, key });
+        } else if (existing.status === "pending") {
+          this.db
+            .prepare(
+              "UPDATE dictionary_suggestions SET times = times + 1, word = ?, updated_at = ? WHERE id = ?"
+            )
+            .run(word, at, existing.id);
+          pending.push({ id: existing.id, word, key });
+        } else if (existing.status === "accepted") {
+          this.db
+            .prepare(
+              `UPDATE dictionary_suggestions
+               SET status = 'pending', times = 1, word = ?, created_at = ?, updated_at = ?
+               WHERE id = ?`
+            )
+            .run(word, at, at, existing.id);
+          pending.push({ id: existing.id, word, key });
+        }
+        // Dismissed: never suggested again.
+      }
+    })();
+    return pending;
+  }
+
+  /** The pending suggestions, newest first, and how many words were dismissed. */
+  getDictionarySuggestions() {
+    if (!this.db) throw new Error("Database not initialized");
+    if (!this.dictionaryStateReady) return { suggestions: [], dismissed: 0 };
+    const suggestions = this.db
+      .prepare(
+        `SELECT id, word, word_key, times, created_at, updated_at FROM dictionary_suggestions
+         WHERE status = 'pending'
+         ORDER BY updated_at DESC, id DESC`
+      )
+      .all();
+    const dismissed =
+      this.db
+        .prepare("SELECT COUNT(*) AS n FROM dictionary_suggestions WHERE status = 'dismissed'")
+        .get()?.n ?? 0;
+    return { suggestions, dismissed };
+  }
+
+  _pendingSuggestions(ids) {
+    const list = (Array.isArray(ids) ? ids : []).filter((id) => Number.isInteger(id));
+    if (list.length === 0) return [];
+    return this.db
+      .prepare(
+        `SELECT id, word, word_key FROM dictionary_suggestions
+         WHERE status = 'pending' AND id IN (${list.map(() => "?").join(", ")})`
+      )
+      .all(...list);
+  }
+
+  /**
+   * Adds pending suggestions to the dictionary as learned words and marks them
+   * accepted, in one transaction. Accepting again changes nothing. The
+   * evidence stays: the word's detail shows it later.
+   */
+  acceptDictionarySuggestions(ids, { now = () => new Date().toISOString() } = {}) {
+    if (!this.db) throw new Error("Database not initialized");
+    if (!this.dictionaryStateReady) return { success: false, code: "UNAVAILABLE" };
+    let accepted = [];
+    let added = 0;
+    this.db.transaction(() => {
+      const rows = this._pendingSuggestions(ids);
+      if (rows.length === 0) return;
+      added = this.applyDictionaryChanges({ add: rows.map((row) => row.word) }, "learned").added;
+      const mark = this.db.prepare(
+        "UPDATE dictionary_suggestions SET status = 'accepted', updated_at = ? WHERE id = ?"
+      );
+      const at = now();
+      for (const row of rows) mark.run(at, row.id);
+      accepted = rows.map((row) => row.word);
+    })();
+    return { success: true, accepted, added };
+  }
+
+  /** Dismisses pending suggestions: their words are never suggested again. */
+  dismissDictionarySuggestions(ids, { now = () => new Date().toISOString() } = {}) {
+    if (!this.db) throw new Error("Database not initialized");
+    if (!this.dictionaryStateReady) return { success: false, code: "UNAVAILABLE" };
+    let dismissed = 0;
+    this.db.transaction(() => {
+      const mark = this.db.prepare(
+        "UPDATE dictionary_suggestions SET status = 'dismissed', updated_at = ? WHERE id = ?"
+      );
+      const at = now();
+      for (const row of this._pendingSuggestions(ids)) dismissed += mark.run(at, row.id).changes;
+    })();
+    return { success: true, dismissed };
+  }
+
+  /** Forgets every dismissed word, so auto-learn may suggest it again. */
+  clearDismissedDictionarySuggestions() {
+    if (!this.db) throw new Error("Database not initialized");
+    if (!this.dictionaryStateReady) return { success: false, code: "UNAVAILABLE" };
+    const cleared = this.db
+      .prepare("DELETE FROM dictionary_suggestions WHERE status = 'dismissed'")
+      .run().changes;
+    return { success: true, cleared };
+  }
+
+  /**
+   * The dictation a learned word's evidence belongs to: this owner's newest
+   * completed, non-deleted row whose final text is the pasted text, saved in
+   * the 10 minutes before the paste (a minute after it, for a save that was
+   * still landing). Null when there's none. The text is compared, never logged.
+   */
+  findEvidenceTranscription(owner, pastedText, pastedAtMs) {
+    if (!this.db) throw new Error("Database not initialized");
+    if (!owner || !this.stepHistoryReady || typeof pastedText !== "string") return null;
+    const text = pastedText.trim();
+    if (!text || !Number.isFinite(pastedAtMs)) return null;
+    const sqliteTime = (ms) => new Date(ms).toISOString().slice(0, 19).replace("T", " ");
+    const row = this.db
+      .prepare(
+        `SELECT t.id FROM transcriptions t
+         WHERE t.deleted_at IS NULL AND t.status = 'completed'
+           AND trim(t.text) = ?
+           AND t.created_at >= ? AND t.created_at <= ?
+           AND EXISTS (
+             SELECT 1 FROM transcription_steps s
+             WHERE s.transcription_id = t.id AND s.owner = ?
+           )
+         ORDER BY t.created_at DESC, t.id DESC
+         LIMIT 1`
+      )
+      .get(
+        text,
+        sqliteTime(pastedAtMs - EVIDENCE_LOOKBACK_MS),
+        sqliteTime(pastedAtMs + EVIDENCE_SAVE_SLACK_MS),
+        owner
+      );
+    return row ? row.id : null;
+  }
+
+  /**
+   * One piece of evidence for a learned word: what it replaced (capped), the
+   * app (an exe name or null) and the dictation. At most
+   * EVIDENCE_PER_WORD rows per word and owner; the oldest goes.
+   */
+  addDictionaryWordEvidence({ word, owner, transcriptionId, replaced, app = null, now = null }) {
+    if (!this.db) throw new Error("Database not initialized");
+    if (!this.dictionaryStateReady) return false;
+    const key = dictionaryWordKey(word);
+    const text =
+      typeof replaced === "string" ? replaced.trim().slice(0, EVIDENCE_REPLACED_MAX) : "";
+    if (!key || !owner || !Number.isInteger(transcriptionId) || !text) return false;
+    const appName = typeof app === "string" && app.trim() ? app.trim().slice(0, 200) : null;
+    const at = typeof now === "string" ? now : new Date().toISOString();
+    let saved = false;
+    this.db.transaction(() => {
+      const live = this.db
+        .prepare("SELECT 1 FROM transcriptions WHERE id = ? AND deleted_at IS NULL")
+        .get(transcriptionId);
+      if (!live) return;
+      this.db
+        .prepare(
+          `INSERT INTO dictionary_word_evidence
+             (word_key, owner, transcription_id, replaced, app, created_at)
+           VALUES (?, ?, ?, ?, ?, ?)`
+        )
+        .run(key, owner, transcriptionId, text, appName, at);
+      this.db
+        .prepare(
+          `DELETE FROM dictionary_word_evidence
+           WHERE word_key = ? AND owner = ? AND id NOT IN (
+             SELECT id FROM dictionary_word_evidence
+             WHERE word_key = ? AND owner = ?
+             ORDER BY created_at DESC, id DESC
+             LIMIT ?
+           )`
+        )
+        .run(key, owner, key, owner, EVIDENCE_PER_WORD);
+      saved = true;
+    })();
+    return saved;
+  }
+
+  /** This owner's evidence for the given keys (all keys when omitted), newest first. */
+  getDictionaryWordEvidence(owner, keys = null) {
+    if (!this.db) throw new Error("Database not initialized");
+    if (!owner || !this.dictionaryStateReady) return [];
+    const filter = Array.isArray(keys) && keys.length > 0;
+    return this.db
+      .prepare(
+        `SELECT e.word_key, e.transcription_id, e.replaced, e.app, e.created_at
+         FROM dictionary_word_evidence e
+         JOIN transcriptions t ON t.id = e.transcription_id
+         WHERE e.owner = ? AND t.deleted_at IS NULL
+           ${filter ? `AND e.word_key IN (${keys.map(() => "?").join(", ")})` : ""}
+         ORDER BY e.created_at DESC, e.id DESC`
+      )
+      .all(owner, ...(filter ? keys : []));
+  }
+
+  /**
+   * The rows the heard/written counts read (dictionaryUsage.js): completed,
+   * not deleted, created since `since` (SQLite's time format), with a raw
+   * transcript. Translations (route_kind) and the assistant's answers (the
+   * owner's trace route or intent) are left out: their final text isn't
+   * what the user said. Text only, never logged.
+   */
+  getDictionaryUsageRows({ owner = null, since }) {
+    if (!this.db) throw new Error("Database not initialized");
+    const assistant =
+      owner && this.stepHistoryReady
+        ? `AND NOT EXISTS (
+             SELECT 1 FROM transcription_steps s
+             WHERE s.transcription_id = t.id AND s.owner = ?
+               AND (s.route = 'agent' OR s.context LIKE '%"voiceAgent":true%')
+           )`
+        : "";
+    return this.db
+      .prepare(
+        `SELECT t.raw_text AS raw, COALESCE(NULLIF(t.text, ''), t.raw_text) AS final
+         FROM transcriptions t
+         WHERE t.deleted_at IS NULL AND t.status = 'completed'
+           AND t.created_at >= ?
+           AND t.raw_text IS NOT NULL AND t.raw_text <> ''
+           AND COALESCE(t.route_kind, '') <> 'translation'
+           ${assistant}`
+      )
+      .all(since, ...(assistant ? [owner] : []));
+  }
+
   // ─── Glossary rules ────────────────────────────────────────────────────
   // Corrections applied to the speech-to-text output before cleanup (see
   // glossaryRules.js). Device-wide like settings, local-only, never synced;
@@ -3472,6 +3943,8 @@ class DatabaseManager {
         for (const [lower, word] of additions) {
           if (this._upsertDictionaryWord(stmts, word, byLower.get(lower), source)) added += 1;
         }
+        // A removed word's pin goes with it.
+        if (removed > 0) this._pruneDictionaryPins();
       })();
 
       return { success: true, added, removed };
@@ -3504,6 +3977,7 @@ class DatabaseManager {
         for (const [lower, word] of incomingByLower) {
           this._upsertDictionaryWord(stmts, word, byLower.get(lower), sourceForNewWords);
         }
+        this._pruneDictionaryPins();
       })();
 
       return { success: true };
@@ -3548,7 +4022,12 @@ class DatabaseManager {
   hardDeleteDictionaryEntry(id) {
     try {
       if (!this.db) throw new Error("Database not initialized");
-      const result = this.db.prepare("DELETE FROM custom_dictionary WHERE id = ?").run(id);
+      // A cloud deletion pull removes a live row here: its pin goes with it.
+      const result = this.db.transaction(() => {
+        const deleted = this.db.prepare("DELETE FROM custom_dictionary WHERE id = ?").run(id);
+        if (deleted.changes > 0) this._pruneDictionaryPins();
+        return deleted;
+      })();
       return { success: result.changes > 0, id };
     } catch (error) {
       debugLogger.error(
@@ -3624,14 +4103,20 @@ class DatabaseManager {
         // Manual is sticky — a pull never demotes a local manual row to learned.
         const mergedSource =
           existing.source === "manual" || incomingSource === "manual" ? "manual" : "learned";
-        this.db
-          .prepare(
-            `UPDATE custom_dictionary
-             SET cloud_id = ?, client_dict_id = ?, word = ?, source = ?,
-                 sync_status = 'synced', deleted_at = NULL, updated_at = ?
-             WHERE id = ?`
-          )
-          .run(cloudEntry.id, clientDictId, word, mergedSource, updatedAt, existing.id);
+        this.db.transaction(() => {
+          this.db
+            .prepare(
+              `UPDATE custom_dictionary
+               SET cloud_id = ?, client_dict_id = ?, word = ?, source = ?,
+                   sync_status = 'synced', deleted_at = NULL, updated_at = ?
+               WHERE id = ?`
+            )
+            .run(cloudEntry.id, clientDictId, word, mergedSource, updatedAt, existing.id);
+          // A rename from another device keeps the word's pin (a live row only:
+          // a tombstoned one lost its pin when it was deleted).
+          if (!existing.deleted_at) this._moveDictionaryPin(existing.word, word);
+          this._pruneDictionaryPins();
+        })();
         return this.db.prepare("SELECT * FROM custom_dictionary WHERE id = ?").get(existing.id);
       }
 
@@ -4545,6 +5030,8 @@ class DatabaseManager {
       this._deleteTranscriptionSteps("owner = ?", ownerKeyFor(accountId));
       // Its reviews: corrections and notes nobody else may inherit.
       this._deleteDictationFeedback("owner = ?", ownerKeyFor(accountId));
+      // What its suggested words replaced, and where: the same.
+      this._deleteDictionaryWordEvidence("owner = ?", ownerKeyFor(accountId));
       // The account's test cases, the same way: copies of its dictations that
       // nobody else may inherit.
       if (this.promptTestCasesReady) {

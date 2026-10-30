@@ -615,7 +615,14 @@ class ReasoningService extends BaseReasoningService {
     // every dispatch below uses, so the request equals a real dictation's. The
     // captured prompt inputs (a test run's) feed that same resolution, and so
     // does a style folded into the request (one step).
-    const { onDispatch, cleanupPrompt, promptInputs, cleanupStyle, ...configWithoutHook } = config;
+    const {
+      onDispatch,
+      cleanupPrompt,
+      promptInputs,
+      cleanupStyle,
+      cleanupDictionary,
+      ...configWithoutHook
+    } = config;
     config = configWithoutHook;
     const managed = this.resolveManagedScope(model, config.provider, config, "dictationCleanup");
     ({ model, config } = managed);
@@ -695,9 +702,20 @@ class ReasoningService extends BaseReasoningService {
     }
 
     // A style only joins a cleanup request; a request with its own system prompt ignores it.
+    // So does cleanup's dictionary word set: it replaces the full list in this
+    // cleanup prompt (and in what Cloud is given), never in a system-prompt request.
+    const inputs =
+      promptInputs ??
+      (cleanupDictionary && !dispatchConfig.systemPrompt
+        ? {
+            customDictionary: [...cleanupDictionary.words],
+            preferredLanguage: this.getPreferredLanguage(),
+            uiLanguage: this.getUiLanguage(),
+          }
+        : undefined);
     const ctx = this.providerContextFor(
       cleanupTemplate,
-      promptInputs,
+      inputs,
       !dispatchConfig.systemPrompt && cleanupStyle?.block ? cleanupStyle : undefined
     );
     if (onDispatch) {

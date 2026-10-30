@@ -12,6 +12,7 @@ import {
   type StyleLibrary,
 } from "../../config/styles/library";
 import { activeGlossaryRules, type GlossaryRule } from "../../utils/glossary";
+import { normalizeAutoLearnMode } from "../../utils/autoLearnMode";
 import { formatHotkeyListLabel } from "../../utils/hotkeys";
 import type {
   TranscriptionItem,
@@ -70,8 +71,6 @@ export interface DictationPipelineInput {
   styleLibrary: StyleLibrary;
   styleBindings: readonly StyleHotkeyBinding[];
   glossaryRules: readonly GlossaryRule[] | null | undefined;
-  /** Auto-learn from corrections (a localStorage preference SettingsPage owns, not a store field). */
-  autoLearn: boolean;
   t: Translate;
 }
 
@@ -167,7 +166,13 @@ export function buildDictationPipeline(input: DictationPipelineInput): OverviewN
     id: "output",
     title: t(SETTINGS_PAGES.output.titleKey),
     value: settingState("settingsPage.general.clipboard.autoPaste", !!settings.autoPasteEnabled),
-    status: settingState("settingsPage.dictionary.autoLearnTitle", input.autoLearn),
+    // "Learn from your corrections: Suggest" (or Add directly, or Off).
+    status: t("settingsOverview.pipeline.settingState", {
+      setting: t("settingsPage.dictionary.autoLearnTitle"),
+      state: t(
+        `settingsPage.dictionary.autoLearnModes.${normalizeAutoLearnMode(settings.autoLearnMode)}`
+      ),
+    }),
     target: { kind: "page", page: "output" },
   };
 

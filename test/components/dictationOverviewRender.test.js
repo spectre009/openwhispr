@@ -145,7 +145,6 @@ test(
           SettingsLinkContext.Provider,
           { value: (destination) => links.push(destination) },
           h(DictationOverview, {
-            autoLearnCorrections: true,
             onNavigate: (page) => navigations.push(page),
             onOpenElsewhere: (location) => elsewhere.push(location),
           })
@@ -175,7 +174,7 @@ test(
     assert.equal(node("personality").tagName, "DIV");
     assert.equal(node("personality").getAttribute("aria-disabled"), "true");
     assert.match(node("personality").textContent, /Planned/);
-    assert.match(node("output").textContent, /Auto-learn from corrections: On/);
+    assert.match(node("output").textContent, /Learn from your corrections: Suggest/);
 
     // The hotkeys card: the dictation hotkey and its mode, linking to the Hotkeys page.
     const hotkeys = doc.querySelector("[data-overview-hotkeys]");

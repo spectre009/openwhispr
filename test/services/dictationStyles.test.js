@@ -160,7 +160,12 @@ test("one step: the cleanup request with the style folded in and named last", as
   assert.equal(call.config.cleanupStyle, undefined, "the style never crosses IPC as an option");
 
   const style = post.trace.steps.find((s) => s.kind === "style");
-  assert.deepEqual(style.detail, { styleId: STYLE.id, runMode: "one-step" });
+  // One step is the cleanup request: its step records the dictionary words it carried.
+  assert.deepEqual(style.detail, {
+    styleId: STYLE.id,
+    runMode: "one-step",
+    dictionaryScope: { setting: "all", applied: "all", words: 0 },
+  });
   assert.equal(style.prompt.text, call.config.systemPrompt);
   assert.equal(style.prompt.entryId, "default", "the cleanup prompt in use");
   assert.equal(post.trace.steps.filter((s) => s.kind === "cleanup").length, 0);

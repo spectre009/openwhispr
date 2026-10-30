@@ -16,6 +16,7 @@ import {
   stepOutcomeLabel,
   stepReusedLabel,
   styleStepFacts,
+  dictionaryScopeFact,
 } from "../ui/transcriptionStepLabels";
 import { showInFolderLabelKey, useAddToTestSet } from "../ui/historyActions";
 import {
@@ -180,6 +181,7 @@ function StepCard({
   const reused = stepReusedLabel(step, t);
   const facts = [
     ...styleStepFacts(step, styleLibrary, t),
+    dictionaryScopeFact(step, t),
     step.provider,
     step.model,
     step.ms !== null && step.ms !== undefined

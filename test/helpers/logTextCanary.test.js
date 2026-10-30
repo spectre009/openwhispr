@@ -111,7 +111,8 @@ function anything() {
 const Handlers = IPCHandlers.default || IPCHandlers;
 const target = {
   sessionId: "canary-session",
-  _autoLearnEnabled: true,
+  _autoLearnMode: "add",
+  _autoLearnSynced: true,
   _autoLearnPasteSeq: 0,
   selectionManager: null,
   windowManager: { isOnboardingDemoActive: () => false, showDictationPanel: () => {} },
@@ -119,10 +120,20 @@ const target = {
   databaseManager: {
     applyDictionaryChanges: () => ({ success: true }),
     getDictionary: () => [],
+    // Suggest mode: the inbox and the evidence, as main's database answers.
+    recordDictionarySuggestions: (words) =>
+      words.map((word, index) => ({ id: index + 1, word, key: word.toLowerCase() })),
+    findEvidenceTranscription: () => 7,
+    addDictionaryWordEvidence: () => true,
   },
+  stepHistory: { currentOwner: () => "signed-out" },
+  _historyPolicy: () => ({ synced: true, enabled: true, forcedOff: false, resolved: true }),
   _getDictionarySafe: () => [],
   _withoutGlossaryWords: (words) => words,
+  _autoLearnArmed: Handlers.prototype._autoLearnArmed,
   _processCorrections: Handlers.prototype._processCorrections,
+  _suggestCorrections: Handlers.prototype._suggestCorrections,
+  _recordCorrectionEvidence: Handlers.prototype._recordCorrectionEvidence,
 };
 const ipc = new Proxy(target, {
   get: (value, property) => (property in value ? value[property] : anything()),
@@ -189,6 +200,42 @@ async function autoLearn(t) {
   onEdit({
     originalText: `please email ${MARKER}bob about the plan`,
     newFieldValue: `please email ${MARKER}rob about the plan`,
+  });
+  flush();
+  restore();
+}
+
+// Suggest mode: the learned word, what it replaced and the app the paste went
+// to become a suggestion with evidence. The app never appears in a log; the
+// words only inside the edit's own dictated-text snippets.
+const LEARNED_MARKER = "zqxlearnedword";
+const REPLACED_MARKER = "zqxreplacedword";
+const APP_MARKER = "zqxcanaryapp.exe";
+async function autoLearnSuggest(t) {
+  const { flush, restore } = captureTimers(t);
+  let onEdit = null;
+  const pasted = `please ask ${REPLACED_MARKER} about the plan`;
+  target._autoLearnMode = "suggest";
+  t.after(() => {
+    target._autoLearnMode = "add";
+  });
+  target.textEditMonitor = {
+    lastTargetPid: 42,
+    activateTargetPid: async () => true,
+    startMonitoring: () => {},
+    stopMonitoring: () => {},
+    on: (event, handler) => {
+      if (event === "text-edited") onEdit = handler;
+    },
+  };
+  await handlers.get("paste-text")({ sender: { id: 1 } }, pasted, {});
+  flush();
+  // The paste's target app (Windows reports its exe name).
+  if (target._autoLearnPasteContext) target._autoLearnPasteContext.app = APP_MARKER;
+  Handlers.prototype._setupTextEditMonitor.call(ipc);
+  onEdit({
+    originalText: pasted,
+    newFieldValue: `please ask ${LEARNED_MARKER} about the plan`,
   });
   flush();
   restore();
@@ -397,6 +444,7 @@ async function rendererReasoning(t, includeText) {
 
 async function driveEverything(t, includeText) {
   await autoLearn(t);
+  await autoLearnSuggest(t);
   await textMonitor();
   await whisperServer();
   await localCleanup();
@@ -450,6 +498,11 @@ test("with Include dictated text off, no written log holds the dictated text", a
   assert.equal(written.includes(BASE64), false, "nor its base64");
   assert.equal(written.includes("Dana"), false, "nor any other word of it");
   assert.match(written, /"chars": \d+,\s+"words": \d+/, "only its size");
+  // Suggest mode ran, and logged counts only: no word, no replaced text, no app.
+  assert.ok(written.includes("[AutoLearn] Suggested"), "the suggestion was logged");
+  for (const marker of [LEARNED_MARKER, REPLACED_MARKER, APP_MARKER]) {
+    assert.equal(written.includes(marker), false, `${marker} never reaches the log`);
+  }
 });
 
 test("with Include dictated text on, it appears only as snippets of at most 80 characters", async (t) => {
@@ -473,6 +526,19 @@ test("with Include dictated text on, it appears only as snippets of at most 80 c
     assert.ok(Array.from(JSON.parse(match[1])).length <= 80, "at most 80 characters");
   }
   assert.equal(text.includes(BASE64), false, "never the raw base64");
+  // Suggest mode: the app is never logged, and the learned and replaced words
+  // only inside the edit's own dictated-text snippets, never in what the
+  // suggestion or its evidence logs.
+  assert.equal(text.includes(APP_MARKER), false, "the app never reaches the log");
+  for (const marker of [LEARNED_MARKER, REPLACED_MARKER]) {
+    for (const line of text.split("\n").filter((entry) => entry.includes(marker))) {
+      assert.match(
+        line,
+        /^\s*"(?:text)": "/,
+        `${marker} only inside a snippet: ${line.trim().slice(0, 120)}`
+      );
+    }
+  }
   // The renderer learned the switch too.
   assert.ok(
     text.split("TRANSCRIPTION_RECEIVED")[1]?.includes(MARKER),

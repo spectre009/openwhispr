@@ -149,6 +149,8 @@ import GpuDeviceSelector from "./settings/GpuDeviceSelector";
 import AiConnectionsPage from "./settings/AiConnectionsPage";
 import BuildInfoPanel from "./settings/BuildInfoPanel";
 import DictationOverview from "./settings/DictationOverview";
+import AutoLearnModeSetting from "./settings/AutoLearnModeSetting";
+import CleanupDictionaryWordsSetting from "./settings/CleanupDictionaryWordsSetting";
 import { HotkeyFeatureLink, HotkeyKbd, HotkeyTable, HotkeyTableRow } from "./settings/HotkeyTable";
 import type { ElsewhereLocation } from "./settings/search/types";
 import {
@@ -823,8 +825,6 @@ export default function SettingsPage({
     setMeetingKey,
     meetingHotkeyLayoutMode,
     setMeetingHotkeyLayoutMode,
-    autoLearnCorrections,
-    setAutoLearnCorrections,
     updateTranscriptionSettings,
     updateCleanupSettings,
     transcriptionMode,
@@ -3119,24 +3119,10 @@ export default function SettingsPage({
             {/* Dictionary */}
             {show("autoLearn") && (
               <div>
-                <SectionHeader
-                  title={t("settingsPage.dictionary.autoLearnTitle", {
-                    defaultValue: "Auto-learn from corrections",
-                  })}
-                />
+                <SectionHeader title={t("settingsPage.dictionary.autoLearnTitle")} />
                 <SettingsPanel>
                   <SettingsPanelRow data-setting-id="dictation.output.autoLearn">
-                    <SettingsRow
-                      label={t("settingsPage.dictionary.autoLearnTitle", {
-                        defaultValue: "Auto-learn from corrections",
-                      })}
-                      description={t("settingsPage.dictionary.autoLearnDescription", {
-                        defaultValue:
-                          "When you correct a transcription in the target app, the corrected word is automatically added to your dictionary.",
-                      })}
-                    >
-                      <Toggle checked={autoLearnCorrections} onChange={setAutoLearnCorrections} />
-                    </SettingsRow>
+                    <AutoLearnModeSetting />
                   </SettingsPanelRow>
                 </SettingsPanel>
               </div>
@@ -4563,13 +4549,7 @@ EOF`,
         return renderSectionContent(pageId);
 
       case "overview":
-        return (
-          <DictationOverview
-            autoLearnCorrections={autoLearnCorrections}
-            onNavigate={onNavigate}
-            onOpenElsewhere={onOpenElsewhere}
-          />
-        );
+        return <DictationOverview onNavigate={onNavigate} onOpenElsewhere={onOpenElsewhere} />;
 
       case "recognition":
         return (
@@ -4613,6 +4593,13 @@ EOF`,
                 enableToggleInHeader
                 toast={toast}
               />
+            )}
+            {useCleanupModel && (
+              <SettingsPanel>
+                <SettingsPanelRow data-setting-id="dictation.cleanup.dictionaryWords">
+                  <CleanupDictionaryWordsSetting />
+                </SettingsPanelRow>
+              </SettingsPanel>
             )}
             <div
               data-setting-id="dictation.cleanup.prompt"

@@ -1172,6 +1172,22 @@ class WindowManager {
     return request;
   }
 
+  // The auto-learn suggestion toast's Review: the Dictionary page with its
+  // suggestions, shown and held like a History request until the control
+  // panel asks (get-pending-dictionary-suggestions-request).
+  async queueDictionarySuggestionsRequest() {
+    this._pendingDictionarySuggestionsRequest = true;
+    await this.createControlPanelWindow();
+    this.showControlPanel();
+    this.sendToControlPanel("dictionary-suggestions-pending");
+  }
+
+  consumePendingDictionarySuggestionsRequest() {
+    const pending = this._pendingDictionarySuggestionsRequest === true;
+    this._pendingDictionarySuggestionsRequest = false;
+    return pending;
+  }
+
   // Visibility is part of "available": a ready pill that is merely hidden
   // (onboarding took the screen, a panel close hid it) cannot show a
   // recording, so counting it as a live surface would let dictation start

@@ -1,9 +1,13 @@
 import { selectResolvedLLMConfig, type SettingsState } from "../stores/settingsStore";
+import { selectCleanupDictionary } from "../utils/snippets";
+import type { ReasoningConfig } from "../services/BaseReasoningService";
 
 /**
  * The request options of a dictation's cleanup call, shared by the dictation
  * route (ordinary cleanup and the translation chain's cleanup step) and by
- * prompt tests, so a test sends exactly what a dictation would.
+ * prompt tests, so a test sends exactly what a dictation would. Each call
+ * decides the request's dictionary once (Settings › Dictation › Cleanup's word
+ * set): `cleanupDictionary` feeds the prompt, and its scope the step.
  */
 export function buildDictationCleanupConfig(settings: SettingsState) {
   const cleanup = selectResolvedLLMConfig(settings, "dictationCleanup");
@@ -19,5 +23,18 @@ export function buildDictationCleanupConfig(settings: SettingsState) {
     disableThinking: settings.cleanupDisableThinking,
     temperature,
     requireCompleteOutput: true,
+    cleanupDictionary: selectCleanupDictionary(settings),
   };
+}
+
+/**
+ * recordStep's meta for a cleanup request (or a one-step style, which is
+ * one): the dictionary word set its config carries, so the step records the
+ * same selection the prompt was built with. Empty when the config has none.
+ */
+export function cleanupStepMeta(
+  config: Pick<ReasoningConfig, "cleanupDictionary"> | null | undefined
+) {
+  const scope = config?.cleanupDictionary?.scope;
+  return scope ? { detail: { dictionaryScope: { ...scope } } } : {};
 }

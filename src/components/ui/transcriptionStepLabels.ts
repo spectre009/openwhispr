@@ -77,3 +77,26 @@ export function styleStepFacts(
         : null,
   ].filter((fact): fact is string => !!fact);
 }
+
+/**
+ * Which dictionary words a cleanup step (or a one-step style step) carried:
+ * "Dictionary: typed, pinned and missed (44 words)", and the set it fell back
+ * to when the chosen one couldn't be used. Null for other steps.
+ */
+export function dictionaryScopeFact(
+  step: Pick<TranscriptionStepRecord, "kind" | "detail">,
+  t: (key: string, options?: Record<string, unknown>) => string
+): string | null {
+  if (step.kind !== "cleanup" && step.kind !== "style") return null;
+  const scope = step.detail?.dictionaryScope;
+  if (!scope) return null;
+  const set = t(`controlPanel.history.steps.dictionaryScope.sets.${scope.applied}`);
+  if (scope.applied !== scope.setting) {
+    return t("controlPanel.history.steps.dictionaryScope.fellBack", {
+      set,
+      setting: t(`controlPanel.history.steps.dictionaryScope.sets.${scope.setting}`),
+      count: scope.words,
+    });
+  }
+  return t("controlPanel.history.steps.dictionaryScope.value", { set, count: scope.words });
+}

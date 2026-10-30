@@ -98,12 +98,50 @@ export function useMainProcessNotifications({
       }
     });
 
+    // Suggest mode: the words wait on the Dictionary page. Review opens it;
+    // Add puts them in the dictionary at once.
+    const unsubscribeSuggested = window.electronAPI?.onCorrectionsSuggested?.((suggestions) => {
+      if (!Array.isArray(suggestions) || suggestions.length === 0) return;
+      const words = suggestions.map((s) => `“${s.word}”`).join(", ");
+      const ids = suggestions.map((s) => s.id);
+      let toastId: string;
+      toastId = toast({
+        title: t("app.toasts.suggestedForDict", { words }),
+        duration: 8000,
+        action: (
+          <div className="flex items-center gap-1.5">
+            <ToastActionButton
+              onClick={() => {
+                void window.electronAPI?.openDictionarySuggestions?.();
+                dismiss(toastId);
+              }}
+            >
+              {t("app.toasts.reviewSuggestions")}
+            </ToastActionButton>
+            <ToastActionButton
+              onClick={async () => {
+                try {
+                  const result = await window.electronAPI?.acceptDictionarySuggestions?.(ids);
+                  if (result?.success) dismiss(toastId);
+                } catch {
+                  // The suggestion stays in the inbox.
+                }
+              }}
+            >
+              {t("app.toasts.addSuggested")}
+            </ToastActionButton>
+          </div>
+        ),
+      });
+    });
+
     return () => {
       unsubscribeFallback?.();
       unsubscribeFailed?.();
       unsubscribeCudaFallback?.();
       unsubscribeGpuFallback?.();
       unsubscribeCorrections?.();
+      unsubscribeSuggested?.();
     };
   }, [toast, dismiss, t]);
 }

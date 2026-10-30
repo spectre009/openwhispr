@@ -58,6 +58,8 @@
 //               detail?: { snippets: true }                     // snippet finalize
 //                      | { styleId, runMode }                   // style steps
 //                      | { reused: "stored" | "unknown" }       // a carried-over stt step
+//                      & { dictionaryScope?: { setting,         // cleanup and one-step
+//                                              applied, words } } //   style steps
 //                      & { failure?: { code, messageKey?,       // a failed step: why, from
 //                                      messageParams?,          //   an allowlist only
 //                                      settingsTarget? } } }],  //   (stepFailure.js)
@@ -80,7 +82,7 @@
 // logged. Log rule ids and counts only (summarizeGlossaryTrace).
 
 import { applyGlossary, type GlossaryFiredRule, type GlossarySnapshot } from "../utils/glossary";
-import type { Snippet } from "../utils/snippets";
+import type { CleanupDictionaryScope, Snippet } from "../utils/snippets";
 import type { DispatchedPrompt } from "../services/BaseReasoningService";
 import { hasTextContent } from "./translationChain";
 import { failureDescriptor, normalizeReusedMarker } from "./stepFailure.js";
@@ -124,6 +126,8 @@ export interface TraceStepDetail {
   runMode?: TraceStyleRunMode;
   /** A speech-to-text step this run reused instead of transcribing again. */
   reused?: TraceSttReused;
+  /** A cleanup request (or a one-step style): which dictionary words its prompt carried. */
+  dictionaryScope?: CleanupDictionaryScope;
   /** A failed step: why, as the error card said it. */
   failure?: StepFailureDescriptor;
 }

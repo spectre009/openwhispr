@@ -46,6 +46,9 @@ import {
   isUpdateRequiredByOrg,
 } from "../stores/policyRules";
 import { getManagedTranscriptionResolution } from "../services/managedTranscription";
+import { getPinnedDictionaryKeys } from "../stores/dictionarySourcesStore";
+import { getGlossaryCanonicalTerms } from "../utils/glossaryTerms";
+import { DICTIONARY_ECHO_CODE } from "../utils/dictionaryEchoFilter.js";
 import {
   useIsMeetingMode,
   useIsNarrowWindow,
@@ -403,6 +406,18 @@ export default function ControlPanel({ initialSettingsSection }: ControlPanelPro
     };
     void drain();
     return window.electronAPI?.onHistoryItemPending?.(() => void drain());
+  }, [closeSettings]);
+
+  // The auto-learn toast's Review: main holds the request until this window
+  // asks, then the Dictionary page opens, its suggestions at the top.
+  useEffect(() => {
+    const drain = async () => {
+      const pending = await window.electronAPI?.getPendingDictionarySuggestionsRequest?.();
+      if (!pending || !closeSettings()) return;
+      setActiveView("dictionary");
+    };
+    void drain();
+    return window.electronAPI?.onDictionarySuggestionsPending?.(() => void drain());
   }, [closeSettings]);
 
   useEffect(() => {
@@ -764,7 +779,10 @@ export default function ControlPanel({ initialSettingsSection }: ControlPanelPro
   // Re-transcribe: main transcribes the stored recording again, then the rest
   // of the dictation runs as Re-run cleanup does (historyRerun.ts).
   const retryTranscription = useCallback(
-    async (id: number, options?: { isRecover?: boolean; plainStyle?: boolean }) => {
+    async (
+      id: number,
+      options?: { isRecover?: boolean; plainStyle?: boolean; routeKind?: string | null }
+    ) => {
       try {
         const s = getSettings();
         const managed = getManagedTranscriptionResolution();
@@ -787,6 +805,19 @@ export default function ControlPanel({ initialSettingsSection }: ControlPanelPro
         } catch {
           targetApp = null;
         }
+        // A translation recording was spoken in its source language, which
+        // live dictation sends (and biases the script for); read the row's
+        // route when the caller didn't name it.
+        let routeKind = options?.routeKind;
+        if (routeKind === undefined) {
+          try {
+            routeKind = (await window.electronAPI.getTranscriptionById(id))?.route_kind ?? null;
+          } catch {
+            routeKind = null;
+          }
+        }
+        const speechLanguage =
+          routeKind === "translation" ? s.translationSourceLanguage || "auto" : s.preferredLanguage;
         const result = await window.electronAPI.retryTranscription(id, {
           managed,
           useLocalWhisper: s.useLocalWhisper,
@@ -802,6 +833,16 @@ export default function ControlPanel({ initialSettingsSection }: ControlPanelPro
           cohereModel: s.cohereModel,
           whisperModel: s.whisperModel,
           preferredLanguage: s.preferredLanguage,
+          speechLanguage,
+          // What live dictation's hint list is built from; main reads the
+          // learned words itself and builds the provider's fields.
+          dictionary: {
+            words: [...(s.customDictionary ?? [])],
+            pinned: [...getPinnedDictionaryKeys()],
+            glossaryTerms: [...getGlossaryCanonicalTerms()],
+            snippets: (s.snippets ?? []).map((snippet) => ({ trigger: snippet.trigger })),
+            chineseScriptPreference: s.chineseScriptPreference ?? null,
+          },
           transcriptionMode: s.transcriptionMode,
           remoteTranscriptionType: s.remoteTranscriptionType,
           remoteTranscriptionUrl: s.remoteTranscriptionUrl,
@@ -810,6 +851,16 @@ export default function ControlPanel({ initialSettingsSection }: ControlPanelPro
         // A newer run on this row (Re-run cleanup, another Re-transcribe)
         // began meanwhile: main wrote nothing, and that run reports its own result.
         if (result.stale) return;
+        // The new transcript only repeated the dictionary it was sent, as a
+        // live dictation can: nothing was written.
+        if (!result.success && result.code === DICTIONARY_ECHO_CODE) {
+          toast({
+            title: t("controlPanel.history.retryError"),
+            description: t("controlPanel.history.retryDictionaryEcho"),
+            variant: "destructive",
+          });
+          return;
+        }
         if (result.success && result.transcription) {
           const row = result.transcription;
           const outcome = await rerunAfterSpeechToText(
@@ -940,12 +991,18 @@ export default function ControlPanel({ initialSettingsSection }: ControlPanelPro
       }
     ) => {
       const { routeKind, onSettled, cleanupOnly, ...retryOptions } = options ?? {};
+      const row = history.find((item) => item.id === id);
+      // The row's route, when this window knows it (else Re-transcribe reads it).
+      const knownRouteKind = routeKind !== undefined ? routeKind : row?.route_kind;
       const run = (plainStyle?: boolean) =>
         cleanupOnly
           ? rerunCleanup(id, plainStyle ? { plainStyle } : undefined)
-          : retryTranscription(id, plainStyle ? { ...retryOptions, plainStyle } : retryOptions);
-      const row = history.find((item) => item.id === id);
-      const styleId = styleIdFromRouteKind(routeKind !== undefined ? routeKind : row?.route_kind);
+          : retryTranscription(id, {
+              ...retryOptions,
+              ...(plainStyle ? { plainStyle } : {}),
+              ...(knownRouteKind !== undefined ? { routeKind: knownRouteKind } : {}),
+            });
+      const styleId = styleIdFromRouteKind(knownRouteKind);
       if (styleId && !resolveStyleForRetry(styleId)) {
         showConfirmDialog({
           title: t("controlPanel.history.styleDeleted.title"),

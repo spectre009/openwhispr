@@ -1,4 +1,11 @@
 import { getGlossaryCanonicalTerms } from "./glossaryTerms";
+import { dictionaryWordKey } from "./dictionaryWordKey.js";
+import {
+  getLearnedDictionaryWords,
+  getPinnedDictionaryKeys,
+  isDictionarySourcesLoaded,
+} from "../stores/dictionarySourcesStore";
+import { getMissedDictionaryKeys } from "../stores/dictionaryUsageStore";
 
 export interface Snippet {
   trigger: string;
@@ -147,4 +154,123 @@ export function getDictionaryHintWords(
     .map((s) => s?.trigger)
     .filter((t): t is string => typeof t === "string" && t.length > 0);
   return [...dictionary, ...canonical, ...triggers];
+}
+
+/**
+ * Settings › Dictation › Cleanup › "Dictionary words in the cleanup prompt":
+ * every word (today's behaviour), typed and pinned words plus the words
+ * speech often misses, typed and pinned words only, or none.
+ */
+export type CleanupDictionarySetting = "all" | "typedPinnedMissed" | "typedPinned" | "none";
+
+export const CLEANUP_DICTIONARY_SETTINGS: readonly CleanupDictionarySetting[] = [
+  "all",
+  "typedPinnedMissed",
+  "typedPinned",
+  "none",
+];
+
+export function normalizeCleanupDictionarySetting(value: unknown): CleanupDictionarySetting {
+  return CLEANUP_DICTIONARY_SETTINGS.includes(value as CleanupDictionarySetting)
+    ? (value as CleanupDictionarySetting)
+    : "all";
+}
+
+/**
+ * What one cleanup request's dictionary was: the setting, the set applied
+ * (All when the setting's inputs weren't there: no heard/written counts, or
+ * the word sources not read yet) and how many dictionary words it carried.
+ * Recorded on the cleanup step (or the one-step style step) as is.
+ */
+export interface CleanupDictionaryScope {
+  setting: CleanupDictionarySetting;
+  applied: CleanupDictionarySetting;
+  words: number;
+}
+
+/** One cleanup request's dictionary: the words its prompt carries, and its scope. */
+export interface CleanupDictionarySelection {
+  words: string[];
+  scope: CleanupDictionaryScope;
+}
+
+/** What the set is chosen from besides the settings (the stores, by default). */
+export interface CleanupDictionarySources {
+  /** Lowercased learned words; null until the sources were read (every word reads as typed). */
+  learned: ReadonlySet<string> | null;
+  /** Pinned keys (dictionaryWordKey). */
+  pinned: ReadonlySet<string>;
+  /** Keys of the words speech often misses; null when counts aren't available. */
+  missed: ReadonlySet<string> | null;
+}
+
+function defaultCleanupDictionarySources(): CleanupDictionarySources {
+  return {
+    learned: isDictionarySourcesLoaded() ? getLearnedDictionaryWords() : null,
+    pinned: getPinnedDictionaryKeys(),
+    missed: getMissedDictionaryKeys(),
+  };
+}
+
+/**
+ * The dictionary one cleanup request carries, decided once: the same object
+ * feeds the prompt (ReasoningConfig.cleanupDictionary, or Cloud's
+ * customDictionary) and the step's `dictionaryScope`. Only dictionary words
+ * are filtered: the glossary's canonical forms and snippet triggers always
+ * follow, so cleanup never undoes the glossary or breaks a trigger. Chat, the
+ * assistant, translation and speech-to-text keep the full list
+ * (getDictionaryHintWords).
+ */
+export function selectCleanupDictionary(
+  settings?: {
+    customDictionary?: string[] | null;
+    snippets?: Snippet[] | null;
+    cleanupDictionaryWords?: CleanupDictionarySetting | string | null;
+  } | null,
+  sources: CleanupDictionarySources = defaultCleanupDictionarySources(),
+  glossaryTerms: readonly string[] = getGlossaryCanonicalTerms()
+): CleanupDictionarySelection {
+  const setting = normalizeCleanupDictionarySetting(settings?.cleanupDictionaryWords);
+  const dictionary = (
+    Array.isArray(settings?.customDictionary) ? settings.customDictionary : []
+  ).filter((word): word is string => typeof word === "string");
+  let applied: CleanupDictionarySetting = setting;
+  // Typed words can't be told apart before the sources are read, nor missed
+  // ones without counts: All, and the step says so.
+  if ((setting === "typedPinned" || setting === "typedPinnedMissed") && !sources.learned) {
+    applied = "all";
+  }
+  if (applied === "typedPinnedMissed" && !sources.missed) applied = "all";
+
+  let words: string[];
+  if (applied === "all") words = dictionary;
+  else if (applied === "none") words = [];
+  else {
+    words = dictionary.filter((word) => {
+      const key = dictionaryWordKey(word);
+      if (sources.pinned.has(key)) return true;
+      if (!sources.learned?.has(word.trim().toLowerCase())) return true;
+      return applied === "typedPinnedMissed" && !!sources.missed?.has(key);
+    });
+  }
+  return {
+    words: getDictionaryHintWords(
+      { customDictionary: words, snippets: settings?.snippets },
+      glossaryTerms
+    ),
+    scope: { setting, applied, words: words.length },
+  };
+}
+
+/** The words a cleanup prompt carries (selectCleanupDictionary's `words`). */
+export function getCleanupDictionaryWords(
+  settings?: Parameters<typeof selectCleanupDictionary>[0]
+): string[] {
+  return selectCleanupDictionary(settings).words;
+}
+
+/** A rough token count for a word list as a prompt carries it (≈ characters ÷ 4). */
+export function estimateDictionaryTokens(words: readonly string[]): number {
+  if (words.length === 0) return 0;
+  return Math.ceil(words.join(", ").length / 4);
 }

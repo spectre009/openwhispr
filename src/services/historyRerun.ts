@@ -35,7 +35,8 @@ import {
   type PostTranscriptionRunArgs,
   type TraceSttReused,
 } from "../helpers/postTranscription";
-import { expandSnippets } from "../utils/snippets";
+import { expandSnippets, selectCleanupDictionary } from "../utils/snippets";
+import { cleanupStepMeta } from "../helpers/dictationCleanupConfig";
 import { getAgentName } from "../utils/agentName";
 import logger from "../utils/logger";
 import type { TranscriptionItem, TranscriptionStepsResult } from "../types/electron";
@@ -169,13 +170,16 @@ export async function rerunAfterSpeechToText(
           agentName,
           cleanupOn: !!settings.useCleanupModel,
           recordStep,
-          runCleanup: (text: string) =>
-            recordStep("cleanup", {}, (dispatched) =>
+          runCleanup: (text: string) => {
+            // One request, one dictionary: the step records the set the prompt carried.
+            const cleanupConfig = buildDictationCleanupConfig(settings);
+            return recordStep("cleanup", cleanupStepMeta(cleanupConfig), (dispatched) =>
               ReasoningService.processText(text, getEffectiveCleanupModel(), agentName, {
-                ...buildDictationCleanupConfig(settings),
+                ...cleanupConfig,
                 onDispatch: dispatched,
               })
-            ),
+            );
+          },
           onCleanupError: (cleanupError: unknown) => notices.cleanupFailed(cleanupError),
           onStyleError: () => {
             styleFailed = true;
@@ -206,7 +210,7 @@ export async function rerunAfterSpeechToText(
               text: workingText,
               cleanupReachable: route.cleanupReachable,
               runCleanup: (currentText: string) =>
-                recordStep("cleanup", {}, (dispatched) =>
+                recordStep("cleanup", cleanupStepMeta(route.cleanupConfig), (dispatched) =>
                   ReasoningService.processText(currentText, getEffectiveCleanupModel(), agentName, {
                     ...route.cleanupConfig,
                     onDispatch: dispatched,
@@ -268,12 +272,19 @@ export async function rerunAfterSpeechToText(
         if (model || isCloud) {
           setRoute("cleanup");
           const agentName = getAgentName();
-          const reasonedText = await recordStep("cleanup", {}, (dispatched) =>
-            ReasoningService.processText(workingText, model, agentName, {
-              disableThinking: getEffectiveSettings().cleanupDisableThinking,
-              requireCompleteOutput: true,
-              onDispatch: dispatched,
-            })
+          const effective = getEffectiveSettings();
+          // Cleanup's word set, decided once for this request and recorded on its step.
+          const cleanupDictionary = selectCleanupDictionary(effective);
+          const reasonedText = await recordStep(
+            "cleanup",
+            { detail: { dictionaryScope: cleanupDictionary.scope } },
+            (dispatched) =>
+              ReasoningService.processText(workingText, model, agentName, {
+                disableThinking: effective.cleanupDisableThinking,
+                requireCompleteOutput: true,
+                cleanupDictionary,
+                onDispatch: dispatched,
+              })
           );
           if (hasTextContent(reasonedText)) return reasonedText;
         }

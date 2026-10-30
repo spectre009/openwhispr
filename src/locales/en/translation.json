@@ -754,7 +754,19 @@
         },
         "deletedStyle": "Deleted style",
         "reused": "Reused",
-        "reusedUnknown": "Reused · origin unknown"
+        "reusedUnknown": "Reused · origin unknown",
+        "dictionaryScope": {
+          "sets": {
+            "all": "all words",
+            "typedPinnedMissed": "typed, pinned and missed",
+            "typedPinned": "typed and pinned",
+            "none": "none"
+          },
+          "value_one": "Dictionary: {{set}} ({{count}} word)",
+          "value_other": "Dictionary: {{set}} ({{count}} words)",
+          "fellBack_one": "Dictionary: {{set}} ({{count}} word) in place of {{setting}}",
+          "fellBack_other": "Dictionary: {{set}} ({{count}} words) in place of {{setting}}"
+        }
       },
       "export": {
         "button": "Export",
@@ -788,7 +800,8 @@
         "success": "Cleanup re-run",
         "error": "Couldn't re-run cleanup",
         "unavailable": "Cleanup can't be re-run on this dictation"
-      }
+      },
+      "retryDictionaryEcho": "The new transcript only repeated your dictionary words, so the dictation was left as it was."
     },
     "aiCta": {
       "title": "Enhance your transcriptions with AI",
@@ -2886,8 +2899,8 @@
       "placeholder": "Add a word or phrase...",
       "add": "Add",
       "pressEnterToAdd": "Press Enter to add",
-      "autoLearnTitle": "Auto-learn from corrections",
-      "autoLearnDescription": "When you correct a transcription in the target app, the corrected word is automatically added to your dictionary.",
+      "autoLearnTitle": "Learn from your corrections",
+      "autoLearnDescription": "When you fix a word right after a dictation is pasted, OpenWhispr can learn it.",
       "yourWords": "Your words",
       "clearDictionaryTitle": "Clear dictionary?",
       "clearDictionaryDescription": "This will remove all words from your custom dictionary. This action cannot be undone.",
@@ -2899,7 +2912,13 @@
       "howItWorksTitle": "How it works",
       "howItWorksDescription": "Words are fed as context hints to the speech model, helping it recognize uncommon terms. For difficult words, try adding context like \"The word is Synty\" alongside the word itself.",
       "tipLabel": "Tip",
-      "tipDescription": "Separate multiple words with commas. Add context phrases like \"The word is Synty\" for better recognition."
+      "tipDescription": "Separate multiple words with commas. Add context phrases like \"The word is Synty\" for better recognition.",
+      "autoLearnModes": {
+        "suggest": "Suggest",
+        "add": "Add directly",
+        "off": "Off"
+      },
+      "autoLearnModeHint": "Suggest: new words wait on the Dictionary page until you add them. Add directly: they're used right away, as before."
     },
     "general": {
       "appearance": {
@@ -3674,6 +3693,21 @@
         "dialogTitle": "Copy diagnostics",
         "dialogDescription": "This is exactly what will be copied, in English for a bug report. Your user name is hidden in paths."
       }
+    },
+    "cleanupDictionary": {
+      "title": "Dictionary words in the cleanup prompt",
+      "description": "Cleanup is told to spell these as written. Fewer words make a shorter prompt.",
+      "options": {
+        "all": "All words",
+        "typedPinnedMissed": "Typed, pinned and words speech misses",
+        "typedPinned": "Typed and pinned",
+        "none": "None"
+      },
+      "count_one": "{{count}} word · ≈ {{tokens}} tokens",
+      "count_other": "{{count}} words · ≈ {{tokens}} tokens",
+      "sendsAll": "Sends all words for now",
+      "missedUnavailable": "Which words speech misses is counted from your local History. While History is off or still being counted, cleanup gets all words, and its step says so.",
+      "note": "Glossary spellings and snippet triggers are always included. The speech model's word list, chat and the Voice Assistant keep the full dictionary."
     }
   },
   "models": {
@@ -4895,6 +4929,24 @@
         "notFound": "This correction no longer exists.",
         "saveFailed": "Couldn't save the correction."
       }
+    },
+    "suggestions": {
+      "title": "Suggestions ({{count}})",
+      "addAll": "Add all",
+      "hint": "Words auto-learn picked up from your edits. They aren't used until you add them. Dismissed words aren't suggested again.",
+      "changedFrom": "Changed from “{{replaced}}”",
+      "changedFromIn": "Changed from “{{replaced}}” in {{app}}",
+      "learnedFromEdit": "Learned from an edit",
+      "times_one": "learned {{count}} time",
+      "times_other": "learned {{count}} times",
+      "add": "Add",
+      "dismiss": "Dismiss"
+    },
+    "pins": {
+      "pin": "Pin {{word}}",
+      "unpin": "Unpin {{word}}",
+      "pinHint": "Pin: always sent first to speech-to-text, and always kept for cleanup",
+      "pinnedHint": "Pinned: always sent first"
     }
   },
   "support": {
@@ -4970,7 +5022,10 @@
         "description": "Original dictation pasted without AI cleanup.",
         "descriptionNotPasted": "Saved to History without AI cleanup.",
         "alsoFailed": "AI cleanup also failed: {{reason}}"
-      }
+      },
+      "suggestedForDict": "Suggested for your dictionary: {{words}}",
+      "reviewSuggestions": "Review",
+      "addSuggested": "Add"
     },
     "mic": {
       "hotkeyToSpeak": "{{hotkey}} to talk",

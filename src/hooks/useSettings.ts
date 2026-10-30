@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import React, { createContext, useContext, useEffect, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import {
   useSettingsStore,
@@ -6,7 +6,6 @@ import {
   selectLocalServerPrefs,
 } from "../stores/settingsStore";
 import logger from "../utils/logger";
-import { useLocalStorage } from "./useLocalStorage";
 import type {
   ChineseScriptPreference,
   LocalTranscriptionProvider,
@@ -173,30 +172,6 @@ function useSettingsInternal() {
     });
     return unsubscribe;
   }, [applySnippetsFromExternal]);
-
-  // Auto-learn corrections from user edits in external apps
-  const [autoLearnCorrections, setAutoLearnCorrectionsRaw] = useLocalStorage(
-    "autoLearnCorrections",
-    true,
-    {
-      serialize: String,
-      deserialize: (value: string) => value !== "false",
-    }
-  );
-
-  const setAutoLearnCorrections = useCallback(
-    (enabled: boolean) => {
-      setAutoLearnCorrectionsRaw(enabled);
-      window.electronAPI?.setAutoLearnEnabled?.(enabled);
-    },
-    [setAutoLearnCorrectionsRaw]
-  );
-
-  // Sync auto-learn state to main process on mount
-  useEffect(() => {
-    window.electronAPI?.setAutoLearnEnabled?.(autoLearnCorrections);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   // Retention periods are enforced by the main process cleanup sweep
   const { audioRetentionDays, transcriptRetentionDays, dataRetentionEnabled } = store;
@@ -442,8 +417,10 @@ function useSettingsInternal() {
     setPreferBuiltInMic: store.setPreferBuiltInMic,
     setSelectedMicDevice: store.setSelectedMicDevice,
     setMicWarmHoldSeconds: store.setMicWarmHoldSeconds,
-    autoLearnCorrections,
-    setAutoLearnCorrections,
+    autoLearnMode: store.autoLearnMode,
+    setAutoLearnMode: store.setAutoLearnMode,
+    cleanupDictionaryWords: store.cleanupDictionaryWords,
+    setCleanupDictionaryWords: store.setCleanupDictionaryWords,
     showTranscriptionPreview: store.showTranscriptionPreview,
     setShowTranscriptionPreview: store.setShowTranscriptionPreview,
     autoPasteEnabled: store.autoPasteEnabled,

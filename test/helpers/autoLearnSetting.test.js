@@ -1,41 +1,36 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
-const { applyAutoLearnSetting } = require("../../src/helpers/autoLearnSetting");
+const {
+  applyAutoLearnSetting,
+  normalizeAutoLearnMode,
+  DEFAULT_AUTO_LEARN_MODE,
+} = require("../../src/helpers/autoLearnSetting");
 
-test("reports a change when enabling from disabled", () => {
-  assert.deepEqual(applyAutoLearnSetting(false, true), {
-    changed: true,
-    enabled: true,
-  });
+test("the default mode is Suggest", () => {
+  assert.equal(DEFAULT_AUTO_LEARN_MODE, "suggest");
 });
 
-test("reports a change when disabling from enabled", () => {
-  assert.deepEqual(applyAutoLearnSetting(true, false), {
-    changed: true,
-    enabled: false,
-  });
+test("reports a change between modes", () => {
+  assert.deepEqual(applyAutoLearnSetting("suggest", "off"), { changed: true, mode: "off" });
+  assert.deepEqual(applyAutoLearnSetting("off", "add"), { changed: true, mode: "add" });
+  assert.deepEqual(applyAutoLearnSetting("add", "suggest"), { changed: true, mode: "suggest" });
 });
 
-test("is idempotent when the value is unchanged (enabled) — #1080 dual-window mount sync", () => {
-  assert.deepEqual(applyAutoLearnSetting(true, true), {
-    changed: false,
-    enabled: true,
-  });
+test("is idempotent when the mode is unchanged — #1080 dual-window mount sync", () => {
+  for (const mode of ["suggest", "add", "off"]) {
+    assert.deepEqual(applyAutoLearnSetting(mode, mode), { changed: false, mode });
+  }
 });
 
-test("is idempotent when the value is unchanged (disabled)", () => {
-  assert.deepEqual(applyAutoLearnSetting(false, false), {
-    changed: false,
-    enabled: false,
-  });
+test("an older window's boolean maps as the migration does: on is Suggest, off is Off", () => {
+  assert.deepEqual(applyAutoLearnSetting("off", true), { changed: true, mode: "suggest" });
+  assert.deepEqual(applyAutoLearnSetting("suggest", false), { changed: true, mode: "off" });
 });
 
-test("coerces truthy/falsy incoming values to boolean", () => {
-  assert.deepEqual(applyAutoLearnSetting(false, 1), { changed: true, enabled: true });
-  assert.deepEqual(applyAutoLearnSetting(true, 0), { changed: true, enabled: false });
-  assert.deepEqual(applyAutoLearnSetting(true, undefined), {
-    changed: true,
-    enabled: false,
-  });
+test("an unknown value reads as Suggest, never as on-ish truthiness", () => {
+  for (const value of [undefined, null, 1, 0, "on", "OFF", "", {}]) {
+    assert.equal(normalizeAutoLearnMode(value), "suggest", String(value));
+  }
+  assert.deepEqual(applyAutoLearnSetting("off", "bogus"), { changed: true, mode: "suggest" });
 });

@@ -127,7 +127,6 @@ function pipeline(lib, overrides = {}) {
       { hotkey: "Control+Alt+1", styleId: "starter-teams", active: true, error: null },
     ],
     glossaryRules: [RULE("a"), RULE("b"), RULE("off", false), RULE("empty", true, [])],
-    autoLearn: false,
     t: lib.t,
     ...rest,
   });
@@ -226,10 +225,15 @@ test("dictionary, style and output read the stores they summarize", async (t) =>
   assert.equal(styled.value, `${hotkey}: 💬 Teams chat`);
 
   assert.equal(nodes.output.value, "Automatic pasting: On");
-  assert.equal(nodes.output.status, "Auto-learn from corrections: Off");
-  const outputOn = pipeline(lib, { autoLearn: true, settings: { autoPasteEnabled: false } }).output;
-  assert.equal(outputOn.value, "Automatic pasting: Off");
-  assert.equal(outputOn.status, "Auto-learn from corrections: On");
+  // "Learn from your corrections" shows its mode: Suggest, Add directly or Off.
+  assert.equal(nodes.output.status, "Learn from your corrections: Suggest");
+  const outputOff = pipeline(lib, {
+    settings: { autoPasteEnabled: false, autoLearnMode: "off" },
+  }).output;
+  assert.equal(outputOff.value, "Automatic pasting: Off");
+  assert.equal(outputOff.status, "Learn from your corrections: Off");
+  const outputAdd = pipeline(lib, { settings: { autoLearnMode: "add" } }).output;
+  assert.equal(outputAdd.status, "Learn from your corrections: Add directly");
 });
 
 const STT_TEXT = "so um the meeting with little body is uh moved to thursday";

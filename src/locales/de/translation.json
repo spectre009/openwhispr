@@ -754,7 +754,19 @@
         },
         "deletedStyle": "Gelöschter Stil",
         "reused": "Übernommen",
-        "reusedUnknown": "Übernommen · Herkunft unbekannt"
+        "reusedUnknown": "Übernommen · Herkunft unbekannt",
+        "dictionaryScope": {
+          "sets": {
+            "all": "alle Wörter",
+            "typedPinnedMissed": "eingetippte, angeheftete und verfehlte",
+            "typedPinned": "eingetippte und angeheftete",
+            "none": "keine"
+          },
+          "value_one": "Wörterbuch: {{set}} ({{count}} Wort)",
+          "value_other": "Wörterbuch: {{set}} ({{count}} Wörter)",
+          "fellBack_one": "Wörterbuch: {{set}} ({{count}} Wort) statt {{setting}}",
+          "fellBack_other": "Wörterbuch: {{set}} ({{count}} Wörter) statt {{setting}}"
+        }
       },
       "export": {
         "button": "Exportieren",
@@ -788,7 +800,8 @@
         "success": "Bereinigung erneut ausgeführt",
         "error": "Bereinigung konnte nicht erneut ausgeführt werden",
         "unavailable": "Für dieses Diktat kann die Bereinigung nicht erneut ausgeführt werden"
-      }
+      },
+      "retryDictionaryEcho": "Die neue Transkription hat nur deine Wörterbuchwörter wiederholt, daher blieb das Diktat unverändert."
     },
     "aiCta": {
       "title": "Verbessern Sie Ihre Transkriptionen mit KI",
@@ -2886,8 +2899,8 @@
       "placeholder": "Wort oder Ausdruck hinzufügen...",
       "add": "Hinzufügen",
       "pressEnterToAdd": "Enter drücken zum Hinzufügen",
-      "autoLearnTitle": "Automatisch aus Korrekturen lernen",
-      "autoLearnDescription": "Wenn Sie eine Transkription in der Ziel-App korrigieren, wird das korrigierte Wort automatisch Ihrem Wörterbuch hinzugefügt.",
+      "autoLearnTitle": "Aus deinen Korrekturen lernen",
+      "autoLearnDescription": "Wenn du ein Wort direkt nach dem Einfügen eines Diktats korrigierst, kann OpenWhispr es lernen.",
       "yourWords": "Ihre Wörter",
       "clearDictionaryTitle": "Wörterbuch löschen?",
       "clearDictionaryDescription": "Dadurch werden alle Wörter aus Ihrem benutzerdefinierten Wörterbuch entfernt. Diese Aktion kann nicht rückgängig gemacht werden.",
@@ -2899,7 +2912,13 @@
       "howItWorksTitle": "So funktioniert es",
       "howItWorksDescription": "Wörter werden als Kontexthinweise an das Sprachmodell übergeben, um ungewöhnliche Begriffe besser zu erkennen. Für schwierige Wörter versuchen Sie, Kontext hinzuzufügen wie \"The word is Synty\" neben dem Wort selbst.",
       "tipLabel": "Tipp",
-      "tipDescription": "Trennen Sie mehrere Wörter mit Kommas. Fügen Sie Kontextphrasen wie \"The word is Synty\" für bessere Erkennung hinzu."
+      "tipDescription": "Trennen Sie mehrere Wörter mit Kommas. Fügen Sie Kontextphrasen wie \"The word is Synty\" für bessere Erkennung hinzu.",
+      "autoLearnModes": {
+        "suggest": "Vorschlagen",
+        "add": "Direkt hinzufügen",
+        "off": "Aus"
+      },
+      "autoLearnModeHint": "Vorschlagen: Neue Wörter warten auf der Wörterbuch-Seite, bis du sie hinzufügst. Direkt hinzufügen: Sie werden sofort verwendet, wie bisher."
     },
     "general": {
       "appearance": {
@@ -3674,6 +3693,21 @@
         "dialogTitle": "Diagnose kopieren",
         "dialogDescription": "Genau dieser Text wird kopiert, auf Englisch für einen Fehlerbericht. Der Benutzername ist in Pfaden ausgeblendet."
       }
+    },
+    "cleanupDictionary": {
+      "title": "Wörterbuchwörter im Bereinigungs-Prompt",
+      "description": "Die Bereinigung soll diese Wörter so schreiben, wie sie dastehen. Weniger Wörter ergeben einen kürzeren Prompt.",
+      "options": {
+        "all": "Alle Wörter",
+        "typedPinnedMissed": "Eingetippte, angeheftete und von der Spracherkennung verfehlte Wörter",
+        "typedPinned": "Eingetippte und angeheftete",
+        "none": "Keine"
+      },
+      "count_one": "{{count}} Wort · ≈ {{tokens}} Tokens",
+      "count_other": "{{count}} Wörter · ≈ {{tokens}} Tokens",
+      "sendsAll": "Sendet vorerst alle Wörter",
+      "missedUnavailable": "Welche Wörter die Spracherkennung verfehlt, wird aus deinem lokalen Verlauf gezählt. Solange der Verlauf aus ist oder noch gezählt wird, bekommt die Bereinigung alle Wörter, und ihr Schritt sagt das.",
+      "note": "Glossar-Schreibweisen und Snippet-Auslöser sind immer dabei. Die Wortliste des Sprachmodells, der Chat und der Sprachassistent behalten das ganze Wörterbuch."
     }
   },
   "models": {
@@ -4895,6 +4929,24 @@
         "notFound": "Diese Korrektur gibt es nicht mehr.",
         "saveFailed": "Die Korrektur konnte nicht gespeichert werden."
       }
+    },
+    "suggestions": {
+      "title": "Vorschläge ({{count}})",
+      "addAll": "Alle hinzufügen",
+      "hint": "Wörter, die das automatische Lernen aus deinen Korrekturen übernommen hat. Sie werden erst verwendet, wenn du sie hinzufügst. Verworfene Wörter werden nicht erneut vorgeschlagen.",
+      "changedFrom": "Geändert von „{{replaced}}“",
+      "changedFromIn": "Geändert von „{{replaced}}“ in {{app}}",
+      "learnedFromEdit": "Aus einer Korrektur gelernt",
+      "times_one": "{{count}}-mal gelernt",
+      "times_other": "{{count}}-mal gelernt",
+      "add": "Hinzufügen",
+      "dismiss": "Verwerfen"
+    },
+    "pins": {
+      "pin": "{{word}} anheften",
+      "unpin": "{{word}} lösen",
+      "pinHint": "Anheften: wird immer zuerst an die Spracherkennung gesendet und bei der Bereinigung immer behalten",
+      "pinnedHint": "Angeheftet: wird immer zuerst gesendet"
     }
   },
   "support": {
@@ -4970,7 +5022,10 @@
         "description": "Dein Diktat wurde ohne KI-Bereinigung eingefügt.",
         "descriptionNotPasted": "Ohne KI-Bereinigung im Verlauf gespeichert.",
         "alsoFailed": "Auch die KI-Bereinigung ist fehlgeschlagen: {{reason}}"
-      }
+      },
+      "suggestedForDict": "Für dein Wörterbuch vorgeschlagen: {{words}}",
+      "reviewSuggestions": "Ansehen",
+      "addSuggested": "Hinzufügen"
     },
     "mic": {
       "hotkeyToSpeak": "{{hotkey}} zum Sprechen",

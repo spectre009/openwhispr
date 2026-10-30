@@ -154,3 +154,46 @@ test("hint targets follow each provider's real limit", () => {
     "keywords"
   );
 });
+
+test("pinned words lead every other tier, whatever their source", () => {
+  const plan = buildDictionaryHints({
+    dictionary: ["Alpha", "Beta", "gonestly", "Gamma"],
+    learnedWords: ["gonestly", "gamma"],
+    pinnedWords: [" GAMMA "],
+    glossaryTerms: ["Little Buddy"],
+    order: "head",
+  });
+  assert.deepEqual(plan.terms, ["Gamma", "Alpha", "Beta", "Little Buddy", "gonestly"]);
+  assert.equal(plan.entries[0].source, "pinned");
+  // Tail order (Whisper decoders) emits the pinned word last, where it's read.
+  const tail = buildDictionaryHints({
+    dictionary: ["Alpha", "gamma"],
+    learnedWords: ["gamma"],
+    pinnedWords: ["gamma"],
+  });
+  assert.equal(tail.prompt, "Alpha, gamma");
+});
+
+test("a budget keeps pinned words before typed ones; a pin of a word not in the dictionary adds nothing", () => {
+  const plan = buildDictionaryHints({
+    dictionary: ["Typed One", "Typed Two", "Learned Pin"],
+    learnedWords: ["learned pin"],
+    pinnedWords: ["learned pin", "not here"],
+    maxTerms: 2,
+    order: "head",
+  });
+  assert.deepEqual(plan.terms, ["Learned Pin", "Typed One"]);
+  assert.equal(plan.entries.find((entry) => entry.term === "Typed Two").coverage, "notSent");
+  assert.ok(!plan.terms.includes("not here"));
+});
+
+test("pins use the one word identity: trimmed, NFC, lowercased", () => {
+  const decomposed = "Cafe\u0301";
+  const plan = buildDictionaryHints({
+    dictionary: ["Zed", decomposed],
+    pinnedWords: ["café"],
+    order: "head",
+  });
+  assert.equal(plan.terms[0], decomposed);
+  assert.equal(plan.entries[0].source, "pinned");
+});

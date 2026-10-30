@@ -291,13 +291,43 @@ contextBridge.exposeInMainWorld("electronAPI", {
     "glossary-rules-updated",
     (callback) => (_event, snapshot) => callback(snapshot)
   ),
-  setAutoLearnEnabled: (enabled) => ipcRenderer.send("auto-learn-changed", enabled),
+  setAutoLearnMode: (mode) => ipcRenderer.send("auto-learn-changed", mode),
   onCorrectionsLearned: (callback) => {
     const listener = (_event, words) => callback?.(words);
     ipcRenderer.on("corrections-learned", listener);
     return () => ipcRenderer.removeListener("corrections-learned", listener);
   },
   undoLearnedCorrections: (words) => ipcRenderer.invoke("undo-learned-corrections", words),
+  // Pins (main-owned, local-only)
+  getDictionaryPins: () => ipcRenderer.invoke("dictionary-pins-get"),
+  setDictionaryPin: (word, pinned) => ipcRenderer.invoke("dictionary-pin-set", word, pinned),
+  onDictionaryPinsUpdated: registerListener(
+    "dictionary-pins-updated",
+    (callback) => (_event, pins) => callback(pins)
+  ),
+  // Auto-learn's suggestions (main-owned, local-only)
+  listDictionarySuggestions: () => ipcRenderer.invoke("dictionary-suggestions-list"),
+  acceptDictionarySuggestions: (ids) => ipcRenderer.invoke("dictionary-suggestions-accept", ids),
+  dismissDictionarySuggestions: (ids) => ipcRenderer.invoke("dictionary-suggestions-dismiss", ids),
+  clearDismissedDictionarySuggestions: () =>
+    ipcRenderer.invoke("dictionary-suggestions-clear-dismissed"),
+  onDictionarySuggestionsUpdated: registerListener(
+    "dictionary-suggestions-updated",
+    (callback) => (_event, change) => callback(change)
+  ),
+  onCorrectionsSuggested: registerListener(
+    "corrections-suggested",
+    (callback) => (_event, suggestions) => callback(suggestions)
+  ),
+  openDictionarySuggestions: () => ipcRenderer.invoke("open-dictionary-suggestions"),
+  getPendingDictionarySuggestionsRequest: () =>
+    ipcRenderer.invoke("get-pending-dictionary-suggestions-request"),
+  onDictionarySuggestionsPending: registerListener(
+    "dictionary-suggestions-pending",
+    (callback) => () => callback()
+  ),
+  // Heard vs written per dictionary word, from local History (counts only)
+  getDictionaryUsage: () => ipcRenderer.invoke("dictionary-usage"),
 
   // Note functions
   saveNote: (title, content, noteType, sourceFile, audioDuration, folderId, spaceId) =>

@@ -754,7 +754,19 @@
         },
         "deletedStyle": "削除されたスタイル",
         "reused": "再利用",
-        "reusedUnknown": "再利用 · 出所不明"
+        "reusedUnknown": "再利用 · 出所不明",
+        "dictionaryScope": {
+          "sets": {
+            "all": "すべての単語",
+            "typedPinnedMissed": "入力・固定・聞き逃し",
+            "typedPinned": "入力・固定",
+            "none": "なし"
+          },
+          "value_one": "辞書: {{set}} ({{count}} 語)",
+          "value_other": "辞書: {{set}} ({{count}} 語)",
+          "fellBack_one": "辞書: {{setting}} の代わりに {{set}} ({{count}} 語)",
+          "fellBack_other": "辞書: {{setting}} の代わりに {{set}} ({{count}} 語)"
+        }
       },
       "export": {
         "button": "エクスポート",
@@ -788,7 +800,8 @@
         "success": "クリーンアップを再実行しました",
         "error": "クリーンアップを再実行できませんでした",
         "unavailable": "このディクテーションではクリーンアップを再実行できません"
-      }
+      },
+      "retryDictionaryEcho": "新しい文字起こしは辞書の単語を繰り返しただけだったため、音声入力は元のままです。"
     },
     "aiCta": {
       "title": "AI で文字起こしを向上させましょう",
@@ -2592,8 +2605,8 @@
       "placeholder": "単語またはフレーズを追加...",
       "add": "追加",
       "pressEnterToAdd": "Enterキーで追加",
-      "autoLearnTitle": "修正から自動学習",
-      "autoLearnDescription": "対象アプリで文字起こしを修正すると、修正された単語が自動的に辞書に追加されます。",
+      "autoLearnTitle": "修正から学習",
+      "autoLearnDescription": "音声入力が貼り付けられた直後に単語を修正すると、OpenWhispr がそれを学習できます。",
       "yourWords": "あなたの単語",
       "clearDictionaryTitle": "辞書をクリアしますか？",
       "clearDictionaryDescription": "カスタム辞書からすべての単語が削除されます。この操作は元に戻せません。",
@@ -2605,7 +2618,13 @@
       "howItWorksTitle": "仕組み",
       "howItWorksDescription": "単語は音声モデルへのコンテキストヒントとして提供され、一般的でない用語の認識を助けます。難しい単語には、単語自体に加えて \"The word is Synty\" のようなコンテキストを追加してみてください。",
       "tipLabel": "ヒント",
-      "tipDescription": "複数の単語はカンマで区切ってください。より良い認識のために \"The word is Synty\" のようなコンテキストフレーズを追加してください。"
+      "tipDescription": "複数の単語はカンマで区切ってください。より良い認識のために \"The word is Synty\" のようなコンテキストフレーズを追加してください。",
+      "autoLearnModes": {
+        "suggest": "提案する",
+        "add": "直接追加",
+        "off": "オフ"
+      },
+      "autoLearnModeHint": "提案する: 新しい単語は追加するまで辞書ページで待機します。直接追加: これまでどおりすぐに使われます。"
     },
     "general": {
       "appearance": {
@@ -3580,6 +3599,21 @@
         "dialogTitle": "診断情報をコピー",
         "dialogDescription": "コピーされる内容はこのとおりです (不具合報告用に英語)。パス内のユーザー名は隠されます。"
       }
+    },
+    "cleanupDictionary": {
+      "title": "クリーンアップのプロンプトに含める辞書の単語",
+      "description": "クリーンアップにはこれらを表記どおりに書くよう指示します。単語が少ないほどプロンプトは短くなります。",
+      "options": {
+        "all": "すべての単語",
+        "typedPinnedMissed": "入力・固定した単語と音声認識が聞き逃す単語",
+        "typedPinned": "入力・固定した単語",
+        "none": "なし"
+      },
+      "count_one": "{{count}} 語 · 約 {{tokens}} トークン",
+      "count_other": "{{count}} 語 · 約 {{tokens}} トークン",
+      "sendsAll": "現在はすべての単語を送信します",
+      "missedUnavailable": "音声認識が聞き逃す単語はローカルの履歴から数えます。履歴がオフ、またはまだ集計中の間は、クリーンアップにすべての単語が渡され、そのステップにそう記録されます。",
+      "note": "用語集の表記とスニペットのトリガーは常に含まれます。音声モデルの単語リスト、チャット、音声アシスタントは辞書全体を使い続けます。"
     }
   },
   "models": {
@@ -4471,6 +4505,24 @@
         "notFound": "この修正はもう存在しません。",
         "saveFailed": "修正を保存できませんでした。"
       }
+    },
+    "suggestions": {
+      "title": "候補 ({{count}})",
+      "addAll": "すべて追加",
+      "hint": "自動学習があなたの編集から拾った単語です。追加するまで使われません。却下した単語は再び提案されません。",
+      "changedFrom": "「{{replaced}}」から変更",
+      "changedFromIn": "{{app}} で「{{replaced}}」から変更",
+      "learnedFromEdit": "編集から学習",
+      "times_one": "{{count}} 回学習",
+      "times_other": "{{count}} 回学習",
+      "add": "追加",
+      "dismiss": "却下"
+    },
+    "pins": {
+      "pin": "{{word}} を固定",
+      "unpin": "{{word}} の固定を解除",
+      "pinHint": "固定: 音声認識に常に最初に送られ、クリーンアップでも常に残ります",
+      "pinnedHint": "固定済み: 常に最初に送信"
     }
   },
   "referral": {
@@ -4800,7 +4852,10 @@
         "description": "ディクテーションは AI クリーンアップなしで貼り付けられました。",
         "descriptionNotPasted": "AI クリーンアップなしで履歴に保存しました。",
         "alsoFailed": "AI クリーンアップも失敗しました: {{reason}}"
-      }
+      },
+      "suggestedForDict": "辞書への候補: {{words}}",
+      "reviewSuggestions": "確認",
+      "addSuggested": "追加"
     },
     "mic": {
       "hotkeyToSpeak": "{{hotkey}} で話す",

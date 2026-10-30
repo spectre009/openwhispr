@@ -113,6 +113,19 @@ function normalizeStyleRef(ref, idKey) {
   return { [idKey]: id, runMode: STYLE_RUN_MODES.has(ref.runMode) ? ref.runMode : null };
 }
 
+// Cleanup's dictionary word set (Settings › Dictation › Cleanup): the setting,
+// the set applied, and a word count. Enums and a bounded integer only.
+const DICTIONARY_SCOPES = new Set(["all", "typedPinnedMissed", "typedPinned", "none"]);
+const MAX_DICTIONARY_SCOPE_WORDS = 10_000;
+
+function normalizeDictionaryScope(scope) {
+  if (!scope || typeof scope !== "object") return null;
+  if (!DICTIONARY_SCOPES.has(scope.setting) || !DICTIONARY_SCOPES.has(scope.applied)) return null;
+  const words = scope.words;
+  if (!Number.isInteger(words) || words < 0 || words > MAX_DICTIONARY_SCOPE_WORDS) return null;
+  return { setting: scope.setting, applied: scope.applied, words };
+}
+
 /**
  * Validates a renderer trace into what the database stores, or null when it
  * isn't a version 1 trace with at least one step. `rawTextIsNull`: the
@@ -150,6 +163,12 @@ function normalizeTrace(trace, { rawTextIsNull = false } = {}) {
       // Re-run cleanup's carried-over speech-to-text step says so.
       const reused = normalizeReusedMarker(step.detail?.reused);
       if (reused) detail = { reused };
+    }
+    // A cleanup request (or a one-step style, which is one) says which
+    // dictionary words its prompt carried, beside the style it ran.
+    if (step.kind === "cleanup" || step.kind === "style") {
+      const dictionaryScope = normalizeDictionaryScope(step.detail?.dictionaryScope);
+      if (dictionaryScope) detail = { ...(detail || {}), dictionaryScope };
     }
     // A failed step keeps why, through the same allowlist the renderer used.
     if (FAILED_OUTCOMES.has(step.outcome)) {

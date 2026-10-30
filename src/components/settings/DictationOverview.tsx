@@ -446,12 +446,9 @@ function HotkeysCard({
 }
 
 export default function DictationOverview({
-  autoLearnCorrections,
   onNavigate,
   onOpenElsewhere,
 }: {
-  /** Output's "Auto-learn from corrections" (SettingsPage owns it: a localStorage preference). */
-  autoLearnCorrections: boolean;
   /** Opens a Settings page (the strip's nodes, "All hotkeys"). */
   onNavigate?: (page: SettingsPageId) => void;
   /** Leaves Settings for an app page (the Dictionary & glossary node). */
@@ -477,10 +474,9 @@ export default function DictationOverview({
         styleLibrary: library,
         styleBindings: bindings,
         glossaryRules,
-        autoLearn: autoLearnCorrections,
         t: translate,
       }),
-    [settings, policy, stt, library, bindings, glossaryRules, autoLearnCorrections, translate]
+    [settings, policy, stt, library, bindings, glossaryRules, translate]
   );
 
   const openTarget = (target: OverviewTarget) => {

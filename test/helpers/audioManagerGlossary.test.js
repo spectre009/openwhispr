@@ -35,6 +35,8 @@ const glossaryMocks = {
   `,
   "/stores/dictionarySourcesStore": `
     export const getLearnedDictionaryWords = () => new Set(globalThis.__amLearned ?? []);
+    export const getPinnedDictionaryKeys = () => new Set(globalThis.__amPinned ?? []);
+    export const isDictionarySourcesLoaded = () => true;
   `,
   "/glossaryTerms": `
     export const getGlossaryCanonicalTerms = () => globalThis.__amGlossaryTerms ?? [];

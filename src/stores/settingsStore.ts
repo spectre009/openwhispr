@@ -6,6 +6,7 @@ import { chooseDictionaryStartupAction } from "../helpers/dictionaryStartup";
 import logger from "../utils/logger";
 import whisperVadConstants from "../constants/whisperVad.json";
 import type {
+  AutoLearnMode,
   ChineseScriptPreference,
   LocalTranscriptionProvider,
   InferenceMode,
@@ -100,9 +101,15 @@ import type {
   ThemeSettings,
   ChatAgentSettings,
 } from "../hooks/useSettings";
-import type { Snippet } from "../utils/snippets";
+import {
+  normalizeCleanupDictionarySetting,
+  type CleanupDictionarySetting,
+  type Snippet,
+} from "../utils/snippets";
+import { normalizeAutoLearnMode, migrateAutoLearnMode } from "../utils/autoLearnMode";
 import { syncGlossaryRules } from "./glossaryStore";
 import { syncDictionarySources } from "./dictionarySourcesStore";
+import { scheduleDictionaryUsageRefresh, syncDictionaryUsage } from "./dictionaryUsageStore";
 import type { EnterpriseSetupMode } from "../types/enterpriseIdentity";
 import { getManagedScopeResolution } from "./enterpriseIdentityStore";
 
@@ -332,6 +339,9 @@ function migrateMicrophoneSelectionMode() {
 }
 
 migrateMicrophoneSelectionMode();
+
+// Before the store below reads "autoLearnMode": the on/off switch it replaced.
+if (isBrowser) migrateAutoLearnMode(localStorage);
 
 // Automatic updates default on for new installs only. An install that already
 // finished onboarding keeps the manual download-and-install flow until the
@@ -1106,6 +1116,10 @@ export interface SettingsState
   recordingTranslationColor: string;
   recordingReminderMinutes: RecordingReminderMinutes;
   recordingQuality: RecordingQuality;
+  /** "Learn from your corrections" (Settings › Dictation › Output). */
+  autoLearnMode: AutoLearnMode;
+  /** Dictionary words in the cleanup prompt (Settings › Dictation › Cleanup). */
+  cleanupDictionaryWords: CleanupDictionarySetting;
   showTranscriptionPreview: boolean;
   autoPasteEnabled: boolean;
   keepTranscriptionInClipboard: boolean;
@@ -1468,6 +1482,8 @@ export interface SettingsState
   setRecordingTranslationColor: (color: string) => void;
   setRecordingReminderMinutes: (minutes: number) => void;
   setRecordingQuality: (quality: RecordingQuality) => void;
+  setAutoLearnMode: (mode: AutoLearnMode) => void;
+  setCleanupDictionaryWords: (setting: CleanupDictionarySetting) => void;
   setShowTranscriptionPreview: (value: boolean) => void;
   setAutoPasteEnabled: (value: boolean) => void;
   setKeepTranscriptionInClipboard: (value: boolean) => void;
@@ -2038,6 +2054,10 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   recordingQuality: normalizeRecordingQuality(
     readString("recordingQuality", "original")
   ) as RecordingQuality,
+  autoLearnMode: normalizeAutoLearnMode(readString("autoLearnMode", "suggest")),
+  cleanupDictionaryWords: normalizeCleanupDictionarySetting(
+    readString("cleanupDictionaryWords", "all")
+  ),
   showTranscriptionPreview: readBoolean("showTranscriptionPreview", false),
   autoPasteEnabled: readBoolean("autoPasteEnabled", true),
   keepTranscriptionInClipboard: readBoolean("keepTranscriptionInClipboard", false),
@@ -2987,6 +3007,22 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
     if (get().recordingQuality === next) return;
     if (isBrowser) localStorage.setItem("recordingQuality", next);
     set({ recordingQuality: next });
+  },
+  // Main decides per paste whether to watch edits; this window tells it.
+  // Other windows follow the storage event.
+  setAutoLearnMode: (mode: AutoLearnMode) => {
+    const next = normalizeAutoLearnMode(mode);
+    if (get().autoLearnMode === next) return;
+    if (isBrowser) localStorage.setItem("autoLearnMode", next);
+    set({ autoLearnMode: next });
+    window.electronAPI?.setAutoLearnMode?.(next);
+  },
+  // Read when a dictation's cleanup request is built.
+  setCleanupDictionaryWords: (setting: CleanupDictionarySetting) => {
+    const next = normalizeCleanupDictionarySetting(setting);
+    if (get().cleanupDictionaryWords === next) return;
+    if (isBrowser) localStorage.setItem("cleanupDictionaryWords", next);
+    set({ cleanupDictionaryWords: next });
   },
 
   setShowTranscriptionPreview: createBooleanSetter("showTranscriptionPreview"),
@@ -4092,6 +4128,16 @@ export async function initializeSettings(): Promise<void> {
         if (next.customDictionary !== previous.customDictionary) listener();
       });
     });
+    // Heard/written counts (cleanup's "words speech misses"), from main; they
+    // follow the dictionary and History, and the history switch they need.
+    syncDictionaryUsage();
+    useSettingsStore.subscribe((next, previous) => {
+      if (next.dataRetentionEnabled !== previous.dataRetentionEnabled) {
+        scheduleDictionaryUsageRefresh(1000);
+      }
+    });
+    // Main watches no edits until a window says which auto-learn mode is on.
+    window.electronAPI?.setAutoLearnMode?.(useSettingsStore.getState().autoLearnMode);
 
     try {
       await window.electronAPI.setAutoUpdatesEnabled?.(
@@ -4267,6 +4313,10 @@ export async function initializeSettings(): Promise<void> {
       value = normalizeRecordingReminderMinutes(newValue);
     } else if (key === "recordingQuality") {
       value = normalizeRecordingQuality(newValue);
+    } else if (key === "autoLearnMode") {
+      value = normalizeAutoLearnMode(newValue);
+    } else if (key === "cleanupDictionaryWords") {
+      value = normalizeCleanupDictionarySetting(newValue);
     } else if (key === "customConnection") {
       value = parseCustomConnection(newValue);
     } else {

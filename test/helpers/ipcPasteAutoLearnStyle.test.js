@@ -71,8 +71,11 @@ test.before(() => {
   const Ctor = IPCHandlers.default || IPCHandlers;
   target = {
     sessionId: "test-session",
-    _autoLearnEnabled: true,
+    _autoLearnMode: "add",
+    _autoLearnSynced: true,
     _autoLearnPasteSeq: 0,
+    _autoLearnArmed: Ctor.prototype._autoLearnArmed,
+    stepHistory: { currentOwner: () => "signed-out" },
     textEditMonitor: null,
     selectionManager: null,
   };
@@ -157,9 +160,9 @@ test("a styled paste cancels monitoring a plain paste had only scheduled", async
 
 test("auto-learn switched off arms nothing, styled or not", async (t) => {
   const { monitor, flush } = setupPaste(t);
-  target._autoLearnEnabled = false;
+  target._autoLearnMode = "off";
   t.after(() => {
-    target._autoLearnEnabled = true;
+    target._autoLearnMode = "add";
   });
   await handlers.get("paste-text")({ sender: { id: 1 } }, "plain words", {});
   flush();

@@ -33,8 +33,10 @@ import {
   type HintCoverage,
 } from "../utils/dictionaryHints";
 import { glossaryCanonicalTerms } from "../utils/glossary";
-import { useDictionarySourcesStore } from "../stores/dictionarySourcesStore";
+import { dictionaryWordKey } from "../utils/dictionaryWordKey.js";
+import { setDictionaryPin, useDictionarySourcesStore } from "../stores/dictionarySourcesStore";
 import { useGlossaryStore } from "../stores/glossaryStore";
+import DictionarySuggestions from "./DictionarySuggestions";
 
 const COVERAGE_CLASS: Record<HintCoverage, string> = {
   read: "text-success/80",
@@ -56,6 +58,7 @@ export default function DictionaryView() {
     cloudTranscriptionBaseUrl,
   } = useSettings();
   const learnedWords = useDictionarySourcesStore((s) => s.learned);
+  const pinnedKeys = useDictionarySourcesStore((s) => s.pinned);
   const glossaryRules = useGlossaryStore((s) => s.rules);
   const agentName = getAgentName();
   const { toast } = useToast();
@@ -108,6 +111,7 @@ export default function DictionaryView() {
     const plan = buildDictionaryHints({
       dictionary: customDictionary,
       learnedWords,
+      pinnedWords: pinnedKeys,
       glossaryTerms: glossaryCanonicalTerms(glossaryRules),
       snippets,
       maxChars: hintTarget.maxChars,
@@ -120,7 +124,12 @@ export default function DictionaryView() {
       map.set(entry.term.toLowerCase(), hintTarget.channel === "none" ? "notSent" : entry.coverage);
     }
     return map;
-  }, [customDictionary, learnedWords, glossaryRules, snippets, hintTarget]);
+  }, [customDictionary, learnedWords, pinnedKeys, glossaryRules, snippets, hintTarget]);
+
+  const isPinned = useCallback(
+    (word: string) => pinnedKeys.has(dictionaryWordKey(word)),
+    [pinnedKeys]
+  );
 
   const isLearned = useCallback(
     (word: string) => learnedWords.has(word.trim().toLowerCase()),
@@ -316,6 +325,9 @@ export default function DictionaryView() {
 
       <TabsContent value="dictionary" className="flex-1 min-h-0 mt-0 overflow-y-auto">
         <div className={cn(PAGE_CONTENT_WIDTH_CLASS, "flex flex-col gap-3 px-6 py-5")}>
+          {/* ─── Auto-learn's suggestions ─── */}
+          <DictionarySuggestions />
+
           {/* ─── Add word ─── */}
           {userWords.length > 0 && addWordInput}
 
@@ -467,11 +479,33 @@ export default function DictionaryView() {
                 {visibleWords.map((word) => {
                   const isEditing = editingWord === word;
                   const coverage = coverageByWord.get(word.trim().toLowerCase()) ?? "notSent";
+                  const pinned = isPinned(word);
                   return (
                     <li
                       key={word}
                       className="group flex items-center gap-2 h-9 border-b border-foreground/4 dark:border-white/10 last:border-b-0"
                     >
+                      {!isEditing && (
+                        <button
+                          type="button"
+                          onClick={() => void setDictionaryPin(word, !pinned)}
+                          aria-pressed={pinned}
+                          aria-label={t(pinned ? "dictionary.pins.unpin" : "dictionary.pins.pin", {
+                            word,
+                          })}
+                          title={t(
+                            pinned ? "dictionary.pins.pinnedHint" : "dictionary.pins.pinHint"
+                          )}
+                          className={cn(
+                            "shrink-0 w-4 text-xs leading-none transition-opacity duration-150",
+                            pinned
+                              ? "text-primary"
+                              : "text-foreground/35 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 hover:text-foreground/60"
+                          )}
+                        >
+                          {pinned ? "★" : "☆"}
+                        </button>
+                      )}
                       {isEditing ? (
                         <Input
                           dir="auto"

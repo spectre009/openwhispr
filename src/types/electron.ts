@@ -55,6 +55,69 @@ export interface DictionaryEntry {
   source: DictionaryEntrySource;
 }
 
+/** "Learn from your corrections" (Settings › Dictation › Output). */
+export type AutoLearnMode = "suggest" | "add" | "off";
+
+/**
+ * What Re-transcribe sends its speech-to-text hints from: the stored words in
+ * stored order, pinned keys, the glossary's canonical forms, snippet triggers
+ * and the Chinese script preference. Main reads the learned words itself.
+ */
+export interface RetryHintDictionary {
+  words: string[];
+  pinned: string[];
+  glossaryTerms: string[];
+  snippets: Array<{ trigger: string }>;
+  chineseScriptPreference: string | null;
+}
+
+/** What a suggested word replaced, in which app (exe name), for which dictation. */
+export interface DictionarySuggestionEvidence {
+  replaced: string;
+  app: string | null;
+  createdAt: string;
+  transcriptionId: number;
+}
+
+/** A word auto-learn suggested (Suggest mode), with this owner's evidence. */
+export interface DictionarySuggestion {
+  id: number;
+  word: string;
+  /** How many times it was learned while pending. */
+  times: number;
+  createdAt: string;
+  updatedAt: string;
+  evidence: DictionarySuggestionEvidence[];
+}
+
+export interface DictionarySuggestionList {
+  success?: boolean;
+  suggestions: DictionarySuggestion[];
+  /** How many words were dismissed (never suggested again). */
+  dismissed: number;
+}
+
+/** One dictionary word's counts over local History (dictionaryUsage.js). */
+export interface DictionaryWordUsage {
+  word: string;
+  /** Rows whose raw transcript has it. */
+  heard: number;
+  /** Rows whose final text has it. */
+  written: number;
+  /** Rows where the final text has it and the raw transcript doesn't. */
+  missedRows: number;
+}
+
+export type DictionaryUsageResult =
+  | {
+      available: true;
+      computedAt: string;
+      days: number;
+      rows: number;
+      words: DictionaryWordUsage[];
+    }
+  | { available: false; reason?: string };
+
 /** A glossary rule as the editor saves it: no id creates one. */
 export interface GlossaryRuleInput {
   id?: string;
@@ -468,7 +531,8 @@ export interface TranscriptionStepRecord {
   /**
    * Glossary steps: `{ revision, rulesFired }`; snippet finalize: `{ snippets: true }`;
    * style steps: `{ styleId, runMode }`; a carried-over speech-to-text step:
-   * `{ reused }`; a failed step adds `failure` (why, allowlisted).
+   * `{ reused }`; cleanup and one-step style steps: `{ dictionaryScope }`; a
+   * failed step adds `failure` (why, allowlisted).
    */
   detail: {
     revision?: number | null;
@@ -484,8 +548,21 @@ export interface TranscriptionStepRecord {
     runMode?: "two-step" | "one-step" | null;
     /** Re-run cleanup reused this speech-to-text step: from the dictation's step, or unknown. */
     reused?: "stored" | "unknown";
+    /** Cleanup (or a one-step style) step: which dictionary words its prompt carried. */
+    dictionaryScope?: CleanupDictionaryScopeRecord;
     failure?: StepFailureRecord;
   } | null;
+}
+
+/**
+ * The dictionary word set a cleanup request ran with: the setting, the set
+ * actually applied ("all" when "words speech misses" had no counts), and how
+ * many dictionary words it carried.
+ */
+export interface CleanupDictionaryScopeRecord {
+  setting: "all" | "typedPinnedMissed" | "typedPinned" | "none";
+  applied: "all" | "typedPinnedMissed" | "typedPinned" | "none";
+  words: number;
 }
 
 /**
@@ -2249,6 +2326,10 @@ declare global {
           cohereModel: string;
           whisperModel: string;
           preferredLanguage?: string;
+          /** The speech language a live dictation of the row used (a translation's source). */
+          speechLanguage?: string;
+          /** The dictionary to send, as live dictation would (sttHintFields.js). */
+          dictionary?: RetryHintDictionary;
           transcriptionMode?: InferenceMode;
           remoteTranscriptionType?: SelfHostedType;
           remoteTranscriptionUrl?: string;
@@ -2264,7 +2345,8 @@ declare global {
         success: boolean;
         transcription?: TranscriptionItem;
         error?: string;
-        code?: TranscriptionErrorCode;
+        /** "DICTIONARY_ECHO": the transcript only repeated the dictionary sent; nothing was written. */
+        code?: TranscriptionErrorCode | "DICTIONARY_ECHO";
         messageKey?: string;
         /** Main's step-history run for this retry; put it on the trace as `runId`. */
         stepRunId?: string | null;
@@ -2376,9 +2458,38 @@ declare global {
       saveGlossaryRule?: (rule: GlossaryRuleInput) => Promise<GlossarySaveResult>;
       deleteGlossaryRule?: (id: string) => Promise<GlossarySaveResult>;
       onGlossaryRulesUpdated?: (callback: (snapshot: GlossarySnapshot) => void) => () => void;
-      setAutoLearnEnabled?: (enabled: boolean) => void;
+      setAutoLearnMode?: (mode: AutoLearnMode) => void;
       onCorrectionsLearned?: (callback: (words: string[]) => void) => () => void;
       undoLearnedCorrections?: (words: string[]) => Promise<{ success: boolean }>;
+      // Pins (main-owned, local-only): dictionaryWordKey of each pinned word
+      getDictionaryPins?: () => Promise<string[]>;
+      setDictionaryPin?: (
+        word: string,
+        pinned: boolean
+      ) => Promise<{ success: boolean; changed?: boolean; pins?: string[]; code?: string }>;
+      onDictionaryPinsUpdated?: (callback: (pins: string[]) => void) => () => void;
+      // Auto-learn's suggestions (main-owned, local-only)
+      listDictionarySuggestions?: () => Promise<DictionarySuggestionList>;
+      acceptDictionarySuggestions?: (
+        ids: number[]
+      ) => Promise<{ success: boolean; accepted: number }>;
+      dismissDictionarySuggestions?: (
+        ids: number[]
+      ) => Promise<{ success: boolean; dismissed: number }>;
+      clearDismissedDictionarySuggestions?: () => Promise<{ success: boolean; cleared: number }>;
+      onDictionarySuggestionsUpdated?: (
+        callback: (change: { reason: string }) => void
+      ) => () => void;
+      /** The dictation window: words auto-learn just suggested (Suggest mode). */
+      onCorrectionsSuggested?: (
+        callback: (suggestions: Array<{ id: number; word: string }>) => void
+      ) => () => void;
+      /** The suggestion toast's Review: opens the Dictionary in the control panel. */
+      openDictionarySuggestions?: () => Promise<{ success: boolean }>;
+      getPendingDictionarySuggestionsRequest?: () => Promise<boolean>;
+      onDictionarySuggestionsPending?: (callback: () => void) => () => void;
+      /** Heard vs written per dictionary word over local History (counts only). */
+      getDictionaryUsage?: () => Promise<DictionaryUsageResult>;
 
       // Note operations
       saveNote: (

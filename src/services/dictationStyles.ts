@@ -15,7 +15,7 @@ import type { ReasoningConfig } from "./BaseReasoningService";
 import type { DictationCleanupRequest } from "./cleanupWithPrompt";
 import { TRUNCATED_OUTPUT_MESSAGE_KEY } from "./ai/chatRequestBody";
 import { finishCleanupOutput } from "../utils/cleanupOutput";
-import { buildDictationCleanupConfig } from "../helpers/dictationCleanupConfig";
+import { buildDictationCleanupConfig, cleanupStepMeta } from "../helpers/dictationCleanupConfig";
 import { executeStyleChain } from "../helpers/styleChain";
 import { passthroughStep, type RecordStep } from "../helpers/postTranscription";
 import {
@@ -242,10 +242,26 @@ export async function runStyledDictation(
     strict,
     ...requestOptions
   } = params;
-  const styleStep = (mode: StyleRunMode, call: (options: StyleRequestOptions) => Promise<string>) =>
-    recordStep("style", { detail: { styleId: style.id, runMode: mode } }, (dispatched) =>
-      call({ ...requestOptions, onDispatch: dispatched })
+  const styleStep = (
+    mode: StyleRunMode,
+    call: (options: StyleRequestOptions) => Promise<string>
+  ) => {
+    // One step is the cleanup request itself: its dictionary (cleanup's word
+    // set) is decided once, here, and the style step records it. Two steps
+    // restyle with their own system prompt, which carries no dictionary.
+    const request =
+      mode === "one-step"
+        ? (requestOptions.request ??
+          dictationCleanupRequest(requestOptions.settings ?? getSettings()))
+        : requestOptions.request;
+    const scope = mode === "one-step" ? cleanupStepMeta(request?.config).detail : undefined;
+    return recordStep(
+      "style",
+      { detail: { styleId: style.id, runMode: mode, ...(scope ?? {}) } },
+      (dispatched) =>
+        call({ ...requestOptions, ...(request ? { request } : {}), onDispatch: dispatched })
     );
+  };
   return (await executeStyleChain({
     text,
     runMode,

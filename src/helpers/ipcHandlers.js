@@ -157,7 +157,11 @@ const {
 const { deriveDetectorPreferences } = require("./meetingDetectionPreferencePolicy");
 const { resolveDiarizationInput } = require("./meetingDiarizationInput");
 const { applySmartSpacing } = require("./smartSpacing");
-const { applyAutoLearnSetting } = require("./autoLearnSetting");
+const { applyAutoLearnSetting, DEFAULT_AUTO_LEARN_MODE } = require("./autoLearnSetting");
+// ESM, through require(esm): the Dictionary's heard/written counts.
+const { createDictionaryUsageService, usageAvailability } = require("./dictionaryUsage.js");
+const { dictionaryWordKey } = require("../utils/dictionaryWordKey.js");
+const { DICTIONARY_ECHO_CODE } = require("../utils/dictionaryEchoFilter.js");
 const {
   DEFAULT_RETENTION_SETTINGS,
   createRetentionSettingsHandler,
@@ -748,11 +752,19 @@ class IPCHandlers {
     this._meetingMicStreaming = null;
     this._meetingSystemStreaming = null;
     this._hotkeyCaptureMode = false;
-    this._autoLearnEnabled = true; // Default on, synced from renderer
+    // "Learn from your corrections" (autoLearnSetting.js): Suggest until a
+    // window says otherwise, and nothing is watched until a window has synced it.
+    this._autoLearnMode = DEFAULT_AUTO_LEARN_MODE;
+    this._autoLearnSynced = false;
     this._autoLearnDebounceTimer = null;
     this._autoLearnLatestData = null;
     // Counts pastes, so a newer paste cancels the monitoring an older one scheduled.
     this._autoLearnPasteSeq = 0;
+    // The 500 ms wait before a paste's edit monitoring starts.
+    this._autoLearnStartTimer = null;
+    // The paste being watched (owner, target app, text, time), for a suggested
+    // word's evidence. Captured per paste; dropped when the owner or History changes.
+    this._autoLearnPasteContext = null;
     this._textEditHandler = null;
     this._activeRecordingPipeline = null;
     this._onboardingDemoSession = null;
@@ -786,6 +798,23 @@ class IPCHandlers {
       enabled: this._retentionSettings?.dataRetentionEnabled === true,
       forcedOff: this._retentionSettings?.localHistoryForcedOff === true,
       resolved: this._retentionSettings?.localHistoryPolicyResolved === true,
+    });
+    this._historyPolicy = historyPolicy;
+    // The Dictionary's heard/written counts: History read for the same owner,
+    // only while local history is durable for it. Counts only, never logged.
+    this.dictionaryUsage = createDictionaryUsageService({
+      db: this.databaseManager,
+      getOwner: () => this.stepHistory.currentOwner(),
+      getPolicy: historyPolicy,
+      getSnippetExpansions: () => {
+        try {
+          return this.databaseManager.getSnippets().map((snippet) => snippet.replacement);
+        } catch {
+          return [];
+        }
+      },
+      onComputed: ({ rows, words, ms }) =>
+        debugLogger.debug("Dictionary usage counted", { rows, words, ms }, "dictionary"),
     });
     // Reviews of dictations (History view): the same owner as step history,
     // saved only while local history is durable for it.
@@ -1013,6 +1042,7 @@ class IPCHandlers {
     // A sign-out or another account changes whose test cases show, and whose
     // login shows.
     this.promptTestCases?.ownerMaybeChanged();
+    this._dictionaryOwnerMaybeChanged?.();
     void this.connectorManager?.notifyStatusChanged();
   }
 
@@ -1405,6 +1435,19 @@ class IPCHandlers {
     }
   }
 
+  // The auto-learned words, lowercased, for a retry's hint list (typed words
+  // lead it); none when they can't be read, so every word counts as typed.
+  _learnedDictionaryWords() {
+    try {
+      return this.databaseManager
+        .getDictionaryEntries()
+        .filter((entry) => entry.source === "learned")
+        .map((entry) => entry.word.trim().toLowerCase());
+    } catch {
+      return [];
+    }
+  }
+
   // Auto-learn compares the pasted text (already glossary-corrected) with the
   // user's edit, so undoing a correction would learn the mishearing itself
   // ("everybody") into the hint list. No glossary word is ever learned.
@@ -1430,6 +1473,48 @@ class IPCHandlers {
       this.textEditMonitor.removeListener("text-edited", this._textEditHandler);
       this._textEditHandler = null;
     }
+  }
+
+  // Edit monitoring runs only once a window has synced the mode, and never Off.
+  _autoLearnArmed() {
+    return this._autoLearnSynced === true && this._autoLearnMode !== "off";
+  }
+
+  // Off: the monitor stops, and neither a paste's pending 500 ms start nor a
+  // pending correction debounce may still run.
+  _stopAutoLearn() {
+    this._autoLearnPasteSeq = (this._autoLearnPasteSeq || 0) + 1;
+    if (this._autoLearnStartTimer) {
+      clearTimeout(this._autoLearnStartTimer);
+      this._autoLearnStartTimer = null;
+    }
+    if (this._autoLearnDebounceTimer) {
+      clearTimeout(this._autoLearnDebounceTimer);
+      this._autoLearnDebounceTimer = null;
+    }
+    this._autoLearnLatestData = null;
+    this._autoLearnPasteContext = null;
+    try {
+      this.textEditMonitor?.stopMonitoring?.();
+    } catch (error) {
+      debugLogger.debug("[AutoLearn] Failed to stop monitoring", { error: error.message });
+    }
+  }
+
+  // Another account (or none) now owns History: a paste watched for the old
+  // owner can't leave evidence, and its counts are another owner's.
+  _dictionaryOwnerMaybeChanged() {
+    let owner = null;
+    try {
+      owner = this.stepHistory?.currentOwner?.() ?? null;
+    } catch {
+      owner = null;
+    }
+    if (this._autoLearnPasteContext && this._autoLearnPasteContext.owner !== owner) {
+      this._autoLearnPasteContext = null;
+    }
+    this.dictionaryUsage?.invalidate?.();
+    broadcastToWindows("dictionary-suggestions-updated", { reason: "owner" });
   }
 
   async _logDetectedGpus() {
@@ -1503,7 +1588,11 @@ class IPCHandlers {
         newValue: logText(newFieldValue),
       });
 
-      this._autoLearnLatestData = { originalText, newFieldValue };
+      if (!this._autoLearnArmed()) return;
+      // The paste these edits belong to (its monitor watches its text).
+      const paste =
+        this._autoLearnPasteContext?.text === originalText ? this._autoLearnPasteContext : null;
+      this._autoLearnLatestData = { originalText, newFieldValue, paste };
 
       if (this._autoLearnDebounceTimer) {
         clearTimeout(this._autoLearnDebounceTimer);
@@ -1519,50 +1608,125 @@ class IPCHandlers {
 
   _processCorrections() {
     this._autoLearnDebounceTimer = null;
-    if (!this._autoLearnLatestData) return;
-    if (!this._autoLearnEnabled) {
-      debugLogger.debug("[AutoLearn] Disabled, skipping correction processing");
-      this._autoLearnLatestData = null;
+    const data = this._autoLearnLatestData;
+    this._autoLearnLatestData = null;
+    if (!data) return;
+    if (!this._autoLearnArmed()) {
+      debugLogger.debug("[AutoLearn] Off, skipping correction processing");
       return;
     }
 
-    const { originalText, newFieldValue } = this._autoLearnLatestData;
-    this._autoLearnLatestData = null;
+    const mode = this._autoLearnMode;
+    const { originalText, newFieldValue, paste = null } = data;
 
     try {
-      const { extractCorrections } = require("../utils/correctionLearner");
+      const { extractCorrectionPairs } = require("../utils/correctionLearner");
       const currentDict = this._getDictionarySafe();
-      const learned = extractCorrections(originalText, newFieldValue, currentDict);
-      const corrections = this._withoutGlossaryWords(learned);
+      const pairs = extractCorrectionPairs(originalText, newFieldValue, currentDict);
+      const kept = new Set(this._withoutGlossaryWords(pairs.map((pair) => pair.word)));
+      const learned = pairs.filter((pair) => kept.has(pair.word));
+      // Counts only: the learned words are the user's dictionary.
       debugLogger.debug("[AutoLearn] Corrections result", {
-        corrections: logText(corrections.join(", ")),
-        count: corrections.length,
-        skippedGlossaryWords: learned.length - corrections.length,
+        mode,
+        count: learned.length,
+        skippedGlossaryWords: pairs.length - learned.length,
         dictSize: currentDict.length,
       });
+      if (learned.length === 0) return;
 
-      if (corrections.length > 0) {
-        const saveResult = this.databaseManager.applyDictionaryChanges(
-          { add: corrections },
-          "learned"
-        );
-
-        if (saveResult?.success === false) {
-          debugLogger.debug("[AutoLearn] Failed to save dictionary", { error: saveResult.error });
-          return;
-        }
-
-        // Broadcast the post-save normalized list, not the raw input (which
-        // still has case-variant dupes), so renderers don't flash ghost rows.
-        broadcastToWindows("dictionary-updated", this.databaseManager.getDictionary());
-
-        // Show the overlay so the toast is visible (it may have been hidden after dictation)
-        this.windowManager.showDictationPanel();
-        broadcastToWindows("corrections-learned", corrections);
-        debugLogger.debug("[AutoLearn] Saved corrections", { count: corrections.length });
+      if (mode === "suggest") {
+        this._suggestCorrections(learned, paste);
+        return;
       }
+
+      const corrections = learned.map((pair) => pair.word);
+      const saveResult = this.databaseManager.applyDictionaryChanges(
+        { add: corrections },
+        "learned"
+      );
+
+      if (saveResult?.success === false) {
+        debugLogger.debug("[AutoLearn] Failed to save dictionary", { error: saveResult.error });
+        return;
+      }
+
+      // Broadcast the post-save normalized list, not the raw input (which
+      // still has case-variant dupes), so renderers don't flash ghost rows.
+      broadcastToWindows("dictionary-updated", this.databaseManager.getDictionary());
+
+      // Show the overlay so the toast is visible (it may have been hidden after dictation)
+      this.windowManager.showDictationPanel();
+      broadcastToWindows("corrections-learned", corrections);
+      debugLogger.debug("[AutoLearn] Saved corrections", { count: corrections.length });
     } catch (error) {
       debugLogger.debug("[AutoLearn] Error processing corrections", { error: error.message });
+    }
+  }
+
+  // Suggest mode: the words wait in the Dictionary's suggestions, each with
+  // what it replaced and where, when that can be tied to this owner's
+  // dictation in durable local History. Words already in the dictionary, or
+  // dismissed before, are never suggested.
+  _suggestCorrections(pairs, paste) {
+    const suggestions = this.databaseManager.recordDictionarySuggestions?.(
+      pairs.map((pair) => pair.word)
+    );
+    if (!Array.isArray(suggestions) || suggestions.length === 0) {
+      debugLogger.debug("[AutoLearn] Nothing new to suggest", { count: pairs.length });
+      return;
+    }
+    const { saved, reason } = this._recordCorrectionEvidence(pairs, suggestions, paste);
+    broadcastToWindows("dictionary-suggestions-updated", { reason: "learned" });
+    this.windowManager.showDictationPanel();
+    broadcastToWindows(
+      "corrections-suggested",
+      suggestions.map((suggestion) => ({ id: suggestion.id, word: suggestion.word }))
+    );
+    debugLogger.debug("[AutoLearn] Suggested", {
+      count: suggestions.length,
+      evidence: saved,
+      ...(reason ? { evidenceSkipped: reason } : {}),
+    });
+  }
+
+  // Evidence is kept only for the paste's own owner, still the owner now,
+  // while local history is durable for it, and tied to that owner's dictation
+  // of the pasted text. Returns how many rows were saved, or why none.
+  _recordCorrectionEvidence(pairs, suggestions, paste) {
+    if (!paste) return { saved: 0, reason: "no-paste" };
+    let owner = null;
+    try {
+      owner = this.stepHistory.currentOwner();
+    } catch {
+      owner = null;
+    }
+    if (!owner || owner !== paste.owner) return { saved: 0, reason: "owner-changed" };
+    const availability = usageAvailability(this._historyPolicy?.() ?? null, owner);
+    if (!availability.available) return { saved: 0, reason: availability.reason };
+    try {
+      const transcriptionId = this.databaseManager.findEvidenceTranscription(
+        owner,
+        paste.text,
+        paste.pastedAt
+      );
+      if (!Number.isInteger(transcriptionId)) return { saved: 0, reason: "no-dictation" };
+      const suggested = new Set(suggestions.map((suggestion) => suggestion.key));
+      let saved = 0;
+      for (const pair of pairs) {
+        if (!suggested.has(dictionaryWordKey(pair.word))) continue;
+        const ok = this.databaseManager.addDictionaryWordEvidence({
+          word: pair.word,
+          owner,
+          transcriptionId,
+          replaced: pair.replaced,
+          app: paste.app,
+        });
+        if (ok) saved += 1;
+      }
+      return { saved, reason: saved > 0 ? null : "no-dictation" };
+    } catch (error) {
+      debugLogger.debug("[AutoLearn] Evidence not saved", { error: error.message });
+      return { saved: 0, reason: "error" };
     }
   }
 
@@ -2139,6 +2303,12 @@ class IPCHandlers {
     ipcMain.handle("get-pending-history-item-request", (event) =>
       fromControlPanel(event) ? this.windowManager.consumePendingHistoryItemRequest() : null
     );
+    // The suggestion toast's Review: held until the control panel asks.
+    ipcMain.handle("get-pending-dictionary-suggestions-request", (event) =>
+      fromControlPanel(event)
+        ? (this.windowManager.consumePendingDictionarySuggestionsRequest?.() ?? false)
+        : false
+    );
     // The dictation window still pasting or saving a finished dictation, which
     // main's lifecycle (idle by then) doesn't see. Reset when that renderer
     // goes away (windowManager._registerDictationLifecycleReset).
@@ -2329,6 +2499,8 @@ class IPCHandlers {
       this.audioStorageManager.deleteAllAudio();
       const result = this.databaseManager.clearTranscriptions();
       if (result?.success) {
+        // A paste being watched belongs to a dictation that just went.
+        this._autoLearnPasteContext = null;
         setImmediate(() => {
           broadcastToWindows("transcriptions-cleared", {
             cleared: result.cleared,
@@ -2448,6 +2620,8 @@ class IPCHandlers {
           // A policy forcing history off moves durable test cases to memory;
           // any change can switch where a new pin is kept.
           this.promptTestCases?.policyChanged();
+          // Heard/written counts follow the same switch.
+          this.dictionaryUsage?.invalidate();
           // First point at which the local-history switch is known to be real.
           // After the sweep, so expired transcripts are gone before they can be
           // reconstructed into counters the sweep would only have to purge.
@@ -2527,19 +2701,17 @@ class IPCHandlers {
     });
 
     // Dictionary handlers
-    ipcMain.on("auto-learn-changed", (_event, enabled) => {
-      // Both renderer windows re-sync this on mount — ignore same-value updates (#1080).
-      const { changed, enabled: next } = applyAutoLearnSetting(this._autoLearnEnabled, enabled);
-      if (!changed) return;
-      this._autoLearnEnabled = next;
-      if (!this._autoLearnEnabled) {
-        if (this._autoLearnDebounceTimer) {
-          clearTimeout(this._autoLearnDebounceTimer);
-          this._autoLearnDebounceTimer = null;
-        }
-        this._autoLearnLatestData = null;
-      }
-      debugLogger.debug("[AutoLearn] Setting changed", { enabled: this._autoLearnEnabled });
+    // "Learn from your corrections": Suggest, Add directly or Off. Every
+    // window syncs it on load (same-value syncs are ignored, #1080); until the
+    // first one arrives no edit is watched. Off stops everything already queued.
+    ipcMain.on("auto-learn-changed", (_event, value) => {
+      const { changed, mode } = applyAutoLearnSetting(this._autoLearnMode, value);
+      const firstSync = this._autoLearnSynced !== true;
+      this._autoLearnSynced = true;
+      if (!changed && !firstSync) return;
+      this._autoLearnMode = mode;
+      if (mode === "off") this._stopAutoLearn();
+      debugLogger.debug("[AutoLearn] Setting changed", { mode, firstSync });
     });
 
     ipcMain.handle("db-get-dictionary", async () => {
@@ -2548,6 +2720,147 @@ class IPCHandlers {
 
     ipcMain.handle("db-get-dictionary-entries", async () => {
       return this.databaseManager.getDictionaryEntries();
+    });
+
+    // Pins: local only; main owns them, every window mirrors the broadcast.
+    ipcMain.handle("dictionary-pins-get", async () => {
+      try {
+        return this.databaseManager.getDictionaryPins();
+      } catch (error) {
+        debugLogger.warn("Dictionary pins not read", { error: error.message }, "dictionary");
+        return [];
+      }
+    });
+
+    ipcMain.handle("dictionary-pin-set", async (_event, word, pinned) => {
+      if (typeof word !== "string" || !word.trim()) {
+        return { success: false, code: "INVALID_WORD" };
+      }
+      try {
+        const result = this.databaseManager.setDictionaryPin(word, pinned === true);
+        if (result.success && result.changed) {
+          broadcastToWindows("dictionary-pins-updated", result.pins);
+        }
+        return result;
+      } catch (error) {
+        debugLogger.warn("Dictionary pin not saved", { error: error.message }, "dictionary");
+        return { success: false, code: "FAILED" };
+      }
+    });
+
+    // Suggestions (auto-learn's Suggest mode), with this owner's evidence while
+    // local history is durable for it. Never logged: counts and reasons only.
+    const suggestionsList = () => {
+      const { suggestions, dismissed } = this.databaseManager.getDictionarySuggestions();
+      let evidence = [];
+      try {
+        const owner = this.stepHistory.currentOwner();
+        if (usageAvailability(this._historyPolicy(), owner).available && suggestions.length > 0) {
+          evidence = this.databaseManager.getDictionaryWordEvidence(
+            owner,
+            suggestions.map((suggestion) => suggestion.word_key)
+          );
+        }
+      } catch {
+        evidence = [];
+      }
+      const byKey = new Map();
+      for (const row of evidence) {
+        if (!byKey.has(row.word_key)) byKey.set(row.word_key, []);
+        byKey.get(row.word_key).push({
+          replaced: row.replaced,
+          app: row.app ?? null,
+          createdAt: row.created_at,
+          transcriptionId: row.transcription_id,
+        });
+      }
+      return {
+        suggestions: suggestions.map((suggestion) => ({
+          id: suggestion.id,
+          word: suggestion.word,
+          times: suggestion.times,
+          createdAt: suggestion.created_at,
+          updatedAt: suggestion.updated_at,
+          evidence: byKey.get(suggestion.word_key) ?? [],
+        })),
+        dismissed,
+      };
+    };
+    const suggestionIds = (ids) =>
+      Array.isArray(ids) ? ids.filter((id) => Number.isInteger(id)).slice(0, 10_000) : [];
+
+    ipcMain.handle("dictionary-suggestions-list", async () => {
+      try {
+        return { success: true, ...suggestionsList() };
+      } catch (error) {
+        debugLogger.warn("Dictionary suggestions not read", { error: error.message }, "dictionary");
+        return { success: false, suggestions: [], dismissed: 0 };
+      }
+    });
+
+    ipcMain.handle("dictionary-suggestions-accept", async (_event, ids) => {
+      try {
+        const result = this.databaseManager.acceptDictionarySuggestions(suggestionIds(ids));
+        if (result.success && result.accepted.length > 0) {
+          broadcastToWindows("dictionary-updated", this.databaseManager.getDictionary());
+          broadcastToWindows("dictionary-suggestions-updated", { reason: "accepted" });
+        }
+        debugLogger.debug("Dictionary suggestions accepted", {
+          count: result.accepted?.length ?? 0,
+          added: result.added ?? 0,
+        });
+        return { success: result.success, accepted: result.accepted?.length ?? 0 };
+      } catch (error) {
+        debugLogger.warn("Dictionary suggestions not accepted", { error: error.message });
+        return { success: false, accepted: 0 };
+      }
+    });
+
+    ipcMain.handle("dictionary-suggestions-dismiss", async (_event, ids) => {
+      try {
+        const result = this.databaseManager.dismissDictionarySuggestions(suggestionIds(ids));
+        if (result.success && result.dismissed > 0) {
+          broadcastToWindows("dictionary-suggestions-updated", { reason: "dismissed" });
+        }
+        return result;
+      } catch (error) {
+        debugLogger.warn("Dictionary suggestions not dismissed", { error: error.message });
+        return { success: false, dismissed: 0 };
+      }
+    });
+
+    ipcMain.handle("dictionary-suggestions-clear-dismissed", async () => {
+      try {
+        const result = this.databaseManager.clearDismissedDictionarySuggestions();
+        if (result.success && result.cleared > 0) {
+          broadcastToWindows("dictionary-suggestions-updated", { reason: "cleared" });
+        }
+        return result;
+      } catch (error) {
+        debugLogger.warn("Dismissed suggestions not cleared", { error: error.message });
+        return { success: false, cleared: 0 };
+      }
+    });
+
+    // The suggestion toast's Review: the control panel opens on the Dictionary.
+    ipcMain.handle("open-dictionary-suggestions", async () => {
+      try {
+        await this.windowManager.queueDictionarySuggestionsRequest();
+        return { success: true };
+      } catch (error) {
+        debugLogger.warn("Dictionary suggestions not opened", { error: error.message });
+        return { success: false };
+      }
+    });
+
+    // Heard vs written per dictionary word (dictionaryUsage.js): counts only.
+    ipcMain.handle("dictionary-usage", async () => {
+      try {
+        return await this.dictionaryUsage.get();
+      } catch (error) {
+        debugLogger.warn("Dictionary usage not counted", { error: error.message }, "dictionary");
+        return { available: false, reason: "unavailable" };
+      }
     });
 
     // Glossary rules: main owns them; every window mirrors the broadcast.
@@ -2960,6 +3273,7 @@ class IPCHandlers {
         accountId !== null ? { accountId, authGeneration: state.generation } : null
       );
       this.promptTestCases?.ownerMaybeChanged();
+      this._dictionaryOwnerMaybeChanged?.();
       this.connectorManager?.accountChanged();
       void this.connectorManager?.notifyStatusChanged();
       return { success: true };
@@ -3797,9 +4111,14 @@ class IPCHandlers {
       const pasted = pasteResult?.pasted !== false;
       // Each paste supersedes the monitoring an earlier one was about to arm.
       const pasteSeq = (this._autoLearnPasteSeq = (this._autoLearnPasteSeq || 0) + 1);
+      if (this._autoLearnStartTimer) {
+        clearTimeout(this._autoLearnStartTimer);
+        this._autoLearnStartTimer = null;
+      }
       const styledPaste = suppressAutoLearn === true;
       debugLogger.debug("[AutoLearn] Paste completed", {
-        autoLearnEnabled: this._autoLearnEnabled,
+        autoLearnMode: this._autoLearnMode,
+        autoLearnSynced: this._autoLearnSynced === true,
         hasMonitor: !!this.textEditMonitor,
         targetPid,
         pasted,
@@ -3808,14 +4127,32 @@ class IPCHandlers {
       if (pasted && styledPaste) {
         // Nor may a plain paste's monitoring still running see the styled text
         // land in the field as the user's edit. The next plain paste arms it again.
+        this._autoLearnPasteContext = null;
         try {
           this.textEditMonitor?.stopMonitoring?.();
         } catch (err) {
           debugLogger.debug("[AutoLearn] Failed to stop monitoring", { error: err.message });
         }
-      } else if (pasted && this.textEditMonitor && this._autoLearnEnabled) {
-        setTimeout(() => {
-          if (pasteSeq !== this._autoLearnPasteSeq) return;
+      } else if (pasted && this.textEditMonitor && this._autoLearnArmed()) {
+        // This paste, as a suggested word's evidence will name it: whose
+        // History it belongs to, the app it went to, its text and its time.
+        let owner = null;
+        try {
+          owner = this.stepHistory?.currentOwner?.() ?? null;
+        } catch {
+          owner = null;
+        }
+        const paste = {
+          owner,
+          app: typeof winTarget?.exeName === "string" ? winTarget.exeName : null,
+          text,
+          pastedAt: Date.now(),
+        };
+        this._autoLearnStartTimer = setTimeout(() => {
+          this._autoLearnStartTimer = null;
+          // A newer paste, or auto-learn switched off meanwhile.
+          if (pasteSeq !== this._autoLearnPasteSeq || !this._autoLearnArmed()) return;
+          this._autoLearnPasteContext = paste;
           try {
             debugLogger.debug("[AutoLearn] Starting monitoring", { text: logText(text) });
             this.textEditMonitor.startMonitoring(text, 30000, { targetPid });
@@ -3928,10 +4265,15 @@ class IPCHandlers {
     });
 
     ipcMain.handle("transcribe-local-whisper", async (_event, audioBlob, options = {}) => {
+      // The initial prompt is the user's dictionary: its size only.
+      const { initialPrompt: loggedPrompt, ...loggedOptions } = options || {};
       debugLogger.log("transcribe-local-whisper called", {
         audioBlobType: typeof audioBlob,
         audioBlobSize: audioBlob?.byteLength || audioBlob?.length || 0,
-        options,
+        options: {
+          ...loggedOptions,
+          initialPromptChars: typeof loggedPrompt === "string" ? loggedPrompt.length : 0,
+        },
       });
 
       try {
@@ -7348,20 +7690,45 @@ class IPCHandlers {
       let providerErrorContext = null;
       try {
         let result;
-        const preferredLanguage = settings?.preferredLanguage;
+        // The speech language a live dictation of this row would have used: a
+        // translation recording's source language (the renderer reads the
+        // row), else the preferred language.
+        const speechLanguage =
+          typeof settings?.speechLanguage === "string" && settings.speechLanguage
+            ? settings.speechLanguage
+            : settings?.preferredLanguage;
         const language =
-          preferredLanguage && preferredLanguage !== "auto"
-            ? preferredLanguage.split("-")[0]
-            : undefined;
+          speechLanguage && speechLanguage !== "auto" ? speechLanguage.split("-")[0] : undefined;
         const { resolveTranscriptionRoute } = await import("./transcriptionRoute.ts");
         const { convertBufferToWav, isWavFormat } = require("./ffmpegUtils");
+        // The dictionary as live dictation sends it for this route
+        // (sttHintFields.js): the renderer's words in stored order, pins, the
+        // glossary's canonical forms, snippet triggers and script preference,
+        // with the learned words read here (the renderer's copy may not have
+        // loaded). No dictionary from an older window: nothing is sent.
+        const { buildSttHintFields, isHintEcho } = await import("../utils/sttHintFields.js");
+        const hintDictionary =
+          settings?.dictionary && typeof settings.dictionary === "object"
+            ? {
+                ...settings.dictionary,
+                learned: this._learnedDictionaryWords(),
+                speechLanguage: speechLanguage || "auto",
+              }
+            : null;
+        // What this request carried, for the echo check below.
+        let sentHints = null;
+        const hintsFor = (spec) => {
+          sentHints = buildSttHintFields(hintDictionary ? spec : { route: "none" }, hintDictionary);
+          return sentHints;
+        };
         // Renderer pre-flight owns policy; retry re-routes stored audio through
         // whatever is selected NOW.
         const route = resolveTranscriptionRoute({
           settings: settings || {},
           providers: transcriptionProviderBaseUrls(),
           managed: settings?.managed,
-          request: { effectiveLanguage: language },
+          // "auto" sends none, as live dictation's route does (resolveBatchRoute).
+          request: { effectiveLanguage: language ?? "auto" },
         });
 
         // An error route is fatal unless OpenWhispr cloud is selected — a
@@ -7438,16 +7805,26 @@ class IPCHandlers {
         };
 
         if (route.transport === "managed") {
+          const hints = hintsFor({ route: "managed" });
           const text = await this.executeManagedTranscription(event, route, {
             audioBuffer: buffer,
             fileName: "audio.webm",
             contentType: "audio/webm",
+            ...(hints.prompt ? { prompt: hints.prompt } : {}),
           });
           result = { text, source: "azure-managed", model: route.deployment };
         } else if (route.transport === "http-batch" && route.provider === "self-hosted") {
+          const hints = hintsFor({
+            route: "openai-compatible",
+            provider: settings?.cloudTranscriptionProvider || "openai",
+            endpoint: route.endpoint,
+            model: route.model,
+          });
           const fields = [];
           if (route.model) fields.push(["model", route.model]);
           if (route.language) fields.push(["language", route.language]);
+          if (hints.prompt) fields.push(["prompt", hints.prompt]);
+          for (const keyword of hints.keywords) fields.push(["keywords[]", keyword]);
           const answer = await sendStoredAudio({
             endpoint: route.endpoint,
             fields,
@@ -7488,11 +7865,29 @@ class IPCHandlers {
             });
           } else if (this.whisperManager?.serverManager?.isAvailable?.()) {
             const vadOptions = this._resolveWhisperVadOptions("noteRecording");
-            result = await this.whisperManager.transcribeLocalWhisper(buffer, {
-              model: settings.whisperModel,
-              language,
-              ...vadOptions,
+            const hints = hintsFor({ route: "local-whisper" });
+            // The initial prompt, and live dictation's echo recovery: a reply
+            // that continues the prompt is decoded again without it (and VAD).
+            const { transcribeWithEchoRecovery } =
+              await import("../utils/localWhisperEchoRecovery.js");
+            result = await transcribeWithEchoRecovery({
+              transcribe: ({ skipVad, ...options }) =>
+                this.whisperManager.transcribeLocalWhisper(buffer, {
+                  ...options,
+                  ...(skipVad ? { vadEnabled: false } : vadOptions),
+                }),
+              options: { model: settings.whisperModel, language },
+              prompt: hints.prompt,
+              dictionaryPrompt: hints.dictionaryPrompt,
+              durationSeconds: storedAudioSeconds,
+              onRecovery: ({ reason, recovered }) =>
+                debugLogger.info("Retry dictionary-prompt recovery attempt", {
+                  reason,
+                  recovered,
+                }),
             });
+            // Recovery decided; the echo check below doesn't apply again.
+            sentHints = null;
           }
         } else if (settings?.cloudTranscriptionMode === "openwhispr") {
           const win = BrowserWindow.fromWebContents(event.sender);
@@ -7501,8 +7896,11 @@ class IPCHandlers {
             if (Object.keys(authHeader).length) {
               const apiUrl = getApiUrl();
               if (apiUrl) {
+                // Budgeted to Groq's cap, as a live Cloud dictation's (any backend).
+                const hints = hintsFor({ route: "cloud" });
                 const multipartFields = {
                   language,
+                  prompt: hints.prompt || undefined,
                   clientType: "desktop",
                   appVersion: app.getVersion(),
                   sessionId: this.sessionId,
@@ -7545,11 +7943,13 @@ class IPCHandlers {
           }
         } else if (route.transport === "proxied" && route.provider === "tinfoil") {
           // Attested transport, so this can't reuse the generic fetch below.
+          const hints = hintsFor({ route: "tinfoil" });
           const { text, model } = await transcribeWithTinfoil({
             audioBuffer: buffer,
             fileName: "audio.webm",
             contentType: "audio/webm",
             language: route.language,
+            prompt: hints.prompt || undefined,
             apiKey: this.environmentManager.getTinfoilKey(),
           });
           if (text) result = { text, source: "tinfoil", model };
@@ -7578,19 +7978,21 @@ class IPCHandlers {
           if (route.sizeCapBytes && buffer.byteLength > route.sizeCapBytes) {
             throw new Error(byokSizeCapError(route.sizeCapBytes));
           }
+          const hints = hintsFor({ route: "gemini" });
           const { text } = await transcribeWithGemini({
             audioBuffer: buffer,
             model: route.model,
             contentType: "audio/webm",
             language: route.language,
+            keyterms: hints.keyterms.length > 0 ? hints.keyterms : undefined,
             apiKey: this.environmentManager.getGeminiKey(),
           });
           if (text) result = { text, source: "gemini", model: route.model };
         } else if (route.transport === "azure-speech") {
           // The key from main's store, the endpoint from the retry settings
           // (the route built it; main's request module checks it again before
-          // the key leaves). Like every provider, Re-transcribe sends no
-          // dictionary.
+          // the key leaves), the dictionary as the phrase list a live
+          // dictation sends (≤ 199, head order; no echo check).
           const apiKey = this.environmentManager.getAzureSpeechKey();
           if (!apiKey) {
             throw providerError(PROVIDER_ERROR_CODES.KEY_MISSING, {
@@ -7607,6 +8009,7 @@ class IPCHandlers {
             apiKey,
             model: route.model,
             locale: route.locale,
+            phrases: hintsFor({ route: "azure-speech" }).phrases,
           });
           const answer = await sendStoredAudio({
             ...request,
@@ -7687,9 +8090,26 @@ class IPCHandlers {
             if (route.language) {
               fields.push(["language", route.language], ["format", "true"]);
             }
+            // The same terms Gemini gets, as repeated `keyterm` fields.
+            for (const term of hintsFor({ route: "xai" }).keyterms) fields.push(["keyterm", term]);
+          } else if (provider === "mistral") {
+            fields.push(["model", String(route.model)]);
+            if (route.language) fields.push(["language", route.language]);
+            // The script-biased prompt's first 100 words, as repeated `context_bias`.
+            for (const token of hintsFor({ route: "mistral" }).contextBias) {
+              fields.push(["context_bias", token]);
+            }
           } else {
             fields.push(["model", String(route.model)]);
             if (route.language) fields.push(["language", route.language]);
+            const hints = hintsFor({
+              route: "openai-compatible",
+              provider: settings?.cloudTranscriptionProvider || "openai",
+              endpoint: route.endpoint,
+              model: route.model,
+            });
+            if (hints.prompt) fields.push(["prompt", hints.prompt]);
+            for (const keyword of hints.keywords) fields.push(["keywords[]", keyword]);
           }
           const headers = {};
           if (provider === "mistral") {
@@ -7747,6 +8167,28 @@ class IPCHandlers {
 
         if (!result?.text) {
           return { success: false, error: "No transcription engine available" };
+        }
+
+        // Counts only: the hints are the user's dictionary.
+        if (sentHints) {
+          debugLogger.debug("Retry transcription dictionary", {
+            route: sentHints.route,
+            terms: sentHints.counts.terms,
+            notSent: sentHints.counts.notSent,
+            promptChars: sentHints.prompt ? sentHints.prompt.length : 0,
+            keywords: sentHints.keywords.length,
+            phrases: sentHints.phrases.length,
+            contextBias: sentHints.contextBias.length,
+            keyterms: sentHints.keyterms.length,
+          });
+        }
+        // As live dictation: a reply that only repeats what this request sent
+        // is an echo of the dictionary, not speech. Nothing is written.
+        if (sentHints && isHintEcho(result.text, sentHints.echo)) {
+          debugLogger.info("Retry transcription discarded a dictionary echo", {
+            route: sentHints.route,
+          });
+          return { success: false, error: "No audio detected", code: DICTIONARY_ECHO_CODE };
         }
 
         const saved = this.stepHistory.saveRetranscription(id, {

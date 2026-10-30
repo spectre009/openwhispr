@@ -754,7 +754,19 @@
         },
         "deletedStyle": "Estilo eliminado",
         "reused": "Reutilizado",
-        "reusedUnknown": "Reutilizado · origen desconocido"
+        "reusedUnknown": "Reutilizado · origen desconocido",
+        "dictionaryScope": {
+          "sets": {
+            "all": "todas las palabras",
+            "typedPinnedMissed": "escritas, fijadas y falladas",
+            "typedPinned": "escritas y fijadas",
+            "none": "ninguna"
+          },
+          "value_one": "Diccionario: {{set}} ({{count}} palabra)",
+          "value_other": "Diccionario: {{set}} ({{count}} palabras)",
+          "fellBack_one": "Diccionario: {{set}} ({{count}} palabra) en lugar de {{setting}}",
+          "fellBack_other": "Diccionario: {{set}} ({{count}} palabras) en lugar de {{setting}}"
+        }
       },
       "export": {
         "button": "Exportar",
@@ -788,7 +800,8 @@
         "success": "Limpieza repetida",
         "error": "No se pudo repetir la limpieza",
         "unavailable": "No se puede repetir la limpieza de este dictado"
-      }
+      },
+      "retryDictionaryEcho": "La nueva transcripción solo repitió las palabras de tu diccionario, así que el dictado quedó como estaba."
     },
     "aiCta": {
       "title": "Mejora tus transcripciones con IA",
@@ -2644,8 +2657,8 @@
       "placeholder": "Añadir una palabra o frase...",
       "add": "Añadir",
       "pressEnterToAdd": "Pulsa Enter para añadir",
-      "autoLearnTitle": "Aprender automáticamente de las correcciones",
-      "autoLearnDescription": "Cuando corriges una transcripción en la aplicación de destino, la palabra corregida se añade automáticamente a tu diccionario.",
+      "autoLearnTitle": "Aprender de tus correcciones",
+      "autoLearnDescription": "Cuando corriges una palabra justo después de pegar un dictado, OpenWhispr puede aprenderla.",
       "yourWords": "Tus palabras",
       "clearDictionaryTitle": "¿Borrar diccionario?",
       "clearDictionaryDescription": "Esto eliminará todas las palabras de tu diccionario personalizado. Esta acción no se puede deshacer.",
@@ -2657,7 +2670,13 @@
       "howItWorksTitle": "Cómo funciona",
       "howItWorksDescription": "Las palabras se envían como pistas de contexto al modelo de voz, ayudándole a reconocer términos poco comunes. Para palabras difíciles, intenta añadir contexto como \"The word is Synty\" junto con la propia palabra.",
       "tipLabel": "Consejo",
-      "tipDescription": "Separa varias palabras con comas. Añade frases de contexto como \"The word is Synty\" para un mejor reconocimiento."
+      "tipDescription": "Separa varias palabras con comas. Añade frases de contexto como \"The word is Synty\" para un mejor reconocimiento.",
+      "autoLearnModes": {
+        "suggest": "Sugerir",
+        "add": "Añadir directamente",
+        "off": "Desactivado"
+      },
+      "autoLearnModeHint": "Sugerir: las palabras nuevas esperan en la página Diccionario hasta que las añadas. Añadir directamente: se usan enseguida, como antes."
     },
     "general": {
       "appearance": {
@@ -3632,6 +3651,21 @@
         "dialogTitle": "Copiar diagnóstico",
         "dialogDescription": "Esto es exactamente lo que se copiará, en inglés para un informe de errores. Tu nombre de usuario no aparece en las rutas."
       }
+    },
+    "cleanupDictionary": {
+      "title": "Palabras del diccionario en el prompt de corrección",
+      "description": "Se pide a la corrección que las escriba tal cual. Menos palabras hacen un prompt más corto.",
+      "options": {
+        "all": "Todas las palabras",
+        "typedPinnedMissed": "Escritas, fijadas y las que el reconocimiento falla",
+        "typedPinned": "Escritas y fijadas",
+        "none": "Ninguna"
+      },
+      "count_one": "{{count}} palabra · ≈ {{tokens}} tokens",
+      "count_other": "{{count}} palabras · ≈ {{tokens}} tokens",
+      "sendsAll": "Por ahora envía todas las palabras",
+      "missedUnavailable": "Las palabras que el reconocimiento falla se cuentan a partir de tu historial local. Mientras el historial esté desactivado o se siga contando, la corrección recibe todas las palabras, y su paso lo indica.",
+      "note": "Las grafías del glosario y los activadores de fragmentos se incluyen siempre. La lista de palabras del modelo de voz, el chat y el asistente de voz conservan el diccionario completo."
     }
   },
   "models": {
@@ -4595,6 +4629,24 @@
         "notFound": "Esta corrección ya no existe.",
         "saveFailed": "No se pudo guardar la corrección."
       }
+    },
+    "suggestions": {
+      "title": "Sugerencias ({{count}})",
+      "addAll": "Añadir todas",
+      "hint": "Palabras que el aprendizaje automático tomó de tus correcciones. No se usan hasta que las añadas. Las descartadas no se vuelven a sugerir.",
+      "changedFrom": "Cambiada de «{{replaced}}»",
+      "changedFromIn": "Cambiada de «{{replaced}}» en {{app}}",
+      "learnedFromEdit": "Aprendida de una corrección",
+      "times_one": "aprendida {{count}} vez",
+      "times_other": "aprendida {{count}} veces",
+      "add": "Añadir",
+      "dismiss": "Descartar"
+    },
+    "pins": {
+      "pin": "Fijar {{word}}",
+      "unpin": "Dejar de fijar {{word}}",
+      "pinHint": "Fijar: se envía siempre primero a la transcripción y se conserva siempre en la corrección",
+      "pinnedHint": "Fijada: se envía siempre primero"
     }
   },
   "insights": {
@@ -4852,7 +4904,10 @@
         "description": "Tu dictado se pegó sin limpieza con IA.",
         "descriptionNotPasted": "Guardado en el historial sin limpieza con IA.",
         "alsoFailed": "La limpieza con IA también falló: {{reason}}"
-      }
+      },
+      "suggestedForDict": "Sugerido para tu diccionario: {{words}}",
+      "reviewSuggestions": "Revisar",
+      "addSuggested": "Añadir"
     },
     "mic": {
       "hotkeyToSpeak": "{{hotkey}} para hablar",

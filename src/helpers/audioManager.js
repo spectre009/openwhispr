@@ -136,7 +136,7 @@ import {
 import { providerSupportsImages } from "../services/ai/inferenceProviders";
 import { resolveDictationTranslationInference } from "./dictationTranslationInference";
 import { resolvePrompt, appendScreenContextSuffix } from "../config/prompts";
-import { buildDictationCleanupConfig } from "./dictationCleanupConfig";
+import { buildDictationCleanupConfig, cleanupStepMeta } from "./dictationCleanupConfig";
 import { syncService } from "../services/SyncService.js";
 import { evaluateFinishedRecording, withSalvageWarning } from "./recordingValidation";
 import { isEmptyRecording } from "./recordingGuard";
@@ -158,11 +158,14 @@ import {
   dictionaryKeywords,
   usesTranscriptionKeywords,
 } from "../utils/dictionaryKeywords.js";
-import { getDictionaryHintWords } from "../utils/snippets";
+import { getDictionaryHintWords, selectCleanupDictionary } from "../utils/snippets";
 import { buildDictionaryHints, resolveHintTarget } from "../utils/dictionaryHints";
 import { getGlossaryCanonicalTerms } from "../utils/glossaryTerms";
 import { getGlossarySnapshot } from "../stores/glossaryStore";
-import { getLearnedDictionaryWords } from "../stores/dictionarySourcesStore";
+import {
+  getLearnedDictionaryWords,
+  getPinnedDictionaryKeys,
+} from "../stores/dictionarySourcesStore";
 import {
   passthroughStep,
   runPostTranscription,
@@ -898,9 +901,9 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
   }
 
   // The speech-to-text hint list. One builder (utils/dictionaryHints) for the
-  // request, the echo check and the Dictionary page: manual entries, then the
-  // glossary's canonical forms, then snippet triggers, then auto-learned
-  // entries, within the request budget and in the order the model reads.
+  // request, the echo check and the Dictionary page: pinned words, manual
+  // entries, then the glossary's canonical forms, then snippet triggers, then
+  // auto-learned entries, within the request budget and in the order the model reads.
   getDictionaryHints({
     settings = getSettings(),
     maxChars,
@@ -911,6 +914,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     return buildDictionaryHints({
       dictionary: settings?.customDictionary,
       learnedWords: getLearnedDictionaryWords(),
+      pinnedWords: getPinnedDictionaryKeys(),
       glossaryTerms: getGlossaryCanonicalTerms(),
       snippets: settings?.snippets,
       includeSnippets,
@@ -3476,9 +3480,15 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     { settings, agentName, cleanup, cleanupConfig, recordStep = passthroughStep }
   ) {
     if (cleanup.mode === "cloudReason") {
+      // Cloud builds the prompt; the request still carries cleanup's word set.
+      const dictionary = selectCleanupDictionary(settings);
       return recordStep(
         "cleanup",
-        { provider: "openwhispr", prompt: SERVER_PROMPT_REF },
+        {
+          provider: "openwhispr",
+          prompt: SERVER_PROMPT_REF,
+          detail: { dictionaryScope: dictionary.scope },
+        },
         async (dispatched) => {
           const customPrompt = this.getCustomPrompt();
           const reasonResult = await withSessionRefresh(async () => {
@@ -3486,7 +3496,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
               agentName,
               promptMode: "cleanup",
               purpose: "cleanup",
-              customDictionary: getDictionaryHintWords(settings),
+              customDictionary: dictionary.words,
               customPrompt,
               language: this.getCleanupLanguage(settings),
               locale: settings.uiLanguage || "en",
@@ -3509,7 +3519,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     }
     const cleanupModel = cleanup.model;
     if (cleanupModel) {
-      return recordStep("cleanup", {}, (dispatched) =>
+      return recordStep("cleanup", cleanupStepMeta(cleanupConfig), (dispatched) =>
         this.processWithReasoningModel(currentText, cleanupModel, agentName, {
           ...cleanupConfig,
           onDispatch: dispatched,
@@ -3724,7 +3734,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
               cleanupConfig,
               recordStep,
             })
-          : recordStep("cleanup", {}, (dispatched) =>
+          : recordStep("cleanup", cleanupStepMeta(cleanupConfig), (dispatched) =>
               this.processWithReasoningModel(text, cleanupModel, agentName, {
                 ...cleanupConfig,
                 onDispatch: dispatched,
@@ -3905,7 +3915,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
                   wasCancelled
                 )
               )
-            : await recordStep("cleanup", {}, (dispatched) =>
+            : await recordStep("cleanup", cleanupStepMeta(reasoningConfig), (dispatched) =>
                 this.processWithReasoningModel(input, targetModel, agentName, {
                   ...reasoningConfig,
                   onDispatch: dispatched,
@@ -4101,9 +4111,14 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
             );
             if (hasTextContent(reasoned)) processedText = reasoned;
           } else if (route.kind === "cleanup" && cleanupCloudMode === "openwhispr") {
+            const dictionary = selectCleanupDictionary(settings);
             const cleaned = await recordStep(
               "cleanup",
-              { provider: "openwhispr", prompt: SERVER_PROMPT_REF },
+              {
+                provider: "openwhispr",
+                prompt: SERVER_PROMPT_REF,
+                detail: { dictionaryScope: dictionary.scope },
+              },
               async (dispatched) => {
                 const customPrompt = this.getCustomPrompt();
                 const reasonResult = await withSessionRefresh(async () => {
@@ -4111,7 +4126,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
                     agentName,
                     promptMode: "cleanup",
                     purpose: "cleanup",
-                    customDictionary: getDictionaryHintWords(settings),
+                    customDictionary: dictionary.words,
                     customPrompt,
                     language: this.getCleanupLanguage(settings),
                     locale: settings.uiLanguage || "en",
@@ -4146,11 +4161,14 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
           } else if (route.kind === "cleanup") {
             const effectiveModel = getEffectiveCleanupModel();
             if (effectiveModel) {
-              const reasoned = await recordStep("cleanup", {}, (dispatched) =>
-                this.processWithReasoningModel(processedText, effectiveModel, agentName, {
-                  ...route.config,
-                  onDispatch: dispatched,
-                })
+              const reasoned = await recordStep(
+                "cleanup",
+                cleanupStepMeta(route.config),
+                (dispatched) =>
+                  this.processWithReasoningModel(processedText, effectiveModel, agentName, {
+                    ...route.config,
+                    onDispatch: dispatched,
+                  })
               );
               if (hasTextContent(reasoned)) processedText = reasoned;
             }
@@ -6662,9 +6680,14 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
                 );
               } else if (route.kind === "cleanup" && cleanupCloudMode === "openwhispr") {
                 let cloudModel = null;
+                const dictionary = selectCleanupDictionary(stSettings);
                 const cleaned = await recordStep(
                   "cleanup",
-                  { provider: "openwhispr", prompt: SERVER_PROMPT_REF },
+                  {
+                    provider: "openwhispr",
+                    prompt: SERVER_PROMPT_REF,
+                    detail: { dictionaryScope: dictionary.scope },
+                  },
                   async (dispatched) => {
                     const customPrompt = this.getCustomPrompt();
                     const reasonResult = await withSessionRefresh(async () => {
@@ -6672,7 +6695,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
                         agentName,
                         promptMode: "cleanup",
                         purpose: "cleanup",
-                        customDictionary: getDictionaryHintWords(stSettings),
+                        customDictionary: dictionary.words,
                         customPrompt,
                         language: this.getCleanupLanguage(stSettings),
                         locale: stSettings.uiLanguage || "en",
@@ -6717,11 +6740,14 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
               } else if (route.kind === "cleanup") {
                 const effectiveModel = getEffectiveCleanupModel();
                 if (effectiveModel) {
-                  const reasoned = await recordStep("cleanup", {}, (dispatched) =>
-                    this.processWithReasoningModel(text, effectiveModel, agentName, {
-                      ...route.config,
-                      onDispatch: dispatched,
-                    })
+                  const reasoned = await recordStep(
+                    "cleanup",
+                    cleanupStepMeta(route.config),
+                    (dispatched) =>
+                      this.processWithReasoningModel(text, effectiveModel, agentName, {
+                        ...route.config,
+                        onDispatch: dispatched,
+                      })
                   );
                   if (hasTextContent(reasoned)) text = reasoned;
                   logger.info(

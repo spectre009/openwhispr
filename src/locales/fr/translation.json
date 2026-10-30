@@ -754,7 +754,19 @@
         },
         "deletedStyle": "Style supprimé",
         "reused": "Réutilisée",
-        "reusedUnknown": "Réutilisée · origine inconnue"
+        "reusedUnknown": "Réutilisée · origine inconnue",
+        "dictionaryScope": {
+          "sets": {
+            "all": "tous les mots",
+            "typedPinnedMissed": "saisis, épinglés et manqués",
+            "typedPinned": "saisis et épinglés",
+            "none": "aucun"
+          },
+          "value_one": "Dictionnaire : {{set}} ({{count}} mot)",
+          "value_other": "Dictionnaire : {{set}} ({{count}} mots)",
+          "fellBack_one": "Dictionnaire : {{set}} ({{count}} mot) au lieu de {{setting}}",
+          "fellBack_other": "Dictionnaire : {{set}} ({{count}} mots) au lieu de {{setting}}"
+        }
       },
       "export": {
         "button": "Exporter",
@@ -788,7 +800,8 @@
         "success": "Nettoyage relancé",
         "error": "Impossible de relancer le nettoyage",
         "unavailable": "Le nettoyage ne peut pas être relancé pour cette dictée"
-      }
+      },
+      "retryDictionaryEcho": "La nouvelle transcription n'a fait que répéter les mots de votre dictionnaire : la dictée est restée telle quelle."
     },
     "aiCta": {
       "title": "Améliorez vos transcriptions avec l'IA",
@@ -2886,8 +2899,8 @@
       "placeholder": "Ajouter un mot ou une expression...",
       "add": "Ajouter",
       "pressEnterToAdd": "Appuyez sur Entrée pour ajouter",
-      "autoLearnTitle": "Apprentissage automatique à partir des corrections",
-      "autoLearnDescription": "Lorsque vous corrigez une transcription dans l'application cible, le mot corrigé est automatiquement ajouté à votre dictionnaire.",
+      "autoLearnTitle": "Apprendre de vos corrections",
+      "autoLearnDescription": "Quand vous corrigez un mot juste après le collage d'une dictée, OpenWhispr peut l'apprendre.",
       "yourWords": "Vos mots",
       "clearDictionaryTitle": "Effacer le dictionnaire ?",
       "clearDictionaryDescription": "Cela supprimera tous les mots de votre dictionnaire personnalisé. Cette action est irréversible.",
@@ -2899,7 +2912,13 @@
       "howItWorksTitle": "Comment ça fonctionne",
       "howItWorksDescription": "Les mots sont fournis comme indices de contexte au modèle vocal, l'aidant à reconnaître les termes peu courants. Pour les mots difficiles, essayez d'ajouter du contexte comme « The word is Synty » en plus du mot lui-même.",
       "tipLabel": "Astuce",
-      "tipDescription": "Séparez plusieurs mots par des virgules. Ajoutez des phrases de contexte comme « The word is Synty » pour une meilleure reconnaissance."
+      "tipDescription": "Séparez plusieurs mots par des virgules. Ajoutez des phrases de contexte comme « The word is Synty » pour une meilleure reconnaissance.",
+      "autoLearnModes": {
+        "suggest": "Suggérer",
+        "add": "Ajouter directement",
+        "off": "Désactivé"
+      },
+      "autoLearnModeHint": "Suggérer : les nouveaux mots attendent sur la page Dictionnaire que vous les ajoutiez. Ajouter directement : ils sont utilisés tout de suite, comme avant."
     },
     "general": {
       "appearance": {
@@ -3674,6 +3693,21 @@
         "dialogTitle": "Copier le diagnostic",
         "dialogDescription": "Voici exactement ce qui sera copié, en anglais pour un rapport de bug. Votre nom d'utilisateur est masqué dans les chemins."
       }
+    },
+    "cleanupDictionary": {
+      "title": "Mots du dictionnaire dans le prompt de correction",
+      "description": "La correction doit les écrire tels quels. Moins de mots, c'est un prompt plus court.",
+      "options": {
+        "all": "Tous les mots",
+        "typedPinnedMissed": "Saisis, épinglés et mots que la reconnaissance manque",
+        "typedPinned": "Saisis et épinglés",
+        "none": "Aucun"
+      },
+      "count_one": "{{count}} mot · ≈ {{tokens}} tokens",
+      "count_other": "{{count}} mots · ≈ {{tokens}} tokens",
+      "sendsAll": "Envoie tous les mots pour l'instant",
+      "missedUnavailable": "Les mots que la reconnaissance manque sont comptés à partir de votre historique local. Tant que l'historique est désactivé ou en cours de comptage, la correction reçoit tous les mots, et son étape l'indique.",
+      "note": "Les graphies du glossaire et les déclencheurs d'extraits sont toujours inclus. La liste de mots du modèle vocal, le chat et l'assistant vocal gardent le dictionnaire complet."
     }
   },
   "models": {
@@ -4895,6 +4929,24 @@
         "notFound": "Cette correction n'existe plus.",
         "saveFailed": "Impossible d'enregistrer la correction."
       }
+    },
+    "suggestions": {
+      "title": "Suggestions ({{count}})",
+      "addAll": "Tout ajouter",
+      "hint": "Mots que l'apprentissage automatique a repérés dans vos corrections. Ils ne sont utilisés qu'une fois ajoutés. Les mots écartés ne sont plus suggérés.",
+      "changedFrom": "Remplace « {{replaced}} »",
+      "changedFromIn": "Remplace « {{replaced}} » dans {{app}}",
+      "learnedFromEdit": "Appris d'une correction",
+      "times_one": "appris {{count}} fois",
+      "times_other": "appris {{count}} fois",
+      "add": "Ajouter",
+      "dismiss": "Écarter"
+    },
+    "pins": {
+      "pin": "Épingler {{word}}",
+      "unpin": "Désépingler {{word}}",
+      "pinHint": "Épingler : toujours envoyé en premier à la transcription et toujours gardé pour la correction",
+      "pinnedHint": "Épinglé : toujours envoyé en premier"
     }
   },
   "support": {
@@ -4970,7 +5022,10 @@
         "description": "Votre dictée a été collée sans nettoyage par IA.",
         "descriptionNotPasted": "Enregistré dans l'historique sans nettoyage par l'IA.",
         "alsoFailed": "Le nettoyage par IA a aussi échoué : {{reason}}"
-      }
+      },
+      "suggestedForDict": "Suggéré pour votre dictionnaire : {{words}}",
+      "reviewSuggestions": "Voir",
+      "addSuggested": "Ajouter"
     },
     "mic": {
       "hotkeyToSpeak": "{{hotkey}} pour parler",

@@ -302,6 +302,7 @@ test("a failed cleanup says why, keeps the corrected text and stores only the al
   const cleanup = trace.steps.find((step) => step.kind === "cleanup");
   assert.equal(cleanup.outcome, "failed");
   assert.deepEqual(cleanup.detail, {
+    dictionaryScope: { setting: "all", applied: "all", words: 0 },
     failure: {
       code: "PROVIDER_QUOTA_EXHAUSTED",
       messageKey: "providerErrors.quotaExhausted",

@@ -13,6 +13,7 @@ import {
   stepOutcomeLabel,
   stepReusedLabel,
   styleStepFacts,
+  dictionaryScopeFact,
 } from "./transcriptionStepLabels";
 
 // Step history for one dictation, read from main on demand. Main scopes it to
@@ -191,6 +192,7 @@ export default function TranscriptionSteps({ id, revision }: { id: number; revis
         {result.steps.map((step, index) => {
           const facts = [
             ...styleStepFacts(step, styleLibrary, t),
+            dictionaryScopeFact(step, t),
             step.provider,
             step.model,
             step.ms !== null && step.ms !== undefined
