@@ -84,3 +84,68 @@ test("cleanup leaves legitimate, ambiguous, and out-of-scope output alone", asyn
     assert.doesNotThrow(() => assertValidCleanupOutput(raw, output), output);
   }
 });
+
+// A reply that hands back the transcript, then a "Cleaned:"-style label, then
+// the cleaned text (seen once with Claude Haiku 5.5 on a verbatim transcript).
+const VERBATIM =
+  "Nice one. Now, so we have this new session ID that's been sent, well, rather recorded in the logs. I want to pull that out as a column, since this is an interesting field that would allow us to count the sessions.";
+const CLEANED =
+  "Nice one. Now, we have this new session ID that's been recorded in the logs. I want to pull that out as a column, since it would allow us to count the sessions.";
+
+test("a labelled copy of the transcript keeps only the cleaned text", async () => {
+  const { finishCleanupOutput } = await import("../../src/utils/cleanupOutput.ts");
+  for (const output of [
+    `${VERBATIM}\n\nCleaned:\n\n${CLEANED}`,
+    `${VERBATIM}\n\n**Cleaned:**\n${CLEANED}`,
+    `${VERBATIM}\n\n**Cleaned version**:\n${CLEANED}`,
+    `${VERBATIM}\n\n## Cleaned transcript:\n\n${CLEANED}`,
+    `Original:\n${VERBATIM}\n\nCleaned:\n${CLEANED}`,
+    `**Original transcript:**\n${VERBATIM}\n\n**Cleaned transcript:**\n${CLEANED}`,
+    `${VERBATIM}\n\nHere's the cleaned version:\n${CLEANED}`,
+    `${VERBATIM}\nCleaned: ${CLEANED}`,
+    `${VERBATIM.replace("well, rather", "or rather")}\n\nCleaned:\n${CLEANED}`,
+  ]) {
+    assert.equal(finishCleanupOutput(VERBATIM, output), CLEANED, output);
+  }
+});
+
+test("a labelled copy with nothing after the label is rejected", async () => {
+  const { finishCleanupOutput } = await import("../../src/utils/cleanupOutput.ts");
+  for (const output of [`${VERBATIM}\n\nCleaned:`, `${VERBATIM}\n\n**Cleaned:**\n\n  `]) {
+    assert.throws(() => finishCleanupOutput(VERBATIM, output), {
+      code: "CLEANUP_OUTPUT_INVALID",
+      messageKey: "hooks.audioRecording.errorDescriptions.cleanupDuplicated",
+    });
+  }
+  // The cleaned part is still checked: a repeated cleaned text is rejected.
+  assert.throws(
+    () => finishCleanupOutput(VERBATIM, `${VERBATIM}\n\nCleaned:\n${CLEANED} ${CLEANED}`),
+    {
+      code: "CLEANUP_OUTPUT_INVALID",
+    }
+  );
+});
+
+test("a label without a copy of the transcript above it is left alone", async () => {
+  const { finishCleanupOutput } = await import("../../src/utils/cleanupOutput.ts");
+  for (const [raw, output] of [
+    [VERBATIM, CLEANED],
+    [RAW, `**Cleaned transcript:**\n${CLEAN}`],
+    [RAW, `Cleaned:\n${CLEAN}`],
+    [
+      "first draft the intro then final the summary",
+      "First, draft the intro.\nFinal: the summary.",
+    ],
+    [
+      "write the plan then cleaned up version of the plan goes to the team",
+      "Write the plan.\nCleaned-up version: the plan goes to the team.",
+    ],
+    [VERBATIM, `A different paragraph about something else entirely.\n\nCleaned:\n${CLEANED}`],
+  ]) {
+    assert.equal(finishCleanupOutput(raw, output), output, output);
+  }
+  // Duplication is still rejected when there's no label.
+  assert.throws(() => finishCleanupOutput(RAW, `${CLEAN} ${CLEAN}`), {
+    code: "CLEANUP_OUTPUT_INVALID",
+  });
+});

@@ -14,7 +14,7 @@
 import type { ReasoningConfig } from "./BaseReasoningService";
 import type { DictationCleanupRequest } from "./cleanupWithPrompt";
 import { TRUNCATED_OUTPUT_MESSAGE_KEY } from "./ai/chatRequestBody";
-import { assertValidCleanupOutput } from "../utils/cleanupOutput";
+import { finishCleanupOutput } from "../utils/cleanupOutput";
 import { buildDictationCleanupConfig } from "../helpers/dictationCleanupConfig";
 import { executeStyleChain } from "../helpers/styleChain";
 import { passthroughStep, type RecordStep } from "../helpers/postTranscription";
@@ -115,7 +115,7 @@ export function finishStyledReply(reply: string, input: string, { cloud = false 
     text = body;
   }
   text = restoreDelimiters(text).trim();
-  if (text) assertValidCleanupOutput(input, text);
+  if (text) text = finishCleanupOutput(input, text);
   return text;
 }
 

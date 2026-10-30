@@ -7,7 +7,7 @@ import logger from "../utils/logger";
 import { logText } from "../utils/logText.js";
 import { markStartTrace } from "../utils/dictationStartTrace";
 import { canStartDictation } from "../utils/dictationReadiness";
-import { assertValidCleanupOutput } from "../utils/cleanupOutput";
+import { finishCleanupOutput } from "../utils/cleanupOutput";
 import { isAzureOpenAIEndpoint } from "../utils/urlUtils";
 import { withSessionRefresh } from "../lib/auth";
 import { getBaseLanguageCode, getLanguageLabel } from "../utils/languageSupport";
@@ -3501,7 +3501,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
           });
           dispatched({ model: reasonResult.model });
           if (!customPrompt && hasTextContent(reasonResult.text)) {
-            assertValidCleanupOutput(currentText, reasonResult.text);
+            return finishCleanupOutput(currentText, reasonResult.text);
           }
           return reasonResult.success && reasonResult.text ? reasonResult.text : null;
         }
@@ -4138,7 +4138,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
                 // Cloud cleanup can return success with empty text; keep the
                 // transcription instead of wiping it.
                 if (!(reasonResult.success && hasTextContent(reasonResult.text))) return null;
-                if (!customPrompt) assertValidCleanupOutput(processedText, reasonResult.text);
+                if (!customPrompt) return finishCleanupOutput(processedText, reasonResult.text);
                 return reasonResult.text;
               }
             );
@@ -6700,7 +6700,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
                     cloudModel = reasonResult.model;
                     dispatched({ model: reasonResult.model });
                     if (!(reasonResult.success && hasTextContent(reasonResult.text))) return null;
-                    if (!customPrompt) assertValidCleanupOutput(text, reasonResult.text);
+                    if (!customPrompt) return finishCleanupOutput(text, reasonResult.text);
                     return reasonResult.text;
                   }
                 );

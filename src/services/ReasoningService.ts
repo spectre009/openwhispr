@@ -18,7 +18,7 @@ import { withRetry, createApiRetryStrategy, httpError } from "../utils/retry";
 import { API_ENDPOINTS, TOKEN_LIMITS, buildApiUrl, ensureV1Suffix } from "../config/constants";
 import logger from "../utils/logger";
 import { logText } from "../utils/logText.js";
-import { assertValidCleanupOutput } from "../utils/cleanupOutput";
+import { finishCleanupOutput } from "../utils/cleanupOutput";
 import { getSettings, isCloudCleanupMode } from "../stores/settingsStore";
 import {
   getDefaultPromptText,
@@ -717,7 +717,7 @@ class ReasoningService extends BaseReasoningService {
 
     const startTime = Date.now();
     try {
-      const result = await handler.call({
+      const reply = await handler.call({
         text,
         model: trimmedModel,
         agentName,
@@ -725,7 +725,9 @@ class ReasoningService extends BaseReasoningService {
         ctx,
       });
 
-      if (validateCleanup) assertValidCleanupOutput(text, result);
+      // The built-in cleanup's reply, checked: a repeated transcript is
+      // rejected, and a "Cleaned:"-labelled copy keeps only the cleaned text.
+      const result = validateCleanup ? finishCleanupOutput(text, reply) : reply;
 
       logger.logReasoning("PROVIDER_SUCCESS", {
         provider: providerId,
