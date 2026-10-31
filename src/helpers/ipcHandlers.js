@@ -2863,6 +2863,131 @@ class IPCHandlers {
       }
     });
 
+    const dictionaryWordArg = (word) =>
+      typeof word === "string" && word.trim() && word.length <= 500 ? word : null;
+
+    // One word's heard and written counts per week (the word detail): counts only.
+    ipcMain.handle("dictionary-word-usage", async (_event, word) => {
+      const checked = dictionaryWordArg(word);
+      if (!checked) return { available: false, reason: "invalid" };
+      try {
+        return await this.dictionaryUsage.getWord(checked);
+      } catch (error) {
+        debugLogger.warn("Dictionary word usage not counted", { error: error.message });
+        return { available: false, reason: "unavailable" };
+      }
+    });
+
+    // What a word replaced and where, from this owner's evidence while local
+    // history is durable for it. Never logged.
+    ipcMain.handle("dictionary-word-evidence", async (_event, word) => {
+      const checked = dictionaryWordArg(word);
+      if (!checked) return { available: false, reason: "invalid", evidence: [] };
+      try {
+        const owner = this.stepHistory.currentOwner();
+        const availability = usageAvailability(this._historyPolicy(), owner);
+        if (!availability.available) {
+          return { available: false, reason: availability.reason, evidence: [] };
+        }
+        const rows = this.databaseManager.getDictionaryWordEvidence(owner, [
+          dictionaryWordKey(checked),
+        ]);
+        return {
+          available: true,
+          evidence: rows.map((row) => ({
+            replaced: row.replaced,
+            app: row.app ?? null,
+            createdAt: row.created_at,
+            transcriptionId: row.transcription_id,
+          })),
+        };
+      } catch (error) {
+        debugLogger.warn("Dictionary word evidence not read", { error: error.message });
+        return { available: false, reason: "unavailable", evidence: [] };
+      }
+    });
+
+    // How this owner's cleanups ran per dictionary word set: counts only.
+    ipcMain.handle("dictionary-cleanup-scope-counts", async () => {
+      try {
+        return await this.dictionaryUsage.getCleanupScopeCounts();
+      } catch (error) {
+        debugLogger.warn("Cleanup word set counts not read", { error: error.message });
+        return { available: false, reason: "unavailable" };
+      }
+    });
+
+    // Everything keyed by a word (the list, its pins, the inbox) after a
+    // rename or merge, to every window.
+    const broadcastDictionaryChange = () => {
+      broadcastToWindows("dictionary-updated", this.databaseManager.getDictionary());
+      broadcastToWindows("dictionary-pins-updated", this.databaseManager.getDictionaryPins());
+    };
+
+    // A new spelling for a word, in place (its source, date, pin and evidence kept).
+    ipcMain.handle("dictionary-rename", async (_event, from, to) => {
+      if (!dictionaryWordArg(from) || !dictionaryWordArg(to)) {
+        return { success: false, code: "INVALID_WORD" };
+      }
+      try {
+        const result = this.databaseManager.renameDictionaryWord(from, to);
+        if (result.success && result.changed) {
+          broadcastDictionaryChange();
+          broadcastToWindows("dictionary-suggestions-updated", { reason: "renamed" });
+        }
+        debugLogger.debug("Dictionary word renamed", {
+          success: result.success,
+          changed: result.changed ?? false,
+          code: result.code ?? null,
+        });
+        return result;
+      } catch (error) {
+        debugLogger.warn("Dictionary word not renamed", { error: error.message });
+        return { success: false, code: "FAILED" };
+      }
+    });
+
+    // One word folded into another: typed wins, a pin survives, evidence moves.
+    ipcMain.handle("dictionary-merge", async (_event, from, into) => {
+      if (!dictionaryWordArg(from) || !dictionaryWordArg(into)) {
+        return { success: false, code: "INVALID_WORD" };
+      }
+      try {
+        const result = this.databaseManager.mergeDictionaryWords(from, into);
+        if (result.success) broadcastDictionaryChange();
+        debugLogger.debug("Dictionary words merged", {
+          success: result.success,
+          code: result.code ?? null,
+        });
+        return result;
+      } catch (error) {
+        debugLogger.warn("Dictionary words not merged", { error: error.message });
+        return { success: false, code: "FAILED" };
+      }
+    });
+
+    // "Mark typed": learned words become typed (marked for sync).
+    ipcMain.handle("dictionary-set-source", async (_event, words, source) => {
+      if (!Array.isArray(words)) return { success: false, code: "INVALID_WORD" };
+      try {
+        const result = this.databaseManager.setDictionarySource(
+          words.filter((word) => dictionaryWordArg(word)).slice(0, 10_000),
+          source
+        );
+        if (result.success && result.changed > 0) {
+          broadcastToWindows("dictionary-updated", this.databaseManager.getDictionary());
+        }
+        debugLogger.debug("Dictionary source set", {
+          success: result.success,
+          changed: result.changed ?? 0,
+        });
+        return result;
+      } catch (error) {
+        debugLogger.warn("Dictionary source not set", { error: error.message });
+        return { success: false, code: "FAILED" };
+      }
+    });
+
     // Glossary rules: main owns them; every window mirrors the broadcast.
     ipcMain.handle("glossary-get-rules", async () => {
       return this.databaseManager.getGlossaryRules();

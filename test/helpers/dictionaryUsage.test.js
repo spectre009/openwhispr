@@ -3,8 +3,11 @@ const assert = require("node:assert/strict");
 
 const {
   countDictionaryUsage,
+  countWordUsageByWeek,
   createDictionaryUsageService,
+  dictationPace,
   isSpeechMissed,
+  usageRowTime,
   usageAvailability,
   usageTokens,
 } = require("../../src/helpers/dictionaryUsage.js");
@@ -226,4 +229,50 @@ test("timing: 5,000 rows × 250 words stays well inside main's budget", () => {
   assert.equal(result.rows, 5000);
   assert.ok(result.words.some((entry) => entry.missedRows > 0));
   assert.ok(ms < 150, `took ${ms.toFixed(1)} ms; the budget is 150 ms`);
+});
+
+test("one word per week: 13 weeks ending now, the same matching, rows outside skipped", () => {
+  const now = Date.parse("2026-10-30T12:00:00Z");
+  const at = (days) =>
+    new Date(now - days * 86_400_000).toISOString().slice(0, 19).replace("T", " ");
+  const rows = [
+    { raw: "open whisper", final: "OpenWhispr.", at: at(1) },
+    { raw: "openwhispr again", final: "OpenWhispr again.", at: at(2) },
+    { raw: "the agents-shared repo", final: "The agents-shared repo.", at: at(3) },
+    { raw: "open whisper", final: "OpenWhispr.", at: at(30) },
+    { raw: "openwhispr", final: "OpenWhispr.", at: at(89.5) },
+    { raw: "openwhispr", final: "OpenWhispr.", at: at(95) },
+    { raw: "openwhispr", final: "OpenWhispr.", at: "not a time" },
+  ];
+  const weeks = countWordUsageByWeek(rows, "OpenWhispr", { now });
+  assert.equal(weeks.length, 13);
+  assert.equal(weeks[0].start, new Date(now - 90 * 86_400_000).toISOString(), "window start");
+  assert.equal(weeks[12].start, new Date(now - 7 * 86_400_000).toISOString());
+  assert.deepEqual(
+    [weeks[12].heard, weeks[12].written, weeks[12].missedRows],
+    [1, 2, 1],
+    "this week: one heard, two written, one missed"
+  );
+  const month = weeks.find((week) => week.written > 0 && week !== weeks[12] && week !== weeks[0]);
+  assert.deepEqual([month.heard, month.written, month.missedRows], [0, 1, 1]);
+  assert.deepEqual([weeks[0].heard, weeks[0].written], [1, 1], "the partial first week");
+  const sum = weeks.reduce((n, week) => n + week.written, 0);
+  assert.equal(sum, 4, "older than 90 days and unreadable times are skipped");
+  // Several-token words match as sequences, as the totals do.
+  const shared = countWordUsageByWeek(rows, "agents-shared", { now });
+  assert.equal(shared[12].heard, 1);
+  assert.equal(countWordUsageByWeek(rows, "", { now }).length, 13);
+});
+
+test("dictation pace: a day's average over 30 days, or since History began", () => {
+  const now = Date.parse("2026-10-30T12:00:00Z");
+  const at = (days) => new Date(now - days * 86_400_000).toISOString();
+  const month = Array.from({ length: 60 }, (_, i) => ({ at: at(i / 2) }));
+  assert.deepEqual(dictationPace([...month, { at: at(45) }], { now }), { perDay: 2 });
+  // History only three and a half days old: those days, not thirty.
+  const young = Array.from({ length: 8 }, (_, i) => ({ at: at(i / 2) }));
+  assert.deepEqual(dictationPace(young, { now }), { perDay: 2.3 });
+  assert.deepEqual(dictationPace([], { now }), { perDay: 0 });
+  assert.equal(usageRowTime("2026-10-30 12:00:00"), now, "SQLite's UTC format");
+  assert.ok(Number.isNaN(usageRowTime(null)));
 });

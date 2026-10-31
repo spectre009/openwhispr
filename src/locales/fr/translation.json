@@ -4877,7 +4877,12 @@
       "estimatedTooltip": "Estimation : l'application ne peut pas savoir exactement quelle partie de la liste le modèle de transcription lit.",
       "summary": "Indices pour la transcription (estimation) : probablement lus : {{read}} ; envoyés mais probablement non lus : {{unread}} ; non envoyés : {{notSent}}.",
       "explanation": "Les modèles Whisper ne lisent que la fin de la liste et certains fournisseurs en limitent la longueur : les mots que vous avez saisis occupent donc d'abord les places lues, puis les termes du glossaire, les déclencheurs d'extraits et les mots appris automatiquement. Le nettoyage reçoit toujours le dictionnaire complet.",
-      "noHints": "Votre modèle de transcription n'accepte pas d'indices du dictionnaire. Le nettoyage reçoit toujours le dictionnaire complet."
+      "noHints": "Votre modèle de transcription n'accepte pas d'indices du dictionnaire. Le nettoyage reçoit toujours le dictionnaire complet.",
+      "row": {
+        "read": "Envoyé · n° {{rank}}",
+        "unread": "Probablement non lu · n° {{rank}}",
+        "notSent": "Non envoyé"
+      }
     },
     "learned": {
       "tag": "Appris",
@@ -4940,13 +4945,250 @@
       "times_one": "appris {{count}} fois",
       "times_other": "appris {{count}} fois",
       "add": "Ajouter",
-      "dismiss": "Écarter"
+      "dismiss": "Écarter",
+      "autoLearnLabel": "Apprendre de vos corrections",
+      "forgetDismissed_one": "Oublier {{count}} mot écarté",
+      "forgetDismissed_other": "Oublier {{count}} mots écartés",
+      "forgetHint": "Les mots écartés ne sont plus suggérés tant que vous ne les oubliez pas."
     },
     "pins": {
       "pin": "Épingler {{word}}",
       "unpin": "Désépingler {{word}}",
       "pinHint": "Épingler : toujours envoyé en premier à la transcription et toujours gardé pour la correction",
       "pinnedHint": "Épinglé : toujours envoyé en premier"
+    },
+    "source": {
+      "typed": "Saisi",
+      "learned": "Appris"
+    },
+    "actions": {
+      "remove": "Retirer",
+      "markTyped": "Marquer comme saisi",
+      "markedTyped_one": "{{count}} mot marqué comme saisi",
+      "markedTyped_other": "{{count}} mots marqués comme saisis",
+      "pin": "Épingler",
+      "unpin": "Désépingler"
+    },
+    "bulk": {
+      "label_one": "Actions pour {{count}} mot sélectionné",
+      "label_other": "Actions pour {{count}} mots sélectionnés",
+      "selected_one": "{{count}} sélectionné",
+      "selected_other": "{{count}} sélectionnés",
+      "clear": "Effacer la sélection"
+    },
+    "remove": {
+      "titleOne": "Retirer « {{word}} » ?",
+      "title_one": "Retirer {{count}} mot ?",
+      "title_other": "Retirer {{count}} mots ?",
+      "description_one": "{{count}} mot ne sera plus envoyé à la reconnaissance vocale, au nettoyage ni au chat. C'est définitif.",
+      "description_other": "Ces {{count}} mots ne sont plus envoyés à la reconnaissance vocale, au nettoyage ni au chat. C'est définitif."
+    },
+    "rename": {
+      "failed": "Impossible de changer l'orthographe."
+    },
+    "merge": {
+      "title": "« {{into}} » est déjà dans votre dictionnaire",
+      "description": "Fusionner « {{from}} » avec ce mot ? « {{from}} » est retiré. « {{into}} » reste : saisi si l'un des deux l'était, épinglé si l'un des deux l'était, avec ce que « {{from}} » remplaçait.",
+      "confirm": "Fusionner",
+      "done": "« {{from}} » fusionné avec « {{into}} »",
+      "failed": "Impossible de fusionner les mots."
+    },
+    "list": {
+      "label_one": "Dictionnaire, {{count}} mot",
+      "label_other": "Dictionnaire, {{count}} mots",
+      "rowLabel": "{{word}}, {{source}}, {{coverage}}",
+      "searchLabel": "Filtrer les mots",
+      "searchPlaceholder": "Filtrer les mots",
+      "clearSearch": "Effacer le filtre",
+      "sortLabel": "Trier",
+      "export": "Exporter",
+      "filtersLabel": "Afficher",
+      "filters": {
+        "all": "Tous",
+        "typed": "Saisis",
+        "learned": "Appris",
+        "pinned": "Épinglés",
+        "notSent": "Non envoyés",
+        "neverHeard": "Jamais entendus",
+        "addedThisWeek": "Ajoutés cette semaine",
+        "notSentHint": "Les mots que votre reconnaissance vocale actuelle n'envoie pas",
+        "neverHeardHint": "Dans aucune dictée des 90 derniers jours, ni entendus ni écrits"
+      },
+      "sorts": {
+        "sendOrder": "Ordre d'envoi",
+        "recent": "Ajoutés récemment",
+        "alpha": "A–Z",
+        "mostHeard": "Les plus entendus",
+        "leastHeard": "Les moins entendus"
+      },
+      "columns": {
+        "word": "Mot",
+        "source": "Origine",
+        "heard": "Entendu · 90 jours",
+        "added": "Ajouté",
+        "speech": "Modèle vocal"
+      },
+      "heardWritten": "entendu {{heard}} · écrit {{written}}",
+      "missedHint": "La reconnaissance le manque souvent : écrit plus souvent qu'entendu",
+      "added": "ajouté {{when}}",
+      "noMatches": "Aucun mot ne correspond.",
+      "clearFilters": "Effacer les filtres",
+      "divider": {
+        "unread_one": "Le modèle vocal arrête de lire ici · {{count}} mot en dessous est envoyé mais probablement pas lu",
+        "unread_other": "Le modèle vocal arrête de lire ici · {{count}} mots en dessous sont envoyés mais probablement pas lus",
+        "notSent_one": "Plus rien n'est envoyé à partir d'ici · {{count}} mot n'est pas envoyé",
+        "notSent_other": "Plus rien n'est envoyé à partir d'ici · {{count}} mots ne sont pas envoyés"
+      }
+    },
+    "where": {
+      "title": "Où va votre dictionnaire",
+      "description": "Une dictée envoie vos mots au modèle vocal et au nettoyage ; le chat et l'assistant vocal les reçoivent aussi. Les tokens sont des estimations (environ 4 caractères par token).",
+      "show": "Où il va",
+      "hide": "Masquer les détails",
+      "speech": {
+        "label": "Reconnaissance vocale · {{setup}}",
+        "title": "Reconnaissance vocale",
+        "channel": "{{setup}} · {{channel}}",
+        "channels": {
+          "chars": "prompt",
+          "keywords": "mots-clés",
+          "phrases": "liste de phrases",
+          "words": "mots de contexte",
+          "terms": "termes clés"
+        },
+        "usedOf": {
+          "chars": "{{used}} caractères sur {{limit}}",
+          "keywords": "{{used}} mots-clés sur {{limit}}",
+          "phrases": "{{used}} phrases sur {{limit}}",
+          "words": "{{used}} mots sur {{limit}}",
+          "terms": "{{used}} termes sur {{limit}}"
+        },
+        "used": {
+          "chars": "{{used}} caractères",
+          "keywords": "{{used}} mots-clés",
+          "phrases": "{{used}} phrases",
+          "words": "{{used}} mots",
+          "terms": "{{used}} termes"
+        },
+        "reads": "Whisper lit les ≈ {{chars}} derniers caractères",
+        "cut_one": "{{count}} n'est pas envoyé",
+        "cut_other": "{{count}} ne sont pas envoyés",
+        "sendOrder": "Ordre d'envoi ›",
+        "noneShort": "Pas d'indications du dictionnaire",
+        "none": "Cette reconnaissance vocale ne prend pas d'indications du dictionnaire. Le nettoyage et le chat reçoivent quand même vos mots.",
+        "bias": "Oriente le modèle vers ces orthographes : utile pour les noms rares, nuisible quand un mot est courant ou ressemble à un autre.",
+        "order": "Envoyés dans l'ordre d'envoi : épinglés, saisis, les orthographes du glossaire, les déclencheurs d'extraits, puis les mots appris.",
+        "tail": "Les modèles Whisper ne lisent que la fin du prompt : ce sont les derniers mots envoyés qui sont lus.",
+        "estimate": "Ce que lit le modèle est une estimation ; ce qui est envoyé est ce que contient la requête de cette configuration.",
+        "setup": {
+          "managed": "Le modèle vocal de votre organisation",
+          "cloud": "OpenWhispr Cloud",
+          "localWhisper": "Whisper sur cet ordinateur ({{model}})",
+          "localOther": "Un modèle sur cet ordinateur",
+          "selfHosted": "Votre serveur",
+          "selfHostedModel": "Votre serveur · {{model}}"
+        }
+      },
+      "cleanup": {
+        "label": "Prompt de nettoyage",
+        "title": "Prompt de nettoyage",
+        "tokens": "≈ {{tokens}} tokens par nettoyage",
+        "off": "Le nettoyage est désactivé",
+        "sends": "Envoie : {{set}}",
+        "monthly": "≈ {{tokens}} tokens par mois",
+        "monthlyDetail": "≈ {{tokens}} tokens par mois à votre rythme de dictée",
+        "monthlyUnavailable": "Une estimation mensuelle nécessite l'historique local.",
+        "compareTitle": "Vos nettoyages par ensemble de mots",
+        "compareRow_one": "{{count}} dictée · {{words}} mots en moyenne",
+        "compareRow_other": "{{count}} dictées · {{words}} mots en moyenne",
+        "compareEmpty": "Aucun nettoyage n'a enregistré d'ensemble de mots ces {{days}} derniers jours.",
+        "compareNote": "Les {{days}} derniers jours de l'historique local de ce compte. Chaque étape de nettoyage indique avec quel ensemble elle a tourné.",
+        "compareUnavailable": "Compté à partir de l'historique local, qui n'est pas conservé pour ce compte."
+      },
+      "chat": {
+        "label": "Chat et assistant vocal",
+        "title": "Chat et assistant vocal",
+        "tokens": "≈ {{tokens}} tokens par message",
+        "tokensDetail": "≈ {{tokens}} tokens par message",
+        "allWords_one": "Les {{count}} mot",
+        "allWords_other": "Les {{count}} mots",
+        "sameList": "La liste entière, ajoutée au prompt système.",
+        "snippets": "Les orthographes du glossaire et les déclencheurs d'extraits y figurent aussi."
+      }
+    },
+    "detail": {
+      "label": "Détails de {{word}}",
+      "close": "Fermer les détails",
+      "added": "Ajouté le {{when}}",
+      "addedUnknown": "Ajouté avant que les dates soient conservées",
+      "pinned": "Épinglé",
+      "pin": "Épingler",
+      "unpin": "Désépingler",
+      "edit": "Modifier l'orthographe",
+      "saveSpelling": "Enregistrer l'orthographe",
+      "renameLabel": "Nouvelle orthographe pour {{word}}",
+      "glossaryRule": "Créer une règle de glossaire",
+      "glossaryExisting": "Une règle du glossaire écrit déjà ce mot ; elle est ouverte.",
+      "usage": {
+        "title": "Entendu",
+        "last90": "90 derniers jours",
+        "totals": "entendu {{heard}} · écrit {{written}}",
+        "chartLabel": "Entendu {{heard}} fois et écrit {{written}} fois en 90 jours, par semaine",
+        "heardLegend": "Entendu (reconnaissance vocale)",
+        "writtenLegend": "Écrit (texte final)",
+        "never": "Dans aucune dictée des 90 derniers jours.",
+        "missed_one": "La reconnaissance le manque souvent : {{count}} dictée l'a écrit sans l'entendre.",
+        "missed_other": "La reconnaissance le manque souvent : {{count}} dictées l'ont écrit sans l'entendre.",
+        "note": "Compté à partir de l'historique local de ce compte, à titre indicatif. Ni entendu ni écrit signifie inconnu."
+      },
+      "where": {
+        "title": "Où il va",
+        "speechLabel": "Modèle vocal",
+        "speech": {
+          "read": "Envoyé, probablement lu · n° {{rank}} dans l'ordre d'envoi",
+          "unread": "Envoyé, probablement non lu · n° {{rank}} dans l'ordre d'envoi"
+        },
+        "speechNotSent": "Non envoyé : au-delà de ce qu'envoie cette configuration",
+        "speechNone": "Non envoyé : cette configuration ne prend pas d'indications",
+        "cleanupLabel": "Nettoyage",
+        "chatLabel": "Chat, assistant",
+        "chatAlways": "Toujours"
+      },
+      "cleanup": {
+        "off": "Non : le nettoyage est désactivé",
+        "glossary": "Oui : les orthographes du glossaire sont toujours envoyées",
+        "all": "Oui, avec tous les mots",
+        "fallback": "Oui : « {{set}} » a besoin de décomptes pas encore prêts, donc tous les mots partent pour l'instant",
+        "none": "Non : le prompt de nettoyage ne contient aucun mot du dictionnaire",
+        "pinned": "Oui : il est épinglé (« {{set}} »)",
+        "typed": "Oui : il est saisi (« {{set}} »)",
+        "missed": "Oui : la reconnaissance le manque souvent (« {{set}} »)",
+        "notTypedPinned": "Non : « {{set}} » n'envoie que les mots saisis et épinglés",
+        "notMissed": "Non : « {{set}} » n'envoie les mots appris que lorsque la reconnaissance les manque souvent"
+      },
+      "replaced": {
+        "title": "Ce qu'il a remplacé",
+        "changed": "Vous avez remplacé « {{replaced}} » par ce mot",
+        "changedIn": "Vous avez remplacé « {{replaced}} » par ce mot dans {{app}}",
+        "none": "Aucune modification enregistrée pour ce mot.",
+        "unavailable": "Conservé seulement tant que l'historique local est activé pour ce compte.",
+        "openInHistory": "Ouvrir dans l'historique"
+      },
+      "similar": {
+        "title": "Mots similaires dans votre dictionnaire",
+        "none": "Aucun.",
+        "variant": "Même mot, autre orthographe",
+        "plural": "Pluriel",
+        "near": "Orthographe proche"
+      }
+    },
+    "usage": {
+      "unavailable": {
+        "historyOff": "Entendu et écrit se comptent à partir de l'historique local, qui est désactivé.",
+        "policyOff": "Votre organisation garde l'historique local désactivé ; rien n'est compté.",
+        "pending": "Décompte à partir de l'historique local…",
+        "other": "Les décomptes ne sont pas disponibles pour le moment."
+      }
     }
   },
   "support": {

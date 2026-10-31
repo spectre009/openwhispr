@@ -4,13 +4,14 @@
 // more than ~1,000 parts ("Could not parse multipart form", #2224). So the first
 // 900 terms go out as keywords and the rest ride in `prompt` as context. Same
 // rules as the server-side adapter in openwhispr-api (lib/providers/openai.ts).
-const MAX_TRANSCRIPTION_KEYWORDS = 900;
+export const MAX_TRANSCRIPTION_KEYWORDS = 900;
 
 export function usesTranscriptionKeywords(model) {
   return typeof model === "string" && model.trim() === "gpt-transcribe";
 }
 
-function dictionaryTerms(dictionaryPrompt) {
+/** The keywords a prompt (or one dictionary term) becomes. */
+export function dictionaryTerms(dictionaryPrompt) {
   return String(dictionaryPrompt ?? "")
     .split(/[,\r\n]+/)
     .map((term) => term.replace(/[<>]/g, "").trim())

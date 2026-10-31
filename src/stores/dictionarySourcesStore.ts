@@ -1,18 +1,20 @@
 import { create } from "zustand";
 import logger from "../utils/logger";
 import { dictionaryWordKey } from "../utils/dictionaryWordKey.js";
-import type { DictionaryEntrySource } from "../types/electron";
+import type { DictionaryEntry, DictionaryEntrySource } from "../types/electron";
 
-// Which dictionary words the user typed and which auto-learn added, and which
-// are pinned. The settings store keeps only the words (that list syncs to
-// OpenWhispr Cloud); the speech-to-text hint list needs the source to put
-// typed words first and pins before them, cleanup's word set needs both, and
-// the Dictionary page lists auto-learned words for review. Main owns the
-// pins (local only, never synced); this mirrors them.
+// Which dictionary words the user typed and which auto-learn added, when each
+// was added, and which are pinned. The settings store keeps only the words
+// (that list syncs to OpenWhispr Cloud); the speech-to-text hint list needs
+// the source to put typed words first and pins before them, cleanup's word
+// set needs both, and the Dictionary page filters and sorts by source and
+// date. Main owns the pins (local only, never synced); this mirrors them.
 
 interface DictionarySourcesState {
   /** Lowercased words whose source is "learned". */
   learned: ReadonlySet<string>;
+  /** Main's rows: each word's source and when it was added, in stored order. */
+  entries: readonly DictionaryEntry[];
   loaded: boolean;
   /** Pinned words' keys (dictionaryWordKey). */
   pinned: ReadonlySet<string>;
@@ -21,6 +23,7 @@ interface DictionarySourcesState {
 
 export const useDictionarySourcesStore = create<DictionarySourcesState>()(() => ({
   learned: new Set<string>(),
+  entries: [],
   loaded: false,
   pinned: new Set<string>(),
   pinsLoaded: false,
@@ -41,15 +44,22 @@ export function getPinnedDictionaryKeys(): ReadonlySet<string> {
   return useDictionarySourcesStore.getState().pinned;
 }
 
-function apply(entries: unknown): void {
-  if (!Array.isArray(entries)) return;
+function apply(rows: unknown): void {
+  if (!Array.isArray(rows)) return;
   const learned = new Set<string>();
-  for (const entry of entries as Array<{ word?: unknown; source?: DictionaryEntrySource }>) {
-    if (entry?.source === "learned" && typeof entry.word === "string") {
-      learned.add(entry.word.trim().toLowerCase());
-    }
+  const entries: DictionaryEntry[] = [];
+  for (const row of rows as Array<Partial<DictionaryEntry> | null>) {
+    if (typeof row?.word !== "string") continue;
+    const source: DictionaryEntrySource = row.source === "learned" ? "learned" : "manual";
+    if (source === "learned") learned.add(row.word.trim().toLowerCase());
+    entries.push({
+      word: row.word,
+      source,
+      createdAt: typeof row.createdAt === "string" ? row.createdAt : null,
+      updatedAt: typeof row.updatedAt === "string" ? row.updatedAt : null,
+    });
   }
-  useDictionarySourcesStore.setState({ learned, loaded: true });
+  useDictionarySourcesStore.setState({ learned, entries, loaded: true });
 }
 
 function applyPins(keys: unknown): void {
@@ -110,6 +120,23 @@ export async function setDictionaryPin(word: string, pinned: boolean): Promise<b
   }
 }
 
+/**
+ * Pins or unpins several words, one at a time (each through main, which
+ * broadcasts). Resolves how many changed.
+ */
+export async function setDictionaryPins(
+  words: readonly string[],
+  pinned: boolean
+): Promise<number> {
+  const current = useDictionarySourcesStore.getState().pinned;
+  let changed = 0;
+  for (const word of words) {
+    if (current.has(dictionaryWordKey(word)) === pinned) continue;
+    if (await setDictionaryPin(word, pinned)) changed += 1;
+  }
+  return changed;
+}
+
 let subscribed = false;
 
 /**
@@ -122,6 +149,8 @@ export function syncDictionarySources(onWordsChanged?: (listener: () => void) =>
     subscribed = true;
     onWordsChanged(() => void refreshDictionarySources());
     window.electronAPI?.onDictionaryPinsUpdated?.((keys: string[]) => applyPins(keys));
+    // A source change ("Mark typed") leaves the words as they were.
+    window.electronAPI?.onDictionaryUpdated?.(() => void refreshDictionarySources());
   }
   void refreshDictionarySources();
 }

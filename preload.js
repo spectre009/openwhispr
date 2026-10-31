@@ -328,6 +328,14 @@ contextBridge.exposeInMainWorld("electronAPI", {
   ),
   // Heard vs written per dictionary word, from local History (counts only)
   getDictionaryUsage: () => ipcRenderer.invoke("dictionary-usage"),
+  getDictionaryWordUsage: (word) => ipcRenderer.invoke("dictionary-word-usage", word),
+  getDictionaryWordEvidence: (word) => ipcRenderer.invoke("dictionary-word-evidence", word),
+  getDictionaryCleanupScopeCounts: () => ipcRenderer.invoke("dictionary-cleanup-scope-counts"),
+  // A word's spelling in place, two words folded into one, learned → typed
+  renameDictionaryWord: (from, to) => ipcRenderer.invoke("dictionary-rename", from, to),
+  mergeDictionaryWords: (from, into) => ipcRenderer.invoke("dictionary-merge", from, into),
+  setDictionarySource: (words, source) =>
+    ipcRenderer.invoke("dictionary-set-source", words, source),
 
   // Note functions
   saveNote: (title, content, noteType, sourceFile, audioDuration, folderId, spaceId) =>

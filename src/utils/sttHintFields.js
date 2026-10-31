@@ -20,18 +20,35 @@
 // - echo:        what the dictionary-echo check measures a reply against
 //                (`{ prompt, dictionaryPrompt }`), or null when the route has
 //                no echo check (Azure Speech, Corti, local sherpa, nothing sent).
+// And what the Dictionary page shows, read off those same fields:
+// - entries:     every term in priority order (`rank` 1 first) with its
+//                coverage: "notSent" unless the fields above carry all of it,
+//                "unread" for a sent term outside a Whisper prompt's tail
+//                window (WHISPER_DECODER_PROMPT_CHARS, an estimate), else "read";
+// - budget:      what the route counts against its limit (characters,
+//                keywords, phrases, words or terms), or `unit: null` when it
+//                carries no hints.
 // The words are the user's dictionary: never log them, only counts (`counts`).
 
-import { buildDictionaryHints, resolveHintTarget } from "./dictionaryHints.ts";
-import { dictionaryPromptLimit, trimDictionaryPrompt } from "./dictionaryPromptCap.js";
+import { HINT_SEPARATOR, buildDictionaryHints, resolveHintTarget } from "./dictionaryHints.ts";
 import {
+  WHISPER_DECODER_PROMPT_CHARS,
+  dictionaryPromptLimit,
+  trimDictionaryPrompt,
+} from "./dictionaryPromptCap.js";
+import {
+  MAX_TRANSCRIPTION_KEYWORDS,
   dictionaryKeywordOverflow,
   dictionaryKeywords,
+  dictionaryTerms,
   usesTranscriptionKeywords,
 } from "./dictionaryKeywords.js";
 import { mergeWhisperPrompt, resolveChineseScriptTarget } from "./chineseScript.js";
 import { matchesDictionaryPrompt } from "./dictionaryEchoFilter.js";
-import { AZURE_SPEECH_PROVIDER_ID } from "../helpers/azureSpeechTranscription.js";
+import {
+  AZURE_SPEECH_MAX_PHRASES,
+  AZURE_SPEECH_PROVIDER_ID,
+} from "../helpers/azureSpeechTranscription.js";
 
 export const STT_HINT_ROUTES = Object.freeze([
   "openai-compatible",
@@ -48,8 +65,8 @@ export const STT_HINT_ROUTES = Object.freeze([
 
 // Mistral's contextBias and the keyterm channels' caps (audioManager's
 // PROXY_TRANSCRIPTION_PROVIDERS and its proxied call site).
-const CONTEXT_BIAS_MAX_WORDS = 100;
-const KEYTERM_MAX = 100;
+export const CONTEXT_BIAS_MAX_WORDS = 100;
+export const KEYTERM_MAX = 100;
 const KEYTERM_MAX_CHARS = 50;
 // Bounds on what a retry may pass across IPC.
 const MAX_WORDS = 10_000;
@@ -116,6 +133,101 @@ function scriptBiasReserve(dictionary) {
   return bias ? bias.length + 1 : 0;
 }
 
+// ── Coverage: what the fields above carry, per term ─────────────────────────
+
+const entry = (hint, rank, coverage) => ({
+  term: hint.term,
+  source: hint.source,
+  rank,
+  coverage,
+});
+
+// Where each piece sits in a prompt that ends with the pieces joined by ", "
+// (after the script bias, when there is one).
+function pieceSpans(pieces, prompt) {
+  const joined = pieces.join(HINT_SEPARATOR);
+  let offset = typeof prompt === "string" ? prompt.length - joined.length : 0;
+  return pieces.map((piece) => {
+    const span = { start: offset, end: offset + piece.length };
+    offset = span.end + HINT_SEPARATOR.length;
+    return span;
+  });
+}
+
+// A prompt route: `full` is the prompt before any cut, `sent` what the
+// request carries (a prefix of it, cut at a comma), or null. A term is sent
+// when `sent` still holds all of it, and read when it starts inside the last
+// `readChars` of it.
+function promptCoverage(hints, { full, sent, readChars }) {
+  const spans = new Map();
+  pieceSpans(hints.terms, full).forEach((span, i) => spans.set(hints.terms[i], span));
+  const sentLength = typeof sent === "string" ? sent.length : 0;
+  const readFrom = Number.isFinite(readChars) ? Math.max(0, sentLength - readChars) : 0;
+  return hints.entries.map((hint, i) => {
+    const span = spans.get(hint.term);
+    if (!span || sentLength === 0 || span.end > sentLength) return entry(hint, i + 1, "notSent");
+    return entry(hint, i + 1, span.start >= readFrom ? "read" : "unread");
+  });
+}
+
+// gpt-transcribe: the emitted terms split into keywords as dictionaryKeywords
+// does; the first 900 go as keywords[], the rest ride in the (biased, capped)
+// prompt. A term is sent when each of its keywords is either.
+function keywordCoverage(hints, { keywordCount, overflowFull, overflowSent }) {
+  const piecesByTerm = hints.terms.map((term) => dictionaryTerms(term));
+  const overflowPieces = piecesByTerm.flat().slice(keywordCount);
+  const spans = pieceSpans(overflowPieces, overflowFull);
+  const sentLength = typeof overflowSent === "string" ? overflowSent.length : 0;
+  const sentTerms = new Set();
+  let index = 0;
+  hints.terms.forEach((term, t) => {
+    const pieces = piecesByTerm[t];
+    const all = pieces.every((_, p) => {
+      const at = index + p;
+      if (at < keywordCount) return true;
+      const span = spans[at - keywordCount];
+      return !!span && sentLength > 0 && span.end <= sentLength;
+    });
+    if (pieces.length > 0 && all) sentTerms.add(term);
+    index += pieces.length;
+  });
+  return hints.entries.map((hint, i) =>
+    entry(hint, i + 1, sentTerms.has(hint.term) ? "read" : "notSent")
+  );
+}
+
+// Mistral: the biased prompt split at commas, then whitespace; the first
+// `maxWords` go. A term is sent when all its words are among them.
+function wordCapCoverage(hints, { biasWords, maxWords }) {
+  const sentTerms = new Set();
+  let used = biasWords;
+  for (const term of hints.terms) {
+    const words = term
+      .split(",")
+      .flatMap((part) => part.trim().split(/\s+/))
+      .filter(Boolean);
+    used += words.length;
+    if (words.length > 0 && used <= maxWords) sentTerms.add(term);
+  }
+  return hints.entries.map((hint, i) =>
+    entry(hint, i + 1, sentTerms.has(hint.term) ? "read" : "notSent")
+  );
+}
+
+// A list channel (phrases, keyterms): the first `count` emitted terms go.
+function listCoverage(hints, count) {
+  const sentTerms = new Set(hints.terms.slice(0, count));
+  return hints.entries.map((hint, i) =>
+    entry(hint, i + 1, sentTerms.has(hint.term) ? "read" : "notSent")
+  );
+}
+
+function noneCoverage(hints) {
+  return hints.entries.map((hint, i) => entry(hint, i + 1, "notSent"));
+}
+
+const NO_BUDGET = Object.freeze({ unit: null, used: 0, limit: null, readChars: null });
+
 function emptyFields(route) {
   return {
     route,
@@ -126,17 +238,19 @@ function emptyFields(route) {
     keyterms: [],
     dictionaryPrompt: null,
     echo: null,
+    entries: [],
+    budget: NO_BUDGET,
     counts: { terms: 0, notSent: 0 },
   };
 }
 
-function counted(fields, hintPlan) {
+function finish(fields, entries, budget) {
+  const notSent = entries.filter((e) => e.coverage === "notSent").length;
   return {
     ...fields,
-    counts: {
-      terms: hintPlan.terms.length,
-      notSent: hintPlan.entries.length - hintPlan.terms.length,
-    },
+    entries,
+    budget,
+    counts: { terms: entries.length - notSent, notSent },
   };
 }
 
@@ -175,27 +289,50 @@ export function buildSttHintFields(
       order: target.order,
     });
     const dictionaryPrompt = hints.prompt;
-    const trimmed = trimDictionaryPrompt(
-      withScriptBias(
-        dictionary,
-        usesKeywords ? dictionaryKeywordOverflow(dictionaryPrompt) : dictionaryPrompt
-      ),
-      maxChars
+    const full = withScriptBias(
+      dictionary,
+      usesKeywords ? dictionaryKeywordOverflow(dictionaryPrompt) : dictionaryPrompt
     );
+    const trimmed = trimDictionaryPrompt(full, maxChars);
     // Orukeet takes no prompt.
-    const promptSent = Boolean(trimmed.prompt && modelName !== "orukeet-v0.1.0");
-    return counted(
+    const orukeet = modelName === "orukeet-v0.1.0";
+    const promptSent = Boolean(trimmed.prompt && !orukeet);
+    const keywords = usesKeywords ? dictionaryKeywords(dictionaryPrompt) : [];
+    const sentPrompt = promptSent ? trimmed.prompt : null;
+    const readChars = target.order === "tail" ? WHISPER_DECODER_PROMPT_CHARS : Infinity;
+    return finish(
       {
         ...fields,
-        prompt: promptSent ? trimmed.prompt : null,
-        keywords: usesKeywords ? dictionaryKeywords(dictionaryPrompt) : [],
+        prompt: sentPrompt,
+        keywords,
         dictionaryPrompt,
         echo: {
-          prompt: promptSent ? trimmed.prompt : null,
+          prompt: sentPrompt,
           dictionaryPrompt: usesKeywords || promptSent ? dictionaryPrompt : null,
         },
       },
-      hints
+      usesKeywords
+        ? keywordCoverage(hints, {
+            keywordCount: keywords.length,
+            overflowFull: full,
+            overflowSent: sentPrompt,
+          })
+        : promptCoverage(hints, { full, sent: sentPrompt, readChars }),
+      usesKeywords
+        ? {
+            unit: "keywords",
+            used: keywords.length,
+            limit: MAX_TRANSCRIPTION_KEYWORDS,
+            readChars: null,
+          }
+        : orukeet
+          ? NO_BUDGET
+          : {
+              unit: "chars",
+              used: sentPrompt ? sentPrompt.length : 0,
+              limit: maxChars,
+              readChars: Number.isFinite(readChars) ? readChars : null,
+            }
     );
   }
 
@@ -207,7 +344,12 @@ export function buildSttHintFields(
       order: target.order,
     });
     // A phrase list is a bias, not a prompt the model continues: no echo check.
-    return counted({ ...fields, phrases: hints.terms }, hints);
+    return finish({ ...fields, phrases: hints.terms }, listCoverage(hints, hints.terms.length), {
+      unit: "phrases",
+      used: hints.terms.length,
+      limit: AZURE_SPEECH_MAX_PHRASES,
+      readChars: null,
+    });
   }
 
   if (kind === "mistral") {
@@ -218,7 +360,8 @@ export function buildSttHintFields(
       .flatMap((entry) => entry.trim().split(/\s+/))
       .filter(Boolean)
       .slice(0, CONTEXT_BIAS_MAX_WORDS);
-    return counted(
+    const bias = withScriptBias(dictionary, null) || "";
+    return finish(
       {
         ...fields,
         contextBias,
@@ -226,7 +369,11 @@ export function buildSttHintFields(
         echo:
           contextBias.length > 0 ? { prompt: null, dictionaryPrompt: contextBias.join(" ") } : null,
       },
-      hints
+      wordCapCoverage(hints, {
+        biasWords: bias.split(/\s+/).filter(Boolean).length,
+        maxWords: CONTEXT_BIAS_MAX_WORDS,
+      }),
+      { unit: "words", used: contextBias.length, limit: CONTEXT_BIAS_MAX_WORDS, readChars: null }
     );
   }
 
@@ -236,14 +383,15 @@ export function buildSttHintFields(
       .map((term) => term.trim().slice(0, KEYTERM_MAX_CHARS))
       .filter(Boolean)
       .slice(0, KEYTERM_MAX);
-    return counted(
+    return finish(
       {
         ...fields,
         keyterms,
         dictionaryPrompt: hints.prompt,
         echo: keyterms.length > 0 ? { prompt: null, dictionaryPrompt: keyterms.join(", ") } : null,
       },
-      hints
+      listCoverage(hints, keyterms.length),
+      { unit: "terms", used: keyterms.length, limit: KEYTERM_MAX, readChars: null }
     );
   }
 
@@ -252,14 +400,24 @@ export function buildSttHintFields(
     const hints = plan(dictionary, { order: "tail" });
     const prompt = withScriptBias(dictionary, hints.prompt);
     const sends = typeof prompt === "string" && prompt.trim().length > 0;
-    return counted(
+    return finish(
       {
         ...fields,
         prompt: sends ? prompt : null,
         dictionaryPrompt: hints.prompt,
         echo: sends ? { prompt, dictionaryPrompt: hints.prompt } : null,
       },
-      hints
+      promptCoverage(hints, {
+        full: prompt,
+        sent: sends ? prompt : null,
+        readChars: WHISPER_DECODER_PROMPT_CHARS,
+      }),
+      {
+        unit: "chars",
+        used: sends ? prompt.length : 0,
+        limit: null,
+        readChars: WHISPER_DECODER_PROMPT_CHARS,
+      }
     );
   }
 
@@ -271,14 +429,20 @@ export function buildSttHintFields(
       order: target.order,
     });
     const prompt = withScriptBias(dictionary, hints.prompt);
-    return counted(
+    return finish(
       {
         ...fields,
         prompt: prompt || null,
         dictionaryPrompt: hints.prompt,
         echo: { prompt: prompt || null, dictionaryPrompt: hints.prompt },
       },
-      hints
+      promptCoverage(hints, { full: prompt, sent: prompt || null, readChars: target.readChars }),
+      {
+        unit: "chars",
+        used: prompt ? prompt.length : 0,
+        limit: target.maxChars,
+        readChars: target.readChars,
+      }
     );
   }
 
@@ -286,18 +450,29 @@ export function buildSttHintFields(
     const hints = plan(dictionary, { order: "tail" });
     const prompt = withScriptBias(dictionary, hints.prompt);
     // Whisper's echo recovery runs on these (localWhisperEchoRecovery.js).
-    return counted(
+    return finish(
       {
         ...fields,
         prompt: prompt || null,
         dictionaryPrompt: hints.prompt,
         echo: prompt ? { prompt, dictionaryPrompt: hints.prompt } : null,
       },
-      hints
+      promptCoverage(hints, {
+        full: prompt,
+        sent: prompt || null,
+        readChars: WHISPER_DECODER_PROMPT_CHARS,
+      }),
+      {
+        unit: "chars",
+        used: prompt ? prompt.length : 0,
+        limit: null,
+        readChars: WHISPER_DECODER_PROMPT_CHARS,
+      }
     );
   }
 
-  return fields;
+  // Nothing is sent: every term in priority order, none of it sent.
+  return finish(fields, noneCoverage(plan(dictionary, {})), NO_BUDGET);
 }
 
 /** The dictionary-echo check (audioManager.isDictionaryEcho) against what a request sent. */

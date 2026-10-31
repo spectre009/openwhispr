@@ -153,3 +153,87 @@ test("routes that send nothing: Corti and local sherpa", () => {
   assert.equal(fields.echo, null);
   assert.equal(buildSttHintFields({ route: "bogus" }, dictionary()).route, "none");
 });
+
+// ── The Dictionary page's coverage, read off the fields above ───────────────
+
+const sentTerms = (fields) =>
+  fields.entries.filter((entry) => entry.coverage !== "notSent").map((entry) => entry.term);
+
+test("coverage: every term in priority order, ranked; nothing sent where nothing goes", () => {
+  const fields = buildSttHintFields({ route: "none" }, dictionary());
+  assert.deepEqual(
+    fields.entries.map((entry) => [entry.term, entry.source, entry.rank, entry.coverage]),
+    [
+      ["Gamma", "pinned", 1, "notSent"],
+      ["Alpha", "manual", 2, "notSent"],
+      ["Little Buddy", "manual", 3, "notSent"],
+      ["Scout Web", "glossary", 4, "notSent"],
+      ["cal link", "snippet", 5, "notSent"],
+      ["gonestly", "learned", 6, "notSent"],
+    ]
+  );
+  assert.deepEqual(fields.budget, { unit: null, used: 0, limit: null, readChars: null });
+  assert.deepEqual(fields.counts, { terms: 0, notSent: 6 });
+  const orukeet = buildSttHintFields(
+    { route: "openai-compatible", model: "orukeet-v0.1.0" },
+    dictionary()
+  );
+  assert.deepEqual(sentTerms(orukeet), [], "Orukeet takes no prompt, so nothing is sent");
+  assert.equal(orukeet.budget.unit, null);
+});
+
+test("coverage: a Whisper prompt's cut and tail window, measured on the prompt sent", () => {
+  const words = Array.from({ length: 300 }, (_, i) => `Word${i}`);
+  const fields = buildSttHintFields(
+    { route: "openai-compatible", provider: "groq", model: "whisper-large-v3" },
+    { words, pinned: ["word299"], speechLanguage: "zh-TW" }
+  );
+  const sent = sentTerms(fields);
+  const carried = fields.prompt.replace(/^以下是\S*\s/, "").split(", ");
+  assert.deepEqual([...sent].sort(), [...carried].sort(), "sent is what the prompt carries");
+  assert.equal(fields.entries[0].term, "Word299");
+  assert.equal(fields.entries[0].coverage, "read", "the pin is read: it's emitted last");
+  const unread = fields.entries.filter((entry) => entry.coverage === "unread");
+  assert.ok(unread.length > 0, "some sent words sit before the tail window");
+  for (const entry of unread) {
+    assert.ok(fields.prompt.indexOf(`${entry.term},`) < fields.prompt.length - 550, entry.term);
+  }
+  assert.ok(fields.counts.notSent > 0);
+  assert.deepEqual(fields.budget, {
+    unit: "chars",
+    used: fields.prompt.length,
+    limit: GROQ_PROMPT_CHARS,
+    readChars: 550,
+  });
+});
+
+test("coverage: phrase lists, keyterms and context words cut at their caps", () => {
+  const many = (count, prefix) => Array.from({ length: count }, (_, i) => `${prefix}${i}`);
+  const azure = buildSttHintFields({ route: "azure-speech" }, { words: many(205, "Phrase") });
+  assert.deepEqual(sentTerms(azure), azure.phrases);
+  assert.equal(azure.counts.notSent, 6);
+  assert.deepEqual(azure.budget, { unit: "phrases", used: 199, limit: 199, readChars: null });
+
+  for (const route of ["gemini", "xai"]) {
+    const fields = buildSttHintFields({ route }, { words: many(120, "Key") });
+    assert.deepEqual(sentTerms(fields), fields.keyterms, route);
+    assert.equal(fields.entries[100].coverage, "notSent", `${route}: past the 100-term cap`);
+    assert.equal(fields.budget.unit, "terms");
+  }
+
+  const mistral = buildSttHintFields(
+    { route: "mistral" },
+    { words: many(60, "Two Words"), speechLanguage: "zh-CN" }
+  );
+  // The bias takes a word: 49 two-word terms fit in 100, the 50th is cut in half.
+  assert.equal(sentTerms(mistral).length, 49);
+  assert.equal(mistral.entries[49].coverage, "notSent");
+  assert.deepEqual(mistral.budget, { unit: "words", used: 100, limit: 100, readChars: null });
+
+  const keywords = buildSttHintFields(
+    { route: "openai-compatible", model: "gpt-transcribe" },
+    { words: many(905, "Term") }
+  );
+  assert.equal(sentTerms(keywords).length, 905, "past 900 the rest ride in the prompt");
+  assert.deepEqual(keywords.budget, { unit: "keywords", used: 900, limit: 900, readChars: null });
+});

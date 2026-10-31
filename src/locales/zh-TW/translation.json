@@ -4525,7 +4525,12 @@
       "estimatedTooltip": "估計值：應用程式無法精確計算語音辨識模型會讀取清單中的多少內容。",
       "summary": "語音辨識提示（估計）：{{read}} 個可能會被讀取，{{unread}} 個已傳送但可能不會被讀取，{{notSent}} 個未傳送。",
       "explanation": "Whisper 模型只讀取清單末尾，部分服務商還會限制長度，因此你輸入的字詞優先佔用會被讀取的位置，其次是詞彙表詞條、片段觸發詞和自動學習的字詞。清理仍會收到完整字典。",
-      "noHints": "你的語音辨識模型不接受字典提示。清理仍會收到完整字典。"
+      "noHints": "你的語音辨識模型不接受字典提示。清理仍會收到完整字典。",
+      "row": {
+        "read": "已傳送 · 第 {{rank}} 位",
+        "unread": "可能不會被讀取 · 第 {{rank}} 位",
+        "notSent": "未傳送"
+      }
     },
     "learned": {
       "tag": "自動學習",
@@ -4588,13 +4593,250 @@
       "times_one": "學到 {{count}} 次",
       "times_other": "學到 {{count}} 次",
       "add": "新增",
-      "dismiss": "略過"
+      "dismiss": "略過",
+      "autoLearnLabel": "從你的校正中學習",
+      "forgetDismissed_one": "忘記 {{count}} 個已略過的字詞",
+      "forgetDismissed_other": "忘記 {{count}} 個已略過的字詞",
+      "forgetHint": "已略過的字詞在你忘記它們之前不會再被建議。"
     },
     "pins": {
       "pin": "釘選 {{word}}",
       "unpin": "取消釘選 {{word}}",
       "pinHint": "釘選：一律最先傳送給語音辨識，整理時也一律保留",
       "pinnedHint": "已釘選：一律最先傳送"
+    },
+    "source": {
+      "typed": "手動輸入",
+      "learned": "自動學習"
+    },
+    "actions": {
+      "remove": "移除",
+      "markTyped": "標為手動輸入",
+      "markedTyped_one": "已將 {{count}} 個字詞標為手動輸入",
+      "markedTyped_other": "已將 {{count}} 個字詞標為手動輸入",
+      "pin": "釘選",
+      "unpin": "取消釘選"
+    },
+    "bulk": {
+      "label_one": "對所選 {{count}} 個字詞的操作",
+      "label_other": "對所選 {{count}} 個字詞的操作",
+      "selected_one": "已選 {{count}} 個",
+      "selected_other": "已選 {{count}} 個",
+      "clear": "清除選取"
+    },
+    "remove": {
+      "titleOne": "移除「{{word}}」？",
+      "title_one": "移除 {{count}} 個字詞？",
+      "title_other": "移除 {{count}} 個字詞？",
+      "description_one": "這 {{count}} 個字詞將不再傳送給語音辨識、清理或聊天。此操作無法復原。",
+      "description_other": "這 {{count}} 個字詞將不再傳送給語音辨識、清理或聊天。此操作無法復原。"
+    },
+    "rename": {
+      "failed": "無法變更拼寫。"
+    },
+    "merge": {
+      "title": "「{{into}}」已在你的詞典中",
+      "description": "要把「{{from}}」合併到它嗎？「{{from}}」會被移除。「{{into}}」保留：只要其中一個是手動輸入就算手動輸入，只要其中一個已釘選就維持釘選，並接收「{{from}}」取代過的內容。",
+      "confirm": "合併",
+      "done": "已將「{{from}}」合併到「{{into}}」",
+      "failed": "無法合併這些字詞。"
+    },
+    "list": {
+      "label_one": "詞典，{{count}} 個字詞",
+      "label_other": "詞典，{{count}} 個字詞",
+      "rowLabel": "{{word}}，{{source}}，{{coverage}}",
+      "searchLabel": "篩選字詞",
+      "searchPlaceholder": "篩選字詞",
+      "clearSearch": "清除篩選",
+      "sortLabel": "排序",
+      "export": "匯出",
+      "filtersLabel": "顯示",
+      "filters": {
+        "all": "全部",
+        "typed": "手動輸入",
+        "learned": "自動學習",
+        "pinned": "已釘選",
+        "notSent": "未傳送",
+        "neverHeard": "從未聽到",
+        "addedThisWeek": "本週新增",
+        "notSentHint": "目前語音辨識設定不會傳送的字詞",
+        "neverHeardHint": "過去 90 天的聽寫中都沒有出現，既沒被聽到也沒被寫出"
+      },
+      "sorts": {
+        "sendOrder": "傳送順序",
+        "recent": "最近新增",
+        "alpha": "A–Z",
+        "mostHeard": "聽到最多",
+        "leastHeard": "聽到最少"
+      },
+      "columns": {
+        "word": "字詞",
+        "source": "來源",
+        "heard": "聽到 · 90 天",
+        "added": "新增時間",
+        "speech": "語音模型"
+      },
+      "heardWritten": "聽到 {{heard}} · 寫出 {{written}}",
+      "missedHint": "語音辨識常漏掉它：寫出的次數多於聽到的次數",
+      "added": "新增於 {{when}}",
+      "noMatches": "沒有相符的字詞。",
+      "clearFilters": "清除篩選",
+      "divider": {
+        "unread_one": "語音模型讀到這裡為止 · 下方 {{count}} 個字詞已傳送，但可能不會被讀取",
+        "unread_other": "語音模型讀到這裡為止 · 下方 {{count}} 個字詞已傳送，但可能不會被讀取",
+        "notSent_one": "從這裡開始不傳送 · {{count}} 個字詞未傳送",
+        "notSent_other": "從這裡開始不傳送 · {{count}} 個字詞未傳送"
+      }
+    },
+    "where": {
+      "title": "你的詞典會傳送到哪裡",
+      "description": "每次聽寫都會把你的字詞傳送給語音模型和清理；聊天和語音助理也會收到。Token 數為估計值（約 4 個字元 1 個 token）。",
+      "show": "傳送去向",
+      "hide": "隱藏詳細資料",
+      "speech": {
+        "label": "語音辨識 · {{setup}}",
+        "title": "語音辨識",
+        "channel": "{{setup}} · {{channel}}",
+        "channels": {
+          "chars": "提示詞",
+          "keywords": "關鍵字",
+          "phrases": "片語清單",
+          "words": "上下文字詞",
+          "terms": "關鍵術語"
+        },
+        "usedOf": {
+          "chars": "{{used}} / {{limit}} 個字元",
+          "keywords": "{{used}} / {{limit}} 個關鍵字",
+          "phrases": "{{used}} / {{limit}} 個片語",
+          "words": "{{used}} / {{limit}} 個字詞",
+          "terms": "{{used}} / {{limit}} 個術語"
+        },
+        "used": {
+          "chars": "{{used}} 個字元",
+          "keywords": "{{used}} 個關鍵字",
+          "phrases": "{{used}} 個片語",
+          "words": "{{used}} 個字詞",
+          "terms": "{{used}} 個術語"
+        },
+        "reads": "Whisper 只讀最後約 {{chars}} 個字元",
+        "cut_one": "{{count}} 個未傳送",
+        "cut_other": "{{count}} 個未傳送",
+        "sendOrder": "傳送順序 ›",
+        "noneShort": "無詞典提示",
+        "none": "目前的語音辨識設定不接受詞典提示。清理和聊天仍會收到你的字詞。",
+        "bias": "讓模型偏向這些拼寫：對少見的名字有幫助，但字詞常見或與其他字詞發音相近時可能適得其反。",
+        "order": "依傳送順序傳送：已釘選、手動輸入、詞彙表的拼寫、片段觸發詞，最後是自動學習的字詞。",
+        "tail": "Whisper 模型只讀提示詞的結尾，所以最後傳送的字詞才會被讀取。",
+        "estimate": "模型讀取的範圍是估計的；傳送的是此設定的要求實際攜帶的內容。",
+        "setup": {
+          "managed": "你所屬組織的語音模型",
+          "cloud": "OpenWhispr Cloud",
+          "localWhisper": "本機上的 Whisper（{{model}}）",
+          "localOther": "本機上的模型",
+          "selfHosted": "你的伺服器",
+          "selfHostedModel": "你的伺服器 · {{model}}"
+        }
+      },
+      "cleanup": {
+        "label": "清理提示詞",
+        "title": "清理提示詞",
+        "tokens": "每次清理約 {{tokens}} 個 token",
+        "off": "清理已關閉",
+        "sends": "傳送：{{set}}",
+        "monthly": "每月約 {{tokens}} 個 token",
+        "monthlyDetail": "依你的聽寫頻率，每月約 {{tokens}} 個 token",
+        "monthlyUnavailable": "每月估計需要本機歷史記錄。",
+        "compareTitle": "依字詞集合統計的清理",
+        "compareRow_one": "{{count}} 次聽寫 · 平均 {{words}} 個字詞",
+        "compareRow_other": "{{count}} 次聽寫 · 平均 {{words}} 個字詞",
+        "compareEmpty": "過去 {{days}} 天沒有清理記錄字詞集合。",
+        "compareNote": "此帳戶本機歷史記錄中過去 {{days}} 天的資料。每個清理步驟都會記錄它使用的集合。",
+        "compareUnavailable": "需從本機歷史記錄統計，但此帳戶沒有保存本機歷史記錄。"
+      },
+      "chat": {
+        "label": "聊天和語音助理",
+        "title": "聊天和語音助理",
+        "tokens": "每則訊息約 {{tokens}} 個 token",
+        "tokensDetail": "每則訊息約 {{tokens}} 個 token",
+        "allWords_one": "全部 {{count}} 個字詞",
+        "allWords_other": "全部 {{count}} 個字詞",
+        "sameList": "整份清單，附加到系統提示詞中。",
+        "snippets": "詞彙表的拼寫和片段觸發詞也會列出。"
+      }
+    },
+    "detail": {
+      "label": "{{word}} 的詳細資料",
+      "close": "關閉詳細資料",
+      "added": "新增於 {{when}}",
+      "addedUnknown": "在開始記錄日期之前新增",
+      "pinned": "已釘選",
+      "pin": "釘選",
+      "unpin": "取消釘選",
+      "edit": "編輯拼寫",
+      "saveSpelling": "儲存拼寫",
+      "renameLabel": "{{word}} 的新拼寫",
+      "glossaryRule": "建立詞彙表規則",
+      "glossaryExisting": "已有詞彙表規則寫出這個字詞，因此開啟了該規則。",
+      "usage": {
+        "title": "聽到",
+        "last90": "過去 90 天",
+        "totals": "聽到 {{heard}} · 寫出 {{written}}",
+        "chartLabel": "90 天內聽到 {{heard}} 次、寫出 {{written}} 次，依週統計",
+        "heardLegend": "聽到（語音辨識）",
+        "writtenLegend": "寫出（最終文字）",
+        "never": "過去 90 天的聽寫中都沒有出現。",
+        "missed_one": "語音辨識常漏掉它：有 {{count}} 次聽寫寫出了它，卻沒有聽到。",
+        "missed_other": "語音辨識常漏掉它：有 {{count}} 次聽寫寫出了它，卻沒有聽到。",
+        "note": "依此帳戶的本機歷史記錄統計，僅供參考。沒聽到也沒寫出表示未知。"
+      },
+      "where": {
+        "title": "傳送去向",
+        "speechLabel": "語音模型",
+        "speech": {
+          "read": "已傳送，可能會被讀取 · 傳送順序第 {{rank}} 位",
+          "unread": "已傳送，可能不會被讀取 · 傳送順序第 {{rank}} 位"
+        },
+        "speechNotSent": "未傳送：超出此設定的傳送範圍",
+        "speechNone": "未傳送：此設定不接受提示",
+        "cleanupLabel": "清理",
+        "chatLabel": "聊天、助理",
+        "chatAlways": "一律傳送"
+      },
+      "cleanup": {
+        "off": "否：清理已關閉",
+        "glossary": "是：詞彙表的拼寫一律會傳送",
+        "all": "是，與所有字詞一起",
+        "fallback": "是：「{{set}}」需要的統計尚未就緒，所以暫時傳送所有字詞",
+        "none": "否：清理提示詞不含詞典字詞",
+        "pinned": "是：已釘選（「{{set}}」）",
+        "typed": "是：手動輸入（「{{set}}」）",
+        "missed": "是：語音辨識常漏掉它（「{{set}}」）",
+        "notTypedPinned": "否：「{{set}}」只傳送手動輸入和已釘選的字詞",
+        "notMissed": "否：「{{set}}」只在語音辨識常漏掉時才傳送自動學習的字詞"
+      },
+      "replaced": {
+        "title": "它取代了什麼",
+        "changed": "你把「{{replaced}}」改成了它",
+        "changedIn": "你在 {{app}} 中把「{{replaced}}」改成了它",
+        "none": "這個字詞沒有編輯記錄。",
+        "unavailable": "僅在此帳戶開啟本機歷史記錄時保存。",
+        "openInHistory": "在歷史記錄中開啟"
+      },
+      "similar": {
+        "title": "詞典中的相似字詞",
+        "none": "沒有。",
+        "variant": "同一個字詞，不同寫法",
+        "plural": "複數",
+        "near": "拼寫相近"
+      }
+    },
+    "usage": {
+      "unavailable": {
+        "historyOff": "聽到和寫出的次數來自本機歷史記錄，而它已關閉。",
+        "policyOff": "你的組織關閉了本機歷史記錄，因此不會統計。",
+        "pending": "正在從本機歷史記錄統計…",
+        "other": "目前無法統計。"
+      }
     }
   },
   "insights": {

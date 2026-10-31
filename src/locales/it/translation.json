@@ -4525,7 +4525,12 @@
       "estimatedTooltip": "Stima: l'app non può calcolare con esattezza quanta parte dell'elenco legge il modello di trascrizione.",
       "summary": "Suggerimenti per la trascrizione (stima): probabilmente lette: {{read}}; inviate ma probabilmente non lette: {{unread}}; non inviate: {{notSent}}.",
       "explanation": "I modelli Whisper leggono solo la fine dell'elenco e alcuni provider ne limitano la lunghezza, quindi le parole che hai scritto occupano per prime i posti letti, poi i termini del glossario, gli attivatori degli snippet e le parole apprese automaticamente. La pulizia riceve sempre il dizionario completo.",
-      "noHints": "Il tuo modello di trascrizione non accetta suggerimenti dal dizionario. La pulizia riceve sempre il dizionario completo."
+      "noHints": "Il tuo modello di trascrizione non accetta suggerimenti dal dizionario. La pulizia riceve sempre il dizionario completo.",
+      "row": {
+        "read": "Inviata · n. {{rank}}",
+        "unread": "Probabilmente non letta · n. {{rank}}",
+        "notSent": "Non inviata"
+      }
     },
     "learned": {
       "tag": "Appresa",
@@ -4588,13 +4593,250 @@
       "times_one": "imparata {{count}} volta",
       "times_other": "imparata {{count}} volte",
       "add": "Aggiungi",
-      "dismiss": "Scarta"
+      "dismiss": "Scarta",
+      "autoLearnLabel": "Impara dalle tue correzioni",
+      "forgetDismissed_one": "Dimentica {{count}} parola scartata",
+      "forgetDismissed_other": "Dimentica {{count}} parole scartate",
+      "forgetHint": "Le parole scartate non vengono più suggerite finché non le dimentichi."
     },
     "pins": {
       "pin": "Fissa {{word}}",
       "unpin": "Sblocca {{word}}",
       "pinHint": "Fissa: inviata sempre per prima alla trascrizione e sempre mantenuta per la correzione",
       "pinnedHint": "Fissata: inviata sempre per prima"
+    },
+    "source": {
+      "typed": "Digitata",
+      "learned": "Appresa"
+    },
+    "actions": {
+      "remove": "Rimuovi",
+      "markTyped": "Segna come digitata",
+      "markedTyped_one": "{{count}} parola segnata come digitata",
+      "markedTyped_other": "{{count}} parole segnate come digitate",
+      "pin": "Fissa",
+      "unpin": "Sblocca"
+    },
+    "bulk": {
+      "label_one": "Azioni per {{count}} parola selezionata",
+      "label_other": "Azioni per {{count}} parole selezionate",
+      "selected_one": "{{count}} selezionata",
+      "selected_other": "{{count}} selezionate",
+      "clear": "Annulla selezione"
+    },
+    "remove": {
+      "titleOne": "Rimuovere «{{word}}»?",
+      "title_one": "Rimuovere {{count}} parola?",
+      "title_other": "Rimuovere {{count}} parole?",
+      "description_one": "{{count}} parola non verrà più inviata al riconoscimento vocale, alla pulizia né alla chat. Non si può annullare.",
+      "description_other": "Queste {{count}} parole non vengono più inviate al riconoscimento vocale, alla pulizia né alla chat. Non si può annullare."
+    },
+    "rename": {
+      "failed": "Impossibile cambiare la grafia."
+    },
+    "merge": {
+      "title": "«{{into}}» è già nel tuo dizionario",
+      "description": "Unire «{{from}}» a questa parola? «{{from}}» viene rimossa. «{{into}}» resta: digitata se una delle due lo era, fissata se una delle due lo era, con ciò che «{{from}}» sostituiva.",
+      "confirm": "Unisci",
+      "done": "«{{from}}» unita a «{{into}}»",
+      "failed": "Impossibile unire le parole."
+    },
+    "list": {
+      "label_one": "Dizionario, {{count}} parola",
+      "label_other": "Dizionario, {{count}} parole",
+      "rowLabel": "{{word}}, {{source}}, {{coverage}}",
+      "searchLabel": "Filtra parole",
+      "searchPlaceholder": "Filtra parole",
+      "clearSearch": "Cancella filtro",
+      "sortLabel": "Ordina",
+      "export": "Esporta",
+      "filtersLabel": "Mostra",
+      "filters": {
+        "all": "Tutte",
+        "typed": "Digitate",
+        "learned": "Apprese",
+        "pinned": "Fissate",
+        "notSent": "Non inviate",
+        "neverHeard": "Mai sentite",
+        "addedThisWeek": "Aggiunte questa settimana",
+        "notSentHint": "Parole che la tua configurazione di riconoscimento vocale attuale non invia",
+        "neverHeardHint": "In nessuna dettatura degli ultimi 90 giorni, né sentite né scritte"
+      },
+      "sorts": {
+        "sendOrder": "Ordine di invio",
+        "recent": "Aggiunte di recente",
+        "alpha": "A–Z",
+        "mostHeard": "Più sentite",
+        "leastHeard": "Meno sentite"
+      },
+      "columns": {
+        "word": "Parola",
+        "source": "Origine",
+        "heard": "Sentita · 90 giorni",
+        "added": "Aggiunta",
+        "speech": "Modello vocale"
+      },
+      "heardWritten": "sentita {{heard}} · scritta {{written}}",
+      "missedHint": "Il riconoscimento la sbaglia spesso: scritta più spesso che sentita",
+      "added": "aggiunta {{when}}",
+      "noMatches": "Nessuna parola corrisponde.",
+      "clearFilters": "Cancella filtri",
+      "divider": {
+        "unread_one": "Qui il modello vocale smette di leggere · {{count}} parola sotto viene inviata ma probabilmente non letta",
+        "unread_other": "Qui il modello vocale smette di leggere · {{count}} parole sotto vengono inviate ma probabilmente non lette",
+        "notSent_one": "Da qui in poi non inviate · {{count}} parola non viene inviata",
+        "notSent_other": "Da qui in poi non inviate · {{count}} parole non vengono inviate"
+      }
+    },
+    "where": {
+      "title": "Dove va il tuo dizionario",
+      "description": "Una dettatura invia le tue parole al modello vocale e alla pulizia; anche la chat e l'assistente vocale le ricevono. I token sono stime (circa 4 caratteri per token).",
+      "show": "Dove va",
+      "hide": "Nascondi dettagli",
+      "speech": {
+        "label": "Riconoscimento vocale · {{setup}}",
+        "title": "Riconoscimento vocale",
+        "channel": "{{setup}} · {{channel}}",
+        "channels": {
+          "chars": "prompt",
+          "keywords": "parole chiave",
+          "phrases": "elenco di frasi",
+          "words": "parole di contesto",
+          "terms": "termini chiave"
+        },
+        "usedOf": {
+          "chars": "{{used}} di {{limit}} caratteri",
+          "keywords": "{{used}} di {{limit}} parole chiave",
+          "phrases": "{{used}} di {{limit}} frasi",
+          "words": "{{used}} di {{limit}} parole",
+          "terms": "{{used}} di {{limit}} termini"
+        },
+        "used": {
+          "chars": "{{used}} caratteri",
+          "keywords": "{{used}} parole chiave",
+          "phrases": "{{used}} frasi",
+          "words": "{{used}} parole",
+          "terms": "{{used}} termini"
+        },
+        "reads": "Whisper legge gli ultimi ≈ {{chars}} caratteri",
+        "cut_one": "{{count}} non viene inviata",
+        "cut_other": "{{count}} non vengono inviate",
+        "sendOrder": "Ordine di invio ›",
+        "noneShort": "Nessun suggerimento dal dizionario",
+        "none": "Questa configurazione di riconoscimento vocale non accetta suggerimenti dal dizionario. La pulizia e la chat ricevono comunque le tue parole.",
+        "bias": "Orienta il modello verso queste grafie: aiuta con i nomi rari e può nuocere quando una parola è comune o suona come un'altra.",
+        "order": "Inviate nell'ordine di invio: fissate, digitate, le grafie del glossario, gli attivatori degli snippet, poi le parole apprese.",
+        "tail": "I modelli Whisper leggono solo la fine del prompt, quindi vengono lette le ultime parole inviate.",
+        "estimate": "Ciò che legge il modello è una stima; ciò che viene inviato è ciò che contiene la richiesta di questa configurazione.",
+        "setup": {
+          "managed": "Il modello vocale della tua organizzazione",
+          "cloud": "OpenWhispr Cloud",
+          "localWhisper": "Whisper su questo computer ({{model}})",
+          "localOther": "Un modello su questo computer",
+          "selfHosted": "Il tuo server",
+          "selfHostedModel": "Il tuo server · {{model}}"
+        }
+      },
+      "cleanup": {
+        "label": "Prompt di pulizia",
+        "title": "Prompt di pulizia",
+        "tokens": "≈ {{tokens}} token per pulizia",
+        "off": "La pulizia è disattivata",
+        "sends": "Invia: {{set}}",
+        "monthly": "≈ {{tokens}} token al mese",
+        "monthlyDetail": "≈ {{tokens}} token al mese al tuo ritmo di dettatura",
+        "monthlyUnavailable": "Una stima mensile richiede la cronologia locale.",
+        "compareTitle": "Le tue pulizie per insieme di parole",
+        "compareRow_one": "{{count}} dettatura · {{words}} parole in media",
+        "compareRow_other": "{{count}} dettature · {{words}} parole in media",
+        "compareEmpty": "Nessuna pulizia ha registrato un insieme di parole negli ultimi {{days}} giorni.",
+        "compareNote": "Gli ultimi {{days}} giorni della cronologia locale di questo account. Ogni passo di pulizia indica con quale insieme è stato eseguito.",
+        "compareUnavailable": "Contato dalla cronologia locale, che non viene conservata per questo account."
+      },
+      "chat": {
+        "label": "Chat e assistente vocale",
+        "title": "Chat e assistente vocale",
+        "tokens": "≈ {{tokens}} token per messaggio",
+        "tokensDetail": "≈ {{tokens}} token per messaggio",
+        "allWords_one": "Tutte le {{count}} parola",
+        "allWords_other": "Tutte le {{count}} parole",
+        "sameList": "L'intero elenco, aggiunto al prompt di sistema.",
+        "snippets": "Sono elencati anche le grafie del glossario e gli attivatori degli snippet."
+      }
+    },
+    "detail": {
+      "label": "Dettagli di {{word}}",
+      "close": "Chiudi dettagli",
+      "added": "Aggiunta il {{when}}",
+      "addedUnknown": "Aggiunta prima che venissero conservate le date",
+      "pinned": "Fissata",
+      "pin": "Fissa",
+      "unpin": "Sblocca",
+      "edit": "Modifica grafia",
+      "saveSpelling": "Salva grafia",
+      "renameLabel": "Nuova grafia di {{word}}",
+      "glossaryRule": "Crea una regola del glossario",
+      "glossaryExisting": "Una regola del glossario scrive già questa parola, quindi è stata aperta.",
+      "usage": {
+        "title": "Sentita",
+        "last90": "Ultimi 90 giorni",
+        "totals": "sentita {{heard}} · scritta {{written}}",
+        "chartLabel": "Sentita {{heard}} e scritta {{written}} volte in 90 giorni, per settimana",
+        "heardLegend": "Sentita (riconoscimento vocale)",
+        "writtenLegend": "Scritta (testo finale)",
+        "never": "In nessuna dettatura degli ultimi 90 giorni.",
+        "missed_one": "Il riconoscimento la sbaglia spesso: {{count}} dettatura l'ha scritta senza sentirla.",
+        "missed_other": "Il riconoscimento la sbaglia spesso: {{count}} dettature l'hanno scritta senza sentirla.",
+        "note": "Contato dalla cronologia locale di questo account, come indicazione. Né sentita né scritta significa sconosciuto."
+      },
+      "where": {
+        "title": "Dove va",
+        "speechLabel": "Modello vocale",
+        "speech": {
+          "read": "Inviata, probabilmente letta · n. {{rank}} nell'ordine di invio",
+          "unread": "Inviata, probabilmente non letta · n. {{rank}} nell'ordine di invio"
+        },
+        "speechNotSent": "Non inviata: oltre ciò che invia questa configurazione",
+        "speechNone": "Non inviata: questa configurazione non accetta suggerimenti",
+        "cleanupLabel": "Pulizia",
+        "chatLabel": "Chat, assistente",
+        "chatAlways": "Sempre"
+      },
+      "cleanup": {
+        "off": "No: la pulizia è disattivata",
+        "glossary": "Sì: le grafie del glossario vanno sempre",
+        "all": "Sì, con tutte le parole",
+        "fallback": "Sì: «{{set}}» richiede conteggi non ancora pronti, quindi per ora vanno tutte le parole",
+        "none": "No: il prompt di pulizia non contiene parole del dizionario",
+        "pinned": "Sì: è fissata («{{set}}»)",
+        "typed": "Sì: è digitata («{{set}}»)",
+        "missed": "Sì: il riconoscimento la sbaglia spesso («{{set}}»)",
+        "notTypedPinned": "No: «{{set}}» invia solo parole digitate e fissate",
+        "notMissed": "No: «{{set}}» invia parole apprese solo quando il riconoscimento le sbaglia spesso"
+      },
+      "replaced": {
+        "title": "Cosa ha sostituito",
+        "changed": "Hai cambiato «{{replaced}}» in questa parola",
+        "changedIn": "Hai cambiato «{{replaced}}» in questa parola in {{app}}",
+        "none": "Nessuna modifica registrata per questa parola.",
+        "unavailable": "Conservato solo finché la cronologia locale è attiva per questo account.",
+        "openInHistory": "Apri nella cronologia"
+      },
+      "similar": {
+        "title": "Parole simili nel tuo dizionario",
+        "none": "Nessuna.",
+        "variant": "Stessa parola, altra grafia",
+        "plural": "Plurale",
+        "near": "Grafia simile"
+      }
+    },
+    "usage": {
+      "unavailable": {
+        "historyOff": "Sentite e scritte si contano dalla cronologia locale, che è disattivata.",
+        "policyOff": "La tua organizzazione tiene disattivata la cronologia locale, quindi non si conta nulla.",
+        "pending": "Conteggio dalla cronologia locale…",
+        "other": "I conteggi non sono disponibili al momento."
+      }
     }
   },
   "insights": {

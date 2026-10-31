@@ -4525,7 +4525,12 @@
       "estimatedTooltip": "估计值：应用无法精确计算语音识别模型会读取列表中的多少内容。",
       "summary": "语音识别提示（估计）：{{read}} 个可能会被读取，{{unread}} 个已发送但可能不会被读取，{{notSent}} 个未发送。",
       "explanation": "Whisper 模型只读取列表末尾，部分服务商还会限制长度，因此你输入的词优先占用会被读取的位置，其次是术语表词条、片段触发词和自动学习的词。清理仍会收到完整词典。",
-      "noHints": "你的语音识别模型不接受词典提示。清理仍会收到完整词典。"
+      "noHints": "你的语音识别模型不接受词典提示。清理仍会收到完整词典。",
+      "row": {
+        "read": "已发送 · 第 {{rank}} 位",
+        "unread": "可能不会被读取 · 第 {{rank}} 位",
+        "notSent": "未发送"
+      }
     },
     "learned": {
       "tag": "自动学习",
@@ -4588,13 +4593,250 @@
       "times_one": "学到 {{count}} 次",
       "times_other": "学到 {{count}} 次",
       "add": "添加",
-      "dismiss": "忽略"
+      "dismiss": "忽略",
+      "autoLearnLabel": "从你的纠正中学习",
+      "forgetDismissed_one": "忘记 {{count}} 个已忽略的词",
+      "forgetDismissed_other": "忘记 {{count}} 个已忽略的词",
+      "forgetHint": "已忽略的词在你忘记它们之前不会再被建议。"
     },
     "pins": {
       "pin": "固定 {{word}}",
       "unpin": "取消固定 {{word}}",
       "pinHint": "固定：始终最先发送给语音识别，整理时也始终保留",
       "pinnedHint": "已固定：始终最先发送"
+    },
+    "source": {
+      "typed": "手动输入",
+      "learned": "自动学习"
+    },
+    "actions": {
+      "remove": "移除",
+      "markTyped": "标为手动输入",
+      "markedTyped_one": "已将 {{count}} 个词标为手动输入",
+      "markedTyped_other": "已将 {{count}} 个词标为手动输入",
+      "pin": "固定",
+      "unpin": "取消固定"
+    },
+    "bulk": {
+      "label_one": "对所选 {{count}} 个词的操作",
+      "label_other": "对所选 {{count}} 个词的操作",
+      "selected_one": "已选 {{count}} 个",
+      "selected_other": "已选 {{count}} 个",
+      "clear": "清除选择"
+    },
+    "remove": {
+      "titleOne": "移除“{{word}}”？",
+      "title_one": "移除 {{count}} 个词？",
+      "title_other": "移除 {{count}} 个词？",
+      "description_one": "这 {{count}} 个词将不再发送给语音识别、清理或聊天。此操作无法撤销。",
+      "description_other": "这 {{count}} 个词将不再发送给语音识别、清理或聊天。此操作无法撤销。"
+    },
+    "rename": {
+      "failed": "无法更改拼写。"
+    },
+    "merge": {
+      "title": "“{{into}}”已在你的词典中",
+      "description": "要把“{{from}}”合并到它吗？“{{from}}”会被移除。“{{into}}”保留：只要其中一个是手动输入就算手动输入，只要其中一个已固定就保持固定，并接收“{{from}}”替换过的内容。",
+      "confirm": "合并",
+      "done": "已将“{{from}}”合并到“{{into}}”",
+      "failed": "无法合并这些词。"
+    },
+    "list": {
+      "label_one": "词典，{{count}} 个词",
+      "label_other": "词典，{{count}} 个词",
+      "rowLabel": "{{word}}，{{source}}，{{coverage}}",
+      "searchLabel": "筛选词语",
+      "searchPlaceholder": "筛选词语",
+      "clearSearch": "清除筛选",
+      "sortLabel": "排序",
+      "export": "导出",
+      "filtersLabel": "显示",
+      "filters": {
+        "all": "全部",
+        "typed": "手动输入",
+        "learned": "自动学习",
+        "pinned": "已固定",
+        "notSent": "未发送",
+        "neverHeard": "从未听到",
+        "addedThisWeek": "本周添加",
+        "notSentHint": "当前语音识别设置不会发送的词语",
+        "neverHeardHint": "过去 90 天的听写中都没有出现，既没被听到也没被写出"
+      },
+      "sorts": {
+        "sendOrder": "发送顺序",
+        "recent": "最近添加",
+        "alpha": "A–Z",
+        "mostHeard": "听到最多",
+        "leastHeard": "听到最少"
+      },
+      "columns": {
+        "word": "词语",
+        "source": "来源",
+        "heard": "听到 · 90 天",
+        "added": "添加时间",
+        "speech": "语音模型"
+      },
+      "heardWritten": "听到 {{heard}} · 写出 {{written}}",
+      "missedHint": "语音识别常漏掉它：写出的次数多于听到的次数",
+      "added": "添加于 {{when}}",
+      "noMatches": "没有匹配的词语。",
+      "clearFilters": "清除筛选",
+      "divider": {
+        "unread_one": "语音模型读到这里为止 · 下方 {{count}} 个词已发送，但可能不会被读取",
+        "unread_other": "语音模型读到这里为止 · 下方 {{count}} 个词已发送，但可能不会被读取",
+        "notSent_one": "从这里开始不发送 · {{count}} 个词未发送",
+        "notSent_other": "从这里开始不发送 · {{count}} 个词未发送"
+      }
+    },
+    "where": {
+      "title": "你的词典会发送到哪里",
+      "description": "每次听写都会把你的词语发送给语音模型和清理；聊天和语音助手也会收到。Token 数为估算值（约 4 个字符 1 个 token）。",
+      "show": "发送去向",
+      "hide": "隐藏详情",
+      "speech": {
+        "label": "语音识别 · {{setup}}",
+        "title": "语音识别",
+        "channel": "{{setup}} · {{channel}}",
+        "channels": {
+          "chars": "提示词",
+          "keywords": "关键词",
+          "phrases": "短语列表",
+          "words": "上下文词",
+          "terms": "关键术语"
+        },
+        "usedOf": {
+          "chars": "{{used}} / {{limit}} 个字符",
+          "keywords": "{{used}} / {{limit}} 个关键词",
+          "phrases": "{{used}} / {{limit}} 个短语",
+          "words": "{{used}} / {{limit}} 个词",
+          "terms": "{{used}} / {{limit}} 个术语"
+        },
+        "used": {
+          "chars": "{{used}} 个字符",
+          "keywords": "{{used}} 个关键词",
+          "phrases": "{{used}} 个短语",
+          "words": "{{used}} 个词",
+          "terms": "{{used}} 个术语"
+        },
+        "reads": "Whisper 只读最后约 {{chars}} 个字符",
+        "cut_one": "{{count}} 个未发送",
+        "cut_other": "{{count}} 个未发送",
+        "sendOrder": "发送顺序 ›",
+        "noneShort": "无词典提示",
+        "none": "当前语音识别设置不接受词典提示。清理和聊天仍会收到你的词语。",
+        "bias": "让模型偏向这些拼写：对少见的名字有帮助，但词语常见或与其他词发音相近时可能适得其反。",
+        "order": "按发送顺序发送：已固定、手动输入、术语表的拼写、片段触发词，最后是自动学习的词。",
+        "tail": "Whisper 模型只读提示词的末尾，所以最后发送的词才会被读取。",
+        "estimate": "模型读取的范围是估算的；发送的是此设置的请求实际携带的内容。",
+        "setup": {
+          "managed": "你所在组织的语音模型",
+          "cloud": "OpenWhispr Cloud",
+          "localWhisper": "本机上的 Whisper（{{model}}）",
+          "localOther": "本机上的模型",
+          "selfHosted": "你的服务器",
+          "selfHostedModel": "你的服务器 · {{model}}"
+        }
+      },
+      "cleanup": {
+        "label": "清理提示词",
+        "title": "清理提示词",
+        "tokens": "每次清理约 {{tokens}} 个 token",
+        "off": "清理已关闭",
+        "sends": "发送：{{set}}",
+        "monthly": "每月约 {{tokens}} 个 token",
+        "monthlyDetail": "按你的听写频率，每月约 {{tokens}} 个 token",
+        "monthlyUnavailable": "月度估算需要本地历史记录。",
+        "compareTitle": "按词语集合统计的清理",
+        "compareRow_one": "{{count}} 次听写 · 平均 {{words}} 个词",
+        "compareRow_other": "{{count}} 次听写 · 平均 {{words}} 个词",
+        "compareEmpty": "过去 {{days}} 天没有清理记录词语集合。",
+        "compareNote": "此账户本地历史记录中过去 {{days}} 天的数据。每个清理步骤都会记录它使用的集合。",
+        "compareUnavailable": "需从本地历史记录统计，但此账户没有保存本地历史记录。"
+      },
+      "chat": {
+        "label": "聊天和语音助手",
+        "title": "聊天和语音助手",
+        "tokens": "每条消息约 {{tokens}} 个 token",
+        "tokensDetail": "每条消息约 {{tokens}} 个 token",
+        "allWords_one": "全部 {{count}} 个词",
+        "allWords_other": "全部 {{count}} 个词",
+        "sameList": "整个列表，附加到系统提示词中。",
+        "snippets": "术语表的拼写和片段触发词也会列出。"
+      }
+    },
+    "detail": {
+      "label": "{{word}} 的详情",
+      "close": "关闭详情",
+      "added": "添加于 {{when}}",
+      "addedUnknown": "在开始记录日期之前添加",
+      "pinned": "已固定",
+      "pin": "固定",
+      "unpin": "取消固定",
+      "edit": "编辑拼写",
+      "saveSpelling": "保存拼写",
+      "renameLabel": "{{word}} 的新拼写",
+      "glossaryRule": "创建术语表规则",
+      "glossaryExisting": "已有术语表规则写出这个词，因此打开了该规则。",
+      "usage": {
+        "title": "听到",
+        "last90": "过去 90 天",
+        "totals": "听到 {{heard}} · 写出 {{written}}",
+        "chartLabel": "90 天内听到 {{heard}} 次、写出 {{written}} 次，按周统计",
+        "heardLegend": "听到（语音识别）",
+        "writtenLegend": "写出（最终文本）",
+        "never": "过去 90 天的听写中都没有出现。",
+        "missed_one": "语音识别常漏掉它：有 {{count}} 次听写写出了它，却没有听到。",
+        "missed_other": "语音识别常漏掉它：有 {{count}} 次听写写出了它，却没有听到。",
+        "note": "根据此账户的本地历史记录统计，仅供参考。没听到也没写出表示未知。"
+      },
+      "where": {
+        "title": "发送去向",
+        "speechLabel": "语音模型",
+        "speech": {
+          "read": "已发送，可能会被读取 · 发送顺序第 {{rank}} 位",
+          "unread": "已发送，可能不会被读取 · 发送顺序第 {{rank}} 位"
+        },
+        "speechNotSent": "未发送：超出此设置的发送范围",
+        "speechNone": "未发送：此设置不接受提示",
+        "cleanupLabel": "清理",
+        "chatLabel": "聊天、助手",
+        "chatAlways": "始终发送"
+      },
+      "cleanup": {
+        "off": "否：清理已关闭",
+        "glossary": "是：术语表的拼写总会发送",
+        "all": "是，随所有词语一起",
+        "fallback": "是：“{{set}}”需要的统计还没准备好，所以暂时发送所有词语",
+        "none": "否：清理提示词不含词典词语",
+        "pinned": "是：已固定（“{{set}}”）",
+        "typed": "是：手动输入（“{{set}}”）",
+        "missed": "是：语音识别常漏掉它（“{{set}}”）",
+        "notTypedPinned": "否：“{{set}}”只发送手动输入和已固定的词",
+        "notMissed": "否：“{{set}}”只在语音识别常漏掉时才发送自动学习的词"
+      },
+      "replaced": {
+        "title": "它替换了什么",
+        "changed": "你把“{{replaced}}”改成了它",
+        "changedIn": "你在 {{app}} 中把“{{replaced}}”改成了它",
+        "none": "这个词没有编辑记录。",
+        "unavailable": "仅在此账户开启本地历史记录时保存。",
+        "openInHistory": "在历史记录中打开"
+      },
+      "similar": {
+        "title": "词典中的相似词",
+        "none": "没有。",
+        "variant": "同一个词，不同写法",
+        "plural": "复数",
+        "near": "拼写相近"
+      }
+    },
+    "usage": {
+      "unavailable": {
+        "historyOff": "听到和写出的次数来自本地历史记录，而它已关闭。",
+        "policyOff": "你的组织关闭了本地历史记录，因此不会统计。",
+        "pending": "正在从本地历史记录统计…",
+        "other": "暂时无法统计。"
+      }
     }
   },
   "insights": {

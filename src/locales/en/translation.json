@@ -4877,7 +4877,12 @@
       "estimatedTooltip": "Estimated: the app can't count exactly how much of the list the speech-to-text model reads.",
       "summary": "Speech-to-text hints (estimated): {{read}} likely read, {{unread}} sent but likely not read, {{notSent}} not sent.",
       "explanation": "Whisper models read only the end of the list and some providers cap its length, so words you typed get the places that are read first, then glossary terms, snippet triggers and auto-learned words. Cleanup still gets the whole dictionary.",
-      "noHints": "Your speech-to-text model doesn't take dictionary hints. Cleanup still gets the whole dictionary."
+      "noHints": "Your speech-to-text model doesn't take dictionary hints. Cleanup still gets the whole dictionary.",
+      "row": {
+        "read": "Sent · #{{rank}}",
+        "unread": "Likely not read · #{{rank}}",
+        "notSent": "Not sent"
+      }
     },
     "learned": {
       "tag": "Auto-learned",
@@ -4940,13 +4945,250 @@
       "times_one": "learned {{count}} time",
       "times_other": "learned {{count}} times",
       "add": "Add",
-      "dismiss": "Dismiss"
+      "dismiss": "Dismiss",
+      "autoLearnLabel": "Learn from your corrections",
+      "forgetDismissed_one": "Forget {{count}} dismissed word",
+      "forgetDismissed_other": "Forget {{count}} dismissed words",
+      "forgetHint": "Dismissed words aren't suggested again until you forget them."
     },
     "pins": {
       "pin": "Pin {{word}}",
       "unpin": "Unpin {{word}}",
       "pinHint": "Pin: always sent first to speech-to-text, and always kept for cleanup",
       "pinnedHint": "Pinned: always sent first"
+    },
+    "source": {
+      "typed": "Typed",
+      "learned": "Auto-learned"
+    },
+    "actions": {
+      "remove": "Remove",
+      "markTyped": "Mark typed",
+      "markedTyped_one": "Marked {{count}} word as typed",
+      "markedTyped_other": "Marked {{count}} words as typed",
+      "pin": "Pin",
+      "unpin": "Unpin"
+    },
+    "bulk": {
+      "label_one": "Actions for {{count}} selected word",
+      "label_other": "Actions for {{count}} selected words",
+      "selected_one": "{{count}} selected",
+      "selected_other": "{{count}} selected",
+      "clear": "Clear selection"
+    },
+    "remove": {
+      "titleOne": "Remove “{{word}}”?",
+      "title_one": "Remove {{count}} word?",
+      "title_other": "Remove {{count}} words?",
+      "description_one": "{{count}} word will no longer be sent to speech-to-text, cleanup or chat. This can't be undone.",
+      "description_other": "{{count}} words will no longer be sent to speech-to-text, cleanup or chat. This can't be undone."
+    },
+    "rename": {
+      "failed": "Couldn't change the spelling."
+    },
+    "merge": {
+      "title": "“{{into}}” is already in your dictionary",
+      "description": "Merge “{{from}}” into it? “{{from}}” is removed. “{{into}}” stays: typed if either was typed, pinned if either was pinned, with what “{{from}}” replaced.",
+      "confirm": "Merge",
+      "done": "Merged “{{from}}” into “{{into}}”",
+      "failed": "Couldn't merge the words."
+    },
+    "list": {
+      "label_one": "Dictionary, {{count}} word",
+      "label_other": "Dictionary, {{count}} words",
+      "rowLabel": "{{word}}, {{source}}, {{coverage}}",
+      "searchLabel": "Filter words",
+      "searchPlaceholder": "Filter words",
+      "clearSearch": "Clear filter",
+      "sortLabel": "Sort",
+      "export": "Export",
+      "filtersLabel": "Show",
+      "filters": {
+        "all": "All",
+        "typed": "Typed",
+        "learned": "Auto-learned",
+        "pinned": "Pinned",
+        "notSent": "Not sent",
+        "neverHeard": "Never heard",
+        "addedThisWeek": "Added this week",
+        "notSentHint": "Words your current speech-to-text setup doesn't send",
+        "neverHeardHint": "In no dictation of the last 90 days, heard or written"
+      },
+      "sorts": {
+        "sendOrder": "Send order",
+        "recent": "Recently added",
+        "alpha": "A–Z",
+        "mostHeard": "Most heard",
+        "leastHeard": "Least heard"
+      },
+      "columns": {
+        "word": "Word",
+        "source": "Source",
+        "heard": "Heard · 90 days",
+        "added": "Added",
+        "speech": "Speech model"
+      },
+      "heardWritten": "heard {{heard}} · written {{written}}",
+      "missedHint": "Speech often misses it: written more often than heard",
+      "added": "added {{when}}",
+      "noMatches": "No words match.",
+      "clearFilters": "Clear filters",
+      "divider": {
+        "unread_one": "The speech model stops reading here · {{count}} word below is sent but likely not read",
+        "unread_other": "The speech model stops reading here · {{count}} words below are sent but likely not read",
+        "notSent_one": "Not sent beyond here · {{count}} word isn't sent",
+        "notSent_other": "Not sent beyond here · {{count}} words aren't sent"
+      }
+    },
+    "where": {
+      "title": "Where your dictionary goes",
+      "description": "A dictation sends your words to the speech model and to cleanup; chat and the Voice Assistant get them too. Token counts are estimates (about 4 characters a token).",
+      "show": "Where it goes",
+      "hide": "Hide details",
+      "speech": {
+        "label": "Speech-to-text · {{setup}}",
+        "title": "Speech-to-text",
+        "channel": "{{setup}} · {{channel}}",
+        "channels": {
+          "chars": "prompt",
+          "keywords": "keywords",
+          "phrases": "phrase list",
+          "words": "context words",
+          "terms": "key terms"
+        },
+        "usedOf": {
+          "chars": "{{used}} of {{limit}} characters",
+          "keywords": "{{used}} of {{limit}} keywords",
+          "phrases": "{{used}} of {{limit}} phrases",
+          "words": "{{used}} of {{limit}} words",
+          "terms": "{{used}} of {{limit}} terms"
+        },
+        "used": {
+          "chars": "{{used}} characters",
+          "keywords": "{{used}} keywords",
+          "phrases": "{{used}} phrases",
+          "words": "{{used}} words",
+          "terms": "{{used}} terms"
+        },
+        "reads": "Whisper reads the last ≈ {{chars}} characters",
+        "cut_one": "{{count}} isn't sent",
+        "cut_other": "{{count}} aren't sent",
+        "sendOrder": "Send order ›",
+        "noneShort": "No dictionary hints",
+        "none": "This speech-to-text setup takes no dictionary hints. Cleanup and chat still get your words.",
+        "bias": "Biases the model toward these spellings: it helps rare names, and can hurt when a word is common or sounds like another.",
+        "order": "Sent in send order: pinned, typed, the glossary's spellings, snippet triggers, then auto-learned words.",
+        "tail": "Whisper models read only the end of the prompt, so the words sent last are the ones read.",
+        "estimate": "What the model reads is an estimate; what's sent is what this setup's request carries.",
+        "setup": {
+          "managed": "Your organization's speech model",
+          "cloud": "OpenWhispr Cloud",
+          "localWhisper": "Whisper on this computer ({{model}})",
+          "localOther": "A model on this computer",
+          "selfHosted": "Your server",
+          "selfHostedModel": "Your server · {{model}}"
+        }
+      },
+      "cleanup": {
+        "label": "Cleanup prompt",
+        "title": "Cleanup prompt",
+        "tokens": "≈ {{tokens}} tokens every cleanup",
+        "off": "Cleanup is off",
+        "sends": "Sends: {{set}}",
+        "monthly": "≈ {{tokens}} tokens a month",
+        "monthlyDetail": "≈ {{tokens}} tokens a month at your dictation pace",
+        "monthlyUnavailable": "A monthly estimate needs local History.",
+        "compareTitle": "Your cleanups by word set",
+        "compareRow_one": "{{count}} dictation · {{words}} words on average",
+        "compareRow_other": "{{count}} dictations · {{words}} words on average",
+        "compareEmpty": "No cleanup recorded a word set in the last {{days}} days.",
+        "compareNote": "The last {{days}} days of this account's local History. Each cleanup step says which set it ran with.",
+        "compareUnavailable": "Counted from local History, which isn't kept for this account."
+      },
+      "chat": {
+        "label": "Chat and Voice Assistant",
+        "title": "Chat and Voice Assistant",
+        "tokens": "≈ {{tokens}} tokens every message",
+        "tokensDetail": "≈ {{tokens}} tokens every message",
+        "allWords_one": "All {{count}} word",
+        "allWords_other": "All {{count}} words",
+        "sameList": "The whole list, added to the system prompt.",
+        "snippets": "The glossary's spellings and snippet triggers are listed too."
+      }
+    },
+    "detail": {
+      "label": "Details for {{word}}",
+      "close": "Close details",
+      "added": "Added {{when}}",
+      "addedUnknown": "Added before dates were kept",
+      "pinned": "Pinned",
+      "pin": "Pin",
+      "unpin": "Unpin",
+      "edit": "Edit spelling",
+      "saveSpelling": "Save spelling",
+      "renameLabel": "New spelling for {{word}}",
+      "glossaryRule": "Make a glossary rule",
+      "glossaryExisting": "A glossary rule already writes this word, so that rule is open.",
+      "usage": {
+        "title": "Heard",
+        "last90": "Last 90 days",
+        "totals": "heard {{heard}} · written {{written}}",
+        "chartLabel": "Heard {{heard}} and written {{written}} times over 90 days, by week",
+        "heardLegend": "Heard (speech-to-text)",
+        "writtenLegend": "Written (final text)",
+        "never": "In no dictation of the last 90 days.",
+        "missed_one": "Speech often misses it: {{count}} dictation wrote it without hearing it.",
+        "missed_other": "Speech often misses it: {{count}} dictations wrote it without hearing it.",
+        "note": "Counted from this account's local History, as a guide. Nothing heard and nothing written means unknown."
+      },
+      "where": {
+        "title": "Where it goes",
+        "speechLabel": "Speech model",
+        "speech": {
+          "read": "Sent, likely read · #{{rank}} in send order",
+          "unread": "Sent, likely not read · #{{rank}} in send order"
+        },
+        "speechNotSent": "Not sent: past what this setup sends",
+        "speechNone": "Not sent: this setup takes no hints",
+        "cleanupLabel": "Cleanup",
+        "chatLabel": "Chat, assistant",
+        "chatAlways": "Always"
+      },
+      "cleanup": {
+        "off": "No: cleanup is off",
+        "glossary": "Yes: the glossary's spellings always go",
+        "all": "Yes, with all words",
+        "fallback": "Yes: “{{set}}” needs counts that aren't ready, so all words go for now",
+        "none": "No: the cleanup prompt carries no dictionary words",
+        "pinned": "Yes: it's pinned (“{{set}}”)",
+        "typed": "Yes: it's typed (“{{set}}”)",
+        "missed": "Yes: speech often misses it (“{{set}}”)",
+        "notTypedPinned": "No: “{{set}}” sends typed and pinned words only",
+        "notMissed": "No: “{{set}}” sends auto-learned words only when speech often misses them"
+      },
+      "replaced": {
+        "title": "What it replaced",
+        "changed": "You changed “{{replaced}}” to it",
+        "changedIn": "You changed “{{replaced}}” to it in {{app}}",
+        "none": "No edits recorded for this word.",
+        "unavailable": "Kept only while local History is on for this account.",
+        "openInHistory": "Open in History"
+      },
+      "similar": {
+        "title": "Similar words in your dictionary",
+        "none": "None.",
+        "variant": "Same word, other spelling",
+        "plural": "Plural",
+        "near": "Close spelling"
+      }
+    },
+    "usage": {
+      "unavailable": {
+        "historyOff": "Heard and written are counted from local History, which is off.",
+        "policyOff": "Your organization keeps local History off, so nothing is counted.",
+        "pending": "Counting from local History…",
+        "other": "Counts aren't available right now."
+      }
     }
   },
   "support": {

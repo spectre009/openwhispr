@@ -166,10 +166,12 @@ test("suggestions: upsert, dismiss for good, accept idempotently, suggest again 
   const accepted = db.acceptDictionarySuggestions([scout]);
   assert.deepEqual(accepted.accepted, ["scout web"], "the newest spelling");
   assert.equal(accepted.added, 1);
+  const scoutEntry = db.getDictionaryEntries().find((e) => e.word === "scout web");
   assert.deepEqual(
-    db.getDictionaryEntries().find((e) => e.word === "scout web"),
+    { word: scoutEntry.word, source: scoutEntry.source },
     { word: "scout web", source: "learned" }
   );
+  assert.ok(scoutEntry.createdAt, "the entry says when it was added");
   assert.deepEqual(
     db.acceptDictionarySuggestions([scout]).accepted,
     [],

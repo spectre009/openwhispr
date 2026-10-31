@@ -23,6 +23,8 @@ interface DictionaryUsageState {
   words: DictionaryWordUsage[];
   /** Keys of the words speech often misses; null until counts are available. */
   missed: ReadonlySet<string> | null;
+  /** Dictations a day over the last 30 days; null until counts are available. */
+  perDay: number | null;
 }
 
 export const useDictionaryUsageStore = create<DictionaryUsageState>()(() => ({
@@ -33,6 +35,7 @@ export const useDictionaryUsageStore = create<DictionaryUsageState>()(() => ({
   rows: 0,
   words: [],
   missed: null,
+  perDay: null,
 }));
 
 /** The keys of the words speech often misses, or null when counts aren't available. */
@@ -50,6 +53,7 @@ function apply(result: DictionaryUsageResult | null | undefined): void {
       rows: 0,
       words: [],
       missed: null,
+      perDay: null,
     });
     return;
   }
@@ -69,6 +73,7 @@ function apply(result: DictionaryUsageResult | null | undefined): void {
     rows: result.rows,
     words,
     missed,
+    perDay: Number.isFinite(result.pace?.perDay) ? (result.pace?.perDay ?? null) : null,
   });
 }
 

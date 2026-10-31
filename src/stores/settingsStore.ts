@@ -8,6 +8,8 @@ import whisperVadConstants from "../constants/whisperVad.json";
 import type {
   AutoLearnMode,
   ChineseScriptPreference,
+  DictionaryMergeResult,
+  DictionaryRenameResult,
   LocalTranscriptionProvider,
   InferenceMode,
   LocalServerPrefs,
@@ -108,7 +110,7 @@ import {
 } from "../utils/snippets";
 import { normalizeAutoLearnMode, migrateAutoLearnMode } from "../utils/autoLearnMode";
 import { syncGlossaryRules } from "./glossaryStore";
-import { syncDictionarySources } from "./dictionarySourcesStore";
+import { refreshDictionarySources, syncDictionarySources } from "./dictionarySourcesStore";
 import { scheduleDictionaryUsageRefresh, syncDictionaryUsage } from "./dictionaryUsageStore";
 import type { EnterpriseSetupMode } from "../types/enterpriseIdentity";
 import { getManagedScopeResolution } from "./enterpriseIdentityStore";
@@ -1332,6 +1334,12 @@ export interface SettingsState
   setCleanupCloudBaseUrl: (value: string) => void;
   setCustomDictionary: (words: string[]) => void;
   updateCustomDictionary: (changes: { add?: string[]; remove?: string[] }) => void;
+  /** A word's new spelling, in place (main keeps its source, date, pin and evidence). */
+  renameDictionaryWord: (from: string, to: string) => Promise<DictionaryRenameResult>;
+  /** Folds `from` into `into`: typed wins, a pin survives, evidence moves. */
+  mergeDictionaryWords: (from: string, into: string) => Promise<DictionaryMergeResult>;
+  /** "Mark typed": learned words become typed. Resolves how many changed. */
+  markDictionaryWordsTyped: (words: string[]) => Promise<number>;
   applyCustomDictionaryFromExternal: (words: string[]) => void;
   setSnippets: (snippets: Snippet[]) => void;
   applySnippetsFromExternal: (snippets: Snippet[]) => void;
@@ -1813,6 +1821,18 @@ function syncAfterLocalWrite(method: "syncDictionaryNow" | "syncSnippetsNow"): v
   void import("../services/SyncService.js").then(({ syncService }) => {
     if (syncService.canSync()) void syncService[method]();
   });
+}
+
+// After a dictionary write main made in place (a rename, a merge, a source
+// change): the stored list, the sources and dates, and the cloud push.
+async function adoptStoredDictionary(set: (partial: Partial<SettingsState>) => void) {
+  const stored = await window.electronAPI?.getDictionary?.();
+  if (Array.isArray(stored)) {
+    if (isBrowser) localStorage.setItem("customDictionary", JSON.stringify(stored));
+    set({ customDictionary: stored });
+  }
+  await refreshDictionarySources();
+  syncAfterLocalWrite("syncDictionaryNow");
 }
 
 export const useSettingsStore = create<SettingsState>()((set, get) => ({
@@ -2523,6 +2543,33 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   applyCustomDictionaryFromExternal: (words: string[]) => {
     if (isBrowser) localStorage.setItem("customDictionary", JSON.stringify(words));
     set({ customDictionary: words });
+  },
+
+  // Main changes the row in place and broadcasts; this window adopts the
+  // stored list at once and pushes the edit to OpenWhispr Cloud.
+  renameDictionaryWord: async (from: string, to: string) => {
+    const api = window.electronAPI;
+    if (!api?.renameDictionaryWord) return { success: false, code: "UNAVAILABLE" };
+    const result = await api.renameDictionaryWord(from, to);
+    if (result.success && result.changed) await adoptStoredDictionary(set);
+    return result;
+  },
+
+  mergeDictionaryWords: async (from: string, into: string) => {
+    const api = window.electronAPI;
+    if (!api?.mergeDictionaryWords) return { success: false, code: "UNAVAILABLE" };
+    const result = await api.mergeDictionaryWords(from, into);
+    if (result.success) await adoptStoredDictionary(set);
+    return result;
+  },
+
+  markDictionaryWordsTyped: async (words: string[]) => {
+    const api = window.electronAPI;
+    if (!api?.setDictionarySource || words.length === 0) return 0;
+    const result = await api.setDictionarySource(words, "manual");
+    const changed = result?.success ? (result.changed ?? 0) : 0;
+    if (changed > 0) await adoptStoredDictionary(set);
+    return changed;
   },
 
   setSnippets: (snippets: Snippet[]) => {

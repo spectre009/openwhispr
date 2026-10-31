@@ -3,26 +3,32 @@ import { useTranslation } from "react-i18next";
 import { Button } from "./ui/button";
 import { cn } from "./lib/utils";
 import { CARD_SURFACE_CLASS } from "./ui/surfaces";
+import AutoLearnModeSetting from "./settings/AutoLearnModeSetting";
 import { formatRelativeTime } from "../utils/dateFormatting";
 import type { DictionarySuggestion } from "../types/electron";
 
 // The Dictionary page's "Suggestions (N)": words auto-learn picked up from
 // your edits (Suggest mode), each with what it replaced and in which app when
 // this account's local History says so. Add puts a word in the dictionary as
-// auto-learned; Dismiss means it's never suggested again. Main owns the inbox
-// (local only, never synced); this lists it and follows its broadcast.
+// auto-learned; Dismiss means it's never suggested again, until "Forget
+// dismissed words". Main owns the inbox (local only, never synced); this
+// lists it and follows its broadcast. "Learn from your corrections" is
+// mirrored here; with nothing waiting, that's all the section shows.
 
 export default function DictionarySuggestions() {
   const { t, i18n } = useTranslation();
   const [suggestions, setSuggestions] = useState<DictionarySuggestion[]>([]);
+  const [dismissed, setDismissed] = useState(0);
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
     try {
       const result = await window.electronAPI?.listDictionarySuggestions?.();
       setSuggestions(Array.isArray(result?.suggestions) ? result.suggestions : []);
+      setDismissed(Number.isInteger(result?.dismissed) ? result.dismissed : 0);
     } catch {
       setSuggestions([]);
+      setDismissed(0);
     }
   }, []);
 
@@ -32,12 +38,14 @@ export default function DictionarySuggestions() {
   }, [load]);
 
   const act = useCallback(
-    async (action: "accept" | "dismiss", ids: number[]) => {
-      if (ids.length === 0) return;
+    async (action: "accept" | "dismiss" | "forget", ids: number[] = []) => {
+      if (action !== "forget" && ids.length === 0) return;
       setBusy(true);
       try {
         if (action === "accept") await window.electronAPI?.acceptDictionarySuggestions?.(ids);
-        else await window.electronAPI?.dismissDictionarySuggestions?.(ids);
+        else if (action === "dismiss")
+          await window.electronAPI?.dismissDictionarySuggestions?.(ids);
+        else await window.electronAPI?.clearDismissedDictionarySuggestions?.();
       } finally {
         setBusy(false);
         void load();
@@ -46,7 +54,32 @@ export default function DictionarySuggestions() {
     [load]
   );
 
-  if (suggestions.length === 0) return null;
+  const forget =
+    dismissed > 0 ? (
+      <button
+        type="button"
+        disabled={busy}
+        onClick={() => void act("forget")}
+        title={t("dictionary.suggestions.forgetHint")}
+        className="text-xs text-muted-foreground transition-colors hover:text-foreground focus-visible:underline focus-visible:outline-none disabled:opacity-50"
+        data-forget-dismissed
+      >
+        {t("dictionary.suggestions.forgetDismissed", { count: dismissed })}
+      </button>
+    ) : null;
+
+  if (suggestions.length === 0) {
+    return (
+      <section
+        aria-label={t("dictionary.suggestions.autoLearnLabel")}
+        className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-1"
+        data-dictionary-suggestions="empty"
+      >
+        <AutoLearnModeSetting compact />
+        {forget}
+      </section>
+    );
+  }
 
   return (
     <section
@@ -120,6 +153,10 @@ export default function DictionarySuggestions() {
           );
         })}
       </ul>
+      <div className="mt-2 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t border-foreground/5 pt-2.5 dark:border-white/10">
+        <AutoLearnModeSetting compact />
+        {forget}
+      </div>
     </section>
   );
 }

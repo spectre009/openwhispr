@@ -53,6 +53,10 @@ export type DictionaryEntrySource = "manual" | "learned";
 export interface DictionaryEntry {
   word: string;
   source: DictionaryEntrySource;
+  /** When the word was added (SQLite's UTC format or ISO); null for a row without one. */
+  createdAt?: string | null;
+  /** When it last changed (a rename, a source change); falls back to createdAt. */
+  updatedAt?: string | null;
 }
 
 /** "Learn from your corrections" (Settings › Dictation › Output). */
@@ -115,8 +119,47 @@ export type DictionaryUsageResult =
       days: number;
       rows: number;
       words: DictionaryWordUsage[];
+      /** Dictations a day over the last 30 days (the monthly token estimate). */
+      pace?: { perDay: number };
     }
   | { available: false; reason?: string };
+
+/** One week of a word's counts (the word detail's chart). */
+export interface DictionaryUsageWeek {
+  /** The week's first moment (ISO). */
+  start: string;
+  heard: number;
+  written: number;
+  missedRows: number;
+}
+
+export type DictionaryWordUsageResult =
+  | { available: true; days: number; weeks: DictionaryUsageWeek[] }
+  | { available: false; reason?: string };
+
+export type DictionaryWordEvidenceResult = {
+  available: boolean;
+  reason?: string;
+  evidence: DictionarySuggestionEvidence[];
+};
+
+/** How this owner's cleanups ran with one dictionary word set (counts only). */
+export interface CleanupScopeCount {
+  applied: string;
+  dictations: number;
+  avgWords: number;
+}
+
+export type CleanupScopeCountsResult =
+  | { available: true; days: number; sets: CleanupScopeCount[] }
+  | { available: false; reason?: string };
+
+export type DictionaryRenameResult =
+  | { success: true; changed: boolean; word: string }
+  | { success: false; code: string; existing?: string };
+
+export type DictionaryMergeResult =
+  { success: true; word: string; source: DictionaryEntrySource } | { success: false; code: string };
 
 /** A glossary rule as the editor saves it: no id creates one. */
 export interface GlossaryRuleInput {
@@ -2490,6 +2533,21 @@ declare global {
       onDictionarySuggestionsPending?: (callback: () => void) => () => void;
       /** Heard vs written per dictionary word over local History (counts only). */
       getDictionaryUsage?: () => Promise<DictionaryUsageResult>;
+      /** One word's heard and written counts per week (counts only). */
+      getDictionaryWordUsage?: (word: string) => Promise<DictionaryWordUsageResult>;
+      /** What a word replaced and where, this owner's, while local history is durable. */
+      getDictionaryWordEvidence?: (word: string) => Promise<DictionaryWordEvidenceResult>;
+      /** How this owner's cleanups ran per dictionary word set (counts only). */
+      getDictionaryCleanupScopeCounts?: () => Promise<CleanupScopeCountsResult>;
+      /** A word's new spelling, in place: source, date, pin and evidence kept. */
+      renameDictionaryWord?: (from: string, to: string) => Promise<DictionaryRenameResult>;
+      /** Folds `from` into `into`: typed wins, a pin survives, evidence moves. */
+      mergeDictionaryWords?: (from: string, into: string) => Promise<DictionaryMergeResult>;
+      /** "Mark typed": learned words become typed ("manual" only). */
+      setDictionarySource?: (
+        words: string[],
+        source: "manual"
+      ) => Promise<{ success: boolean; changed?: number; code?: string }>;
 
       // Note operations
       saveNote: (

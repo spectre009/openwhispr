@@ -276,17 +276,22 @@ test("IPC: rules round-trip, and every saved change is broadcast to all windows"
   assert.equal((await invoke("glossary-delete-rule", 42)).code, "GLOSSARY_INVALID");
 });
 
-test("IPC: dictionary entries carry each word's source", async (t) => {
+test("IPC: dictionary entries carry each word's source and when it was added", async (t) => {
   const db = createDb(t);
   if (!db) return;
   const invoke = ipcFor(db);
   db.applyDictionaryChanges({ add: ["OpenWhispr", "Kubernetes"] }, "manual");
   db.applyDictionaryChanges({ add: ["Hello"] }, "learned");
-  assert.deepEqual(await invoke("db-get-dictionary-entries"), [
-    { word: "OpenWhispr", source: "manual" },
-    { word: "Kubernetes", source: "manual" },
-    { word: "Hello", source: "learned" },
-  ]);
+  const entries = await invoke("db-get-dictionary-entries");
+  assert.deepEqual(
+    entries.map(({ word, source }) => ({ word, source })),
+    [
+      { word: "OpenWhispr", source: "manual" },
+      { word: "Kubernetes", source: "manual" },
+      { word: "Hello", source: "learned" },
+    ]
+  );
+  assert.ok(entries.every((entry) => entry.createdAt && entry.updatedAt));
 });
 
 test("auto-learn never learns a glossary word", async (t) => {

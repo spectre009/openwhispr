@@ -446,8 +446,121 @@ async function assertParity(t, name, settings, run, options = {}) {
     assert.ok(liveSide.requests.length > 0 || liveSide.managedPrompt !== undefined, "live sent");
     assert.deepEqual(retrySide.requests, liveSide.requests, "the same hint fields, in order");
     assert.equal(retrySide.managedPrompt, liveSide.managedPrompt);
+    // The Dictionary page's coverage for these settings is what was carried.
+    if (!options.translation) {
+      assertCoverage(retrySide, await dictionaryPageHints(settings, options.managed));
+    }
     if (options.check) options.check(liveSide, retrySide);
   });
+}
+
+// ── The Dictionary page's coverage against what a request carried ──────────
+
+// What the Dictionary page computes for these settings: the hint route
+// (sttHintSpec.ts, as Re-transcribe maps it) and buildSttHintFields' entries.
+let pageModules;
+async function dictionaryPageHints(settings, managed) {
+  pageModules ??= {
+    spec: await import("../../src/utils/sttHintSpec.ts"),
+    fields: await import("../../src/utils/sttHintFields.js"),
+    providers: require("../../src/models/modelRegistryData.json").transcriptionProviders,
+  };
+  const spec = pageModules.spec.resolveSttHintSpec({
+    settings,
+    managed,
+    providers: pageModules.providers,
+  });
+  return pageModules.fields.buildSttHintFields(spec, {
+    words: dictionaryState.words,
+    learned: dictionaryState.learned,
+    pinned: dictionaryState.pinned,
+    glossaryTerms: dictionaryState.glossary,
+    snippets: dictionaryState.snippets.map((snippet) => ({ trigger: snippet.trigger })),
+    chineseScriptPreference: settings.chineseScriptPreference ?? null,
+    speechLanguage: settings.preferredLanguage || "auto",
+  });
+}
+
+const SCRIPT_BIAS = /^以下是\S*\s?/;
+// A prompt's terms with where each starts (after any script bias).
+function promptSpans(prompt) {
+  if (!prompt) return [];
+  const bias = prompt.match(SCRIPT_BIAS)?.[0] ?? "";
+  const rest = prompt.slice(bias.length);
+  if (!rest) return [];
+  let offset = bias.length;
+  return rest.split(", ").map((term) => {
+    const span = { term, start: offset };
+    offset += term.length + 2;
+    return span;
+  });
+}
+const termWords = (term) =>
+  term
+    .split(",")
+    .flatMap((part) => part.trim().split(/\s+/))
+    .filter(Boolean);
+
+function assertCoverage(side, fields) {
+  const sent = fields.entries.filter((entry) => entry.coverage !== "notSent");
+  const sentTerms = sent.map((entry) => entry.term);
+  const requests = side.managedPrompt !== undefined ? [{ managed: side.managedPrompt }] : [];
+  requests.push(...side.requests);
+  for (const request of requests) {
+    let prompt = null;
+    let carried = null;
+    if ("managed" in request) prompt = request.managed;
+    else if ("tinfoil" in request) prompt = request.tinfoil;
+    else if ("whisper" in request) prompt = request.whisper;
+    else if ("gemini" in request) carried = request.gemini ?? [];
+    else if ("phraseList" in request) carried = request.phraseList?.phrases ?? [];
+    else if ("corti" in request || "parakeet" in request) carried = [];
+    else {
+      const named = (name) => request.fields.filter(([key]) => key === name).map(([, v]) => v);
+      const contextBias = named("context_bias");
+      const keyterms = named("keyterm");
+      if (contextBias.length > 0) {
+        // Mistral: the sent terms' words lead (after the bias); anything after
+        // them is the start of the first term left out.
+        const words = contextBias.filter((word) => !SCRIPT_BIAS.test(word));
+        const expected = sent.flatMap((entry) => termWords(entry.term));
+        assert.deepEqual(words.slice(0, expected.length), expected, "context_bias");
+        const rest = words.slice(expected.length);
+        const next = fields.entries.find((entry) => entry.coverage === "notSent");
+        if (rest.length) assert.deepEqual(termWords(next.term).slice(0, rest.length), rest);
+        continue;
+      }
+      if (keyterms.length > 0) carried = keyterms;
+      else {
+        prompt = named("prompt")[0] ?? null;
+        carried = [...named("keywords[]"), ...promptSpans(prompt).map((span) => span.term)];
+        prompt = named("keywords[]").length > 0 ? null : prompt;
+      }
+    }
+    if (carried === null) carried = promptSpans(prompt).map((span) => span.term);
+    const expected =
+      fields.budget.unit === "terms"
+        ? sentTerms.map((term) => term.trim().slice(0, 50))
+        : sentTerms;
+    assert.deepEqual(
+      [...carried].sort(),
+      [...expected].sort(),
+      "every term the page calls sent is carried, and nothing else"
+    );
+    // A Whisper prompt's tail window: read where it starts inside it.
+    if (prompt && fields.budget.readChars != null) {
+      const readFrom = prompt.length - fields.budget.readChars;
+      for (const span of promptSpans(prompt)) {
+        const entry = sent.find((candidate) => candidate.term === span.term);
+        assert.equal(entry.coverage, span.start >= readFrom ? "read" : "unread", span.term);
+      }
+    } else {
+      assert.ok(
+        sent.every((entry) => entry.coverage === "read"),
+        "everything sent is read"
+      );
+    }
+  }
 }
 
 const blob = () => new Blob(["recording"], { type: "audio/webm" });

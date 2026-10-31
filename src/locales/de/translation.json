@@ -4877,7 +4877,12 @@
       "estimatedTooltip": "Geschätzt: Die App kann nicht genau ermitteln, wie viel der Liste das Spracherkennungsmodell liest.",
       "summary": "Hinweise für die Spracherkennung (geschätzt): {{read}} wahrscheinlich gelesen, {{unread}} gesendet, aber wahrscheinlich nicht gelesen, {{notSent}} nicht gesendet.",
       "explanation": "Whisper-Modelle lesen nur das Ende der Liste, und manche Anbieter begrenzen ihre Länge. Deshalb bekommen deine eingegebenen Wörter zuerst die gelesenen Plätze, dann Glossarbegriffe, Snippet-Auslöser und automatisch gelernte Wörter. Die Bereinigung erhält weiterhin das ganze Wörterbuch.",
-      "noHints": "Dein Spracherkennungsmodell nimmt keine Wörterbuch-Hinweise an. Die Bereinigung erhält weiterhin das ganze Wörterbuch."
+      "noHints": "Dein Spracherkennungsmodell nimmt keine Wörterbuch-Hinweise an. Die Bereinigung erhält weiterhin das ganze Wörterbuch.",
+      "row": {
+        "read": "Gesendet · #{{rank}}",
+        "unread": "Wohl nicht gelesen · #{{rank}}",
+        "notSent": "Nicht gesendet"
+      }
     },
     "learned": {
       "tag": "Automatisch gelernt",
@@ -4940,13 +4945,250 @@
       "times_one": "{{count}}-mal gelernt",
       "times_other": "{{count}}-mal gelernt",
       "add": "Hinzufügen",
-      "dismiss": "Verwerfen"
+      "dismiss": "Verwerfen",
+      "autoLearnLabel": "Aus deinen Korrekturen lernen",
+      "forgetDismissed_one": "{{count}} verworfenes Wort vergessen",
+      "forgetDismissed_other": "{{count}} verworfene Wörter vergessen",
+      "forgetHint": "Verworfene Wörter werden nicht wieder vorgeschlagen, bis du sie vergisst."
     },
     "pins": {
       "pin": "{{word}} anheften",
       "unpin": "{{word}} lösen",
       "pinHint": "Anheften: wird immer zuerst an die Spracherkennung gesendet und bei der Bereinigung immer behalten",
       "pinnedHint": "Angeheftet: wird immer zuerst gesendet"
+    },
+    "source": {
+      "typed": "Eingetippt",
+      "learned": "Automatisch gelernt"
+    },
+    "actions": {
+      "remove": "Entfernen",
+      "markTyped": "Als eingetippt markieren",
+      "markedTyped_one": "{{count}} Wort als eingetippt markiert",
+      "markedTyped_other": "{{count}} Wörter als eingetippt markiert",
+      "pin": "Anheften",
+      "unpin": "Lösen"
+    },
+    "bulk": {
+      "label_one": "Aktionen für {{count}} ausgewähltes Wort",
+      "label_other": "Aktionen für {{count}} ausgewählte Wörter",
+      "selected_one": "{{count}} ausgewählt",
+      "selected_other": "{{count}} ausgewählt",
+      "clear": "Auswahl aufheben"
+    },
+    "remove": {
+      "titleOne": "„{{word}}“ entfernen?",
+      "title_one": "{{count}} Wort entfernen?",
+      "title_other": "{{count}} Wörter entfernen?",
+      "description_one": "{{count}} Wort wird nicht mehr an die Spracherkennung, die Bereinigung oder den Chat gesendet. Das lässt sich nicht rückgängig machen.",
+      "description_other": "Diese {{count}} Wörter werden nicht mehr an die Spracherkennung, die Bereinigung oder den Chat gesendet. Das lässt sich nicht rückgängig machen."
+    },
+    "rename": {
+      "failed": "Die Schreibweise konnte nicht geändert werden."
+    },
+    "merge": {
+      "title": "„{{into}}“ ist schon in deinem Wörterbuch",
+      "description": "„{{from}}“ damit zusammenführen? „{{from}}“ wird entfernt. „{{into}}“ bleibt: eingetippt, wenn eines davon eingetippt war, angeheftet, wenn eines angeheftet war, und mit dem, was „{{from}}“ ersetzt hat.",
+      "confirm": "Zusammenführen",
+      "done": "„{{from}}“ mit „{{into}}“ zusammengeführt",
+      "failed": "Die Wörter konnten nicht zusammengeführt werden."
+    },
+    "list": {
+      "label_one": "Wörterbuch, {{count}} Wort",
+      "label_other": "Wörterbuch, {{count}} Wörter",
+      "rowLabel": "{{word}}, {{source}}, {{coverage}}",
+      "searchLabel": "Wörter filtern",
+      "searchPlaceholder": "Wörter filtern",
+      "clearSearch": "Filter löschen",
+      "sortLabel": "Sortieren",
+      "export": "Exportieren",
+      "filtersLabel": "Anzeigen",
+      "filters": {
+        "all": "Alle",
+        "typed": "Eingetippt",
+        "learned": "Automatisch gelernt",
+        "pinned": "Angeheftet",
+        "notSent": "Nicht gesendet",
+        "neverHeard": "Nie gehört",
+        "addedThisWeek": "Diese Woche hinzugefügt",
+        "notSentHint": "Wörter, die deine aktuelle Spracherkennung nicht sendet",
+        "neverHeardHint": "In keinem Diktat der letzten 90 Tage, weder gehört noch geschrieben"
+      },
+      "sorts": {
+        "sendOrder": "Sendereihenfolge",
+        "recent": "Zuletzt hinzugefügt",
+        "alpha": "A–Z",
+        "mostHeard": "Am häufigsten gehört",
+        "leastHeard": "Am seltensten gehört"
+      },
+      "columns": {
+        "word": "Wort",
+        "source": "Herkunft",
+        "heard": "Gehört · 90 Tage",
+        "added": "Hinzugefügt",
+        "speech": "Sprachmodell"
+      },
+      "heardWritten": "gehört {{heard}} · geschrieben {{written}}",
+      "missedHint": "Die Spracherkennung verfehlt es oft: häufiger geschrieben als gehört",
+      "added": "hinzugefügt {{when}}",
+      "noMatches": "Keine passenden Wörter.",
+      "clearFilters": "Filter zurücksetzen",
+      "divider": {
+        "unread_one": "Hier hört das Sprachmodell auf zu lesen · {{count}} Wort darunter wird gesendet, aber wohl nicht gelesen",
+        "unread_other": "Hier hört das Sprachmodell auf zu lesen · {{count}} Wörter darunter werden gesendet, aber wohl nicht gelesen",
+        "notSent_one": "Ab hier nicht gesendet · {{count}} Wort wird nicht gesendet",
+        "notSent_other": "Ab hier nicht gesendet · {{count}} Wörter werden nicht gesendet"
+      }
+    },
+    "where": {
+      "title": "Wohin dein Wörterbuch geht",
+      "description": "Ein Diktat sendet deine Wörter an das Sprachmodell und an die Bereinigung; Chat und Sprachassistent bekommen sie auch. Token-Angaben sind Schätzungen (etwa 4 Zeichen pro Token).",
+      "show": "Wohin es geht",
+      "hide": "Details ausblenden",
+      "speech": {
+        "label": "Spracherkennung · {{setup}}",
+        "title": "Spracherkennung",
+        "channel": "{{setup}} · {{channel}}",
+        "channels": {
+          "chars": "Prompt",
+          "keywords": "Schlüsselwörter",
+          "phrases": "Phrasenliste",
+          "words": "Kontextwörter",
+          "terms": "Schlüsselbegriffe"
+        },
+        "usedOf": {
+          "chars": "{{used}} von {{limit}} Zeichen",
+          "keywords": "{{used}} von {{limit}} Schlüsselwörtern",
+          "phrases": "{{used}} von {{limit}} Phrasen",
+          "words": "{{used}} von {{limit}} Wörtern",
+          "terms": "{{used}} von {{limit}} Begriffen"
+        },
+        "used": {
+          "chars": "{{used}} Zeichen",
+          "keywords": "{{used}} Schlüsselwörter",
+          "phrases": "{{used}} Phrasen",
+          "words": "{{used}} Wörter",
+          "terms": "{{used}} Begriffe"
+        },
+        "reads": "Whisper liest die letzten ≈ {{chars}} Zeichen",
+        "cut_one": "{{count}} wird nicht gesendet",
+        "cut_other": "{{count}} werden nicht gesendet",
+        "sendOrder": "Sendereihenfolge ›",
+        "noneShort": "Keine Wörterbuch-Hinweise",
+        "none": "Diese Spracherkennung nimmt keine Wörterbuch-Hinweise an. Bereinigung und Chat bekommen deine Wörter trotzdem.",
+        "bias": "Lenkt das Modell zu diesen Schreibweisen: Das hilft bei seltenen Namen und kann schaden, wenn ein Wort häufig ist oder wie ein anderes klingt.",
+        "order": "Gesendet in Sendereihenfolge: angeheftet, eingetippt, die Schreibweisen des Glossars, Snippet-Auslöser, dann automatisch gelernte Wörter.",
+        "tail": "Whisper-Modelle lesen nur das Ende des Prompts, also werden die zuletzt gesendeten Wörter gelesen.",
+        "estimate": "Was das Modell liest, ist geschätzt; gesendet wird, was die Anfrage dieser Einrichtung enthält.",
+        "setup": {
+          "managed": "Das Sprachmodell deiner Organisation",
+          "cloud": "OpenWhispr Cloud",
+          "localWhisper": "Whisper auf diesem Computer ({{model}})",
+          "localOther": "Ein Modell auf diesem Computer",
+          "selfHosted": "Dein Server",
+          "selfHostedModel": "Dein Server · {{model}}"
+        }
+      },
+      "cleanup": {
+        "label": "Bereinigungs-Prompt",
+        "title": "Bereinigungs-Prompt",
+        "tokens": "≈ {{tokens}} Tokens pro Bereinigung",
+        "off": "Bereinigung ist aus",
+        "sends": "Sendet: {{set}}",
+        "monthly": "≈ {{tokens}} Tokens im Monat",
+        "monthlyDetail": "≈ {{tokens}} Tokens im Monat bei deinem Diktiertempo",
+        "monthlyUnavailable": "Eine Monatsschätzung braucht den lokalen Verlauf.",
+        "compareTitle": "Deine Bereinigungen nach Wortauswahl",
+        "compareRow_one": "{{count}} Diktat · im Schnitt {{words}} Wörter",
+        "compareRow_other": "{{count}} Diktate · im Schnitt {{words}} Wörter",
+        "compareEmpty": "In den letzten {{days}} Tagen hat keine Bereinigung eine Wortauswahl erfasst.",
+        "compareNote": "Die letzten {{days}} Tage im lokalen Verlauf dieses Kontos. Jeder Bereinigungsschritt sagt, mit welcher Auswahl er lief.",
+        "compareUnavailable": "Gezählt aus dem lokalen Verlauf, der für dieses Konto nicht gespeichert wird."
+      },
+      "chat": {
+        "label": "Chat und Sprachassistent",
+        "title": "Chat und Sprachassistent",
+        "tokens": "≈ {{tokens}} Tokens pro Nachricht",
+        "tokensDetail": "≈ {{tokens}} Tokens pro Nachricht",
+        "allWords_one": "Alle {{count}} Wort",
+        "allWords_other": "Alle {{count}} Wörter",
+        "sameList": "Die ganze Liste, im System-Prompt angehängt.",
+        "snippets": "Die Schreibweisen des Glossars und Snippet-Auslöser stehen auch darin."
+      }
+    },
+    "detail": {
+      "label": "Details zu {{word}}",
+      "close": "Details schließen",
+      "added": "Hinzugefügt am {{when}}",
+      "addedUnknown": "Hinzugefügt, bevor Daten gespeichert wurden",
+      "pinned": "Angeheftet",
+      "pin": "Anheften",
+      "unpin": "Lösen",
+      "edit": "Schreibweise ändern",
+      "saveSpelling": "Schreibweise speichern",
+      "renameLabel": "Neue Schreibweise für {{word}}",
+      "glossaryRule": "Glossarregel erstellen",
+      "glossaryExisting": "Eine Glossarregel schreibt dieses Wort schon, darum ist sie geöffnet.",
+      "usage": {
+        "title": "Gehört",
+        "last90": "Letzte 90 Tage",
+        "totals": "gehört {{heard}} · geschrieben {{written}}",
+        "chartLabel": "{{heard}}-mal gehört und {{written}}-mal geschrieben in 90 Tagen, nach Woche",
+        "heardLegend": "Gehört (Spracherkennung)",
+        "writtenLegend": "Geschrieben (fertiger Text)",
+        "never": "In keinem Diktat der letzten 90 Tage.",
+        "missed_one": "Die Spracherkennung verfehlt es oft: {{count}} Diktat hat es geschrieben, ohne es zu hören.",
+        "missed_other": "Die Spracherkennung verfehlt es oft: {{count}} Diktate haben es geschrieben, ohne es zu hören.",
+        "note": "Gezählt aus dem lokalen Verlauf dieses Kontos, als Anhaltspunkt. Nichts gehört und nichts geschrieben heißt: unbekannt."
+      },
+      "where": {
+        "title": "Wohin es geht",
+        "speechLabel": "Sprachmodell",
+        "speech": {
+          "read": "Gesendet, wohl gelesen · #{{rank}} in der Sendereihenfolge",
+          "unread": "Gesendet, wohl nicht gelesen · #{{rank}} in der Sendereihenfolge"
+        },
+        "speechNotSent": "Nicht gesendet: jenseits dessen, was diese Einrichtung sendet",
+        "speechNone": "Nicht gesendet: diese Einrichtung nimmt keine Hinweise",
+        "cleanupLabel": "Bereinigung",
+        "chatLabel": "Chat, Assistent",
+        "chatAlways": "Immer"
+      },
+      "cleanup": {
+        "off": "Nein: die Bereinigung ist aus",
+        "glossary": "Ja: die Schreibweisen des Glossars gehen immer mit",
+        "all": "Ja, mit allen Wörtern",
+        "fallback": "Ja: „{{set}}“ braucht Zählungen, die noch fehlen, darum gehen vorerst alle Wörter",
+        "none": "Nein: der Bereinigungs-Prompt enthält keine Wörterbuchwörter",
+        "pinned": "Ja: es ist angeheftet („{{set}}“)",
+        "typed": "Ja: es ist eingetippt („{{set}}“)",
+        "missed": "Ja: die Spracherkennung verfehlt es oft („{{set}}“)",
+        "notTypedPinned": "Nein: „{{set}}“ sendet nur eingetippte und angeheftete Wörter",
+        "notMissed": "Nein: „{{set}}“ sendet automatisch gelernte Wörter nur, wenn die Spracherkennung sie oft verfehlt"
+      },
+      "replaced": {
+        "title": "Was es ersetzt hat",
+        "changed": "Du hast „{{replaced}}“ dazu geändert",
+        "changedIn": "Du hast „{{replaced}}“ in {{app}} dazu geändert",
+        "none": "Für dieses Wort sind keine Änderungen erfasst.",
+        "unavailable": "Wird nur gespeichert, solange der lokale Verlauf für dieses Konto an ist.",
+        "openInHistory": "Im Verlauf öffnen"
+      },
+      "similar": {
+        "title": "Ähnliche Wörter in deinem Wörterbuch",
+        "none": "Keine.",
+        "variant": "Gleiches Wort, andere Schreibweise",
+        "plural": "Plural",
+        "near": "Ähnliche Schreibweise"
+      }
+    },
+    "usage": {
+      "unavailable": {
+        "historyOff": "Gehört und geschrieben werden aus dem lokalen Verlauf gezählt, der aus ist.",
+        "policyOff": "Deine Organisation hält den lokalen Verlauf aus, darum wird nichts gezählt.",
+        "pending": "Wird aus dem lokalen Verlauf gezählt…",
+        "other": "Zählungen sind gerade nicht verfügbar."
+      }
     }
   },
   "support": {

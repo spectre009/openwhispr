@@ -44,6 +44,8 @@ const EVIDENCE_PER_WORD = 5;
 const EVIDENCE_REPLACED_MAX = 200;
 const EVIDENCE_LOOKBACK_MS = 10 * 60 * 1000;
 const EVIDENCE_SAVE_SLACK_MS = 60 * 1000;
+// The longest spelling a rename accepts (what a retry's hint list carries).
+const MAX_DICTIONARY_WORD_CHARS = 500;
 
 // Server-enforced trigger cap (openwhispr-api); enforced here so one oversized
 // trigger can't 400 the whole sync batch.
@@ -3249,8 +3251,9 @@ class DatabaseManager {
   }
 
   // Words with their source ('manual' typed by the user, 'learned' by
-  // auto-learn), in stored order. The speech-to-text hint list puts typed
-  // words first, and the Dictionary page lists learned ones for review.
+  // auto-learn) and when each was added and last changed, in stored order.
+  // The speech-to-text hint list puts typed words first; the Dictionary page
+  // sorts and filters by source and date.
   getDictionaryEntries() {
     try {
       if (!this.db) {
@@ -3258,12 +3261,20 @@ class DatabaseManager {
       }
       return this.db
         .prepare(
-          "SELECT word, source FROM custom_dictionary WHERE deleted_at IS NULL ORDER BY id ASC"
+          `SELECT word, source, created_at, updated_at FROM custom_dictionary
+           WHERE deleted_at IS NULL ORDER BY id ASC`
         )
         .all()
         .map((row) => ({
           word: row.word,
           source: row.source === "learned" ? "learned" : "manual",
+          createdAt: typeof row.created_at === "string" ? row.created_at : null,
+          updatedAt:
+            typeof row.updated_at === "string"
+              ? row.updated_at
+              : typeof row.created_at === "string"
+                ? row.created_at
+                : null,
         }));
     } catch (error) {
       debugLogger.error("Error getting dictionary entries", { error: error.message }, "database");
@@ -3673,7 +3684,7 @@ class DatabaseManager {
    * not deleted, created since `since` (SQLite's time format), with a raw
    * transcript. Translations (route_kind) and the assistant's answers (the
    * owner's trace route or intent) are left out: their final text isn't
-   * what the user said. Text only, never logged.
+   * what the user said. Text and the row's time only, never logged.
    */
   getDictionaryUsageRows({ owner = null, since }) {
     if (!this.db) throw new Error("Database not initialized");
@@ -3687,7 +3698,8 @@ class DatabaseManager {
         : "";
     return this.db
       .prepare(
-        `SELECT t.raw_text AS raw, COALESCE(NULLIF(t.text, ''), t.raw_text) AS final
+        `SELECT t.raw_text AS raw, COALESCE(NULLIF(t.text, ''), t.raw_text) AS final,
+                t.created_at AS at
          FROM transcriptions t
          WHERE t.deleted_at IS NULL AND t.status = 'completed'
            AND t.created_at >= ?
@@ -3985,6 +3997,252 @@ class DatabaseManager {
       debugLogger.error("Error setting dictionary", { error: error.message }, "database");
       throw error;
     }
+  }
+
+  // ─── Rename, merge and source ──────────────────────────────────────────
+  // A rename keeps the row: its id, source, created date and cloud identity
+  // (a synced row pushes the new spelling as an edit of the same entry). What
+  // is keyed by the word (its pin, evidence and accepted suggestion) moves to
+  // the new key in the same transaction.
+
+  _liveDictionaryRows() {
+    return this.db
+      .prepare(
+        "SELECT id, word, source, deleted_at FROM custom_dictionary WHERE deleted_at IS NULL ORDER BY id ASC"
+      )
+      .all();
+  }
+
+  // The live row a word names: its exact spelling first, then its key, so two
+  // legacy rows differing only in case can still be told apart.
+  _findLiveDictionaryRow(rows, word, excludeId = null) {
+    const candidates = rows.filter((row) => row.id !== excludeId);
+    const exact = candidates.find((row) => row.word === word);
+    if (exact) return exact;
+    const key = dictionaryWordKey(word);
+    return key ? (candidates.find((row) => dictionaryWordKey(row.word) === key) ?? null) : null;
+  }
+
+  // A deleted row keeps its spelling until its deletion is pushed, and
+  // custom_dictionary.word is UNIQUE: a word taking that spelling (or a case
+  // variant of it) moves the deleted row's word aside. The push deletes by
+  // cloud_id, so the word it carries no longer matters.
+  _releaseDeletedDictionaryWord(key) {
+    const deleted = this.db
+      .prepare("SELECT id, word FROM custom_dictionary WHERE deleted_at IS NOT NULL")
+      .all()
+      .filter((row) => dictionaryWordKey(row.word) === key);
+    const rename = this.db.prepare("UPDATE custom_dictionary SET word = ? WHERE id = ?");
+    for (const row of deleted) rename.run(`\u2060deleted:${row.id}`, row.id);
+  }
+
+  // Evidence follows its word to a new key; at most EVIDENCE_PER_WORD rows per
+  // word and owner stay, the newest.
+  _moveDictionaryEvidence(fromKey, toKey) {
+    if (!this.dictionaryStateReady || !fromKey || !toKey || fromKey === toKey) return;
+    this.db
+      .prepare("UPDATE dictionary_word_evidence SET word_key = ? WHERE word_key = ?")
+      .run(toKey, fromKey);
+    this.db
+      .prepare(
+        `DELETE FROM dictionary_word_evidence
+         WHERE word_key = ? AND id NOT IN (
+           SELECT id FROM (
+             SELECT id, ROW_NUMBER() OVER (
+               PARTITION BY owner ORDER BY created_at DESC, id DESC
+             ) AS n
+             FROM dictionary_word_evidence WHERE word_key = ?
+           ) WHERE n <= ?
+         )`
+      )
+      .run(toKey, toKey, EVIDENCE_PER_WORD);
+  }
+
+  // A renamed word's accepted suggestion moves with it, so the old spelling
+  // can be suggested afresh and the new one again once removed. A suggestion
+  // already waiting for the new spelling is settled: the word is in now.
+  _moveDictionarySuggestion(fromKey, toKey, word, at) {
+    if (!this.dictionaryStateReady || !fromKey || !toKey || fromKey === toKey) return;
+    const target = this.db
+      .prepare("SELECT id, status FROM dictionary_suggestions WHERE word_key = ?")
+      .get(toKey);
+    if (target) {
+      if (target.status === "pending") {
+        this.db
+          .prepare(
+            "UPDATE dictionary_suggestions SET status = 'accepted', updated_at = ? WHERE id = ?"
+          )
+          .run(at, target.id);
+      }
+      return;
+    }
+    this.db
+      .prepare(
+        `UPDATE dictionary_suggestions SET word = ?, word_key = ?, updated_at = ?
+         WHERE word_key = ? AND status = 'accepted'`
+      )
+      .run(word, toKey, at, fromKey);
+  }
+
+  /**
+   * Changes a word's spelling in place: the row keeps its id, source and
+   * created date and is marked for sync like any edit; its pin, evidence and
+   * suggestion move to the new key. A case-only change keeps the key. Another
+   * live word with the new key refuses it (EXISTS, with that word's spelling,
+   * so the caller can offer a merge).
+   */
+  renameDictionaryWord(from, to, { now = () => new Date().toISOString() } = {}) {
+    if (!this.db) throw new Error("Database not initialized");
+    const fromWord = typeof from === "string" ? from.trim() : "";
+    const word = typeof to === "string" ? to.trim() : "";
+    const fromKey = dictionaryWordKey(fromWord);
+    const toKey = dictionaryWordKey(word);
+    if (!fromKey || !toKey || word.length > MAX_DICTIONARY_WORD_CHARS || /[\r\n]/.test(word)) {
+      return { success: false, code: "INVALID_WORD" };
+    }
+    let result = null;
+    this.db.transaction(() => {
+      const live = this._liveDictionaryRows();
+      const row = this._findLiveDictionaryRow(live, fromWord);
+      if (!row) {
+        result = { success: false, code: "NOT_FOUND" };
+        return;
+      }
+      if (row.word === word) {
+        result = { success: true, changed: false, word };
+        return;
+      }
+      const clash = live.find(
+        (other) => other.id !== row.id && dictionaryWordKey(other.word) === toKey
+      );
+      if (clash) {
+        result = { success: false, code: "EXISTS", existing: clash.word };
+        return;
+      }
+      const rowKey = dictionaryWordKey(row.word);
+      this._releaseDeletedDictionaryWord(toKey);
+      this.db
+        .prepare(
+          "UPDATE custom_dictionary SET word = ?, updated_at = datetime('now'), sync_status = 'pending' WHERE id = ?"
+        )
+        .run(word, row.id);
+      if (rowKey !== toKey) {
+        this._moveDictionaryPin(row.word, word);
+        this._moveDictionaryEvidence(rowKey, toKey);
+        this._moveDictionarySuggestion(rowKey, toKey, word, now());
+      }
+      result = { success: true, changed: true, word };
+    })();
+    return result;
+  }
+
+  /**
+   * Folds one word into another: `from` leaves the dictionary (a synced row
+   * as a tombstone the next push sends), `into` stays with its id and date.
+   * Typed wins (a learned `into` becomes typed, marked for sync), a pin on
+   * either survives on `into`, and `from`'s evidence moves to `into`'s key.
+   */
+  mergeDictionaryWords(from, into) {
+    if (!this.db) throw new Error("Database not initialized");
+    const fromWord = typeof from === "string" ? from.trim() : "";
+    const intoWord = typeof into === "string" ? into.trim() : "";
+    if (!dictionaryWordKey(fromWord) || !dictionaryWordKey(intoWord)) {
+      return { success: false, code: "INVALID_WORD" };
+    }
+    let result = null;
+    this.db.transaction(() => {
+      const live = this._liveDictionaryRows();
+      const fromRow = this._findLiveDictionaryRow(live, fromWord);
+      const intoRow = fromRow ? this._findLiveDictionaryRow(live, intoWord, fromRow.id) : null;
+      if (!fromRow || !intoRow) {
+        result = { success: false, code: "NOT_FOUND" };
+        return;
+      }
+      let source = intoRow.source === "learned" ? "learned" : "manual";
+      if (fromRow.source !== "learned" && source === "learned") {
+        this.db
+          .prepare(
+            "UPDATE custom_dictionary SET source = 'manual', updated_at = datetime('now'), sync_status = 'pending' WHERE id = ?"
+          )
+          .run(intoRow.id);
+        source = "manual";
+      }
+      const fromKey = dictionaryWordKey(fromRow.word);
+      const intoKey = dictionaryWordKey(intoRow.word);
+      if (this.dictionaryStateReady && fromKey !== intoKey) {
+        const pin = this.db
+          .prepare("SELECT pinned_at FROM dictionary_pins WHERE word_key = ?")
+          .get(fromKey);
+        if (pin) {
+          this.db
+            .prepare("INSERT OR IGNORE INTO dictionary_pins (word_key, pinned_at) VALUES (?, ?)")
+            .run(intoKey, pin.pinned_at);
+        }
+        this._moveDictionaryEvidence(fromKey, intoKey);
+      }
+      this._deleteDictionaryRow(this._dictionaryWriteStatements(), fromRow);
+      this._pruneDictionaryPins();
+      result = { success: true, word: intoRow.word, source };
+    })();
+    return result;
+  }
+
+  /**
+   * Marks words typed ("Mark typed"): learned rows become manual and are
+   * marked for sync like an edit. Only "manual": a pull never demotes a typed
+   * row (manual is sticky), so a demotion couldn't sync.
+   */
+  setDictionarySource(words, source) {
+    if (!this.db) throw new Error("Database not initialized");
+    if (source !== "manual") return { success: false, code: "INVALID_SOURCE" };
+    const keys = new Set(
+      (Array.isArray(words) ? words : []).map((word) => dictionaryWordKey(word)).filter(Boolean)
+    );
+    if (keys.size === 0) return { success: true, changed: 0 };
+    let changed = 0;
+    this.db.transaction(() => {
+      const promote = this.db.prepare(
+        "UPDATE custom_dictionary SET source = 'manual', updated_at = datetime('now'), sync_status = 'pending' WHERE id = ? AND source = 'learned' AND deleted_at IS NULL"
+      );
+      for (const row of this._liveDictionaryRows()) {
+        if (row.source === "learned" && keys.has(dictionaryWordKey(row.word))) {
+          changed += promote.run(row.id).changes;
+        }
+      }
+    })();
+    return { success: true, changed };
+  }
+
+  /**
+   * How this owner's dictations since `since` (SQLite's time format) ran
+   * cleanup, per dictionary word set: the cleanup or one-step style steps
+   * that succeeded and recorded `detail.dictionaryScope`, grouped by the set
+   * applied, with the dictations counted once and the words they carried on
+   * average. Counts only.
+   */
+  getDictionaryCleanupScopeCounts({ owner, since }) {
+    if (!this.db) throw new Error("Database not initialized");
+    if (!owner || !this.stepHistoryReady) return [];
+    return this.db
+      .prepare(
+        `SELECT json_extract(s.detail, '$.dictionaryScope.applied') AS applied,
+                COUNT(DISTINCT s.transcription_id) AS dictations,
+                AVG(json_extract(s.detail, '$.dictionaryScope.words')) AS avg_words
+         FROM transcription_steps s
+         JOIN transcriptions t ON t.id = s.transcription_id
+         WHERE s.owner = ? AND s.kind IN ('cleanup', 'style') AND s.outcome = 'ok'
+           AND json_valid(s.detail)
+           AND json_extract(s.detail, '$.dictionaryScope.applied') IS NOT NULL
+           AND t.deleted_at IS NULL AND t.created_at >= ?
+         GROUP BY applied
+         ORDER BY applied`
+      )
+      .all(owner, since)
+      .map((row) => ({
+        applied: row.applied,
+        dictations: row.dictations,
+        avgWords: Number.isFinite(row.avg_words) ? Math.round(row.avg_words) : 0,
+      }));
   }
 
   getPendingDictionary() {
