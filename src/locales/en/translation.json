@@ -3730,8 +3730,8 @@
         "typedPinned": "Typed and pinned",
         "none": "None"
       },
-      "count_one": "{{count}} word · ≈ {{tokens}} tokens",
-      "count_other": "{{count}} words · ≈ {{tokens}} tokens",
+      "count_one": "{{count}} word · {{tokensText}}",
+      "count_other": "{{count}} words · {{tokensText}}",
       "sendsAll": "Sends all words for now",
       "missedUnavailable": "Which words speech misses is counted from your local History. While History is off or still being counted, cleanup gets all words, and its step says so.",
       "categoriesUnavailable": "Which words are everyday words comes from their categories, sorted on this computer. Until those are ready, cleanup gets all words, and its step says so.",
@@ -5061,6 +5061,7 @@
       "label_one": "Dictionary, {{count}} word",
       "label_other": "Dictionary, {{count}} words",
       "rowLabel": "{{word}}, {{source}}, {{coverage}}",
+      "keyboardHelp": "Up and Down arrows move between words, Space selects, Shift extends the selection, Enter opens the word, F2 edits its spelling, Delete removes it, C changes its category, and Alt with Up or Down moves a pinned word.",
       "searchLabel": "Filter words",
       "searchPlaceholder": "Filter words",
       "clearSearch": "Clear filter",
@@ -5164,12 +5165,12 @@
       "cleanup": {
         "label": "Cleanup prompt",
         "title": "Cleanup prompt",
-        "tokens": "≈ {{tokens}} tokens every cleanup",
+        "tokens": "{{tokensText}} every cleanup",
         "off": "Cleanup is off",
         "sends": "Sends: {{set}}",
         "grouped": "grouped by category",
-        "monthly": "≈ {{tokens}} tokens a month",
-        "monthlyDetail": "≈ {{tokens}} tokens a month at your dictation pace",
+        "monthly": "{{tokensText}} a month",
+        "monthlyDetail": "{{tokensText}} a month at your dictation pace",
         "monthlyUnavailable": "A monthly estimate needs local History.",
         "compareTitle": "Your cleanups by word set",
         "compareRow_one": "{{count}} dictation · {{words}} words on average",
@@ -5181,13 +5182,19 @@
       "chat": {
         "label": "Chat and Voice Assistant",
         "title": "Chat and Voice Assistant",
-        "tokens": "≈ {{tokens}} tokens every message",
-        "tokensDetail": "≈ {{tokens}} tokens every message",
+        "tokens": "{{tokensText}} every message",
+        "tokensDetail": "{{tokensText}} every message",
         "allWords_one": "All {{count}} word",
         "allWords_other": "All {{count}} words",
         "sameList": "The whole list, added to the system prompt.",
         "snippets": "The glossary's spellings and snippet triggers are listed too."
       }
+    },
+    "tokens": {
+      "approx_one": "≈ {{count, number}} token",
+      "approx_other": "≈ {{count, number}} tokens",
+      "approxCompact_one": "≈ {{count, number(notation: compact; maximumFractionDigits: 1)}} token",
+      "approxCompact_other": "≈ {{count, number(notation: compact; maximumFractionDigits: 1)}} tokens"
     },
     "detail": {
       "label": "Details for {{word}}",
@@ -5389,6 +5396,8 @@
         "kept_other": "Kept {{count}}",
         "failed_one": "{{count}} couldn't be applied",
         "failed_other": "{{count}} couldn't be applied",
+        "skipped_one": "{{count}} skipped: conflicting choices",
+        "skipped_other": "{{count}} skipped: conflicting choices",
         "nothing": "Nothing changed."
       },
       "review": {
@@ -5405,8 +5414,8 @@
         "ask": "Ask a model",
         "cancel": "Cancel",
         "running": "Asking {{model}}…",
-        "estimate_one": "Sends your {{count}} word with its source and counts, never your dictations. One request, ≈ {{tokens}} tokens.",
-        "estimate_other": "Sends your {{count}} words with their source and counts, never your dictations. One request, ≈ {{tokens}} tokens.",
+        "estimate_one": "Sends your {{count}} word with its source and counts, never your dictations. One request, {{tokensText}}.",
+        "estimate_other": "Sends your {{count}} words with their source and counts, never your dictations. One request, {{tokensText}}.",
         "noModels": "No configured model can review the list. Set up a Cleanup, Chat or Voice Assistant model in Settings.",
         "kept_one": "{{count}} suggestion.",
         "kept_other": "{{count}} suggestions.",
@@ -5448,6 +5457,7 @@
       "pill": {
         "label": "Category of {{word}}: {{category}} ({{who}}). Change it",
         "title": "{{category}} · set by {{who}}",
+        "titleRow": "{{category}} · set by {{who}} (C)",
         "menuTitle": "Category of “{{word}}”",
         "automatic": "Automatic ({{category}})"
       },
@@ -5470,8 +5480,8 @@
       },
       "review": {
         "title": "Ask a model to check",
-        "estimate_one": "Sends your {{count}} word and its current category, never your dictations. One request, ≈ {{tokens}} tokens.",
-        "estimate_other": "Sends your {{count}} words and their current category, never your dictations. One request, ≈ {{tokens}} tokens.",
+        "estimate_one": "Sends your {{count}} word and its current category, never your dictations. One request, {{tokensText}}.",
+        "estimate_other": "Sends your {{count}} words and their current category, never your dictations. One request, {{tokensText}}.",
         "ask": "Ask",
         "failed": "The model couldn't check the categories.",
         "stale": "Your dictionary or its categories changed while the model was working, so its proposals were dropped. Ask again.",
@@ -5511,8 +5521,8 @@
         "groupingOff": "It's off.",
         "openSettings": "Open in Settings",
         "wordSetLabel": "Cleanup word set",
-        "wordSet_one": "“All words except everyday words” leaves out {{count}} word (≈ {{tokens}} tokens a cleanup).",
-        "wordSet_other": "“All words except everyday words” leaves out {{count}} words (≈ {{tokens}} tokens a cleanup).",
+        "wordSet_one": "“All words except everyday words” leaves out {{count}} word ({{tokensText}} a cleanup).",
+        "wordSet_other": "“All words except everyday words” leaves out {{count}} words ({{tokensText}} a cleanup).",
         "wordSetUnavailable": "“All words except everyday words” leaves out your everyday words once the categories are ready.",
         "wordSetNow": "Now: {{set}}.",
         "tidyLabel": "Tidy up",
@@ -7007,11 +7017,11 @@
       "endpointErrors": {
         "invalidUrl": "This isn't a valid URL.",
         "httpsRequired": "The endpoint must start with https://.",
-        "host": "This isn't an Azure Speech endpoint. It ends in .cognitiveservices.azure.com or .api.cognitive.microsoft.com.",
+        "host": "This isn't an Azure Speech endpoint. It ends in .cognitiveservices.azure.com, .services.ai.azure.com (Azure AI Foundry) or .api.cognitive.microsoft.com.",
         "resourceOnly": "Paste only the resource endpoint, such as https://<resource>.cognitiveservices.azure.com, without a path, port or query."
       },
       "endpointLabel": "Resource endpoint",
-      "help": "Paste the endpoint and a key from your Speech resource's Keys and Endpoint page."
+      "help": "Paste the endpoint and a key from your Speech resource's Keys and Endpoint page. A Foundry endpoint (.services.ai.azure.com, a project's too) works as well: it's saved as the same resource's .cognitiveservices.azure.com address."
     }
   },
   "modelPicker": {

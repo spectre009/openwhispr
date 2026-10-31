@@ -25,6 +25,14 @@ export const AZURE_SPEECH_MAX_PHRASES = 199;
 // A custom subdomain (the portal's Keys and Endpoint) or a regional host, one label each.
 const RESOURCE_HOST =
   /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.(?:cognitiveservices\.azure\.com|api\.cognitive\.microsoft\.com)$/;
+// The same custom subdomain as Azure AI Foundry shows an AIServices resource:
+// `<name>.services.ai.azure.com`. Accepted as input only: every request goes
+// to the documented `<name>.cognitiveservices.azure.com` host (azureSpeechOrigin),
+// so the key never leaves for the `services.ai` host.
+const FOUNDRY_HOST = /^([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)\.services\.ai\.azure\.com$/;
+// A Foundry project's endpoint on that host: `/api/projects/<project>`, one
+// segment, optionally with a trailing slash. No other path is accepted.
+const FOUNDRY_PROJECT_PATH = /^\/api\/projects\/[A-Za-z0-9][A-Za-z0-9._-]{0,127}\/?$/;
 
 /**
  * @typedef {"required" | "invalidUrl" | "httpsRequired" | "host" | "resourceOnly"} AzureSpeechEndpointError
@@ -41,7 +49,9 @@ function parse(raw) {
 /**
  * Why an endpoint can't be used, or null when it can: https, the resource
  * origin only (no path, query, fragment, credentials or port), on Azure's
- * Cognitive Services hosts. Scheme-less input is invalid here; the field
+ * Cognitive Services hosts, or the same resource as Azure AI Foundry shows it
+ * (`https://<name>.services.ai.azure.com`, also a project's
+ * `…/api/projects/<project>`). Scheme-less input is invalid here; the field
  * normalizes it on blur (`normalizeAzureSpeechEndpoint`).
  *
  * @param {unknown} raw
@@ -53,7 +63,9 @@ export function azureSpeechEndpointError(raw) {
   const url = parse(text);
   if (!url || !url.hostname) return "invalidUrl";
   if (url.protocol !== "https:") return url.protocol === "http:" ? "httpsRequired" : "invalidUrl";
-  if (!RESOURCE_HOST.test(url.hostname.toLowerCase())) return "host";
+  const host = url.hostname.toLowerCase();
+  const foundry = FOUNDRY_HOST.test(host);
+  if (!foundry && !RESOURCE_HOST.test(host)) return "host";
   if (
     url.username ||
     url.password ||
@@ -61,12 +73,12 @@ export function azureSpeechEndpointError(raw) {
     url.search ||
     url.hash ||
     text.endsWith("?") ||
-    text.endsWith("#") ||
-    (url.pathname !== "/" && url.pathname !== "")
+    text.endsWith("#")
   ) {
     return "resourceOnly";
   }
-  return null;
+  if (url.pathname === "/" || url.pathname === "") return null;
+  return foundry && FOUNDRY_PROJECT_PATH.test(url.pathname) ? null : "resourceOnly";
 }
 
 /** Whether the key may be sent here: a Speech resource's https origin. */
@@ -74,15 +86,25 @@ export function isAzureSpeechEndpoint(raw) {
   return azureSpeechEndpointError(raw) === null;
 }
 
-/** The resource origin (lowercased host, no trailing slash), or null when invalid. */
+/**
+ * The resource origin (lowercased host, no trailing slash), or null when
+ * invalid. A Foundry form (`<name>.services.ai.azure.com`, with or without a
+ * project path) is the same resource's documented host,
+ * `https://<name>.cognitiveservices.azure.com`: what the field stores and
+ * every request is built from.
+ */
 export function azureSpeechOrigin(raw) {
-  return isAzureSpeechEndpoint(raw) ? new URL(raw.trim()).origin : null;
+  if (!isAzureSpeechEndpoint(raw)) return null;
+  const url = new URL(raw.trim());
+  const foundry = FOUNDRY_HOST.exec(url.hostname.toLowerCase());
+  return foundry ? `https://${foundry[1]}.cognitiveservices.azure.com` : url.origin;
 }
 
 /**
  * The endpoint as the field stores it after editing: trimmed, https added to a
- * bare host, and the origin when that's valid; otherwise the text as typed, so
- * the field can say what's wrong with it.
+ * bare host, and the origin when that's valid (a Foundry form converted to the
+ * `cognitiveservices` host); otherwise the text as typed, so the field can say
+ * what's wrong with it.
  *
  * @param {unknown} raw
  */
@@ -103,7 +125,8 @@ export function buildAzureSpeechTranscribeUrl(endpoint) {
 
 /**
  * Whether a request URL is exactly the transcribe operation on a Speech
- * resource: what main checks before it sends the key.
+ * resource: what main checks before it sends the key. Only the documented
+ * host passes: the same path on a `services.ai.azure.com` host is refused.
  *
  * @param {unknown} url
  */

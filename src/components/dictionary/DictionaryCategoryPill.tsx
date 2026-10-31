@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { ChevronDown } from "../icons";
 import {
@@ -30,9 +31,11 @@ import {
 // "Unsorted"), who decided it (auto, you, model), and a menu to pick People,
 // Work terms or Everyday words (stored as the user's choice) or Automatic
 // (the stored choice removed). A Radix menu: Enter, Space or ↓ opens it,
-// arrows move, Enter picks, Esc closes. In a list row it's a mouse target
-// like the row's other controls (the list's keyboard path is the word panel
-// and the bulk bar's Set category); in the panel it's a regular button.
+// arrows move, Enter picks, Esc closes. In a list row it isn't a tab stop (the
+// listbox is one): the list opens it with C on the focused row (`open`,
+// `onOpenChange`, the checked option focused) and takes focus back when it
+// closes (`onCloseFocus`), so the row stays the list's active one; the mouse
+// opens it too. In the panel it's a regular button.
 
 export interface DictionaryCategoryPillProps {
   word: string;
@@ -41,7 +44,17 @@ export interface DictionaryCategoryPillProps {
   onChange: (word: string, category: DictionaryCategory | null) => void;
   variant?: "row" | "panel";
   disabled?: boolean;
+  /** The menu's open state, when the owner controls it (a list row). */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  /** Opened from the keyboard: the checked option takes focus once the menu shows. */
+  focusCheckedOnOpen?: boolean;
+  /** Where focus goes when the menu closes (Radix's default, the pill, otherwise). */
+  onCloseFocus?: () => void;
 }
+
+// How long the menu may take to mount and take focus before the checked option is focused anyway.
+const FOCUS_CHECKED_TRIES = 10;
 
 export default function DictionaryCategoryPill({
   word,
@@ -50,9 +63,14 @@ export default function DictionaryCategoryPill({
   onChange,
   variant = "panel",
   disabled = false,
+  open,
+  onOpenChange,
+  focusCheckedOnOpen = false,
+  onCloseFocus,
 }: DictionaryCategoryPillProps) {
   const { t } = useTranslation();
   const commonWords = useDictionaryCategoriesStore((s) => s.commonWords);
+  const contentRef = useRef<HTMLDivElement>(null);
   const key = categoryKey(category);
   const name = t(CATEGORY_NAME_KEYS[key]);
   const who = t(CATEGORY_SOURCE_KEYS[source]);
@@ -60,8 +78,31 @@ export default function DictionaryCategoryPill({
   const value = source === "auto" ? "auto" : (category ?? "auto");
   const row = variant === "row";
 
+  // Radix focuses the menu's first option when the keyboard opens it; from
+  // the list's C, the current choice is the one to start from.
+  useEffect(() => {
+    if (!open || !focusCheckedOnOpen) return;
+    let tries = 0;
+    let timer: ReturnType<typeof setTimeout>;
+    const focusChecked = () => {
+      const content = contentRef.current;
+      const checked = content?.querySelector<HTMLElement>(
+        '[role="menuitemradio"][aria-checked="true"]'
+      );
+      const settled = !!content && content.contains(document.activeElement);
+      if (checked && (settled || tries >= FOCUS_CHECKED_TRIES)) {
+        checked.focus({ preventScroll: true });
+        return;
+      }
+      tries += 1;
+      if (tries <= FOCUS_CHECKED_TRIES) timer = setTimeout(focusChecked, 16);
+    };
+    timer = setTimeout(focusChecked, 0);
+    return () => clearTimeout(timer);
+  }, [open, focusCheckedOnOpen]);
+
   return (
-    <DropdownMenu>
+    <DropdownMenu open={open} onOpenChange={onOpenChange}>
       <DropdownMenuTrigger asChild disabled={disabled}>
         <button
           type="button"
@@ -69,7 +110,13 @@ export default function DictionaryCategoryPill({
           onClick={(event) => event.stopPropagation()}
           onDoubleClick={(event) => event.stopPropagation()}
           aria-label={t("dictionary.categories.pill.label", { word, category: name, who })}
-          title={t("dictionary.categories.pill.title", { category: name, who })}
+          title={t(
+            row ? "dictionary.categories.pill.titleRow" : "dictionary.categories.pill.title",
+            {
+              category: name,
+              who,
+            }
+          )}
           data-category-pill={word}
           data-category={key}
           data-category-source={source}
@@ -98,12 +145,18 @@ export default function DictionaryCategoryPill({
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent
+        ref={contentRef}
         align="start"
         className="min-w-48"
         onClick={(event) => event.stopPropagation()}
         // Esc closes the menu only, not the panel or view the pill sits in.
         onKeyDown={(event) => {
           if (event.key === "Escape") event.stopPropagation();
+        }}
+        onCloseAutoFocus={(event) => {
+          if (!onCloseFocus) return;
+          event.preventDefault();
+          onCloseFocus();
         }}
       >
         <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">

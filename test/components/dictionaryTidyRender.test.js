@@ -387,16 +387,13 @@ test(
 
     const batches = dom.calls.filter(([name]) => name === "applyDictionaryTidy");
     assert.equal(batches.length, 1, "one IPC batch");
+    // Planned (planTidyBatch): the phrase first, every move as a respell
+    // (main merges into an existing word), then one removal.
     assert.deepEqual(batches[0][1][0], [
-      { kind: "merge", from: "agentsshared", into: "agents-shared" },
       { kind: "add-phrase", phrase: "Little Buddy", parts: ["Little", "Buddy"] },
-      { kind: "remove", words: ["the"] },
-      { kind: "remove", words: ["What"] },
-      { kind: "remove", words: ["gonestly"] },
-      { kind: "remove", words: ["aessions"] },
+      { kind: "respell", from: "agentsshared", to: "agents-shared" },
       { kind: "respell", from: "approverl", to: "approver" },
-      { kind: "remove", words: ["then...ahh"] },
-      { kind: "remove", words: ["8/5"] },
+      { kind: "remove", words: ["the", "What", "gonestly", "aessions", "then...ahh", "8/5"] },
     ]);
     const footer = view.doc.querySelector("[data-tidy-footer]");
     assert.match(footer.textContent, /Removed 8 · Merged 2 · Added 1/);
@@ -411,7 +408,7 @@ test(
     await view.act(() => settle(80), 80);
     const undos = dom.calls.filter(([name]) => name === "undoDictionaryTidy");
     assert.equal(undos.length, 1);
-    assert.equal(undos[0][1][0].length, 9, "every applied choice's steps, in one Undo");
+    assert.equal(undos[0][1][0].length, 4, "every applied choice's steps, in one Undo");
     assert.ok(view.useSettingsStore.getState().customDictionary.includes("gonestly"));
     assert.equal(view.items("typos").length, 3, "the words are back");
 
@@ -486,6 +483,56 @@ test(
     );
     assert.equal(view.items("fragments").length, 2);
     assert.equal(view.items("variants").length, 1);
+    assert.deepEqual(view.consoleOutput.errors, []);
+  }
+);
+
+test(
+  "Apply with conflicting choices: one word moved two ways is skipped, and the footer says so",
+  { timeout: 90000 },
+  async (t) => {
+    words = FIXTURE.map(([word]) => word);
+    copilotReply = () => ({
+      success: true,
+      text: JSON.stringify({
+        suggestions: [
+          // The typo item respells approverl to approver; this to another word.
+          { action: "respell", words: ["approverl"], into: "approval", reason: "A noun." },
+        ],
+      }),
+    });
+    const view = await mount(t);
+    const { default: service } = await view.vite.ssrLoadModule("/services/ReasoningService.ts");
+    t.after(() => service.destroy());
+    const tidy = await openTidy(view);
+    await view.click(view.group("model").querySelector("[data-tidy-review-ask]"));
+    const end = Date.now() + 15000;
+    while (view.group("model").querySelector("[data-tidy-review-cancel]") && Date.now() < end) {
+      await view.act(() => settle(50), 50);
+    }
+    const suggestion = view.group("model").querySelector('[data-tidy-suggestion="respell"]');
+    assert.ok(suggestion, "the model's suggestion shows");
+    await view.click(suggestion.querySelector('[role="checkbox"]'));
+    const before = dom.calls.filter(([name]) => name === "applyDictionaryTidy").length;
+    const apply = tidy.querySelector("[data-tidy-apply]");
+    assert.equal(apply.textContent.trim(), "Apply 10 selected");
+    await view.click(apply);
+    await view.act(() => settle(80), 80);
+
+    const batches = dom.calls.filter(([name]) => name === "applyDictionaryTidy");
+    assert.equal(batches.length, before + 1);
+    const sent = batches.at(-1)[1][0];
+    assert.equal(
+      sent.some((op) => op.from === "approverl" || op.words?.includes("approverl")),
+      false,
+      "neither move of approverl is sent"
+    );
+    assert.ok(view.useSettingsStore.getState().customDictionary.includes("approverl"), "kept");
+    assert.match(
+      view.doc.querySelector("[data-tidy-summary]").textContent,
+      /Removed 8 · Merged 1 · Added 1 · 1 skipped: conflicting choices/
+    );
+    copilotReply = null;
     assert.deepEqual(view.consoleOutput.errors, []);
   }
 );

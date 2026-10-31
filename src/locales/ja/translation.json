@@ -3636,8 +3636,8 @@
         "typedPinned": "入力・固定した単語",
         "none": "なし"
       },
-      "count_one": "{{count}} 語 · 約 {{tokens}} トークン",
-      "count_other": "{{count}} 語 · 約 {{tokens}} トークン",
+      "count_one": "{{count}} 語 · {{tokensText}}",
+      "count_other": "{{count}} 語 · {{tokensText}}",
       "sendsAll": "現在はすべての単語を送信します",
       "missedUnavailable": "音声認識が聞き逃す単語はローカルの履歴から数えます。履歴がオフ、またはまだ集計中の間は、クリーンアップにすべての単語が渡され、そのステップにそう記録されます。",
       "categoriesUnavailable": "どの単語が日常語かは、このコンピューターで分類したカテゴリーで決まります。準備ができるまではクリーンアップにすべての単語が送られ、そのステップに記録されます。",
@@ -4637,6 +4637,7 @@
       "label_one": "辞書、{{count}} 語",
       "label_other": "辞書、{{count}} 語",
       "rowLabel": "{{word}}、{{source}}、{{coverage}}",
+      "keyboardHelp": "上下の矢印キーで単語を移動、Space で選択、Shift で選択範囲を拡張、Enter で単語を開く、F2 で綴りを編集、Delete で削除、C でカテゴリーを変更、Alt と上下の矢印キーで固定した単語を移動します。",
       "searchLabel": "単語を絞り込む",
       "searchPlaceholder": "単語を絞り込む",
       "clearSearch": "絞り込みをクリア",
@@ -4740,12 +4741,12 @@
       "cleanup": {
         "label": "クリーンアップのプロンプト",
         "title": "クリーンアップのプロンプト",
-        "tokens": "クリーンアップごとに約 {{tokens}} トークン",
+        "tokens": "クリーンアップごとに{{tokensText}}",
         "off": "クリーンアップはオフです",
         "sends": "送信：{{set}}",
         "grouped": "カテゴリー別",
-        "monthly": "月あたり約 {{tokens}} トークン",
-        "monthlyDetail": "現在の音声入力ペースで月あたり約 {{tokens}} トークン",
+        "monthly": "月あたり{{tokensText}}",
+        "monthlyDetail": "現在の音声入力ペースで月あたり{{tokensText}}",
         "monthlyUnavailable": "月間の推定にはローカル履歴が必要です。",
         "compareTitle": "単語セット別のクリーンアップ",
         "compareRow_one": "音声入力 {{count}} 件 · 平均 {{words}} 語",
@@ -4757,13 +4758,19 @@
       "chat": {
         "label": "チャットと音声アシスタント",
         "title": "チャットと音声アシスタント",
-        "tokens": "メッセージごとに約 {{tokens}} トークン",
-        "tokensDetail": "メッセージごとに約 {{tokens}} トークン",
+        "tokens": "メッセージごとに{{tokensText}}",
+        "tokensDetail": "メッセージごとに{{tokensText}}",
         "allWords_one": "全 {{count}} 語",
         "allWords_other": "全 {{count}} 語",
         "sameList": "リスト全体がシステムプロンプトに追加されます。",
         "snippets": "用語集の表記とスニペットのトリガーも含まれます。"
       }
+    },
+    "tokens": {
+      "approx_one": "約 {{count, number}} トークン",
+      "approx_other": "約 {{count, number}} トークン",
+      "approxCompact_one": "約 {{count, number(notation: compact; maximumFractionDigits: 1)}} トークン",
+      "approxCompact_other": "約 {{count, number(notation: compact; maximumFractionDigits: 1)}} トークン"
     },
     "detail": {
       "label": "{{word}} の詳細",
@@ -4965,6 +4972,8 @@
         "kept_other": "{{count}} 件残す",
         "failed_one": "{{count}} 件は適用できませんでした",
         "failed_other": "{{count}} 件は適用できませんでした",
+        "skipped_one": "{{count}} 件スキップ: 選択が矛盾しています",
+        "skipped_other": "{{count}} 件スキップ: 選択が矛盾しています",
         "nothing": "何も変わりませんでした。"
       },
       "review": {
@@ -4981,8 +4990,8 @@
         "ask": "モデルに聞く",
         "cancel": "キャンセル",
         "running": "{{model}} に問い合わせています…",
-        "estimate_one": "{{count}} 件の単語とその出所・回数を送ります。ディクテーションは送りません。リクエスト 1 件、約 {{tokens}} トークン。",
-        "estimate_other": "{{count}} 件の単語とその出所・回数を送ります。ディクテーションは送りません。リクエスト 1 件、約 {{tokens}} トークン。",
+        "estimate_one": "{{count}} 件の単語とその出所・回数を送ります。ディクテーションは送りません。リクエスト 1 件、{{tokensText}}。",
+        "estimate_other": "{{count}} 件の単語とその出所・回数を送ります。ディクテーションは送りません。リクエスト 1 件、{{tokensText}}。",
         "noModels": "一覧を確認できる設定済みのモデルがありません。設定でクリーンアップ、チャット、音声アシスタントのいずれかのモデルを設定してください。",
         "kept_one": "提案 {{count}} 件。",
         "kept_other": "提案 {{count}} 件。",
@@ -5024,6 +5033,7 @@
       "pill": {
         "label": "{{word}} のカテゴリー：{{category}}（{{who}}）。変更",
         "title": "{{category}} · 設定：{{who}}",
+        "titleRow": "{{category}} · 設定：{{who}}（C）",
         "menuTitle": "「{{word}}」のカテゴリー",
         "automatic": "自動（{{category}}）"
       },
@@ -5046,8 +5056,8 @@
       },
       "review": {
         "title": "モデルに確認してもらう",
-        "estimate_one": "{{count}} 語とその現在のカテゴリーを送ります。ディクテーションは送りません。リクエスト 1 件、約 {{tokens}} トークン。",
-        "estimate_other": "{{count}} 語とその現在のカテゴリーを送ります。ディクテーションは送りません。リクエスト 1 件、約 {{tokens}} トークン。",
+        "estimate_one": "{{count}} 語とその現在のカテゴリーを送ります。ディクテーションは送りません。リクエスト 1 件、{{tokensText}}。",
+        "estimate_other": "{{count}} 語とその現在のカテゴリーを送ります。ディクテーションは送りません。リクエスト 1 件、{{tokensText}}。",
         "ask": "聞く",
         "failed": "モデルはカテゴリーを確認できませんでした。",
         "stale": "モデルの処理中に辞書またはカテゴリーが変わったため、提案を破棄しました。もう一度聞いてください。",
@@ -5087,8 +5097,8 @@
         "groupingOff": "現在オフです。",
         "openSettings": "設定で開く",
         "wordSetLabel": "クリーンアップに含める単語",
-        "wordSet_one": "「日常語以外のすべての単語」は {{count}} 語を除きます（クリーンアップ 1 回あたり約 {{tokens}} トークン）。",
-        "wordSet_other": "「日常語以外のすべての単語」は {{count}} 語を除きます（クリーンアップ 1 回あたり約 {{tokens}} トークン）。",
+        "wordSet_one": "「日常語以外のすべての単語」は {{count}} 語を除きます（クリーンアップ 1 回あたり{{tokensText}}）。",
+        "wordSet_other": "「日常語以外のすべての単語」は {{count}} 語を除きます（クリーンアップ 1 回あたり{{tokensText}}）。",
         "wordSetUnavailable": "「日常語以外のすべての単語」は、カテゴリーの準備ができると日常語を除きます。",
         "wordSetNow": "現在：{{set}}。",
         "tidyLabel": "整理",
@@ -7007,11 +7017,11 @@
       "endpointErrors": {
         "invalidUrl": "有効な URL ではありません。",
         "httpsRequired": "エンドポイントは https:// で始まる必要があります。",
-        "host": "Azure Speech のエンドポイントではありません。末尾は .cognitiveservices.azure.com または .api.cognitive.microsoft.com です。",
+        "host": "Azure Speech のエンドポイントではありません。末尾は .cognitiveservices.azure.com、.services.ai.azure.com（Azure AI Foundry）、または .api.cognitive.microsoft.com です。",
         "resourceOnly": "リソースのエンドポイント（例: https://<resource>.cognitiveservices.azure.com）だけを、パス・ポート・クエリなしで貼り付けてください。"
       },
       "endpointLabel": "リソースのエンドポイント",
-      "help": "Speech リソースの Keys and Endpoint ページにあるエンドポイントとキーを貼り付けてください。"
+      "help": "Speech リソースの Keys and Endpoint ページにあるエンドポイントとキーを貼り付けてください。Foundry のエンドポイント（.services.ai.azure.com、プロジェクトのものも可）も使えます。同じリソースの .cognitiveservices.azure.com のアドレスとして保存されます。"
     }
   },
   "modelPicker": {

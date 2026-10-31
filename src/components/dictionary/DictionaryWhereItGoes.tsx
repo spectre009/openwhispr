@@ -21,7 +21,12 @@ import {
 } from "../../utils/snippets";
 import type { CleanupScopeCount } from "../../types/electron";
 import type { DictionaryCoverage } from "./useDictionaryCoverage";
-import { CLEANUP_SET_KEYS, speechBudgetText, speechSetupName } from "./dictionaryLabels";
+import {
+  CLEANUP_SET_KEYS,
+  approxTokens,
+  speechBudgetText,
+  speechSetupName,
+} from "./dictionaryLabels";
 
 // The Dictionary page's "Where it goes": what the dictionary costs each place
 // it's sent. A strip of three (speech-to-text, the cleanup prompt, chat and
@@ -205,10 +210,6 @@ export default function DictionaryWhereItGoes({
   const { t, i18n } = useTranslation();
   const cleanup = useCleanupNumbers();
   const number = useMemo(() => new Intl.NumberFormat(i18n.language), [i18n.language]);
-  const compact = useMemo(
-    () => new Intl.NumberFormat(i18n.language, { notation: "compact", maximumFractionDigits: 1 }),
-    [i18n.language]
-  );
   const format = (n: number) => number.format(n);
 
   const setupName = speechSetupName(coverage.label, t);
@@ -257,7 +258,9 @@ export default function DictionaryWhereItGoes({
           <p className={cellLabel}>{t("dictionary.where.cleanup.label")}</p>
           <p className={cellValue}>
             {cleanup.cleanupOn
-              ? t("dictionary.where.cleanup.tokens", { tokens: format(cleanup.tokens) })
+              ? t("dictionary.where.cleanup.tokens", {
+                  tokensText: approxTokens(t, cleanup.tokens),
+                })
               : t("dictionary.where.cleanup.off")}
           </p>
           <p className={cellSub}>
@@ -265,7 +268,9 @@ export default function DictionaryWhereItGoes({
               t("dictionary.where.cleanup.sends", { set: setName }),
               cleanup.grouped ? t("dictionary.where.cleanup.grouped") : null,
               cleanup.cleanupOn && cleanup.monthly != null
-                ? t("dictionary.where.cleanup.monthly", { tokens: compact.format(cleanup.monthly) })
+                ? t("dictionary.where.cleanup.monthly", {
+                    tokensText: approxTokens(t, cleanup.monthly, { compact: true }),
+                  })
                 : null,
             ]
               .filter(Boolean)
@@ -275,7 +280,7 @@ export default function DictionaryWhereItGoes({
         <div className={cell} data-where-cell="chat">
           <p className={cellLabel}>{t("dictionary.where.chat.label")}</p>
           <p className={cellValue}>
-            {t("dictionary.where.chat.tokens", { tokens: format(cleanup.chatTokens) })}
+            {t("dictionary.where.chat.tokens", { tokensText: approxTokens(t, cleanup.chatTokens) })}
           </p>
           <p className={cellSub}>
             {t("dictionary.where.chat.allWords", { count: cleanup.chatWords })}
@@ -343,14 +348,16 @@ export default function DictionaryWhereItGoes({
               </h4>
               <p className="mt-2 text-base font-semibold tabular-nums text-foreground">
                 {cleanup.cleanupOn
-                  ? t("dictionary.where.cleanup.tokens", { tokens: format(cleanup.tokens) })
+                  ? t("dictionary.where.cleanup.tokens", {
+                      tokensText: approxTokens(t, cleanup.tokens),
+                    })
                   : t("dictionary.where.cleanup.off")}
               </p>
               {cleanup.cleanupOn && (
                 <p className="mt-0.5 text-[11px] text-muted-foreground">
                   {cleanup.monthly != null
                     ? t("dictionary.where.cleanup.monthlyDetail", {
-                        tokens: compact.format(cleanup.monthly),
+                        tokensText: approxTokens(t, cleanup.monthly, { compact: true }),
                       })
                     : t("dictionary.where.cleanup.monthlyUnavailable")}
                 </p>
@@ -370,7 +377,9 @@ export default function DictionaryWhereItGoes({
                 {t("dictionary.where.chat.title")}
               </h4>
               <p className="mt-2 text-base font-semibold tabular-nums text-foreground">
-                {t("dictionary.where.chat.tokensDetail", { tokens: format(cleanup.chatTokens) })}
+                {t("dictionary.where.chat.tokensDetail", {
+                  tokensText: approxTokens(t, cleanup.chatTokens),
+                })}
               </p>
               <ul className="mt-2 list-disc space-y-1 ps-4 text-[11.5px] leading-snug text-muted-foreground">
                 <li>{t("dictionary.where.chat.sameList")}</li>

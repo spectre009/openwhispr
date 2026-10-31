@@ -298,6 +298,115 @@ test(
 );
 
 test(
+  "C on the focused row opens its category menu; a pick is yours and focus comes back to the list",
+  { timeout: 90000 },
+  async (t) => {
+    const view = await mount(t);
+    const { doc, win } = view;
+    const list = doc.querySelector("[data-dictionary-list]");
+    const menuOpen = () => doc.querySelector("[data-category-option]") !== null;
+    const activeWord = () =>
+      doc
+        .getElementById(list.getAttribute("aria-activedescendant") ?? "")
+        ?.getAttribute("data-dictionary-row") ?? null;
+
+    // Discoverable: the keys are the listbox's description, C among them.
+    const help = doc.getElementById(list.getAttribute("aria-describedby"));
+    assert.ok(help, "the description exists");
+    assert.match(help.textContent, /Enter opens the word, F2 edits its spelling/);
+    assert.match(help.textContent, /C changes its category/);
+    assert.match(help.textContent, /Alt with Up or Down moves a pinned word/);
+    assert.ok(list.getAttribute("aria-keyshortcuts").split(" ").includes("C"));
+    assert.equal(
+      view.pill(view.row("Kusto"), "Kusto").getAttribute("title"),
+      "Work terms · set by model (C)"
+    );
+    assert.equal(view.pill(view.row("Kusto"), "Kusto").getAttribute("tabindex"), "-1");
+
+    // No focused row yet: C does nothing.
+    await view.key(list, "c");
+    assert.equal(menuOpen(), false, "no row, no menu");
+
+    // Real focus, then the arrows to Kusto.
+    await view.act(() => list.focus());
+    assert.equal(doc.activeElement, list);
+    const order = view.rows();
+    for (let i = 0; i < order.indexOf("Kusto"); i += 1) await view.key(list, "ArrowDown");
+    assert.equal(activeWord(), "Kusto");
+
+    // Modifiers, Shift and composition: nothing.
+    for (const init of [
+      { ctrlKey: true },
+      { altKey: true },
+      { metaKey: true },
+      { shiftKey: true },
+      { isComposing: true },
+    ]) {
+      await view.key(list, "c", init);
+      assert.equal(menuOpen(), false, JSON.stringify(init));
+    }
+
+    // C: Kusto's menu, anchored to its pill, its current choice focused.
+    await view.key(list, "c");
+    await view.act(() => settle(80), 80);
+    assert.ok(menuOpen(), "the menu opened");
+    const kustoPill = () => view.pill(view.row("Kusto"), "Kusto");
+    assert.equal(kustoPill().getAttribute("aria-expanded"), "true", "on the row's pill");
+    assert.equal(doc.activeElement.getAttribute("role"), "menuitemradio");
+    assert.equal(doc.activeElement.getAttribute("aria-checked"), "true");
+    assert.equal(doc.activeElement.getAttribute("data-category-option"), "work");
+
+    // Typing in the portalled menu never reaches the list.
+    await view.key(doc.activeElement, "c");
+    assert.ok(menuOpen());
+
+    // Arrows and Enter pick: stored as the user's.
+    await view.key(doc.activeElement, "ArrowDown");
+    assert.equal(doc.activeElement.getAttribute("data-category-option"), "everyday");
+    await view.key(doc.activeElement, "Enter");
+    await view.act(() => settle(80), 80);
+    assert.equal(menuOpen(), false, "the pick closed it");
+    assert.deepEqual(view.sets().at(-1)[1][0], [
+      { word: "Kusto", category: "everyday", source: "user" },
+    ]);
+    assert.equal(kustoPill().getAttribute("data-category"), "everyday");
+    assert.equal(kustoPill().getAttribute("data-category-source"), "user");
+    // Focus back on the listbox, the same row active.
+    assert.equal(doc.activeElement, list);
+    assert.equal(activeWord(), "Kusto");
+    assert.equal(doc.querySelector("[data-dictionary-detail]"), null, "the row didn't open");
+
+    // Esc closes it the same way, storing nothing.
+    const stored = view.sets().length;
+    await view.key(list, "C");
+    await view.act(() => settle(80), 80);
+    assert.ok(menuOpen());
+    assert.equal(doc.activeElement.getAttribute("data-category-option"), "everyday");
+    await view.key(doc.activeElement, "Escape");
+    await view.act(() => settle(60), 60);
+    assert.equal(menuOpen(), false);
+    assert.equal(view.sets().length, stored, "nothing stored");
+    assert.equal(doc.activeElement, list);
+    assert.equal(activeWord(), "Kusto");
+    assert.ok(doc.querySelector("[data-dictionary-list]"), "Esc in the menu kept the list");
+
+    // On another row, from the arrows again.
+    await view.key(list, "ArrowDown");
+    const next = activeWord();
+    assert.notEqual(next, "Kusto");
+    await view.key(list, "c");
+    await view.act(() => settle(80), 80);
+    assert.equal(view.pill(view.row(next), next).getAttribute("aria-expanded"), "true");
+    await view.key(doc.activeElement, "Escape");
+    await view.act(() => settle(60), 60);
+    assert.equal(doc.activeElement, list);
+    assert.equal(activeWord(), next);
+    void win;
+    assert.deepEqual(view.consoleOutput.errors, []);
+  }
+);
+
+test(
   "the bulk bar's Set category stores the user's choice for the selection",
   { timeout: 90000 },
   async (t) => {
@@ -454,7 +563,7 @@ test(
     // The notes say what's true now and link to the settings.
     assert.match(
       sortView().querySelector("[data-categories-note-word-set]").textContent,
-      /leaves out 1 word .*Now: All words\./
+      /leaves out 1 word \(≈ 1 token a cleanup\)\. .*Now: All words\./
     );
     await view.click(sortView().querySelector("[data-categories-open-grouping]"));
     assert.deepEqual(view.opened, ["cleanup#dictation.cleanup.dictionaryGrouping"]);

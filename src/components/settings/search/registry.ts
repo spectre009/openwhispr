@@ -210,6 +210,10 @@ const PROVIDER_ALIASES: Record<ConnectionProviderId, readonly string[]> = {
     "microsoft",
     "cognitive services",
     "endpoint",
+    "foundry",
+    "azure ai foundry",
+    "services.ai",
+    "services.ai.azure.com",
   ],
 };
 

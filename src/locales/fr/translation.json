@@ -3730,8 +3730,8 @@
         "typedPinned": "Saisis et épinglés",
         "none": "Aucun"
       },
-      "count_one": "{{count}} mot · ≈ {{tokens}} tokens",
-      "count_other": "{{count}} mots · ≈ {{tokens}} tokens",
+      "count_one": "{{count}} mot · {{tokensText}}",
+      "count_other": "{{count}} mots · {{tokensText}}",
       "sendsAll": "Envoie tous les mots pour l'instant",
       "missedUnavailable": "Les mots que la reconnaissance manque sont comptés à partir de votre historique local. Tant que l'historique est désactivé ou en cours de comptage, la correction reçoit tous les mots, et son étape l'indique.",
       "categoriesUnavailable": "Les mots courants se déduisent de leurs catégories, triées sur cet ordinateur. Tant qu'elles ne sont pas prêtes, la correction reçoit tous les mots, et son étape l'indique.",
@@ -5061,6 +5061,7 @@
       "label_one": "Dictionnaire, {{count}} mot",
       "label_other": "Dictionnaire, {{count}} mots",
       "rowLabel": "{{word}}, {{source}}, {{coverage}}",
+      "keyboardHelp": "Les flèches haut et bas passent d’un mot à l’autre, Espace sélectionne, Maj étend la sélection, Entrée ouvre le mot, F2 modifie son orthographe, Suppr le retire, C change sa catégorie, et Alt avec flèche haut ou bas déplace un mot épinglé.",
       "searchLabel": "Filtrer les mots",
       "searchPlaceholder": "Filtrer les mots",
       "clearSearch": "Effacer le filtre",
@@ -5164,12 +5165,12 @@
       "cleanup": {
         "label": "Prompt de nettoyage",
         "title": "Prompt de nettoyage",
-        "tokens": "≈ {{tokens}} tokens par nettoyage",
+        "tokens": "{{tokensText}} par nettoyage",
         "off": "Le nettoyage est désactivé",
         "sends": "Envoie : {{set}}",
         "grouped": "regroupés par catégorie",
-        "monthly": "≈ {{tokens}} tokens par mois",
-        "monthlyDetail": "≈ {{tokens}} tokens par mois à votre rythme de dictée",
+        "monthly": "{{tokensText}} par mois",
+        "monthlyDetail": "{{tokensText}} par mois à votre rythme de dictée",
         "monthlyUnavailable": "Une estimation mensuelle nécessite l'historique local.",
         "compareTitle": "Vos nettoyages par ensemble de mots",
         "compareRow_one": "{{count}} dictée · {{words}} mots en moyenne",
@@ -5181,13 +5182,21 @@
       "chat": {
         "label": "Chat et assistant vocal",
         "title": "Chat et assistant vocal",
-        "tokens": "≈ {{tokens}} tokens par message",
-        "tokensDetail": "≈ {{tokens}} tokens par message",
+        "tokens": "{{tokensText}} par message",
+        "tokensDetail": "{{tokensText}} par message",
         "allWords_one": "Les {{count}} mot",
         "allWords_other": "Les {{count}} mots",
         "sameList": "La liste entière, ajoutée au prompt système.",
         "snippets": "Les orthographes du glossaire et les déclencheurs d'extraits y figurent aussi."
       }
+    },
+    "tokens": {
+      "approx_one": "≈ {{count, number}} token",
+      "approx_many": "≈ {{count, number}} de tokens",
+      "approx_other": "≈ {{count, number}} tokens",
+      "approxCompact_one": "≈ {{count, number(notation: compact; maximumFractionDigits: 1)}} token",
+      "approxCompact_many": "≈ {{count, number(notation: compact; maximumFractionDigits: 1)}} de tokens",
+      "approxCompact_other": "≈ {{count, number(notation: compact; maximumFractionDigits: 1)}} tokens"
     },
     "detail": {
       "label": "Détails de {{word}}",
@@ -5389,6 +5398,8 @@
         "kept_other": "{{count}} gardés",
         "failed_one": "{{count}} n'a pas pu être appliqué",
         "failed_other": "{{count}} n'ont pas pu être appliqués",
+        "skipped_one": "{{count}} ignoré : choix contradictoires",
+        "skipped_other": "{{count}} ignorés : choix contradictoires",
         "nothing": "Rien n'a changé."
       },
       "review": {
@@ -5405,8 +5416,8 @@
         "ask": "Demander à un modèle",
         "cancel": "Annuler",
         "running": "Interrogation de {{model}}…",
-        "estimate_one": "Envoie votre {{count}} mot avec son origine et ses comptes, jamais vos dictées. Une requête, ≈ {{tokens}} jetons.",
-        "estimate_other": "Envoie vos {{count}} mots avec leur origine et leurs comptes, jamais vos dictées. Une requête, ≈ {{tokens}} jetons.",
+        "estimate_one": "Envoie votre {{count}} mot avec son origine et ses comptes, jamais vos dictées. Une requête, {{tokensText}}.",
+        "estimate_other": "Envoie vos {{count}} mots avec leur origine et leurs comptes, jamais vos dictées. Une requête, {{tokensText}}.",
         "noModels": "Aucun modèle configuré ne peut examiner la liste. Configurez un modèle de nettoyage, de chat ou d'assistant vocal dans les paramètres.",
         "kept_one": "{{count}} suggestion.",
         "kept_other": "{{count}} suggestions.",
@@ -5448,6 +5459,7 @@
       "pill": {
         "label": "Catégorie de {{word}} : {{category}} ({{who}}). La changer",
         "title": "{{category}} · choisie par {{who}}",
+        "titleRow": "{{category}} · choisie par {{who}} (C)",
         "menuTitle": "Catégorie de « {{word}} »",
         "automatic": "Automatique ({{category}})"
       },
@@ -5470,8 +5482,8 @@
       },
       "review": {
         "title": "Faire vérifier par un modèle",
-        "estimate_one": "Envoie votre {{count}} mot et sa catégorie actuelle, jamais vos dictées. Une requête, ≈ {{tokens}} jetons.",
-        "estimate_other": "Envoie vos {{count}} mots et leur catégorie actuelle, jamais vos dictées. Une requête, ≈ {{tokens}} jetons.",
+        "estimate_one": "Envoie votre {{count}} mot et sa catégorie actuelle, jamais vos dictées. Une requête, {{tokensText}}.",
+        "estimate_other": "Envoie vos {{count}} mots et leur catégorie actuelle, jamais vos dictées. Une requête, {{tokensText}}.",
         "ask": "Demander",
         "failed": "Le modèle n'a pas pu vérifier les catégories.",
         "stale": "Votre dictionnaire ou ses catégories ont changé pendant que le modèle travaillait, ses propositions ont donc été écartées. Redemandez.",
@@ -5511,8 +5523,8 @@
         "groupingOff": "C'est désactivé.",
         "openSettings": "Ouvrir dans les Paramètres",
         "wordSetLabel": "Mots de la correction",
-        "wordSet_one": "« Tous les mots sauf les mots courants » laisse de côté {{count}} mot (≈ {{tokens}} jetons par correction).",
-        "wordSet_other": "« Tous les mots sauf les mots courants » laisse de côté {{count}} mots (≈ {{tokens}} jetons par correction).",
+        "wordSet_one": "« Tous les mots sauf les mots courants » laisse de côté {{count}} mot ({{tokensText}} par correction).",
+        "wordSet_other": "« Tous les mots sauf les mots courants » laisse de côté {{count}} mots ({{tokensText}} par correction).",
         "wordSetUnavailable": "« Tous les mots sauf les mots courants » laissera de côté vos mots courants dès que les catégories seront prêtes.",
         "wordSetNow": "Actuellement : {{set}}.",
         "tidyLabel": "Faire le ménage",
@@ -7007,11 +7019,11 @@
       "endpointErrors": {
         "invalidUrl": "Cette URL n’est pas valide.",
         "httpsRequired": "Le point de terminaison doit commencer par https://.",
-        "host": "Ce n’est pas un point de terminaison Azure Speech. Il se termine par .cognitiveservices.azure.com ou .api.cognitive.microsoft.com.",
+        "host": "Ce n’est pas un point de terminaison Azure Speech. Il se termine par .cognitiveservices.azure.com, .services.ai.azure.com (Azure AI Foundry) ou .api.cognitive.microsoft.com.",
         "resourceOnly": "Collez uniquement le point de terminaison de la ressource, par exemple https://<resource>.cognitiveservices.azure.com, sans chemin, port ni requête."
       },
       "endpointLabel": "Point de terminaison de la ressource",
-      "help": "Collez le point de terminaison et une clé depuis la page Keys and Endpoint de votre ressource Speech."
+      "help": "Collez le point de terminaison et une clé depuis la page Keys and Endpoint de votre ressource Speech. Un point de terminaison Foundry (.services.ai.azure.com, y compris celui d’un projet) fonctionne aussi : il est enregistré sous l’adresse .cognitiveservices.azure.com de la même ressource."
     }
   },
   "modelPicker": {

@@ -94,6 +94,10 @@ let cortiBehavior = async () => ({ text: "corti text" });
 // handler invocation time, not at module load.
 Module._load = function loadWithMocks(request, parent, isMain) {
   if (request === "electron") return electronStub;
+  // ipcHandlers requires the system-browser opener: never a real one in a test.
+  if (request === "./externalUrlOpener") {
+    return { openExternalUrl: async () => {} };
+  }
   if (parent?.filename === handlersModulePath) {
     if (request === "./cortiTranscription") {
       return {
@@ -980,6 +984,7 @@ test("retry: Azure Speech fails closed without a valid endpoint, sending nothing
     "https://res.openai.azure.com",
     "https://evil.example.com",
     "http://res.cognitiveservices.azure.com",
+    "https://res.services.ai.azure.com/openai/v1",
   ]) {
     fetches.length = 0;
     const result = await invoke({ ...AZURE_SETTINGS, azureSpeechEndpoint });
@@ -990,6 +995,25 @@ test("retry: Azure Speech fails closed without a valid endpoint, sending nothing
       "hooks.audioRecording.errorDescriptions.azureSpeechEndpointMissing"
     );
     assert.equal(fetches.length, 0, "no fall-through to another provider");
+  }
+});
+
+// The AI Connections field saves as typed until it's left, so the retry
+// settings can carry a Foundry value unconverted: the request still goes to
+// the documented host with main's key, never to services.ai.
+test("retry: a stored, unconverted Foundry endpoint is sent to the cognitiveservices host", async () => {
+  for (const azureSpeechEndpoint of [
+    "https://res.services.ai.azure.com",
+    "https://res.services.ai.azure.com/api/projects/proj-1",
+  ]) {
+    fetches.length = 0;
+    const result = await withFetchResponse(AZURE_OK, () =>
+      invoke({ ...AZURE_SETTINGS, azureSpeechEndpoint })
+    );
+    assert.equal(result.success, true, azureSpeechEndpoint);
+    assert.equal(fetches.length, 1, azureSpeechEndpoint);
+    assert.equal(fetches[0].url, AZURE_TRANSCRIBE_URL, azureSpeechEndpoint);
+    assert.deepEqual(fetches[0].init.headers, { "Ocp-Apim-Subscription-Key": "az-speech-key" });
   }
 });
 
@@ -1134,6 +1158,24 @@ test("upload: Azure Speech falls back to main's key, and fails closed without an
   assert.equal(closed.success, false);
   assert.equal(closed.code, "AZURE_SPEECH_ENDPOINT_INVALID");
   assert.equal(fetches.length, 0);
+});
+
+test("upload: a stored, unconverted Foundry endpoint is sent to the cognitiveservices host", async () => {
+  for (const azureSpeechEndpoint of [
+    "https://res.services.ai.azure.com",
+    "https://res.services.ai.azure.com/api/projects/proj-1/",
+  ]) {
+    fetches.length = 0;
+    const result = await withFetchResponse(AZURE_OK, () =>
+      invokeAzureUpload("wav", { azureSpeechEndpoint })
+    );
+    assert.deepEqual(result, { success: true, text: "Heard again." }, azureSpeechEndpoint);
+    assert.equal(fetches.length, 1, azureSpeechEndpoint);
+    assert.equal(fetches[0].url, AZURE_TRANSCRIBE_URL, azureSpeechEndpoint);
+    assert.deepEqual(fetches[0].init.headers, {
+      "Ocp-Apim-Subscription-Key": "renderer-azure-key",
+    });
+  }
 });
 
 test("upload: Azure Speech's over-2-hours answer is worded", async () => {

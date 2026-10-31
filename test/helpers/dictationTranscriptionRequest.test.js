@@ -488,6 +488,10 @@ test("Azure Speech: main refuses its key for anything but a Speech resource's tr
     "https://res.cognitiveservices.azure.com.evil.example/speechtotext/transcriptions:transcribe?api-version=2025-10-15",
     "http://res.cognitiveservices.azure.com/speechtotext/transcriptions:transcribe?api-version=2025-10-15",
     "https://res.cognitiveservices.azure.com/other?api-version=2025-10-15",
+    // The field accepts a Foundry endpoint, but the key only goes to the
+    // documented host it's converted to.
+    "https://res.services.ai.azure.com/speechtotext/transcriptions:transcribe?api-version=2025-10-15",
+    "https://res.services.ai.azure.com/api/projects/p1/speechtotext/transcriptions:transcribe?api-version=2025-10-15",
     "https://res.cognitiveservices.azure.com:8443/speechtotext/transcriptions:transcribe?api-version=2025-10-15",
     "https://user:pw@res.cognitiveservices.azure.com/speechtotext/transcriptions:transcribe?api-version=2025-10-15",
   ]) {

@@ -15,6 +15,7 @@ import { CARD_SURFACE_CLASS } from "../ui/surfaces";
 import { formatRelativeTime } from "../../utils/dateFormatting";
 import {
   TIDY_GROUP_ORDER,
+  planTidyBatch,
   tidyItemOps,
   tidyWordCount,
   type TidyChoice,
@@ -71,6 +72,9 @@ function tidySummaryText(summary: TidySummary, t: Translate): string {
   if (summary.added) parts.push(t("dictionary.tidy.summary.added", { count: summary.added }));
   if (summary.kept) parts.push(t("dictionary.tidy.summary.kept", { count: summary.kept }));
   if (summary.failed) parts.push(t("dictionary.tidy.summary.failed", { count: summary.failed }));
+  if (summary.skipped) {
+    parts.push(t("dictionary.tidy.summary.skipped", { count: summary.skipped }));
+  }
   return parts.length > 0 ? parts.join(" · ") : t("dictionary.tidy.summary.nothing");
 }
 
@@ -580,10 +584,16 @@ export default function DictionaryTidy({
   );
   const allSelected = selectedOps();
 
-  const apply = useCallback(async (ops: DictionaryTidyOp[]) => {
-    if (ops.length === 0) return;
-    await applyTidy(ops);
-  }, []);
+  const apply = useCallback(
+    async (ops: DictionaryTidyOp[]) => {
+      if (ops.length === 0) return;
+      // One consistent batch: no choice in it undoes another (a removed word
+      // respelled back, a chain run in the wrong order); conflicting ones are skipped.
+      const plan = planTidyBatch(ops, liveWords);
+      await applyTidy(plan.ops, { skipped: plan.skipped });
+    },
+    [liveWords]
+  );
 
   const wordCount = model.ready
     ? tidyWordCount(groups.map((group) => ({ ...group, items: visible(group) })))

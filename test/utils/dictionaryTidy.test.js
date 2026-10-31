@@ -436,3 +436,234 @@ test("preselection, the word count, and the 200-item cap", () => {
   assert.equal(capped.items.length, 200);
   assert.equal(capped.total, 250);
 });
+
+// ─── planTidyBatch: the batch main runs for the choices applied at once ───
+// Every scenario runs in both input orders: the plan (and so what survives)
+// must not depend on the order the page collected the choices in.
+
+const rm = (...words) => ({ kind: "remove", words });
+const merge = (from, into) => ({ kind: "merge", from, into });
+const respell = (from, to) => ({ kind: "respell", from, to });
+const phrase = (text, parts) => ({ kind: "add-phrase", phrase: text, parts });
+
+// The plan, order-free: its phrases, its moves, its removals and what it skipped.
+function planShape(plan) {
+  const phrases = plan.ops.filter((op) => op.kind === "add-phrase");
+  const moves = plan.ops.filter((op) => op.kind === "respell");
+  const removals = plan.ops.filter((op) => op.kind === "remove");
+  assert.ok(removals.length <= 1, "one removal at most");
+  assert.ok(
+    plan.ops.every((op) => ["add-phrase", "respell", "remove"].includes(op.kind)),
+    "only phrases, respells and one removal"
+  );
+  // Phrases first, removals last.
+  const kinds = plan.ops.map((op) => op.kind);
+  assert.deepEqual(
+    kinds,
+    [...kinds].sort((a, b) => rank(a) - rank(b))
+  );
+  for (const move of moves) assert.notEqual(move.from, move.to, "never a self-op");
+  return {
+    phrases: phrases.map((op) => `${op.phrase} = ${op.parts.join(" + ")}`).sort(),
+    moves: moves.map((op) => `${op.from} → ${op.to}`).sort(),
+    removed: (removals[0]?.words ?? []).slice().sort(),
+    skipped: plan.skipped,
+  };
+}
+const rank = (kind) => ({ "add-phrase": 0, respell: 1, remove: 2 })[kind];
+
+function planBothWays(ops, live) {
+  const forward = tidy.planTidyBatch(ops, live);
+  const backward = tidy.planTidyBatch([...ops].reverse(), live);
+  assert.deepEqual(planShape(backward), planShape(forward), "the same plan in either order");
+  return { plan: forward, shape: planShape(forward) };
+}
+
+test("plan: a typo respelled into a word the batch removes is removed too (the reported case)", () => {
+  const { plan, shape } = planBothWays(
+    [rm("honestly"), respell("honestyl", "honestly")],
+    ["honestly", "honestyl"]
+  );
+  assert.deepEqual(shape, {
+    phrases: [],
+    moves: [],
+    removed: ["honestly", "honestyl"],
+    skipped: 0,
+  });
+  assert.equal(plan.ops.length, 1, "one removal, so Undo restores both in one snapshot");
+});
+
+test("plan: keep one (b → a) plus a model respell (a → z) send both to z, a first", () => {
+  const { plan } = planBothWays(
+    [merge("share-point", "sharepoint"), respell("sharepoint", "SharePoint")],
+    ["sharepoint", "share-point"]
+  );
+  // The word a chain's last step renames goes first; the other merges into it.
+  assert.deepEqual(plan.ops, [
+    respell("sharepoint", "SharePoint"),
+    respell("share-point", "SharePoint"),
+  ]);
+  assert.equal(plan.skipped, 0);
+});
+
+test("plan: chains go to their final word, whatever order they came in", () => {
+  const { plan } = planBothWays(
+    [respell("alpha1", "alpha2"), respell("alpha2", "alpha3")],
+    ["alpha1", "alpha2"]
+  );
+  assert.deepEqual(plan.ops, [respell("alpha2", "alpha3"), respell("alpha1", "alpha3")]);
+  // A chain that ends at a removed word removes every word on it.
+  const { shape } = planBothWays(
+    [respell("alpha1", "alpha2"), respell("alpha2", "alpha3"), rm("alpha3")],
+    ["alpha1", "alpha2", "alpha3"]
+  );
+  assert.deepEqual(shape, {
+    phrases: [],
+    moves: [],
+    removed: ["alpha1", "alpha2", "alpha3"],
+    skipped: 0,
+  });
+});
+
+test("plan: 2- and 3-cycles are conflicting choices, skipped, the words kept", () => {
+  const two = planBothWays([respell("grey", "gray"), respell("gray", "grey")], ["grey", "gray"]);
+  assert.deepEqual(two.plan, { ops: [], skipped: 2 });
+
+  // A word moving into the cycle lands on the kept word.
+  const three = planBothWays(
+    [respell("a1", "b1"), respell("b1", "c1"), respell("c1", "a1"), respell("x1", "a1")],
+    ["a1", "b1", "c1", "x1"]
+  );
+  assert.deepEqual(three.shape, { phrases: [], moves: ["x1 → a1"], removed: [], skipped: 3 });
+
+  // Case variants moving to one new spelling aren't a cycle: both end there.
+  const variants = planBothWays(
+    [respell("claude", "Claude"), respell("CLAUDE", "Claude")],
+    ["claude", "CLAUDE"]
+  );
+  assert.deepEqual(variants.shape, {
+    phrases: [],
+    moves: ["CLAUDE → Claude", "claude → Claude"],
+    removed: [],
+    skipped: 0,
+  });
+});
+
+test("plan: a respell of an existing phrase plus its split-phrase item", () => {
+  const { shape } = planBothWays(
+    [phrase("Little buddy", ["Little", "Buddy"]), respell("Little buddy", "Little Buddy")],
+    ["Little", "Buddy", "Little buddy"]
+  );
+  // The phrase isn't added again; it's respelled, and its parts still go.
+  assert.deepEqual(shape, {
+    phrases: [],
+    moves: ["Little buddy → Little Buddy"],
+    removed: ["Buddy", "Little"],
+    skipped: 0,
+  });
+  // A phrase the batch removes isn't added either.
+  const removedPhrase = planBothWays(
+    [phrase("Little buddy", ["Little", "Buddy"]), rm("Little buddy")],
+    ["Little", "Buddy", "Little buddy"]
+  );
+  assert.deepEqual(removedPhrase.shape.removed, ["Buddy", "Little", "Little buddy"]);
+  assert.deepEqual(removedPhrase.shape.phrases, []);
+});
+
+test("plan: a move into a phrase's part is a move into a removed word", () => {
+  const { plan, shape } = planBothWays(
+    [phrase("Little Buddy", ["Little", "Buddy"]), respell("Litle", "Little")],
+    ["Little", "Buddy", "Litle"]
+  );
+  assert.deepEqual(shape, {
+    phrases: ["Little Buddy = Little + Buddy"],
+    moves: [],
+    removed: ["Litle"],
+    skipped: 0,
+  });
+  assert.equal(plan.ops[0].kind, "add-phrase", "the phrase goes first");
+  // A part the batch also removes is removed once, by the phrase.
+  const once = planBothWays(
+    [phrase("Little Buddy", ["Little", "Buddy"]), rm("Little")],
+    ["Little", "Buddy"]
+  );
+  assert.deepEqual(once.shape.removed, []);
+});
+
+test("plan: a removal and a move of one word: the removal wins; duplicates collapse", () => {
+  const { plan } = planBothWays(
+    [rm("foo"), respell("foo", "bar"), rm("foo"), respell("foo", "bar")],
+    ["foo", "bar"]
+  );
+  assert.deepEqual(plan, { ops: [rm("foo")], skipped: 0 });
+  const dupes = planBothWays(
+    [merge("colr", "color"), merge("colr", "color"), respell("colr", "color")],
+    ["colr", "color"]
+  );
+  assert.deepEqual(dupes.plan, { ops: [respell("colr", "color")], skipped: 0 });
+});
+
+test("plan: two different moves of one word conflict: both skipped, the word kept", () => {
+  const { plan } = planBothWays([respell("colr", "color"), respell("colr", "colour")], ["colr"]);
+  assert.deepEqual(plan, { ops: [], skipped: 1 });
+  // Two spellings that land on the same live word are one choice.
+  const same = planBothWays(
+    [respell("colr", "Color"), respell("colr", "color")],
+    ["colr", "Color"]
+  );
+  assert.deepEqual(same.shape.moves, ["colr → Color"]);
+  assert.equal(same.plan.skipped, 0);
+  // A word moving into a conflicted word lands on it, kept.
+  const into = planBothWays(
+    [respell("colr", "color"), respell("colr", "colour"), respell("clr", "colr")],
+    ["colr", "clr"]
+  );
+  assert.deepEqual(into.shape, { phrases: [], moves: ["clr → colr"], removed: [], skipped: 1 });
+});
+
+test("plan: CLAUDE → Claude with Claude removed removes both, in one removal", () => {
+  const { plan, shape } = planBothWays(
+    [merge("CLAUDE", "Claude"), rm("Claude")],
+    ["Claude", "CLAUDE"]
+  );
+  assert.deepEqual(shape, { phrases: [], moves: [], removed: ["CLAUDE", "Claude"], skipped: 0 });
+  assert.equal(plan.ops.length, 1);
+  // By key, as main resolves it: a respell to a spelling only a removed word's key has.
+  const byKey = planBothWays([rm("claude"), respell("Cluade", "Claude")], ["claude", "Cluade"]);
+  assert.deepEqual(byKey.shape.removed, ["Cluade", "claude"]);
+});
+
+test("plan: NFC-equivalent spellings are two words, both removed together", () => {
+  const composed = "caf\u00e9";
+  const decomposed = "cafe\u0301";
+  const { shape } = planBothWays(
+    [merge(decomposed, composed), rm(composed)],
+    [composed, decomposed]
+  );
+  assert.deepEqual(shape.removed, [composed, decomposed].sort());
+  assert.equal(shape.moves.length, 0);
+});
+
+test("plan: an item's ops alone pass through unchanged in meaning", () => {
+  // A keep-one merge becomes a respell main merges on EXISTS; a phrase stays a phrase.
+  assert.deepEqual(
+    tidy.planTidyBatch([merge("agentsshared", "agents-shared")], ["agentsshared", "agents-shared"]),
+    {
+      ops: [respell("agentsshared", "agents-shared")],
+      skipped: 0,
+    }
+  );
+  assert.deepEqual(
+    tidy.planTidyBatch([phrase("Little Buddy", ["Little", "Buddy"])], ["Little", "Buddy"]),
+    {
+      ops: [phrase("Little Buddy", ["Little", "Buddy"])],
+      skipped: 0,
+    }
+  );
+  assert.deepEqual(tidy.planTidyBatch([], []), { ops: [], skipped: 0 });
+  // A move onto itself is nothing to do.
+  assert.deepEqual(tidy.planTidyBatch([respell("groq", "groq")], ["groq"]), {
+    ops: [],
+    skipped: 0,
+  });
+});

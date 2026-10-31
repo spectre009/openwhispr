@@ -50,7 +50,7 @@ import {
   categoryKey,
 } from "./categoryStyles";
 import type { CategoryKey } from "./categoryStyles";
-import { CLEANUP_SET_KEYS } from "./dictionaryLabels";
+import { CLEANUP_SET_KEYS, approxTokens } from "./dictionaryLabels";
 
 // "Sort into categories" (the Dictionary page, in place of the list, like
 // Tidy up; Esc or "Back to the list" returns): how many words each category
@@ -377,7 +377,7 @@ export default function DictionaryCategories({
             <p className="text-xs text-muted-foreground" data-categories-review-estimate>
               {t("dictionary.categories.review.estimate", {
                 count: request.words.length,
-                tokens: format(request.estimatedTokens),
+                tokensText: approxTokens(t, request.estimatedTokens),
               })}
             </p>
           </div>
@@ -602,7 +602,7 @@ export default function DictionaryCategories({
             {savings
               ? t("dictionary.categories.notes.wordSet", {
                   count: savings.words,
-                  tokens: format(savings.tokens),
+                  tokensText: approxTokens(t, savings.tokens),
                 })
               : t("dictionary.categories.notes.wordSetUnavailable")}{" "}
             <span className="text-muted-foreground">

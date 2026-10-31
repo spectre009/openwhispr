@@ -24,6 +24,7 @@ import { reviewModelOptions, type ReviewModelOption } from "../../services/dicti
 import { describeProviderError, openProviderSettings } from "../../utils/describeProviderError";
 import type { DictionaryListItem } from "../../utils/dictionaryList";
 import type { DictionaryTidyOp } from "../../types/electron";
+import { approxTokens } from "./dictionaryLabels";
 
 // Tidy up's last group: "Ask a model". A select of the configured models that
 // can review the list (the Cleanup, Chat and Voice Assistant models,
@@ -203,7 +204,7 @@ export default function DictionaryTidyReview({
           <p data-tidy-review-estimate className="text-[11px] text-muted-foreground">
             {t("dictionary.tidy.review.estimate", {
               count: request.words.length,
-              tokens: request.estimatedTokens.toLocaleString(i18n.language),
+              tokensText: approxTokens(t, request.estimatedTokens),
             })}
           </p>
         )}

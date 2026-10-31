@@ -3636,8 +3636,8 @@
         "typedPinned": "手动输入和已固定的词语",
         "none": "不包含"
       },
-      "count_one": "{{count}} 个词语 · 约 {{tokens}} 个 token",
-      "count_other": "{{count}} 个词语 · 约 {{tokens}} 个 token",
+      "count_one": "{{count}} 个词语 · {{tokensText}}",
+      "count_other": "{{count}} 个词语 · {{tokensText}}",
       "sendsAll": "目前发送所有词语",
       "missedUnavailable": "语音识别常漏掉的词语根据你的本地历史记录统计。在历史记录关闭或仍在统计时，整理会收到所有词语，其步骤中也会注明。",
       "categoriesUnavailable": "哪些词是日常用词，取决于在这台电脑上整理出的分类。分类准备好之前，整理会收到所有词语，它的步骤也会注明。",
@@ -4709,6 +4709,7 @@
       "label_one": "词典，{{count}} 个词",
       "label_other": "词典，{{count}} 个词",
       "rowLabel": "{{word}}，{{source}}，{{coverage}}",
+      "keyboardHelp": "上下方向键在词语间移动，空格键选择，Shift 扩展选择，Enter 打开词语，F2 编辑拼写，Delete 删除，C 更改分类，Alt 加上下方向键移动已固定的词语。",
       "searchLabel": "筛选词语",
       "searchPlaceholder": "筛选词语",
       "clearSearch": "清除筛选",
@@ -4812,12 +4813,12 @@
       "cleanup": {
         "label": "清理提示词",
         "title": "清理提示词",
-        "tokens": "每次清理约 {{tokens}} 个 token",
+        "tokens": "每次清理{{tokensText}}",
         "off": "清理已关闭",
         "sends": "发送：{{set}}",
         "grouped": "按分类列出",
-        "monthly": "每月约 {{tokens}} 个 token",
-        "monthlyDetail": "按你的听写频率，每月约 {{tokens}} 个 token",
+        "monthly": "每月{{tokensText}}",
+        "monthlyDetail": "按你的听写频率，每月{{tokensText}}",
         "monthlyUnavailable": "月度估算需要本地历史记录。",
         "compareTitle": "按词语集合统计的清理",
         "compareRow_one": "{{count}} 次听写 · 平均 {{words}} 个词",
@@ -4829,13 +4830,19 @@
       "chat": {
         "label": "聊天和语音助手",
         "title": "聊天和语音助手",
-        "tokens": "每条消息约 {{tokens}} 个 token",
-        "tokensDetail": "每条消息约 {{tokens}} 个 token",
+        "tokens": "每条消息{{tokensText}}",
+        "tokensDetail": "每条消息{{tokensText}}",
         "allWords_one": "全部 {{count}} 个词",
         "allWords_other": "全部 {{count}} 个词",
         "sameList": "整个列表，附加到系统提示词中。",
         "snippets": "术语表的拼写和片段触发词也会列出。"
       }
+    },
+    "tokens": {
+      "approx_one": "约 {{count, number}} 个 token",
+      "approx_other": "约 {{count, number}} 个 token",
+      "approxCompact_one": "约 {{count, number(notation: compact; maximumFractionDigits: 1)}} 个 token",
+      "approxCompact_other": "约 {{count, number(notation: compact; maximumFractionDigits: 1)}} 个 token"
     },
     "detail": {
       "label": "{{word}} 的详情",
@@ -5037,6 +5044,8 @@
         "kept_other": "已保留 {{count}} 个",
         "failed_one": "{{count}} 项无法应用",
         "failed_other": "{{count}} 项无法应用",
+        "skipped_one": "{{count}} 项已跳过：选择相互冲突",
+        "skipped_other": "{{count}} 项已跳过：选择相互冲突",
         "nothing": "没有任何改动。"
       },
       "review": {
@@ -5053,8 +5062,8 @@
         "ask": "询问模型",
         "cancel": "取消",
         "running": "正在询问 {{model}}…",
-        "estimate_one": "发送你的 {{count}} 个词及其来源和计数，绝不发送你的听写内容。一次请求，约 {{tokens}} 个 token。",
-        "estimate_other": "发送你的 {{count}} 个词及其来源和计数，绝不发送你的听写内容。一次请求，约 {{tokens}} 个 token。",
+        "estimate_one": "发送你的 {{count}} 个词及其来源和计数，绝不发送你的听写内容。一次请求，{{tokensText}}。",
+        "estimate_other": "发送你的 {{count}} 个词及其来源和计数，绝不发送你的听写内容。一次请求，{{tokensText}}。",
         "noModels": "没有已配置的模型可以检查这个列表。请在设置中配置清理、聊天或语音助手模型。",
         "kept_one": "{{count}} 条建议。",
         "kept_other": "{{count}} 条建议。",
@@ -5096,6 +5105,7 @@
       "pill": {
         "label": "{{word}} 的分类：{{category}}（{{who}}）。更改",
         "title": "{{category}} · 设置者：{{who}}",
+        "titleRow": "{{category}} · 设置者：{{who}}（C）",
         "menuTitle": "“{{word}}”的分类",
         "automatic": "自动（{{category}}）"
       },
@@ -5118,8 +5128,8 @@
       },
       "review": {
         "title": "让模型检查",
-        "estimate_one": "发送你的 {{count}} 个词及其当前分类，绝不发送你的听写内容。一次请求，约 {{tokens}} 个 token。",
-        "estimate_other": "发送你的 {{count}} 个词及其当前分类，绝不发送你的听写内容。一次请求，约 {{tokens}} 个 token。",
+        "estimate_one": "发送你的 {{count}} 个词及其当前分类，绝不发送你的听写内容。一次请求，{{tokensText}}。",
+        "estimate_other": "发送你的 {{count}} 个词及其当前分类，绝不发送你的听写内容。一次请求，{{tokensText}}。",
         "ask": "询问",
         "failed": "模型无法检查分类。",
         "stale": "模型处理期间你的词典或分类发生了变化，所以它的建议已被丢弃。请再问一次。",
@@ -5159,8 +5169,8 @@
         "groupingOff": "目前已关闭。",
         "openSettings": "在设置中打开",
         "wordSetLabel": "整理使用的词语",
-        "wordSet_one": "“除日常用词外的所有词语”会去掉 {{count}} 个词（每次整理约 {{tokens}} 个 token）。",
-        "wordSet_other": "“除日常用词外的所有词语”会去掉 {{count}} 个词（每次整理约 {{tokens}} 个 token）。",
+        "wordSet_one": "“除日常用词外的所有词语”会去掉 {{count}} 个词（每次整理{{tokensText}}）。",
+        "wordSet_other": "“除日常用词外的所有词语”会去掉 {{count}} 个词（每次整理{{tokensText}}）。",
         "wordSetUnavailable": "分类准备好后，“除日常用词外的所有词语”会去掉你的日常用词。",
         "wordSetNow": "当前：{{set}}。",
         "tidyLabel": "整理",
@@ -7007,11 +7017,11 @@
       "endpointErrors": {
         "invalidUrl": "这不是有效的 URL。",
         "httpsRequired": "端点必须以 https:// 开头。",
-        "host": "这不是 Azure Speech 端点。它以 .cognitiveservices.azure.com 或 .api.cognitive.microsoft.com 结尾。",
+        "host": "这不是 Azure Speech 端点。它以 .cognitiveservices.azure.com、.services.ai.azure.com（Azure AI Foundry）或 .api.cognitive.microsoft.com 结尾。",
         "resourceOnly": "只粘贴资源端点，例如 https://<resource>.cognitiveservices.azure.com，不要包含路径、端口或查询参数。"
       },
       "endpointLabel": "资源端点",
-      "help": "粘贴 Speech 资源“Keys and Endpoint”页面中的端点和一个密钥。"
+      "help": "粘贴 Speech 资源“Keys and Endpoint”页面中的端点和一个密钥。也可以使用 Foundry 端点（.services.ai.azure.com，包括项目端点），它会保存为同一资源的 .cognitiveservices.azure.com 地址。"
     }
   },
   "modelPicker": {

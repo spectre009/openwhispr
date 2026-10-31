@@ -558,3 +558,14 @@ test("Storage holds recordings and the inventory: moved ids keep their names, se
     assert.ok(ids.includes(id), `"${query}" finds ${id} (${ids.slice(0, 5).join(", ")})`);
   }
 });
+
+test("Azure Speech's connection is found by the names Foundry shows it under", async () => {
+  const { index, rankSettings } = await searchIndex(makeContext());
+  for (const query of ["foundry", "azure ai foundry", "services.ai", "services.ai.azure.com"]) {
+    const ids = rankSettings(index, query).map((result) => result.entry.id);
+    assert.ok(
+      ids.includes("connections.azureSpeech"),
+      `"${query}" finds connections.azureSpeech (${ids.slice(0, 5).join(", ")})`
+    );
+  }
+});

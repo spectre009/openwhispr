@@ -32,14 +32,32 @@ test("the endpoint: https, a Speech resource's origin only", async () => {
     "res.cognitiveservices.azure.com": "invalidUrl",
     "ftp://res.cognitiveservices.azure.com": "invalidUrl",
     "http://res.cognitiveservices.azure.com": "httpsRequired",
-    // Azure OpenAI and Foundry hosts take a different header: not this validator's.
+    "http://res.services.ai.azure.com": "httpsRequired",
+    // Azure OpenAI hosts take a different header: not this validator's.
     "https://res.openai.azure.com": "host",
-    "https://res.services.ai.azure.com": "host",
+    "https://services.ai.azure.com": "host",
+    "https://a.b.services.ai.azure.com": "host",
+    "https://res.services.ai.azure.com.evil.example": "host",
     "https://cognitiveservices.azure.com": "host",
     "https://a.b.cognitiveservices.azure.com": "host",
     "https://res.cognitiveservices.azure.com.evil.example": "host",
     "https://example.com": "host",
     "https://res.cognitiveservices.azure.com/speechtotext": "resourceOnly",
+    // A project path is a Foundry endpoint's only: not on the other hosts.
+    "https://res.cognitiveservices.azure.com/api/projects/p1": "resourceOnly",
+    "https://westus2.api.cognitive.microsoft.com/api/projects/p1": "resourceOnly",
+    // On the Foundry host, any other path, a query, fragment or port.
+    "https://res.services.ai.azure.com/openai/v1": "resourceOnly",
+    "https://res.services.ai.azure.com/api/projects": "resourceOnly",
+    "https://res.services.ai.azure.com/api/projects/": "resourceOnly",
+    "https://res.services.ai.azure.com/api/projects/p1/models": "resourceOnly",
+    "https://res.services.ai.azure.com/api/projects/p1//": "resourceOnly",
+    "https://res.services.ai.azure.com/speechtotext/transcriptions:transcribe": "resourceOnly",
+    "https://res.services.ai.azure.com/api/projects/p1?api-version=1": "resourceOnly",
+    "https://res.services.ai.azure.com/api/projects/p1#x": "resourceOnly",
+    "https://res.services.ai.azure.com/?": "resourceOnly",
+    "https://res.services.ai.azure.com:8443": "resourceOnly",
+    "https://user@res.services.ai.azure.com": "resourceOnly",
     [TRANSCRIBE_URL]: "resourceOnly",
     "https://res.cognitiveservices.azure.com/?x=1": "resourceOnly",
     "https://res.cognitiveservices.azure.com/#frag": "resourceOnly",
@@ -51,6 +69,45 @@ test("the endpoint: https, a Speech resource's origin only", async () => {
     assert.equal(isAzureSpeechEndpoint(input), false, input);
   }
   assert.equal(azureSpeechEndpointError(undefined), "required");
+});
+
+test("the Foundry form: the resource or a project, converted to the documented host", async () => {
+  const { azureSpeechEndpointError, azureSpeechOrigin, normalizeAzureSpeechEndpoint } =
+    await load();
+  for (const input of [
+    "https://res.services.ai.azure.com",
+    "https://res.services.ai.azure.com/",
+    "  https://Res.Services.AI.Azure.com  ",
+    "https://res.services.ai.azure.com/api/projects/proj-1",
+    "https://res.services.ai.azure.com/api/projects/proj-1/",
+    "https://res.services.ai.azure.com/api/projects/My_Project.2",
+  ]) {
+    assert.equal(azureSpeechEndpointError(input), null, input);
+    // The same custom subdomain on the host fast transcription documents.
+    assert.equal(azureSpeechOrigin(input), ORIGIN, input);
+    assert.equal(normalizeAzureSpeechEndpoint(input), ORIGIN, input);
+  }
+  // As pasted without a scheme, the field adds https and converts it on blur.
+  assert.equal(normalizeAzureSpeechEndpoint("res.services.ai.azure.com/api/projects/x"), ORIGIN);
+  assert.equal(
+    normalizeAzureSpeechEndpoint("contoso-speech-wus2.services.ai.azure.com"),
+    "https://contoso-speech-wus2.cognitiveservices.azure.com"
+  );
+  // What can't be used stays as typed, so the field can say why.
+  assert.equal(
+    normalizeAzureSpeechEndpoint("https://res.services.ai.azure.com/openai/v1"),
+    "https://res.services.ai.azure.com/openai/v1"
+  );
+  // The other hosts are unchanged: the regional host stays regional.
+  assert.equal(
+    azureSpeechOrigin("https://westus2.api.cognitive.microsoft.com/"),
+    "https://westus2.api.cognitive.microsoft.com"
+  );
+  assert.equal(normalizeAzureSpeechEndpoint("res.cognitiveservices.azure.com"), ORIGIN);
+  assert.equal(
+    normalizeAzureSpeechEndpoint("westus2.api.cognitive.microsoft.com"),
+    "https://westus2.api.cognitive.microsoft.com"
+  );
 });
 
 test("the renderer's validator is the same one (urlUtils re-exports it)", async () => {
@@ -79,6 +136,16 @@ test("the transcribe URL, and the check main makes before sending the key", asyn
   const { buildAzureSpeechTranscribeUrl, isAzureSpeechTranscribeUrl } = await load();
   assert.equal(buildAzureSpeechTranscribeUrl(`${ORIGIN}/`), TRANSCRIBE_URL);
   assert.equal(buildAzureSpeechTranscribeUrl("https://res.openai.azure.com"), null);
+  // A stored, unconverted Foundry value still builds the documented URL.
+  assert.equal(buildAzureSpeechTranscribeUrl("https://res.services.ai.azure.com"), TRANSCRIBE_URL);
+  assert.equal(
+    buildAzureSpeechTranscribeUrl("https://res.services.ai.azure.com/api/projects/proj-1"),
+    TRANSCRIBE_URL
+  );
+  assert.equal(
+    buildAzureSpeechTranscribeUrl("https://westus2.api.cognitive.microsoft.com"),
+    "https://westus2.api.cognitive.microsoft.com/speechtotext/transcriptions:transcribe?api-version=2025-10-15"
+  );
   assert.equal(isAzureSpeechTranscribeUrl(TRANSCRIBE_URL), true);
   for (const url of [
     ORIGIN,
@@ -86,6 +153,9 @@ test("the transcribe URL, and the check main makes before sending the key", asyn
     `${ORIGIN}/speechtotext/transcriptions:transcribe?api-version=2024-11-15`,
     "https://res.openai.azure.com/speechtotext/transcriptions:transcribe?api-version=2025-10-15",
     "https://evil.example/speechtotext/transcriptions:transcribe?api-version=2025-10-15",
+    // The key never goes to the services.ai host, though the field accepts it.
+    "https://res.services.ai.azure.com/speechtotext/transcriptions:transcribe?api-version=2025-10-15",
+    "https://res.services.ai.azure.com/api/projects/p/speechtotext/transcriptions:transcribe?api-version=2025-10-15",
     null,
   ]) {
     assert.equal(isAzureSpeechTranscribeUrl(url), false, String(url));
@@ -164,6 +234,23 @@ test("the request main sends: the key header, `audio` and `definition`, or nothi
   assert.equal(
     buildAzureSpeechRequest({ endpoint: TRANSCRIBE_URL, apiKey: "k" }).endpoint,
     TRANSCRIBE_URL
+  );
+  // A stored Foundry value goes to the documented host; a transcribe URL on
+  // the services.ai host builds nothing, so no key is paired with it.
+  assert.equal(
+    buildAzureSpeechRequest({
+      endpoint: "https://res.services.ai.azure.com/api/projects/proj-1",
+      apiKey: "k",
+    }).endpoint,
+    TRANSCRIBE_URL
+  );
+  assert.equal(
+    buildAzureSpeechRequest({
+      endpoint:
+        "https://res.services.ai.azure.com/speechtotext/transcriptions:transcribe?api-version=2025-10-15",
+      apiKey: "k",
+    }),
+    null
   );
   assert.equal(buildAzureSpeechRequest({ endpoint: "https://evil.example", apiKey: "k" }), null);
 });
@@ -259,12 +346,23 @@ test("the route: a translation from Auto never sends the ordinary preferred lang
 
 test("the route fails closed without a valid endpoint, never falling through", async () => {
   const { resolveTranscriptionRoute } = await loadRoute();
+  // A stored Foundry value the field hasn't converted yet (it saves as typed
+  // until it's left) still routes to the documented host.
+  for (const azureSpeechEndpoint of [
+    "https://res.services.ai.azure.com",
+    "https://res.services.ai.azure.com/api/projects/proj-1",
+  ]) {
+    const route = resolveTranscriptionRoute({ settings: azureSettings({ azureSpeechEndpoint }) });
+    assert.equal(route.transport, "azure-speech", azureSpeechEndpoint);
+    assert.equal(route.endpoint, TRANSCRIBE_URL, azureSpeechEndpoint);
+  }
   for (const azureSpeechEndpoint of [
     undefined,
     "",
     "https://res.openai.azure.com",
     "https://api.openai.com/v1",
     `${ORIGIN}/speechtotext`,
+    "https://res.services.ai.azure.com/openai/v1",
   ]) {
     const route = resolveTranscriptionRoute({ settings: azureSettings({ azureSpeechEndpoint }) });
     assert.deepEqual(

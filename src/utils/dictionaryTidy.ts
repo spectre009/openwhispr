@@ -10,6 +10,9 @@
 // selected. Glossary spellings and snippet triggers are never suggested for
 // removal. A check that needs History says so instead of reading 0/0 as
 // "speech gets it right".
+//
+// planTidyBatch (at the end) turns the choices the user applies at once into
+// one consistent batch before main runs it, so no choice undoes another.
 
 import { dictionaryWordKey } from "./dictionaryWordKey.js";
 import { editDistance, similarWordGroups, spellingKey } from "./dictionarySimilar";
@@ -601,4 +604,232 @@ export function tidyItemOps(item: TidyItem, choice: TidyChoice = {}): Dictionary
     default:
       return [];
   }
+}
+
+// ─── Planning a batch ───
+// Main runs a batch's operations in the order given, each through the
+// dictionary's own operations (database.js, applyDictionaryTidy). Collected
+// from several items, the choices could undo each other there: "remove X"
+// before "respell typo → X" renames the typo to X, so X is back; a chain
+// ("a → b", "b → c") in the wrong order re-creates b. planTidyBatch gives every
+// word one fate first, by exact spelling (main finds a word by its exact
+// spelling before its key), and emits a batch with no such order:
+//   1. each phrase to add (adding it removes its parts);
+//   2. every surviving move as a respell from its exact source to its final
+//      destination (main renames when that's free and merges into it when it
+//      exists, so a merge never runs before its target does);
+//   3. one removal with every removed word, so Undo restores them together.
+
+/** A batch as main should run it, and what it left out. */
+export interface TidyBatchPlan {
+  ops: DictionaryTidyOp[];
+  /** Words kept because the batch's choices for them conflict. */
+  skipped: number;
+}
+
+type TidyFate = { kind: "remove" } | { kind: "move"; to: string } | { kind: "conflict" };
+
+/** Where a spelling lands: a word the batch or the dictionary knows, or a new spelling. */
+interface TidyHop {
+  node: string | null;
+  spelling: string;
+}
+
+/**
+ * The batch main should run for these choices. Each word named gets one fate:
+ * removed (a removal, or a phrase's part), moved (respell or merge), or kept.
+ * - A removal and a move of the same word: the removal wins. Duplicates collapse.
+ * - Two moves of one word to different places, or moves in a cycle ("a → b",
+ *   "b → a", longer ones too): conflicting choices, all skipped, the words
+ *   kept and counted in `skipped`. Never a move onto itself.
+ * - A move follows its destination's own fate to the end (the exact spelling
+ *   first; else the one word with its key, as main resolves it, unless that
+ *   word is moving to this very spelling too); one that ends at a removed word
+ *   becomes a removal of its source.
+ * - A phrase to add whose spelling the batch removes or moves isn't added;
+ *   its parts are still removed. A move into a part is a move into a removed word.
+ * `liveWords` are the dictionary's words (exact spellings) as the page shows them.
+ */
+export function planTidyBatch(
+  ops: readonly DictionaryTidyOp[],
+  liveWords: readonly string[] = []
+): TidyBatchPlan {
+  const text = (value: unknown) => (typeof value === "string" ? value.trim() : "");
+  const order = new Map<string, number>();
+  const see = (word: string) => {
+    if (!order.has(word)) order.set(word, order.size);
+  };
+  const removed = new Set<string>();
+  const destinations = new Map<string, string[]>();
+  const phrases = new Map<string, string[]>();
+
+  for (const op of Array.isArray(ops) ? ops : []) {
+    switch (op?.kind) {
+      case "remove":
+        for (const word of (Array.isArray(op.words) ? op.words : []).map(text)) {
+          if (!word) continue;
+          see(word);
+          removed.add(word);
+        }
+        break;
+      case "merge":
+      case "respell": {
+        const from = text(op.from);
+        const to = text(op.kind === "merge" ? op.into : op.to);
+        if (!from || !to || from === to) break;
+        see(from);
+        const list = destinations.get(from) ?? [];
+        if (!list.includes(to)) list.push(to);
+        destinations.set(from, list);
+        break;
+      }
+      case "add-phrase": {
+        const phrase = text(op.phrase);
+        const phraseKey = dictionaryWordKey(phrase);
+        if (!phraseKey) break;
+        const list = phrases.get(phrase) ?? [];
+        for (const part of (Array.isArray(op.parts) ? op.parts : []).map(text)) {
+          // Main never removes a part spelled like the phrase.
+          if (!part || dictionaryWordKey(part) === phraseKey) continue;
+          see(part);
+          removed.add(part);
+          if (!list.includes(part)) list.push(part);
+        }
+        if (list.length > 0) phrases.set(phrase, list);
+        break;
+      }
+      default:
+        break;
+    }
+  }
+
+  // Every spelling the batch or the dictionary knows, by key.
+  const known = new Set<string>([...liveWords.map(text).filter(Boolean), ...order.keys()]);
+  const byKey = new Map<string, string[]>();
+  for (const word of known) {
+    const key = dictionaryWordKey(word);
+    if (!key) continue;
+    const list = byKey.get(key);
+    if (list) list.push(word);
+    else byKey.set(key, [word]);
+  }
+  const resolve = (spelling: string, from: string | null): TidyHop => {
+    if (known.has(spelling)) return { node: spelling, spelling };
+    const candidates = (byKey.get(dictionaryWordKey(spelling)) ?? []).filter(
+      (word) => word !== from
+    );
+    // No word with its key: a new spelling. Several: main picks one; removals run last.
+    if (candidates.length !== 1) return { node: null, spelling };
+    const [node] = candidates;
+    const own = destinations.get(node);
+    if (!removed.has(node) && own?.length === 1 && own[0] === spelling) {
+      // That word moves to this very spelling too: both end there.
+      return { node: null, spelling };
+    }
+    return { node, spelling };
+  };
+
+  // Fates: a removal wins; destinations landing on one word are one choice.
+  const fates = new Map<string, TidyFate>();
+  for (const word of order.keys()) {
+    if (removed.has(word)) {
+      fates.set(word, { kind: "remove" });
+      continue;
+    }
+    const list = destinations.get(word);
+    if (!list) continue;
+    const landings = new Map<string, string>();
+    for (const to of list) {
+      const hop = resolve(to, word);
+      if (hop.node === word) continue;
+      const landing = hop.node !== null ? `word:${hop.node}` : `new:${hop.spelling}`;
+      if (!landings.has(landing)) landings.set(landing, to);
+    }
+    if (landings.size === 0) continue;
+    fates.set(
+      word,
+      landings.size > 1 ? { kind: "conflict" } : { kind: "move", to: [...landings.values()][0] }
+    );
+  }
+
+  // Each move's next word (null: a new spelling or nothing the batch moves).
+  const edges = new Map<string, TidyHop>();
+  for (const [word, fate] of fates) {
+    if (fate.kind === "move") edges.set(word, resolve(fate.to, word));
+  }
+  const isMove = (word: string | null): word is string =>
+    word !== null && fates.get(word)?.kind === "move";
+
+  // Cycles: every move in one is a conflict.
+  const visit = new Map<string, "open" | "done">();
+  for (const start of edges.keys()) {
+    if (visit.has(start)) continue;
+    const path: string[] = [];
+    let current: string | null = start;
+    while (isMove(current) && !visit.has(current)) {
+      visit.set(current, "open");
+      path.push(current);
+      current = edges.get(current)?.node ?? null;
+    }
+    if (current !== null && visit.get(current) === "open") {
+      for (const word of path.slice(path.indexOf(current))) fates.set(word, { kind: "conflict" });
+    }
+    for (const word of path) visit.set(word, "done");
+  }
+
+  // Final destinations: followed to a kept word or a new spelling, or to a removal.
+  const moves: { from: string; to: string; depth: number; index: number }[] = [];
+  const converted = new Set<string>();
+  for (const [word, fate] of fates) {
+    if (fate.kind !== "move") continue;
+    let current = word;
+    let depth = 0;
+    let to: string | null = null;
+    for (;;) {
+      const hop = edges.get(current) ?? { node: null, spelling: current };
+      depth += 1;
+      if (hop.node === null) {
+        to = hop.spelling;
+        break;
+      }
+      const next = fates.get(hop.node);
+      if (next?.kind === "remove") break;
+      if (next?.kind === "move") {
+        current = hop.node;
+        continue;
+      }
+      to = hop.node;
+      break;
+    }
+    if (to === null) converted.add(word);
+    else if (to !== word) moves.push({ from: word, to, depth, index: order.get(word) ?? 0 });
+  }
+  // The word a chain's last step renames goes first; the rest then merge into it.
+  moves.sort((a, b) => a.depth - b.depth || a.index - b.index);
+
+  // Phrases: not added when the batch removes or moves the phrase itself.
+  const phraseOps: DictionaryTidyOp[] = [];
+  const coveredParts = new Set<string>();
+  for (const [phrase, parts] of phrases) {
+    const hop = resolve(phrase, null);
+    const own = hop.node !== null ? fates.get(hop.node) : undefined;
+    if (own?.kind === "remove" || own?.kind === "move") continue;
+    phraseOps.push({ kind: "add-phrase", phrase, parts: [...parts] });
+    for (const part of parts) coveredParts.add(part);
+  }
+
+  const removals = [...order.keys()].filter(
+    (word) => converted.has(word) || (fates.get(word)?.kind === "remove" && !coveredParts.has(word))
+  );
+  let skipped = 0;
+  for (const fate of fates.values()) if (fate.kind === "conflict") skipped += 1;
+
+  return {
+    ops: [
+      ...phraseOps,
+      ...moves.map(({ from, to }) => ({ kind: "respell" as const, from, to })),
+      ...(removals.length > 0 ? [{ kind: "remove" as const, words: removals }] : []),
+    ],
+    skipped,
+  };
 }

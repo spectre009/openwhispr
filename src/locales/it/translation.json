@@ -3636,8 +3636,8 @@
         "typedPinned": "Digitate e fissate",
         "none": "Nessuna"
       },
-      "count_one": "{{count}} parola · ≈ {{tokens}} token",
-      "count_other": "{{count}} parole · ≈ {{tokens}} token",
+      "count_one": "{{count}} parola · {{tokensText}}",
+      "count_other": "{{count}} parole · {{tokensText}}",
       "sendsAll": "Per ora invia tutte le parole",
       "missedUnavailable": "Le parole che il riconoscimento sbaglia vengono contate dalla tua cronologia locale. Finché la cronologia è disattivata o ancora in conteggio, la correzione riceve tutte le parole, e il suo passaggio lo indica.",
       "categoriesUnavailable": "Quali parole sono comuni dipende dalle loro categorie, ordinate su questo computer. Finché non sono pronte, la correzione riceve tutte le parole e il suo passaggio lo indica.",
@@ -4709,6 +4709,7 @@
       "label_one": "Dizionario, {{count}} parola",
       "label_other": "Dizionario, {{count}} parole",
       "rowLabel": "{{word}}, {{source}}, {{coverage}}",
+      "keyboardHelp": "Le frecce su e giù passano da una parola all’altra, Spazio seleziona, Maiusc estende la selezione, Invio apre la parola, F2 ne modifica l’ortografia, Canc la rimuove, C ne cambia la categoria e Alt con freccia su o giù sposta una parola fissata.",
       "searchLabel": "Filtra parole",
       "searchPlaceholder": "Filtra parole",
       "clearSearch": "Cancella filtro",
@@ -4812,12 +4813,12 @@
       "cleanup": {
         "label": "Prompt di pulizia",
         "title": "Prompt di pulizia",
-        "tokens": "≈ {{tokens}} token per pulizia",
+        "tokens": "{{tokensText}} per pulizia",
         "off": "La pulizia è disattivata",
         "sends": "Invia: {{set}}",
         "grouped": "raggruppate per categoria",
-        "monthly": "≈ {{tokens}} token al mese",
-        "monthlyDetail": "≈ {{tokens}} token al mese al tuo ritmo di dettatura",
+        "monthly": "{{tokensText}} al mese",
+        "monthlyDetail": "{{tokensText}} al mese al tuo ritmo di dettatura",
         "monthlyUnavailable": "Una stima mensile richiede la cronologia locale.",
         "compareTitle": "Le tue pulizie per insieme di parole",
         "compareRow_one": "{{count}} dettatura · {{words}} parole in media",
@@ -4829,13 +4830,21 @@
       "chat": {
         "label": "Chat e assistente vocale",
         "title": "Chat e assistente vocale",
-        "tokens": "≈ {{tokens}} token per messaggio",
-        "tokensDetail": "≈ {{tokens}} token per messaggio",
+        "tokens": "{{tokensText}} per messaggio",
+        "tokensDetail": "{{tokensText}} per messaggio",
         "allWords_one": "Tutte le {{count}} parola",
         "allWords_other": "Tutte le {{count}} parole",
         "sameList": "L'intero elenco, aggiunto al prompt di sistema.",
         "snippets": "Sono elencati anche le grafie del glossario e gli attivatori degli snippet."
       }
+    },
+    "tokens": {
+      "approx_one": "≈ {{count, number}} token",
+      "approx_many": "≈ {{count, number}} di token",
+      "approx_other": "≈ {{count, number}} token",
+      "approxCompact_one": "≈ {{count, number(notation: compact; maximumFractionDigits: 1)}} token",
+      "approxCompact_many": "≈ {{count, number(notation: compact; maximumFractionDigits: 1)}} di token",
+      "approxCompact_other": "≈ {{count, number(notation: compact; maximumFractionDigits: 1)}} token"
     },
     "detail": {
       "label": "Dettagli di {{word}}",
@@ -5037,6 +5046,8 @@
         "kept_other": "{{count}} tenute",
         "failed_one": "{{count}} non applicata",
         "failed_other": "{{count}} non applicate",
+        "skipped_one": "{{count}} saltata: scelte in conflitto",
+        "skipped_other": "{{count}} saltate: scelte in conflitto",
         "nothing": "Non è cambiato nulla."
       },
       "review": {
@@ -5053,8 +5064,8 @@
         "ask": "Chiedi a un modello",
         "cancel": "Annulla",
         "running": "Richiesta a {{model}}…",
-        "estimate_one": "Invia la tua {{count}} parola con origine e conteggi, mai le tue dettature. Una richiesta, ≈ {{tokens}} token.",
-        "estimate_other": "Invia le tue {{count}} parole con origine e conteggi, mai le tue dettature. Una richiesta, ≈ {{tokens}} token.",
+        "estimate_one": "Invia la tua {{count}} parola con origine e conteggi, mai le tue dettature. Una richiesta, {{tokensText}}.",
+        "estimate_other": "Invia le tue {{count}} parole con origine e conteggi, mai le tue dettature. Una richiesta, {{tokensText}}.",
         "noModels": "Nessun modello configurato può esaminare l'elenco. Configura un modello di pulizia, chat o assistente vocale nelle Impostazioni.",
         "kept_one": "{{count}} suggerimento.",
         "kept_other": "{{count}} suggerimenti.",
@@ -5096,6 +5107,7 @@
       "pill": {
         "label": "Categoria di {{word}}: {{category}} ({{who}}). Cambiala",
         "title": "{{category}} · scelta da {{who}}",
+        "titleRow": "{{category}} · scelta da {{who}} (C)",
         "menuTitle": "Categoria di «{{word}}»",
         "automatic": "Automatica ({{category}})"
       },
@@ -5118,8 +5130,8 @@
       },
       "review": {
         "title": "Fai controllare a un modello",
-        "estimate_one": "Invia la tua {{count}} parola e la sua categoria attuale, mai le tue dettature. Una richiesta, ≈ {{tokens}} token.",
-        "estimate_other": "Invia le tue {{count}} parole e la loro categoria attuale, mai le tue dettature. Una richiesta, ≈ {{tokens}} token.",
+        "estimate_one": "Invia la tua {{count}} parola e la sua categoria attuale, mai le tue dettature. Una richiesta, {{tokensText}}.",
+        "estimate_other": "Invia le tue {{count}} parole e la loro categoria attuale, mai le tue dettature. Una richiesta, {{tokensText}}.",
         "ask": "Chiedi",
         "failed": "Il modello non è riuscito a controllare le categorie.",
         "stale": "Il dizionario o le sue categorie sono cambiati mentre il modello lavorava, quindi le sue proposte sono state scartate. Chiedi di nuovo.",
@@ -5159,8 +5171,8 @@
         "groupingOff": "È disattivato.",
         "openSettings": "Apri nelle Impostazioni",
         "wordSetLabel": "Parole della correzione",
-        "wordSet_one": "«Tutte le parole tranne quelle comuni» esclude {{count}} parola (≈ {{tokens}} token per correzione).",
-        "wordSet_other": "«Tutte le parole tranne quelle comuni» esclude {{count}} parole (≈ {{tokens}} token per correzione).",
+        "wordSet_one": "«Tutte le parole tranne quelle comuni» esclude {{count}} parola ({{tokensText}} per correzione).",
+        "wordSet_other": "«Tutte le parole tranne quelle comuni» esclude {{count}} parole ({{tokensText}} per correzione).",
         "wordSetUnavailable": "«Tutte le parole tranne quelle comuni» escluderà le tue parole comuni quando le categorie saranno pronte.",
         "wordSetNow": "Ora: {{set}}.",
         "tidyLabel": "Riordina",
@@ -7007,11 +7019,11 @@
       "endpointErrors": {
         "invalidUrl": "Questo URL non è valido.",
         "httpsRequired": "L’endpoint deve iniziare con https://.",
-        "host": "Questo non è un endpoint di Azure Speech. Termina con .cognitiveservices.azure.com o .api.cognitive.microsoft.com.",
+        "host": "Questo non è un endpoint di Azure Speech. Termina con .cognitiveservices.azure.com, .services.ai.azure.com (Azure AI Foundry) o .api.cognitive.microsoft.com.",
         "resourceOnly": "Incolla solo l’endpoint della risorsa, ad esempio https://<resource>.cognitiveservices.azure.com, senza percorso, porta o query."
       },
       "endpointLabel": "Endpoint della risorsa",
-      "help": "Incolla l’endpoint e una chiave dalla pagina Keys and Endpoint della tua risorsa Speech."
+      "help": "Incolla l’endpoint e una chiave dalla pagina Keys and Endpoint della tua risorsa Speech. Va bene anche un endpoint di Foundry (.services.ai.azure.com, anche quello di un progetto): viene salvato come indirizzo .cognitiveservices.azure.com della stessa risorsa."
     }
   },
   "modelPicker": {

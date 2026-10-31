@@ -115,6 +115,23 @@ test("language en, 205 dictionary entries: the key header, `audio` and the defin
   assert.equal(request.init.body.get("prompt"), null);
 });
 
+// The field saves as typed until it's left, so a Foundry value can be stored
+// unconverted: dictation still sends to the documented host, never services.ai.
+for (const azureSpeechEndpoint of [
+  "https://res.services.ai.azure.com",
+  "https://res.services.ai.azure.com/api/projects/proj-1",
+]) {
+  test(`a stored, unconverted Foundry endpoint goes to the cognitiveservices host: ${azureSpeechEndpoint}`, async (t) => {
+    const { manager } = await loadManager(t, baseSettings({ azureSpeechEndpoint }));
+    const requests = captureRequests(t);
+    const result = await manager.processWithOpenAIAPI(recording());
+    assert.equal(result.success, true);
+    assert.equal(requests.length, 1);
+    assert.equal(requests[0].url, TRANSCRIBE_URL);
+    assert.deepEqual(requests[0].init.headers, { "Ocp-Apim-Subscription-Key": "az-key" });
+  });
+}
+
 test("Auto with no dictionary: the model only", async (t) => {
   const { manager } = await loadManager(t, baseSettings({ preferredLanguage: "auto" }));
   const requests = captureRequests(t);

@@ -505,6 +505,23 @@ test(
     assert.equal(endpointField().getAttribute("aria-invalid"), null);
     assert.ok(azureSpeech().textContent.includes("Key saved"));
     assert.ok(!azureSpeech().outerHTML.includes("az-speech-key-123456"), "the key shows masked");
+    // A Foundry project URL is accepted; leaving the field shows the same
+    // resource's documented address, which is what's stored.
+    await type(endpointField(), "res.services.ai.azure.com/api/projects/proj-1");
+    assert.equal(
+      useSettingsStore.getState().azureSpeechEndpoint,
+      "res.services.ai.azure.com/api/projects/proj-1",
+      "written as typed until the field is left"
+    );
+    await leave(endpointField());
+    assert.equal(
+      useSettingsStore.getState().azureSpeechEndpoint,
+      "https://res.cognitiveservices.azure.com",
+      "converted to the cognitiveservices host"
+    );
+    assert.equal(endpointField().value, "https://res.cognitiveservices.azure.com");
+    assert.equal(endpointField().getAttribute("aria-invalid"), null);
+    assert.ok(azureSpeech().textContent.includes("Key saved"));
     await act(() => useSettingsStore.setState({ azureSpeechApiKey: "", azureSpeechEndpoint: "" }));
     // Cloud, off: says so and links to Privacy & Data, never a sign-in.
     const cloud = inFold("cloud");

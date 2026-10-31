@@ -61,14 +61,22 @@ test("the endpoint field says why an endpoint can't be used, and tidies it on bl
   assert.equal(endpoint.validate("https://res.openai.azure.com"), "host");
   assert.equal(endpoint.validate(`${ORIGIN}/speechtotext`), "resourceOnly");
   assert.equal(endpoint.normalize("res.cognitiveservices.azure.com/"), ORIGIN);
+  // A Foundry endpoint (the resource's services.ai host, or one of its
+  // projects) is accepted and stored as the same resource's documented host.
+  assert.equal(endpoint.validate("https://res.services.ai.azure.com"), null);
+  assert.equal(endpoint.validate("https://res.services.ai.azure.com/api/projects/p1"), null);
+  assert.equal(endpoint.normalize("res.services.ai.azure.com/api/projects/p1"), ORIGIN);
+  assert.equal(endpoint.validate("https://res.services.ai.azure.com/openai/v1"), "resourceOnly");
 
   const en = require("../../src/locales/en/translation.json");
   const get = (key) => key.split(".").reduce((node, part) => node?.[part], en);
   assert.equal(typeof get(endpoint.labelKey), "string");
   assert.equal(
     get(endpoint.helpKey),
-    "Paste the endpoint and a key from your Speech resource's Keys and Endpoint page."
+    "Paste the endpoint and a key from your Speech resource's Keys and Endpoint page. A Foundry endpoint (.services.ai.azure.com, a project's too) works as well: it's saved as the same resource's .cognitiveservices.azure.com address."
   );
+  assert.match(get(`${endpoint.errorKeyPrefix}.host`), /\.cognitiveservices\.azure\.com/);
+  assert.match(get(`${endpoint.errorKeyPrefix}.host`), /\.services\.ai\.azure\.com/);
   // Every reason the field can show (an empty field shows none) has its sentence.
   for (const reason of ["invalidUrl", "httpsRequired", "host", "resourceOnly"]) {
     assert.equal(typeof get(`${endpoint.errorKeyPrefix}.${reason}`), "string", reason);

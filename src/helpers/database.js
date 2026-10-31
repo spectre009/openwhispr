@@ -5030,6 +5030,12 @@ class DatabaseManager {
    * it kept (`[{ word, category, source }]`, null: automatic), and a restored
    * word gets its stored category back (`category`, `categorySource`) unless
    * its key has one now (a case variant it was merged into keeps its own).
+   * `restoredIds` (a Set, kept by undoDictionaryTidy across one Undo's steps)
+   * holds the rows this Undo already put back: they were in the dictionary
+   * together with these before the action, so they don't count as another
+   * word holding a spelling (a phrase's part and its case variant, removed by
+   * two steps of one batch); every other live word still does. The rows
+   * restored here are added to it.
    */
   restoreDictionaryWords(
     entries,
@@ -5040,6 +5046,7 @@ class DatabaseManager {
       unpin = [],
       repin = [],
       recategorize = [],
+      restoredIds = null,
       now = () => new Date().toISOString(),
     } = {}
   ) {
@@ -5113,11 +5120,13 @@ class DatabaseManager {
       }
       const removing = new Set(removeWords.map((word) => liveByWord.get(word).id));
       const intoIds = new Set(intoWords.map((word) => liveByWord.get(word).id));
+      const sameUndo = restoredIds instanceof Set ? restoredIds : new Set();
       for (const entry of restoreList) {
         const clash = live.find(
           (row) =>
             !removing.has(row.id) &&
             !intoIds.has(row.id) &&
+            !sameUndo.has(row.id) &&
             dictionaryWordKey(row.word) === entry.key
         );
         if (clash) {
@@ -5150,8 +5159,10 @@ class DatabaseManager {
         if (tombstone) {
           used.add(tombstone.id);
           reactivate.run(entry.word, entry.source, entry.createdAt, tombstone.id);
+          sameUndo.add(tombstone.id);
         } else {
-          insert.run(entry.word, entry.source, randomUUID(), entry.createdAt);
+          const inserted = insert.run(entry.word, entry.source, randomUUID(), entry.createdAt);
+          sameUndo.add(Number(inserted.lastInsertRowid));
         }
       }
       if (this.dictionaryStateReady) {
@@ -5214,6 +5225,8 @@ class DatabaseManager {
     if (!this.db) throw new Error("Database not initialized");
     const list = Array.isArray(steps) ? steps : [];
     let refusal = null;
+    // The rows this Undo has put back so far (restoreDictionaryWords' restoredIds).
+    const restoredIds = new Set();
     try {
       this.db.transaction(() => {
         for (let i = list.length - 1; i >= 0; i -= 1) {
@@ -5239,6 +5252,7 @@ class DatabaseManager {
               unpin: step?.unpin,
               repin: step?.repin,
               recategorize: step?.recategorize,
+              restoredIds,
             });
           }
           if (!result?.success) {

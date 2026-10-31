@@ -9,6 +9,23 @@ import type { DictionaryCoverage, SpeechSetupLabel } from "./useDictionaryCovera
 
 type Translate = (key: string, options?: Record<string, unknown>) => string;
 
+/**
+ * A token estimate as the Dictionary shows it: "≈ 1 token", "≈ 1,234 tokens"
+ * ("≈ 1.3K tokens" with `compact`, the monthly figure), in the UI language's
+ * plural for that number. One plural key (`dictionary.tokens.approx_*`, its
+ * compact twin `approxCompact_*`) selected by `count`, the raw estimate, and
+ * shown through i18next's number formatter (`{{count, number}}`). Every
+ * sentence that carries an estimate takes it as `{{tokensText}}`.
+ */
+export function approxTokens(
+  t: Translate,
+  tokens: number,
+  { compact = false }: { compact?: boolean } = {}
+): string {
+  const count = Number.isFinite(tokens) ? Math.max(0, Math.round(tokens)) : 0;
+  return t(compact ? "dictionary.tokens.approxCompact" : "dictionary.tokens.approx", { count });
+}
+
 export const CLEANUP_SET_KEYS: Record<CleanupDictionarySetting, string> = {
   all: "settingsPage.cleanupDictionary.options.all",
   noEveryday: "settingsPage.cleanupDictionary.options.noEveryday",

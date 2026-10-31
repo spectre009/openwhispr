@@ -30,7 +30,23 @@ function flatten(obj, prefix = "") {
 function getPlaceholders(value) {
   if (typeof value !== "string") return [];
   const matches = value.match(/\{\{\s*([a-zA-Z0-9_.-]+)\s*\}\}/g) || [];
-  return [...new Set(matches.map((match) => match.replace(/\{\{|\}\}/g, "").trim()))].sort();
+  const names = matches.map((match) => match.replace(/\{\{|\}\}/g, "").trim());
+  // A count shown through a formatter ({{count, number}}) is a placeholder
+  // too, compared with its formatter: a locale must format it the same way.
+  for (const match of value.match(FORMATTED_COUNT_GLOBAL) || []) {
+    names.push(match.replace(/\{\{|\}\}|\s+/g, ""));
+  }
+  return [...new Set(names)].sort();
+}
+
+// {{count, number}} or {{count, number(notation: compact)}}: the count,
+// interpolated through one of i18next's formatters. Nothing but `count`.
+const FORMATTED_COUNT = /\{\{count,\s*[a-zA-Z]+(?:\([^(){}]*\))?\}\}/;
+const FORMATTED_COUNT_GLOBAL = new RegExp(FORMATTED_COUNT.source, "g");
+
+/** Whether a plural form interpolates its count: {{count}}, or {{count, <formatter>}}. */
+function interpolatesCount(value) {
+  return value.includes("{{count}}") || FORMATTED_COUNT.test(value);
 }
 
 function arraysEqual(a, b) {
@@ -91,12 +107,12 @@ function checkPlurals(lang, namespace, flat) {
       if (!counts || counts.every((count) => count === 1)) continue;
 
       const value = flat[`${base}_${category}`];
-      if (typeof value === "string" && !value.includes("{{count}}")) {
+      if (typeof value === "string" && !interpolatesCount(value)) {
         console.error(
           `[i18n] Hardcoded count ${lang}/${namespace}: ${base}_${category} also renders for ${counts
             .filter((count) => count !== 1)
             .slice(0, 3)
-            .join(", ")}, so it must interpolate {{count}}`
+            .join(", ")}, so it must interpolate {{count}} (or {{count, <formatter>}})`
         );
         missing = true;
       }

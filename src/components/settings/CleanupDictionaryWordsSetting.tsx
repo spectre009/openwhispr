@@ -15,7 +15,7 @@ import {
   estimateDictionaryTokens,
   selectCleanupDictionary,
 } from "../../utils/snippets";
-import { CLEANUP_SET_KEYS } from "../dictionary/dictionaryLabels";
+import { CLEANUP_SET_KEYS, approxTokens } from "../dictionary/dictionaryLabels";
 
 // Settings › Dictation › Cleanup › "Dictionary words in the cleanup prompt":
 // which dictionary words a cleanup request carries, to experiment with. Each
@@ -113,7 +113,10 @@ export default function CleanupDictionaryWordsSetting() {
               <span className="mt-1 block text-[11px] tabular-nums text-muted-foreground">
                 {optionFallsBack
                   ? t("settingsPage.cleanupDictionary.sendsAll")
-                  : t("settingsPage.cleanupDictionary.count", { count: words, tokens })}
+                  : t("settingsPage.cleanupDictionary.count", {
+                      count: words,
+                      tokensText: approxTokens(t, tokens),
+                    })}
               </span>
             </button>
           );

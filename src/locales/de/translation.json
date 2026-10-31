@@ -3730,8 +3730,8 @@
         "typedPinned": "Eingetippte und angeheftete",
         "none": "Keine"
       },
-      "count_one": "{{count}} Wort · ≈ {{tokens}} Tokens",
-      "count_other": "{{count}} Wörter · ≈ {{tokens}} Tokens",
+      "count_one": "{{count}} Wort · {{tokensText}}",
+      "count_other": "{{count}} Wörter · {{tokensText}}",
       "sendsAll": "Sendet vorerst alle Wörter",
       "missedUnavailable": "Welche Wörter die Spracherkennung verfehlt, wird aus deinem lokalen Verlauf gezählt. Solange der Verlauf aus ist oder noch gezählt wird, bekommt die Bereinigung alle Wörter, und ihr Schritt sagt das.",
       "categoriesUnavailable": "Welche Wörter Alltagswörter sind, ergibt sich aus ihren Kategorien, die auf diesem Computer sortiert werden. Bis sie bereit sind, bekommt die Bereinigung alle Wörter, und ihr Schritt sagt das.",
@@ -5061,6 +5061,7 @@
       "label_one": "Wörterbuch, {{count}} Wort",
       "label_other": "Wörterbuch, {{count}} Wörter",
       "rowLabel": "{{word}}, {{source}}, {{coverage}}",
+      "keyboardHelp": "Pfeil nach oben und unten wechseln zwischen Wörtern, die Leertaste wählt aus, Umschalt erweitert die Auswahl, Eingabe öffnet das Wort, F2 bearbeitet die Schreibweise, Entf entfernt es, C ändert die Kategorie, und Alt mit Pfeil nach oben oder unten verschiebt ein angeheftetes Wort.",
       "searchLabel": "Wörter filtern",
       "searchPlaceholder": "Wörter filtern",
       "clearSearch": "Filter löschen",
@@ -5164,12 +5165,12 @@
       "cleanup": {
         "label": "Bereinigungs-Prompt",
         "title": "Bereinigungs-Prompt",
-        "tokens": "≈ {{tokens}} Tokens pro Bereinigung",
+        "tokens": "{{tokensText}} pro Bereinigung",
         "off": "Bereinigung ist aus",
         "sends": "Sendet: {{set}}",
         "grouped": "nach Kategorie gruppiert",
-        "monthly": "≈ {{tokens}} Tokens im Monat",
-        "monthlyDetail": "≈ {{tokens}} Tokens im Monat bei deinem Diktiertempo",
+        "monthly": "{{tokensText}} im Monat",
+        "monthlyDetail": "{{tokensText}} im Monat bei deinem Diktiertempo",
         "monthlyUnavailable": "Eine Monatsschätzung braucht den lokalen Verlauf.",
         "compareTitle": "Deine Bereinigungen nach Wortauswahl",
         "compareRow_one": "{{count}} Diktat · im Schnitt {{words}} Wörter",
@@ -5181,13 +5182,19 @@
       "chat": {
         "label": "Chat und Sprachassistent",
         "title": "Chat und Sprachassistent",
-        "tokens": "≈ {{tokens}} Tokens pro Nachricht",
-        "tokensDetail": "≈ {{tokens}} Tokens pro Nachricht",
+        "tokens": "{{tokensText}} pro Nachricht",
+        "tokensDetail": "{{tokensText}} pro Nachricht",
         "allWords_one": "Alle {{count}} Wort",
         "allWords_other": "Alle {{count}} Wörter",
         "sameList": "Die ganze Liste, im System-Prompt angehängt.",
         "snippets": "Die Schreibweisen des Glossars und Snippet-Auslöser stehen auch darin."
       }
+    },
+    "tokens": {
+      "approx_one": "≈ {{count, number}} Token",
+      "approx_other": "≈ {{count, number}} Tokens",
+      "approxCompact_one": "≈ {{count, number(notation: compact; maximumFractionDigits: 1)}} Token",
+      "approxCompact_other": "≈ {{count, number(notation: compact; maximumFractionDigits: 1)}} Tokens"
     },
     "detail": {
       "label": "Details zu {{word}}",
@@ -5389,6 +5396,8 @@
         "kept_other": "{{count}} behalten",
         "failed_one": "{{count}} ließ sich nicht anwenden",
         "failed_other": "{{count}} ließen sich nicht anwenden",
+        "skipped_one": "{{count}} übersprungen: widersprüchliche Auswahl",
+        "skipped_other": "{{count}} übersprungen: widersprüchliche Auswahl",
         "nothing": "Nichts geändert."
       },
       "review": {
@@ -5405,8 +5414,8 @@
         "ask": "Modell fragen",
         "cancel": "Abbrechen",
         "running": "{{model}} wird gefragt…",
-        "estimate_one": "Sendet dein {{count}} Wort mit Herkunft und Zählungen, nie deine Diktate. Eine Anfrage, ≈ {{tokens}} Tokens.",
-        "estimate_other": "Sendet deine {{count}} Wörter mit Herkunft und Zählungen, nie deine Diktate. Eine Anfrage, ≈ {{tokens}} Tokens.",
+        "estimate_one": "Sendet dein {{count}} Wort mit Herkunft und Zählungen, nie deine Diktate. Eine Anfrage, {{tokensText}}.",
+        "estimate_other": "Sendet deine {{count}} Wörter mit Herkunft und Zählungen, nie deine Diktate. Eine Anfrage, {{tokensText}}.",
         "noModels": "Kein eingerichtetes Modell kann die Liste prüfen. Richte in den Einstellungen ein Modell für Bereinigung, Chat oder Sprachassistent ein.",
         "kept_one": "{{count}} Vorschlag.",
         "kept_other": "{{count}} Vorschläge.",
@@ -5448,6 +5457,7 @@
       "pill": {
         "label": "Kategorie von {{word}}: {{category}} ({{who}}). Ändern",
         "title": "{{category}} · gesetzt von {{who}}",
+        "titleRow": "{{category}} · gesetzt von {{who}} (C)",
         "menuTitle": "Kategorie von „{{word}}“",
         "automatic": "Automatisch ({{category}})"
       },
@@ -5470,8 +5480,8 @@
       },
       "review": {
         "title": "Von einem Modell prüfen lassen",
-        "estimate_one": "Sendet dein {{count}} Wort und seine aktuelle Kategorie, nie deine Diktate. Eine Anfrage, ≈ {{tokens}} Tokens.",
-        "estimate_other": "Sendet deine {{count}} Wörter und ihre aktuelle Kategorie, nie deine Diktate. Eine Anfrage, ≈ {{tokens}} Tokens.",
+        "estimate_one": "Sendet dein {{count}} Wort und seine aktuelle Kategorie, nie deine Diktate. Eine Anfrage, {{tokensText}}.",
+        "estimate_other": "Sendet deine {{count}} Wörter und ihre aktuelle Kategorie, nie deine Diktate. Eine Anfrage, {{tokensText}}.",
         "ask": "Fragen",
         "failed": "Das Modell konnte die Kategorien nicht prüfen.",
         "stale": "Dein Wörterbuch oder seine Kategorien haben sich geändert, während das Modell arbeitete, deshalb wurden seine Vorschläge verworfen. Frag noch einmal.",
@@ -5511,8 +5521,8 @@
         "groupingOff": "Es ist aus.",
         "openSettings": "In den Einstellungen öffnen",
         "wordSetLabel": "Wörter der Bereinigung",
-        "wordSet_one": "„Alle Wörter außer Alltagswörtern“ lässt {{count}} Wort weg (≈ {{tokens}} Tokens pro Bereinigung).",
-        "wordSet_other": "„Alle Wörter außer Alltagswörtern“ lässt {{count}} Wörter weg (≈ {{tokens}} Tokens pro Bereinigung).",
+        "wordSet_one": "„Alle Wörter außer Alltagswörtern“ lässt {{count}} Wort weg ({{tokensText}} pro Bereinigung).",
+        "wordSet_other": "„Alle Wörter außer Alltagswörtern“ lässt {{count}} Wörter weg ({{tokensText}} pro Bereinigung).",
         "wordSetUnavailable": "„Alle Wörter außer Alltagswörtern“ lässt deine Alltagswörter weg, sobald die Kategorien bereit sind.",
         "wordSetNow": "Jetzt: {{set}}.",
         "tidyLabel": "Aufräumen",
@@ -7007,11 +7017,11 @@
       "endpointErrors": {
         "invalidUrl": "Das ist keine gültige URL.",
         "httpsRequired": "Der Endpunkt muss mit https:// beginnen.",
-        "host": "Das ist kein Azure-Speech-Endpunkt. Er endet auf .cognitiveservices.azure.com oder .api.cognitive.microsoft.com.",
+        "host": "Das ist kein Azure-Speech-Endpunkt. Er endet auf .cognitiveservices.azure.com, .services.ai.azure.com (Azure AI Foundry) oder .api.cognitive.microsoft.com.",
         "resourceOnly": "Fügen Sie nur den Ressourcen-Endpunkt ein, etwa https://<resource>.cognitiveservices.azure.com, ohne Pfad, Port oder Abfrage."
       },
       "endpointLabel": "Ressourcen-Endpunkt",
-      "help": "Fügen Sie den Endpunkt und einen Schlüssel von der Seite „Keys and Endpoint“ Ihrer Speech-Ressource ein."
+      "help": "Fügen Sie den Endpunkt und einen Schlüssel von der Seite „Keys and Endpoint“ Ihrer Speech-Ressource ein. Ein Foundry-Endpunkt (.services.ai.azure.com, auch der eines Projekts) geht ebenfalls: Gespeichert wird die .cognitiveservices.azure.com-Adresse derselben Ressource."
     }
   },
   "modelPicker": {

@@ -38,8 +38,9 @@ import { CATEGORY_NAME_KEYS, categoryKey } from "./categoryStyles";
 import type { DictionaryCategory } from "../../utils/dictionaryCategories";
 
 // The Dictionary's word list: a multi-select listbox (↑/↓ move, Space
-// selects, Shift extends, Enter opens the word, F2 edits, Delete removes),
-// one row per word with its checkbox, pin, source, how often it was used over
+// selects, Shift extends, Enter opens the word, F2 edits, Delete removes, C
+// opens the focused row's category menu; the listbox's description says so),
+// one row per word with its checkbox, pin, source, category, how often it was used over
 // 90 days (speech got it, fixed after speech, as a two-tone bar), when it was
 // added and where the speech model has it. In send order, dividers mark where
 // the model stops reading and where the request stops. Rows are memoized and
@@ -52,6 +53,10 @@ import type { DictionaryCategory } from "../../utils/dictionaryCategories";
 // move the focused one; its ⋯ menu has Move to top, up and down), then
 // "Everything else" under its header. One listbox throughout, so the keys,
 // selection and ranges work across both.
+//
+// A row's category pill isn't a tab stop (one per listbox): C on the focused
+// row opens its menu with the current choice focused, and closing it (a pick,
+// Esc, a click away) puts focus back on the listbox with the same active row.
 
 /** Where a move sends a pinned word. */
 export type PinMove = "top" | "up" | "down";
@@ -97,6 +102,25 @@ export interface DictionaryWordListProps {
 
 const ROW_GRID =
   "grid grid-cols-[1.25rem_minmax(0,1fr)_auto] items-center gap-x-3 @2xl:grid-cols-[1.25rem_minmax(0,1fr)_6rem_minmax(0,9rem)_minmax(0,13rem)_5rem_9.5rem_2rem]";
+
+// The listbox's keys, as aria-keyshortcuts names them (dictionary.list.keyboardHelp says them).
+const KEY_SHORTCUTS = [
+  "ArrowUp",
+  "ArrowDown",
+  "Home",
+  "End",
+  "Space",
+  "Shift+Space",
+  "Control+A",
+  "Enter",
+  "F2",
+  "Delete",
+  "C",
+  "Alt+ArrowUp",
+  "Alt+ArrowDown",
+  "Alt+Home",
+  "Escape",
+].join(" ");
 
 // Where a drop on a row lands: above it, or below it past its middle. A row
 // without a measured height (no layout) takes it above, as the line shows.
@@ -250,6 +274,10 @@ interface RowProps {
   onEditSubmitted: () => void;
   onSetPinned: (word: string, pinned: boolean) => void;
   onSetCategory?: ((word: string, category: DictionaryCategory | null) => void) | null;
+  /** This row's category menu is open, and whether the list's C opened it. */
+  categoryMenu?: "mouse" | "key" | null;
+  onCategoryMenuChange?: (word: string, open: boolean) => void;
+  onCategoryMenuClosed?: () => void;
   /** Only in "Always sent first". */
   pin?: PinnedRowState | null;
   drag?: PinDragHandlers | null;
@@ -332,6 +360,9 @@ const Row = memo(function Row({
   onEditSubmitted,
   onSetPinned,
   onSetCategory = null,
+  categoryMenu = null,
+  onCategoryMenuChange,
+  onCategoryMenuClosed,
   pin = null,
   drag = null,
 }: RowProps) {
@@ -390,7 +421,7 @@ const Row = memo(function Row({
       }}
       className={cn(
         ROW_GRID,
-        "group min-h-10 cursor-pointer border-b border-border/50 px-3 py-1.5 text-xs transition-colors duration-100 last:border-b-0 dark:border-white/8",
+        "group relative min-h-10 cursor-pointer border-b border-border/50 px-3 py-1.5 text-xs transition-colors duration-100 last:border-b-0 dark:border-white/8",
         "[content-visibility:auto] [contain-intrinsic-size:auto_40px]",
         checked ? "bg-primary/8 dark:bg-primary/12" : "hover:bg-muted/50 dark:hover:bg-white/4",
         open &&
@@ -485,7 +516,18 @@ const Row = memo(function Row({
         {source}
       </span>
 
-      <span className="hidden min-w-0 @2xl:block" data-dictionary-row-category>
+      <span
+        className={cn(
+          "min-w-0 @2xl:block",
+          // Below @2xl the column is hidden; while its menu is open (the C key)
+          // the pill stays laid out as a zero-size anchor at the row's end, so
+          // the menu opens by the word rather than in the window's corner.
+          categoryMenu !== null
+            ? "pointer-events-none absolute end-3 top-1/2 size-0 overflow-hidden @2xl:pointer-events-auto @2xl:static @2xl:size-auto @2xl:overflow-visible"
+            : "hidden"
+        )}
+        data-dictionary-row-category
+      >
         {onSetCategory ? (
           <DictionaryCategoryPill
             word={item.word}
@@ -493,6 +535,10 @@ const Row = memo(function Row({
             source={item.categorySource}
             onChange={onSetCategory}
             variant="row"
+            open={categoryMenu !== null}
+            onOpenChange={(open) => onCategoryMenuChange?.(item.word, open)}
+            focusCheckedOnOpen={categoryMenu === "key"}
+            onCloseFocus={onCategoryMenuClosed}
           />
         ) : null}
       </span>
@@ -587,8 +633,20 @@ const DictionaryWordList = forwardRef<HTMLDivElement, DictionaryWordListProps>(
       (index: number) => `${prefix.replace(/:/g, "")}-dictionary-row-${index}`,
       [prefix]
     );
+    const keysHelpId = `${prefix.replace(/:/g, "")}-dictionary-keys`;
     const focusedIndex = focusedWord ? items.findIndex((item) => item.word === focusedWord) : -1;
     const pinnedCount = sections ? Math.max(0, Math.min(sections.pinnedCount, items.length)) : 0;
+
+    // The listbox, for the forwarded ref and for taking focus back from a row's menu.
+    const listboxRef = useRef<HTMLDivElement | null>(null);
+    const setListboxRef = useCallback(
+      (node: HTMLDivElement | null) => {
+        listboxRef.current = node;
+        if (typeof ref === "function") ref(node);
+        else if (ref) ref.current = node;
+      },
+      [ref]
+    );
 
     // The focused row stays in view as it moves.
     useEffect(() => {
@@ -611,6 +669,33 @@ const DictionaryWordList = forwardRef<HTMLDivElement, DictionaryWordListProps>(
       onFocusWord(word);
       onToggle(word, { range: event.shiftKey });
     }, []);
+
+    // ─── A row's category menu: C on the focused row, or a click on its pill ───
+    // One menu at a time, held here; closing it (a pick, Esc, a click away)
+    // gives focus back to the listbox, whose active row is still that row.
+    const [categoryMenu, setCategoryMenu] = useState<{
+      word: string;
+      via: "mouse" | "key";
+    } | null>(null);
+    const onCategoryMenuChange = useCallback((word: string, open: boolean) => {
+      if (open) {
+        // The mouse opened it: the row becomes the active one, as C's is.
+        latest.current.onFocusWord(word);
+        setCategoryMenu({ word, via: "mouse" });
+      } else {
+        setCategoryMenu((current) => (current?.word === word ? null : current));
+      }
+    }, []);
+    const onCategoryMenuClosed = useCallback(() => {
+      listboxRef.current?.focus({ preventScroll: true });
+    }, []);
+    // A row that leaves the list (filtered out, removed) takes its menu with it.
+    const menuWord = categoryMenu?.word ?? null;
+    useEffect(() => {
+      if (menuWord !== null && !items.some((item) => item.word === menuWord)) {
+        setCategoryMenu(null);
+      }
+    }, [items, menuWord]);
 
     // ─── Moving a pinned word: a drop, Alt+↑/↓, Move to top ───
     const latestPins = useRef({ items, pinnedCount, onMovePinned });
@@ -774,6 +859,20 @@ const DictionaryWordList = forwardRef<HTMLDivElement, DictionaryWordListProps>(
           }
           break;
         default:
+          // C opens the focused row's category menu (the C key on a layout
+          // whose letters aren't Latin too). Not with Shift; Ctrl, Alt and
+          // Meta returned above.
+          if (
+            (event.key === "c" ||
+              event.key === "C" ||
+              (event.code === "KeyC" && !/^[a-z]$/i.test(event.key))) &&
+            !event.shiftKey &&
+            current >= 0 &&
+            onSetCategory
+          ) {
+            event.preventDefault();
+            setCategoryMenu({ word: items[current].word, via: "key" });
+          }
           break;
       }
     };
@@ -809,6 +908,9 @@ const DictionaryWordList = forwardRef<HTMLDivElement, DictionaryWordListProps>(
             onEditSubmitted={onEditSubmitted}
             onSetPinned={onSetPinned}
             onSetCategory={onSetCategory}
+            categoryMenu={categoryMenu?.word === item.word ? categoryMenu.via : null}
+            onCategoryMenuChange={onCategoryMenuChange}
+            onCategoryMenuClosed={onCategoryMenuClosed}
             pin={
               inPinned
                 ? {
@@ -827,6 +929,10 @@ const DictionaryWordList = forwardRef<HTMLDivElement, DictionaryWordListProps>(
 
     return (
       <div className="@container">
+        {/* What the listbox's keys do, read with it (aria-describedby). */}
+        <span id={keysHelpId} className="sr-only" data-dictionary-keys-help>
+          {t("dictionary.list.keyboardHelp")}
+        </span>
         <div
           className={cn(
             ROW_GRID,
@@ -847,11 +953,13 @@ const DictionaryWordList = forwardRef<HTMLDivElement, DictionaryWordListProps>(
           <span aria-hidden="true" />
         </div>
         <div
-          ref={ref}
+          ref={setListboxRef}
           role="listbox"
           tabIndex={0}
           aria-multiselectable="true"
           aria-label={label}
+          aria-describedby={keysHelpId}
+          aria-keyshortcuts={KEY_SHORTCUTS}
           aria-activedescendant={focusedIndex >= 0 ? rowId(focusedIndex) : undefined}
           onKeyDown={onKeyDown}
           onFocus={(event) => {

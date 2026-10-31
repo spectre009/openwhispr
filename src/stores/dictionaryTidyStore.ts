@@ -37,6 +37,8 @@ export interface TidySummary {
   added: number;
   kept: number;
   failed: number;
+  /** Words left as they were because the batch's choices for them conflicted (planTidyBatch). */
+  skipped: number;
 }
 
 export interface TidyUndoEntry {
@@ -214,8 +216,22 @@ export function loadCommonWords(): Promise<void> {
 
 let nextUndoId = 1;
 
-function summarize(results: readonly DictionaryTidyOpResult[], kept: number): TidySummary {
-  const summary: TidySummary = { removed: 0, merged: 0, changed: 0, added: 0, kept, failed: 0 };
+// What main applied, by what it did, whatever kind of choice asked for it: a
+// respell that folded into an existing word is a merge, a removal a removal.
+function summarize(
+  results: readonly DictionaryTidyOpResult[],
+  kept: number,
+  skipped = 0
+): TidySummary {
+  const summary: TidySummary = {
+    removed: 0,
+    merged: 0,
+    changed: 0,
+    added: 0,
+    kept,
+    failed: 0,
+    skipped,
+  };
   for (const result of results) {
     if (!result.ok) {
       summary.failed += 1;
@@ -229,24 +245,40 @@ function summarize(results: readonly DictionaryTidyOpResult[], kept: number): Ti
   return summary;
 }
 
+export interface ApplyTidyOptions {
+  /** Words planTidyBatch left out as conflicting choices: the summary says so. */
+  skipped?: number;
+}
+
 /**
- * Applies Tidy up's choices in one batch through main. Each applied choice's
- * Undo steps go on the stack as one entry. Resolves what happened, or null
- * while another change is in flight.
+ * Applies Tidy up's choices in one batch through main (the page plans it
+ * first with planTidyBatch). Each applied choice's Undo steps go on the stack
+ * as one entry. Resolves what happened, or null while another change is in
+ * flight. A batch whose every choice conflicted sends nothing and says so.
  */
-export async function applyTidy(ops: readonly DictionaryTidyOp[]): Promise<TidySummary | null> {
-  if (getState().busy || ops.length === 0) return null;
+export async function applyTidy(
+  ops: readonly DictionaryTidyOp[],
+  { skipped = 0 }: ApplyTidyOptions = {}
+): Promise<TidySummary | null> {
+  if (getState().busy) return null;
+  if (ops.length === 0) {
+    if (skipped <= 0) return null;
+    const summary = summarize([], getState().keptSinceSummary, skipped);
+    setState({ summary, refusal: null, keptSinceSummary: 0 });
+    logger.debug("Tidy up not applied", { ops: 0, skipped }, "settings");
+    return summary;
+  }
   setState({ busy: true, refusal: null });
   try {
     const result = await useSettingsStore.getState().applyDictionaryTidy([...ops]);
     const kept = getState().keptSinceSummary;
     if (result.success === false) {
-      const summary = { ...summarize([], kept), failed: ops.length };
+      const summary = { ...summarize([], kept, skipped), failed: ops.length };
       setState({ summary });
       logger.warn("Tidy up not applied", { code: result.code, ops: ops.length }, "settings");
       return summary;
     }
-    const summary = summarize(result.results, kept);
+    const summary = summarize(result.results, kept, skipped);
     const steps = result.results.flatMap((entry) => (entry.ok ? (entry.undo ?? []) : []));
     const undo =
       steps.length > 0
@@ -270,13 +302,17 @@ export async function applyTidy(ops: readonly DictionaryTidyOp[]): Promise<TidyS
         changed: summary.changed,
         added: summary.added,
         failed: summary.failed,
+        skipped: summary.skipped,
       },
       "settings"
     );
     return summary;
   } catch (error) {
     logger.warn("Tidy up not applied", { error: (error as Error)?.message }, "settings");
-    const summary = { ...summarize([], getState().keptSinceSummary), failed: ops.length };
+    const summary = {
+      ...summarize([], getState().keptSinceSummary, skipped),
+      failed: ops.length,
+    };
     setState({ summary });
     return summary;
   } finally {

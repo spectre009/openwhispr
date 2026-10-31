@@ -324,6 +324,241 @@ test("Undo of a merge between two spellings of one word (a legacy case variant)"
   assert.deepEqual(db.getDictionaryPins(), ["claude"]);
 });
 
+// ─── A planned batch (planTidyBatch, as the page applies it) ─────────────────
+// Each scenario runs in both input orders on a fresh database: the words that
+// survive, what main applied, and an Undo that brings every word back.
+
+let planTidyBatch;
+test.before(async () => {
+  ({ planTidyBatch } = await import("../../src/utils/dictionaryTidy.ts"));
+});
+
+const rm = (...words) => ({ kind: "remove", words });
+const merge = (from, into) => ({ kind: "merge", from, into });
+const respell = (from, to) => ({ kind: "respell", from, to });
+const addPhrase = (phrase, parts) => ({ kind: "add-phrase", phrase, parts });
+
+// The page's apply: planned against the live words, then one batch. The
+// summary counts what main did, as the store's does.
+function applyPlanned(db, ops) {
+  const plan = planTidyBatch(ops, db.getDictionary());
+  const { results } = plan.ops.length > 0 ? db.applyDictionaryTidy(plan.ops) : { results: [] };
+  const count = (field) =>
+    results.reduce((sum, result) => sum + (result.ok ? (result[field] ?? 0) : 0), 0);
+  return {
+    plan,
+    results,
+    summary: {
+      removed: count("removed"),
+      merged: count("merged"),
+      changed: count("renamed"),
+      added: count("added"),
+      failed: results.filter((result) => !result.ok).length,
+      skipped: plan.skipped,
+    },
+    steps: results.flatMap((result) => (result.ok ? (result.undo ?? []) : [])),
+  };
+}
+
+const NO_CHANGE = { removed: 0, merged: 0, changed: 0, added: 0, failed: 0, skipped: 0 };
+const insertLegacy = (db, word, source = "learned") =>
+  db.db
+    .prepare(
+      "INSERT INTO custom_dictionary (word, source, sync_status, created_at) VALUES (?, ?, 'pending', '2026-05-05 05:05:05')"
+    )
+    .run(word, source);
+
+function planned(t, { seed, ops, survivors, summary, check }) {
+  for (const order of ["as collected", "reversed"]) {
+    const ctx = setup(t);
+    if (!ctx) return;
+    const { db, words } = ctx;
+    seed(ctx);
+    const before = [...words()].sort();
+    const applied = applyPlanned(db, order === "reversed" ? [...ops].reverse() : ops);
+    assert.deepEqual([...words()].sort(), [...survivors].sort(), `${order}: what survives`);
+    assert.deepEqual(applied.summary, { ...NO_CHANGE, ...summary }, `${order}: what main applied`);
+    check?.after?.(ctx, applied, order);
+    if (applied.steps.length > 0) {
+      assert.deepEqual(
+        db.undoDictionaryTidy(applied.steps),
+        { success: true, steps: applied.steps.length },
+        `${order}: Undo`
+      );
+    }
+    assert.deepEqual([...words()].sort(), before, `${order}: Undo brings every word back`);
+    check?.undone?.(ctx, order);
+  }
+}
+
+test("planned: a typo respelled into a word the batch removes stays removed (the reported case)", (t) => {
+  // Unplanned, the removal first brings the word back as the typo's new spelling.
+  const raw = setup(t);
+  if (!raw) return;
+  raw.db.applyDictionaryChanges({ add: ["honestly", "honestyl"] }, "learned");
+  raw.db.applyDictionaryTidy([rm("honestly"), respell("honestyl", "honestly")]);
+  assert.deepEqual(raw.words(), ["honestly"], "the bug planTidyBatch prevents");
+
+  planned(t, {
+    seed: ({ db }) => db.applyDictionaryChanges({ add: ["honestly", "honestyl"] }, "learned"),
+    ops: [rm("honestly"), respell("honestyl", "honestly")],
+    survivors: [],
+    summary: { removed: 2 },
+  });
+});
+
+test("planned: keep one (b → a) plus a model respell (a → z): a is renamed, b merged into it", (t) => {
+  planned(t, {
+    seed: ({ db }) => {
+      db.applyDictionaryChanges({ add: ["sharepoint", "share-point"] }, "learned");
+      db.setDictionaryPin("share-point", true);
+    },
+    ops: [merge("share-point", "sharepoint"), respell("sharepoint", "SharePoint")],
+    survivors: ["SharePoint"],
+    summary: { changed: 1, merged: 1 },
+    check: {
+      after: ({ db, row }) => {
+        assert.ok(row("SharePoint"));
+        assert.deepEqual(db.getDictionaryPins(), ["sharepoint"], "the merged word's pin kept");
+      },
+      undone: ({ db }) => assert.deepEqual(db.getDictionaryPins(), ["share-point"]),
+    },
+  });
+});
+
+test("planned: a chain goes to its final word; never re-created", (t) => {
+  planned(t, {
+    seed: ({ db }) => db.applyDictionaryChanges({ add: ["alpha1", "alpha2"] }, "learned"),
+    ops: [respell("alpha1", "alpha2"), respell("alpha2", "alpha3")],
+    survivors: ["alpha3"],
+    summary: { changed: 1, merged: 1 },
+  });
+  // Ending at a removed word, the whole chain goes.
+  planned(t, {
+    seed: ({ db }) => db.applyDictionaryChanges({ add: ["alpha1", "alpha2", "alpha3"] }, "learned"),
+    ops: [respell("alpha1", "alpha2"), respell("alpha2", "alpha3"), rm("alpha3")],
+    survivors: [],
+    summary: { removed: 3 },
+  });
+});
+
+test("planned: 2- and 3-cycles are skipped as conflicting choices, the words kept", (t) => {
+  planned(t, {
+    seed: ({ db }) => db.applyDictionaryChanges({ add: ["grey", "gray"] }, "learned"),
+    ops: [respell("grey", "gray"), respell("gray", "grey")],
+    survivors: ["grey", "gray"],
+    summary: { skipped: 2 },
+  });
+  planned(t, {
+    seed: ({ db }) => db.applyDictionaryChanges({ add: ["a1", "b1", "c1", "x1"] }, "learned"),
+    ops: [respell("a1", "b1"), respell("b1", "c1"), respell("c1", "a1"), respell("x1", "a1")],
+    survivors: ["a1", "b1", "c1"],
+    summary: { merged: 1, skipped: 3 },
+  });
+});
+
+test("planned: a respell of an existing phrase plus its split-phrase item", (t) => {
+  planned(t, {
+    seed: ({ db }) =>
+      db.applyDictionaryChanges({ add: ["Little", "Buddy", "Little buddy"] }, "learned"),
+    ops: [addPhrase("Little buddy", ["Little", "Buddy"]), respell("Little buddy", "Little Buddy")],
+    survivors: ["Little Buddy"],
+    summary: { changed: 1, removed: 2 },
+  });
+});
+
+test("planned: a move into a phrase's part is a removal", (t) => {
+  planned(t, {
+    seed: ({ db }) => db.applyDictionaryChanges({ add: ["Little", "Buddy", "Litle"] }, "learned"),
+    ops: [addPhrase("Little Buddy", ["Little", "Buddy"]), respell("Litle", "Little")],
+    survivors: ["Little Buddy"],
+    summary: { added: 1, removed: 3 },
+  });
+});
+
+test("planned: a removal and a move of one word: removed", (t) => {
+  planned(t, {
+    seed: ({ db }) => db.applyDictionaryChanges({ add: ["foo", "bar"] }, "learned"),
+    ops: [rm("foo"), respell("foo", "bar")],
+    survivors: ["bar"],
+    summary: { removed: 1 },
+  });
+});
+
+test("planned: two different moves of one word: skipped, the word kept", (t) => {
+  planned(t, {
+    seed: ({ db }) => db.applyDictionaryChanges({ add: ["colr"] }, "learned"),
+    ops: [respell("colr", "color"), respell("colr", "colour")],
+    survivors: ["colr"],
+    summary: { skipped: 1 },
+  });
+});
+
+test("planned: CLAUDE → Claude with Claude removed: both gone, Undo restores both together", (t) => {
+  planned(t, {
+    seed: ({ db }) => {
+      db.applyDictionaryChanges({ add: ["Claude"] }, "manual");
+      // A legacy case-variant row, as old databases can hold.
+      insertLegacy(db, "CLAUDE");
+      db.setDictionaryPin("Claude", true);
+      db.setDictionaryCategories([{ word: "Claude", category: "people", source: "user" }]);
+    },
+    ops: [merge("CLAUDE", "Claude"), rm("Claude")],
+    survivors: [],
+    summary: { removed: 2 },
+    check: {
+      after: ({ db }, applied) => {
+        assert.equal(applied.plan.ops.length, 1, "one removal");
+        assert.equal(applied.steps.length, 1, "one snapshot for both");
+        assert.deepEqual(db.getDictionaryPins(), []);
+        assert.deepEqual(db.getDictionaryCategories(), []);
+      },
+      undone: ({ db, row }) => {
+        assert.equal(row("CLAUDE").source, "learned");
+        assert.equal(row("CLAUDE").created_at, "2026-05-05 05:05:05", "its own date");
+        assert.equal(row("Claude").source, "manual");
+        assert.deepEqual(db.getDictionaryPins(), ["claude"], "the pin back once");
+        assert.deepEqual(
+          db.getDictionaryCategories().map((entry) => [entry.key, entry.category, entry.source]),
+          [["claude", "people", "user"]]
+        );
+      },
+    },
+  });
+});
+
+test("planned: NFC-equivalent spellings are removed and restored together", (t) => {
+  const composed = "caf\u00e9";
+  const decomposed = "cafe\u0301";
+  planned(t, {
+    seed: ({ db }) => {
+      db.applyDictionaryChanges({ add: [composed] }, "manual");
+      insertLegacy(db, decomposed);
+    },
+    ops: [merge(decomposed, composed), rm(composed)],
+    survivors: [],
+    summary: { removed: 2 },
+    check: {
+      undone: ({ row }) => {
+        assert.equal(row(composed).source, "manual");
+        assert.equal(row(decomposed).source, "learned");
+      },
+    },
+  });
+});
+
+test("planned: a phrase's part and its case variant removed in one batch come back together", (t) => {
+  planned(t, {
+    seed: ({ db }) => {
+      db.applyDictionaryChanges({ add: ["Little", "Buddy"] }, "learned");
+      insertLegacy(db, "LITTLE");
+    },
+    ops: [addPhrase("Little Buddy", ["Little", "Buddy"]), rm("LITTLE")],
+    survivors: ["Little Buddy"],
+    summary: { added: 1, removed: 3 },
+  });
+});
+
 test("tidy inputs over History: the usage rows, adjacency, and only while History is durable", async (t) => {
   const ctx = setup(t);
   if (!ctx) return;
