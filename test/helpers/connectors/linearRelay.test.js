@@ -13,21 +13,25 @@ const {
 const RELAY = "https://openwhispr.com/auth/linear/callback";
 const silentLogger = { info() {}, warn() {}, error() {} };
 
-// The real loopback flow, with Electron's shell replaced so opening the
-// browser only records the authorize URL.
+// The real loopback flow, with the browser opener replaced so opening the
+// browser only records the authorize URL: a test must never launch the system
+// browser (on Windows the real opener runs explorer.exe for some URLs).
 function loadLoopback(opened) {
-  const paths = [
-    "../../../src/helpers/oauthLoopbackFlow.js",
-    "../../../src/helpers/externalUrlOpener.js",
-  ].map((file) => require.resolve(file));
-  for (const path of paths) delete require.cache[path];
+  const flowPath = require.resolve("../../../src/helpers/oauthLoopbackFlow.js");
+  delete require.cache[flowPath];
   const originalLoad = Module._load;
-  Module._load = function loadWithElectronMock(request, parent, isMain) {
-    if (request === "electron") return { shell: { openExternal: async (url) => opened.push(url) } };
+  Module._load = function loadWithOpenerMock(request, parent, isMain) {
+    if (request === "./externalUrlOpener") {
+      return {
+        openExternalUrl: async (url) => {
+          opened.push(url);
+        },
+      };
+    }
     return originalLoad.call(this, request, parent, isMain);
   };
   try {
-    return require(paths[0]);
+    return require(flowPath);
   } finally {
     Module._load = originalLoad;
   }

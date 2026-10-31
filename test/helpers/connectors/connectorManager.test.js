@@ -1280,16 +1280,26 @@ test("a login that changed during the round trip is kept, and the late one is re
   assert.deepEqual(revoked, [{ accessToken: "late" }]);
 });
 
-// The real loopback flow, with Electron's shell stubbed out.
-function loadLoopbackFlow() {
+// The real loopback flow, with the browser opener replaced: a test must never
+// launch the system browser (on Windows the real opener runs explorer.exe), so
+// opening only records the URL in `opened`.
+function loadLoopbackFlow(opened = []) {
   const Module = require("node:module");
+  const flowPath = require.resolve("../../../src/helpers/oauthLoopbackFlow.js");
+  delete require.cache[flowPath];
   const originalLoad = Module._load;
-  Module._load = function loadWithElectronStub(request, parent, isMain) {
-    if (request === "electron") return { shell: { openExternal: async () => {} } };
+  Module._load = function loadWithOpenerStub(request, parent, isMain) {
+    if (request === "./externalUrlOpener") {
+      return {
+        openExternalUrl: async (url) => {
+          opened.push(url);
+        },
+      };
+    }
     return originalLoad.call(this, request, parent, isMain);
   };
   try {
-    return require("../../../src/helpers/oauthLoopbackFlow.js");
+    return require(flowPath);
   } finally {
     Module._load = originalLoad;
   }
@@ -1304,7 +1314,8 @@ async function until(read) {
 }
 
 test("a second Connect cancels the abandoned sign-in, and only the new login is saved", async () => {
-  const { runOAuthLoopbackFlow } = loadLoopbackFlow();
+  const opened = [];
+  const { runOAuthLoopbackFlow } = loadLoopbackFlow(opened);
   const credentials = memoryCredentials(null, { connectorId: "fake" });
   const launches = [];
   const revoked = [];
@@ -1343,6 +1354,7 @@ test("a second Connect cancels the abandoned sign-in, and only the new login is 
   assert.equal((await second).status, "connected");
   assert.deepEqual(credentials.read("acct-1", "fake").credential, { accessToken: "second" });
   assert.equal(launches.length, 2, "one browser launch per attempt");
+  assert.deepEqual(opened, ["https://example.test/authorize", "https://example.test/authorize"]);
   assert.deepEqual(revoked, [], "nothing was revoked for the cancelled attempt");
 });
 

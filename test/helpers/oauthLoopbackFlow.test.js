@@ -7,11 +7,27 @@ const Module = require("node:module");
 const loopbackModulePath = require.resolve("../../src/helpers/oauthLoopbackFlow.js");
 const originalLoad = Module._load;
 
-function loadLoopback() {
+// The real loopback flow, with the browser opener replaced: a test must never
+// launch the system browser (on Windows the real opener runs explorer.exe), so
+// opening only records the URL. `opened` collects every URL that would open.
+function loadLoopback(opened = []) {
   delete require.cache[loopbackModulePath];
-  Module._load = function loadWithElectronMock(request, parent, isMain) {
+  Module._load = function loadWithOpenerMock(request, parent, isMain) {
+    if (request === "./externalUrlOpener") {
+      return {
+        openExternalUrl: async (url) => {
+          opened.push(url);
+        },
+      };
+    }
     if (request === "electron") {
-      return { shell: { openExternal() {} } };
+      return {
+        shell: {
+          openExternal() {
+            throw new Error("tests must not open the system browser");
+          },
+        },
+      };
     }
     return originalLoad.call(this, request, parent, isMain);
   };
@@ -23,7 +39,8 @@ function loadLoopback() {
 }
 
 function startFlow(handleCallback = async () => ({ ok: true }), options = {}) {
-  const { runOAuthLoopbackFlow } = loadLoopback();
+  const opened = [];
+  const { runOAuthLoopbackFlow } = loadLoopback(opened);
   let redirectUri;
   let state;
   let authUrlCalls = 0;
@@ -42,7 +59,7 @@ function startFlow(handleCallback = async () => ({ ok: true }), options = {}) {
         redirectUri = uri;
         state = flowState;
         authUrlCalls += 1;
-        return "https://example.test/auth";
+        return `https://example.test/auth?state=${flowState}`;
       },
       handleCallback,
     });
@@ -52,6 +69,7 @@ function startFlow(handleCallback = async () => ({ ok: true }), options = {}) {
       getRedirectUri: () => redirectUri,
       getState: () => state,
       getAuthUrlCalls: () => authUrlCalls,
+      getOpened: () => [...opened],
     };
   } finally {
     http.createServer = originalCreateServer;
@@ -473,10 +491,14 @@ test("a busy fixed port falls through to the next with one browser launch; all b
     await getLocal(`http://127.0.0.1:${free}/?code=c2&state=${started.getState()}`);
     assert.deepEqual(await started.flow, { code: "c2" });
     assert.equal(started.getAuthUrlCalls(), 1, "exactly one browser launch");
+    assert.deepEqual(started.getOpened(), [
+      `https://example.test/auth?state=${started.getState()}`,
+    ]);
 
     const allBusy = startFlow(async () => ({}), { ports: [busy] });
     await assert.rejects(allBusy.flow, (error) => error.code === "ports_busy");
     assert.equal(allBusy.getAuthUrlCalls(), 0);
+    assert.deepEqual(allBusy.getOpened(), []);
   } finally {
     blocker.close();
   }
@@ -529,6 +551,7 @@ test("behind a relay, the public redirect URI goes to the provider and the excha
 
   assert.deepEqual(await started.flow, { code: "c4", redirectUri: RELAY });
   assert.equal(started.getAuthUrlCalls(), 1);
+  assert.deepEqual(started.getOpened(), [`https://example.test/auth?state=${started.getState()}`]);
 });
 
 test("behind a relay, the right port with another nonce is a state mismatch", async () => {
@@ -586,6 +609,7 @@ test("a flow whose signal is already aborted never opens the browser", async () 
   await assert.rejects(started.flow, (error) => error.code === "oauth_cancelled");
   await new Promise((resolve) => setTimeout(resolve, 20));
   assert.equal(started.getAuthUrlCalls(), 0);
+  assert.deepEqual(started.getOpened(), []);
 });
 
 test("an abort after the provider answered lets the exchange finish", async () => {
