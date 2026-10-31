@@ -5,17 +5,10 @@
 
 // Swapping one everyday word for another ("why" -> "what") is a content edit,
 // not vocabulary; learning it would only pad the cleanup prompt. Words under
-// three letters are already dropped, so none are listed here.
-const COMMON_WORDS = new Set(
-  `the and for not with you this but his from they say her she will one all would
-  there their what out about who get which when make can like time just him know
-  take into year your good some could them see other than then now look only come
-  over think also back after use two how our work first well way even new want
-  because any these give day most are was were been has had did does said went
-  made got came took saw knew thought where why here very much many still too again
-  off down never every own same another both each few more less last next while
-  before through under between should might must being have that its yes okay`.split(/\s+/)
-);
+// three letters are already dropped, so none are listed here. The list is
+// shared with Tidy up's "Ordinary words" (ESM, through require(esm)).
+const { CORRECTION_COMMON_WORDS } = require("./correctionCommonWords.js");
+const COMMON_WORDS = new Set(CORRECTION_COMMON_WORDS);
 
 /** Levenshtein edit distance between two strings */
 function editDistance(a, b) {
@@ -202,4 +195,4 @@ function extractCorrections(originalText, fieldValue, existingDictionary) {
   );
 }
 
-module.exports = { extractCorrectionPairs, extractCorrections };
+module.exports = { extractCorrectionPairs, extractCorrections, COMMON_WORDS };

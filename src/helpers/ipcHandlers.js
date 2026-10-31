@@ -815,6 +815,8 @@ class IPCHandlers {
       },
       onComputed: ({ rows, words, ms }) =>
         debugLogger.debug("Dictionary usage counted", { rows, words, ms }, "dictionary"),
+      onTidyComputed: ({ rows, tokens, pairs, ms }) =>
+        debugLogger.debug("Tidy up inputs counted", { rows, tokens, pairs, ms }, "dictionary"),
     });
     // Reviews of dictations (History view): the same owner as step history,
     // saved only while local history is durable for it.
@@ -2984,6 +2986,127 @@ class IPCHandlers {
         return result;
       } catch (error) {
         debugLogger.warn("Dictionary source not set", { error: error.message });
+        return { success: false, code: "FAILED" };
+      }
+    });
+
+    // ─── Tidy up ───
+    // History's aggregates for the checks: the frequent tokens and which
+    // dictionary words sit side by side. Words and counts, for this owner
+    // while local history is durable; logged as counts only.
+    ipcMain.handle("dictionary-tidy-inputs", async () => {
+      try {
+        return await this.dictionaryUsage.getTidyInputs();
+      } catch (error) {
+        debugLogger.warn("Tidy up inputs not counted", { error: error.message }, "dictionary");
+        return { available: false, reason: "unavailable" };
+      }
+    });
+
+    const TIDY_MAX_OPS = 2000;
+    const tidyWords = (value) =>
+      Array.isArray(value)
+        ? value.filter((word) => dictionaryWordArg(word)).slice(0, TIDY_MAX_OPS)
+        : [];
+    const tidyOp = (op) => {
+      switch (op?.kind) {
+        case "remove": {
+          const words = tidyWords(op.words);
+          return words.length ? { kind: "remove", words } : null;
+        }
+        case "merge":
+          return dictionaryWordArg(op.from) && dictionaryWordArg(op.into)
+            ? { kind: "merge", from: op.from, into: op.into }
+            : null;
+        case "respell":
+          return dictionaryWordArg(op.from) && dictionaryWordArg(op.to)
+            ? { kind: "respell", from: op.from, to: op.to }
+            : null;
+        case "add-phrase": {
+          const parts = tidyWords(op.parts);
+          return dictionaryWordArg(op.phrase) && parts.length
+            ? { kind: "add-phrase", phrase: op.phrase, parts }
+            : null;
+        }
+        default:
+          return null;
+      }
+    };
+    const tidyDate = (value) => (typeof value === "string" && value.length <= 40 ? value : null);
+    const tidyEntry = (entry) =>
+      dictionaryWordArg(entry?.word)
+        ? {
+            word: entry.word,
+            source: entry.source === "learned" ? "learned" : "manual",
+            createdAt: tidyDate(entry.createdAt),
+            pinned: entry.pinned === true,
+          }
+        : null;
+    const tidyStep = (step) => {
+      if (step?.rename) {
+        return dictionaryWordArg(step.rename.from) && dictionaryWordArg(step.rename.to)
+          ? { rename: { from: step.rename.from, to: step.rename.to } }
+          : null;
+      }
+      const restore = Array.isArray(step?.restore) ? step.restore.map(tidyEntry) : [];
+      if (restore.some((entry) => !entry)) return null;
+      return {
+        restore,
+        into: tidyWords(step?.into),
+        expect: tidyWords(step?.expect),
+        remove: tidyWords(step?.remove),
+        unpin: tidyWords(step?.unpin),
+      };
+    };
+
+    // Tidy up's choices in one batch, through the dictionary's own operations;
+    // each applied one comes back with the steps that undo it.
+    ipcMain.handle("dictionary-tidy-apply", async (_event, ops) => {
+      if (!Array.isArray(ops) || ops.length === 0 || ops.length > TIDY_MAX_OPS) {
+        return { success: false, code: "INVALID_OP" };
+      }
+      const checked = ops.map(tidyOp);
+      if (checked.some((op) => !op)) return { success: false, code: "INVALID_OP" };
+      try {
+        const result = this.databaseManager.applyDictionaryTidy(checked);
+        const applied = result.results.filter((entry) => entry.ok).length;
+        if (applied > 0) {
+          broadcastDictionaryChange();
+          broadcastToWindows("dictionary-suggestions-updated", { reason: "tidy" });
+        }
+        debugLogger.debug("Dictionary tidied", {
+          ops: checked.length,
+          applied,
+          failed: checked.length - applied,
+        });
+        return result;
+      } catch (error) {
+        debugLogger.warn("Dictionary not tidied", { error: error.message });
+        return { success: false, code: "FAILED" };
+      }
+    });
+
+    // Undo of one Tidy up action: all of its steps or none, refused with the reason.
+    ipcMain.handle("dictionary-tidy-undo", async (_event, steps) => {
+      if (!Array.isArray(steps) || steps.length === 0 || steps.length > TIDY_MAX_OPS) {
+        return { success: false, code: "INVALID_STEP" };
+      }
+      const checked = steps.map(tidyStep);
+      if (checked.some((step) => !step)) return { success: false, code: "INVALID_STEP" };
+      try {
+        const result = this.databaseManager.undoDictionaryTidy(checked);
+        if (result.success) {
+          broadcastDictionaryChange();
+          broadcastToWindows("dictionary-suggestions-updated", { reason: "tidy" });
+        }
+        debugLogger.debug("Dictionary tidy undone", {
+          steps: checked.length,
+          success: result.success,
+          code: result.code ?? null,
+        });
+        return result;
+      } catch (error) {
+        debugLogger.warn("Dictionary tidy not undone", { error: error.message });
         return { success: false, code: "FAILED" };
       }
     });

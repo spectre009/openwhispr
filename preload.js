@@ -336,6 +336,10 @@ contextBridge.exposeInMainWorld("electronAPI", {
   mergeDictionaryWords: (from, into) => ipcRenderer.invoke("dictionary-merge", from, into),
   setDictionarySource: (words, source) =>
     ipcRenderer.invoke("dictionary-set-source", words, source),
+  // Tidy up: History's aggregates (words and counts), a batch of choices, its Undo
+  getDictionaryTidyInputs: () => ipcRenderer.invoke("dictionary-tidy-inputs"),
+  applyDictionaryTidy: (ops) => ipcRenderer.invoke("dictionary-tidy-apply", ops),
+  undoDictionaryTidy: (steps) => ipcRenderer.invoke("dictionary-tidy-undo", steps),
 
   // Note functions
   saveNote: (title, content, noteType, sourceFile, audioDuration, folderId, spaceId) =>

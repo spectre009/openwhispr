@@ -10,6 +10,7 @@ import {
 } from "react";
 import { useTranslation } from "react-i18next";
 import {
+  ClipboardCheck,
   CornerDownLeft,
   Download,
   NotebookPen,
@@ -39,6 +40,8 @@ import DictionarySuggestions from "./DictionarySuggestions";
 import DictionaryWordList from "./dictionary/DictionaryWordList";
 import DictionaryWordDetail from "./dictionary/DictionaryWordDetail";
 import DictionaryWhereItGoes from "./dictionary/DictionaryWhereItGoes";
+import DictionaryTidy from "./dictionary/DictionaryTidy";
+import { useDictionaryTidy } from "./dictionary/useDictionaryTidy";
 import { CLEANUP_SET_KEYS, type CleanupInclusion } from "./dictionary/dictionaryLabels";
 import { useDictionaryCoverage } from "./dictionary/useDictionaryCoverage";
 import { getSettings, useSettingsStore } from "../stores/settingsStore";
@@ -75,7 +78,8 @@ import type { GlossaryRuleInput } from "../types/electron";
 // renames that keep a word's source, date and pin, and a word's detail beside
 // the list (over it below 900 px). Coverage is what the current speech setup
 // actually sends (useDictionaryCoverage); heard/written comes from local
-// History (counts only).
+// History (counts only). Tidy up (its toolbar button, with how many
+// suggestions start selected) replaces the list with its checks and Undo.
 
 const WIDE_PX = 900;
 
@@ -203,6 +207,23 @@ export default function DictionaryView() {
     () => items.filter((item) => item.source === "learned").map((item) => item.word),
     [items]
   );
+
+  // ─── Tidy up ───
+  const tidy = useDictionaryTidy(items, usageAvailable);
+  const [tidyOpen, setTidyOpen] = useState(false);
+  const tidyButtonRef = useRef<HTMLButtonElement>(null);
+  const openTidy = useCallback(() => {
+    setDetailWord(null);
+    setTidyOpen(true);
+  }, []);
+  const closeTidy = useCallback(() => {
+    setTidyOpen(false);
+    requestAnimationFrame(() => tidyButtonRef.current?.focus({ preventScroll: true }));
+  }, []);
+  // An emptied dictionary leaves Tidy up for the empty state.
+  useEffect(() => {
+    if (items.length === 0) setTidyOpen(false);
+  }, [items.length]);
 
   const shownFilter = !usageAvailable && USAGE_FILTERS.has(filter) ? "all" : filter;
   const shownSort = !usageAvailable && USAGE_SORTS.has(sort) ? "sendOrder" : sort;
@@ -749,6 +770,29 @@ export default function DictionaryView() {
             ))}
           </SelectContent>
         </Select>
+        <Button
+          ref={tidyButtonRef}
+          size="sm"
+          variant="outline"
+          data-tidy-open
+          onClick={openTidy}
+          aria-label={
+            tidy.preselectedCount > 0
+              ? t("dictionary.tidy.buttonLabel", { count: tidy.preselectedCount })
+              : undefined
+          }
+        >
+          <ClipboardCheck size={12} />
+          {t("dictionary.tidy.button")}
+          {tidy.preselectedCount > 0 && (
+            <span
+              aria-hidden="true"
+              className="rounded-full bg-primary px-1.5 text-[10.5px] font-semibold tabular-nums text-primary-foreground"
+            >
+              {tidy.preselectedCount}
+            </span>
+          )}
+        </Button>
         <Button size="sm" variant="outline" onClick={() => setShowBulkImport(true)}>
           <Upload size={12} />
           {t("dictionary.import")}
@@ -972,50 +1016,62 @@ export default function DictionaryView() {
             data-dictionary-scroller
           >
             <div className={cn(PAGE_CONTENT_WIDTH_CLASS, "flex flex-col gap-3 px-6 py-5")}>
-              {/* ─── Auto-learn's suggestions, and its setting ─── */}
-              <DictionarySuggestions />
-
-              {userWordCount > 0 && addWordInput}
-              {bulkImport}
-
-              {userWordCount > 0 && (
-                <DictionaryWhereItGoes
-                  coverage={coverage}
-                  expanded={whereExpanded}
-                  onExpandedChange={setWhereExpanded}
-                  onShowSendOrder={showSendOrder}
+              {tidyOpen && userWordCount > 0 ? (
+                <DictionaryTidy
+                  items={items}
+                  model={tidy}
+                  usageAvailable={usageAvailable}
+                  usageReason={usageAvailable ? null : (usageReason ?? usageStatus)}
+                  onClose={closeTidy}
                 />
-              )}
-
-              {/* ─── Agent name (always recognized) ─── */}
-              {userWordCount > 0 && (
-                <div className="flex items-center justify-between gap-3 rounded-xl border border-primary/15 bg-primary/3 px-4 py-3 dark:border-primary/20 dark:bg-primary/6">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <Sparkles size={11} className="text-primary/70 shrink-0" />
-                    <span dir="auto" className="text-xs font-medium text-primary truncate">
-                      {agentName}
-                    </span>
-                  </div>
-                  <span className="text-xs text-foreground/45 shrink-0">
-                    {t("dictionary.agentDefault")}
-                  </span>
-                </div>
-              )}
-
-              {userWordCount === 0 ? (
-                <div
-                  className={cn(
-                    CARD_SURFACE_CLASS,
-                    "relative overflow-hidden rounded-3xl shadow-sm dark:bg-surface-window"
-                  )}
-                >
-                  {emptyState}
-                </div>
               ) : (
                 <>
-                  {toolbar}
-                  {list}
-                  {bulkBar}
+                  {/* ─── Auto-learn's suggestions, and its setting ─── */}
+                  <DictionarySuggestions />
+
+                  {userWordCount > 0 && addWordInput}
+                  {bulkImport}
+
+                  {userWordCount > 0 && (
+                    <DictionaryWhereItGoes
+                      coverage={coverage}
+                      expanded={whereExpanded}
+                      onExpandedChange={setWhereExpanded}
+                      onShowSendOrder={showSendOrder}
+                    />
+                  )}
+
+                  {/* ─── Agent name (always recognized) ─── */}
+                  {userWordCount > 0 && (
+                    <div className="flex items-center justify-between gap-3 rounded-xl border border-primary/15 bg-primary/3 px-4 py-3 dark:border-primary/20 dark:bg-primary/6">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Sparkles size={11} className="text-primary/70 shrink-0" />
+                        <span dir="auto" className="text-xs font-medium text-primary truncate">
+                          {agentName}
+                        </span>
+                      </div>
+                      <span className="text-xs text-foreground/45 shrink-0">
+                        {t("dictionary.agentDefault")}
+                      </span>
+                    </div>
+                  )}
+
+                  {userWordCount === 0 ? (
+                    <div
+                      className={cn(
+                        CARD_SURFACE_CLASS,
+                        "relative overflow-hidden rounded-3xl shadow-sm dark:bg-surface-window"
+                      )}
+                    >
+                      {emptyState}
+                    </div>
+                  ) : (
+                    <>
+                      {toolbar}
+                      {list}
+                      {bulkBar}
+                    </>
+                  )}
                 </>
               )}
             </div>

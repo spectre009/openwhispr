@@ -5189,6 +5189,158 @@
         "pending": "Décompte à partir de l'historique local…",
         "other": "Les décomptes ne sont pas disponibles pour le moment."
       }
+    },
+    "tidy": {
+      "button": "Faire le ménage",
+      "buttonLabel_one": "Faire le ménage, {{count}} suggestion sélectionnée",
+      "buttonLabel_other": "Faire le ménage, {{count}} suggestions sélectionnées",
+      "title_one": "{{count}} mot à examiner",
+      "title_other": "{{count}} mots à examiner",
+      "titleNone": "Rien à examiner",
+      "checking": "Vérification de votre dictionnaire…",
+      "subtitle": "Vérifié sur cet ordinateur à l'instant, avec votre dictionnaire et {{days}} jours d'historique. Rien ne change tant que vous ne choisissez pas.",
+      "subtitleNoHistory": "Vérifié sur cet ordinateur à l'instant, avec votre dictionnaire seulement. Rien ne change tant que vous ne choisissez pas.",
+      "close": "Retour à la liste",
+      "filtersLabel": "Afficher",
+      "all": "Tout",
+      "needsHistory": "Nécessite l'historique local de ce compte",
+      "partial": "Seuls les mots courants qu'ignore l'apprentissage automatique sont listés. Le reste nécessite l'historique local de ce compte.",
+      "empty": "Rien ici.",
+      "capped": "Affichage des {{shown}} premiers sur {{total}}.",
+      "groups": {
+        "variants": {
+          "title": "Même mot, deux graphies",
+          "why": "Choisissez celle que vous voulez écrite. Les autres y sont fusionnées ; un mot saisi ou épinglé le reste."
+        },
+        "plurals": {
+          "title": "Singulier et pluriel",
+          "why": "Les deux formes prennent une place. Gardez celle que vous écrivez, ou aucune si la reconnaissance vocale écrit bien les deux."
+        },
+        "ordinary": {
+          "title": "Mots courants",
+          "why": "Les modèles de reconnaissance vocale les écrivent déjà. Ils prennent des places et attirent d'autres mots vers eux."
+        },
+        "typos": {
+          "title": "Fautes de frappe probables",
+          "why": "Rarement entendus ou écrits, et à une ou deux lettres d'un mot que vous dites souvent."
+        },
+        "fragments": {
+          "title": "Fragments",
+          "why": "Des morceaux de phrases, des nombres ou de la ponctuation, pas du vocabulaire."
+        },
+        "splitPhrases": {
+          "title": "Expressions coupées",
+          "why": "Deux mots que vous dites ensemble. Une expression prend une place et oriente mieux."
+        },
+        "neverHeard": {
+          "title": "Jamais entendus en {{days}} jours",
+          "why": "Appris il y a plus d'un mois et dans aucune dictée depuis. Gardez ceux dont vous aurez besoin."
+        }
+      },
+      "reasons": {
+        "keepWritten_one": "Garde « {{word}} » : écrit {{count}} fois, plus que les autres",
+        "keepWritten_other": "Garde « {{word}} » : écrit {{count}} fois, plus que les autres",
+        "keepTyped": "Garde « {{word}} » : vous l'avez saisi",
+        "keepNewest": "Garde « {{word}} » : le plus récent",
+        "keepProtected": "Garde « {{word}} » : une graphie du glossaire ou un déclencheur d'extrait",
+        "allOrdinary": "Deux mots courants que la reconnaissance vocale écrit bien",
+        "ordinaryLearner": "Un mot courant que l'apprentissage automatique n'apprend plus",
+        "ordinaryHeard_one": "La reconnaissance vocale l'a écrit {{count}} fois sans jamais le manquer",
+        "ordinaryHeard_other": "La reconnaissance vocale l'a écrit {{count}} fois sans jamais le manquer",
+        "typoToken_one": "Proche de « {{target}} », dans {{count}} de vos dictées",
+        "typoToken_other": "Proche de « {{target}} », dans {{count}} de vos dictées",
+        "typoWord": "Proche de « {{target}} », déjà dans votre dictionnaire",
+        "fragment": {
+          "punctuation": "Ponctuation à l'intérieur : un morceau de phrase",
+          "digits": "Uniquement des chiffres : un nombre, pas du vocabulaire",
+          "edge": "Commence ou finit par un tiret ou un point",
+          "short": "Un seul caractère"
+        },
+        "splitPhrase_one": "Côte à côte dans {{together}} sur {{count}} dictée avec « {{word}} »",
+        "splitPhrase_other": "Côte à côte dans {{together}} des {{count}} dictées avec « {{word}} »",
+        "phraseExists": "« {{phrase}} » est déjà dans votre dictionnaire",
+        "neverHeard": "Ajouté {{when}}, dans aucune dictée depuis"
+      },
+      "actions": {
+        "select": "Sélectionner {{word}}",
+        "remove": "Retirer",
+        "keep": "Garder",
+        "keepBoth": "Garder les deux",
+        "keepAll": "Tout garder",
+        "keepOne": "En garder une",
+        "removeAll": "Tout retirer",
+        "neither": "Aucune",
+        "change": "Modifier",
+        "changeTo": "Remplacer par « {{word}} »",
+        "addPhrase": "Ajouter « {{phrase}} »",
+        "removeParts": "Retirer les parties",
+        "spellingLabel": "Quelle graphie de {{words}} garder",
+        "apply_one": "Appliquer {{count}} sélection",
+        "apply_other": "Appliquer {{count}} sélections",
+        "showKept_one": "Réafficher {{count}} suggestion gardée",
+        "showKept_other": "Réafficher {{count}} suggestions gardées"
+      },
+      "undo": {
+        "undo": "Annuler",
+        "undoAll": "Tout annuler ({{count}})",
+        "session": "L'annulation reste possible jusqu'au redémarrage de l'app.",
+        "evidence": "Annuler une fusion ne rétablit pas ce que le mot remplaçait : cela vient de l'historique.",
+        "refused": {
+          "edited": "Impossible d'annuler : « {{word}} » a été modifié depuis.",
+          "exists": "Impossible d'annuler : « {{word}} » est de nouveau dans votre dictionnaire, sous la forme « {{existing}} ».",
+          "intoGone": "Impossible d'annuler : « {{word}} », dans lequel il a été fusionné, n'existe plus.",
+          "other": "Impossible d'annuler."
+        }
+      },
+      "summary": {
+        "removed_one": "{{count}} retiré",
+        "removed_other": "{{count}} retirés",
+        "merged_one": "{{count}} fusionné",
+        "merged_other": "{{count}} fusionnés",
+        "changed_one": "{{count}} modifié",
+        "changed_other": "{{count}} modifiés",
+        "added_one": "{{count}} ajouté",
+        "added_other": "{{count}} ajoutés",
+        "kept_one": "{{count}} gardé",
+        "kept_other": "{{count}} gardés",
+        "failed_one": "{{count}} n'a pas pu être appliqué",
+        "failed_other": "{{count}} n'ont pas pu être appliqués",
+        "nothing": "Rien n'a changé."
+      },
+      "review": {
+        "groupTitle": "Suggestions du modèle",
+        "tag": "IA",
+        "description": "Demandez aussi à un modèle : il repère ce que les règles ne voient pas, comme des noms qui ressemblent à des mots courants, des expressions à garder entières et les graphies à préférer.",
+        "groupWhy": "De {{model}}. Chacune n'est qu'une suggestion : rien ne change tant que vous ne choisissez pas.",
+        "modelLabel": "Modèle à interroger",
+        "roles": {
+          "cleanup": "Nettoyage",
+          "chat": "Chat",
+          "assistant": "Assistant vocal"
+        },
+        "ask": "Demander à un modèle",
+        "cancel": "Annuler",
+        "running": "Interrogation de {{model}}…",
+        "estimate_one": "Envoie votre {{count}} mot avec son origine et ses comptes, jamais vos dictées. Une requête, ≈ {{tokens}} jetons.",
+        "estimate_other": "Envoie vos {{count}} mots avec leur origine et leurs comptes, jamais vos dictées. Une requête, ≈ {{tokens}} jetons.",
+        "noModels": "Aucun modèle configuré ne peut examiner la liste. Configurez un modèle de nettoyage, de chat ou d'assistant vocal dans les paramètres.",
+        "kept_one": "{{count}} suggestion.",
+        "kept_other": "{{count}} suggestions.",
+        "none": "Le modèle ne propose aucun changement.",
+        "dropped_one": "{{count}} a été écartée : elle citait des mots absents de votre dictionnaire ou n'était pas valide.",
+        "dropped_other": "{{count}} ont été écartées : elles citaient des mots absents de votre dictionnaire ou n'étaient pas valides.",
+        "stale": "Votre dictionnaire a changé pendant que le modèle travaillait, ses suggestions ont donc été écartées. Redemandez.",
+        "malformed": "La réponse du modèle n'avait pas le format attendu, rien n'a donc été gardé.",
+        "oversized": "La réponse du modèle était trop volumineuse, rien n'a donc été gardé.",
+        "failed": "Le modèle n'a pas pu examiner la liste.",
+        "keepTag": "Garder",
+        "dismiss": "Masquer",
+        "actions": {
+          "remove": "Retirer",
+          "respell": "Modifier",
+          "merge": "Fusionner"
+        }
+      }
     }
   },
   "support": {

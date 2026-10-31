@@ -4091,7 +4091,7 @@ class DatabaseManager {
    * live word with the new key refuses it (EXISTS, with that word's spelling,
    * so the caller can offer a merge).
    */
-  renameDictionaryWord(from, to, { now = () => new Date().toISOString() } = {}) {
+  renameDictionaryWord(from, to, { now = () => new Date().toISOString(), exact = false } = {}) {
     if (!this.db) throw new Error("Database not initialized");
     const fromWord = typeof from === "string" ? from.trim() : "";
     const word = typeof to === "string" ? to.trim() : "";
@@ -4103,7 +4103,10 @@ class DatabaseManager {
     let result = null;
     this.db.transaction(() => {
       const live = this._liveDictionaryRows();
-      const row = this._findLiveDictionaryRow(live, fromWord);
+      // `exact`: only the spelling given (an Undo, which must not follow an edit made since).
+      const row = exact
+        ? (live.find((candidate) => candidate.word === fromWord) ?? null)
+        : this._findLiveDictionaryRow(live, fromWord);
       if (!row) {
         result = { success: false, code: "NOT_FOUND" };
         return;
@@ -4211,6 +4214,347 @@ class DatabaseManager {
       }
     })();
     return { success: true, changed };
+  }
+
+  // ─── Tidy up: one batch of choices, and the Undo that reverses it ──────
+  // Tidy up applies its choices through the operations above in one
+  // transaction (each choice in its own savepoint, so one that can't apply
+  // leaves the others): a removal through applyDictionaryChanges' delete path
+  // (a hard delete, or a tombstone the next push sends; pins pruned) aimed at
+  // the word's own row; a merge through mergeDictionaryWords; a new spelling
+  // through renameDictionaryWord, merging into the word that already has it on
+  // EXISTS; a phrase added typed through applyDictionaryChanges, then its parts
+  // removed. For each choice that applied it returns the steps that reverse it,
+  // with the full state they need: a removed word's spelling, source, created
+  // date and pin; the word a merge went into and whether the merge pinned it;
+  // a rename's two spellings. undoDictionaryTidy runs them back, all or
+  // nothing. A word's evidence isn't restored: it comes from History.
+
+  // A live row's state, for an Undo to restore it as it was.
+  _dictionaryWordState(row) {
+    const key = dictionaryWordKey(row.word);
+    const pinned =
+      !!this.dictionaryStateReady &&
+      !!this.db.prepare("SELECT 1 FROM dictionary_pins WHERE word_key = ?").get(key);
+    const stored = this.db
+      .prepare("SELECT created_at FROM custom_dictionary WHERE id = ?")
+      .get(row.id);
+    return {
+      word: row.word,
+      source: row.source === "learned" ? "learned" : "manual",
+      createdAt: typeof stored?.created_at === "string" ? stored.created_at : null,
+      pinned,
+    };
+  }
+
+  // Removes words the way applyDictionaryChanges does (_deleteDictionaryRow,
+  // then the pins pruned), each from its own live row: its exact spelling
+  // first, then its key, so a legacy case variant or a deleted row holding the
+  // spelling is never the one removed. Returns the removed words' states.
+  _removeDictionaryWordsForTidy(words) {
+    const stmts = this._dictionaryWriteStatements();
+    const removed = [];
+    for (const word of words) {
+      const row = this._findLiveDictionaryRow(this._liveDictionaryRows(), word);
+      if (!row) continue;
+      const state = this._dictionaryWordState(row);
+      if (this._deleteDictionaryRow(stmts, row)) removed.push(state);
+    }
+    if (removed.length > 0) this._pruneDictionaryPins();
+    return removed;
+  }
+
+  // One merge, and how to reverse it: `from` restored as it was, `into` (which
+  // must still be there) unpinned again when only the merge pinned it.
+  _tidyMerge(from, into, kind = "merge") {
+    const live = this._liveDictionaryRows();
+    const fromRow = this._findLiveDictionaryRow(live, from);
+    const intoRow = fromRow ? this._findLiveDictionaryRow(live, into, fromRow.id) : null;
+    if (!fromRow || !intoRow) return { ok: false, kind, code: "NOT_FOUND" };
+    const fromState = this._dictionaryWordState(fromRow);
+    const intoPinned = this._dictionaryWordState(intoRow).pinned;
+    const merged = this.mergeDictionaryWords(fromRow.word, intoRow.word);
+    if (!merged?.success) return { ok: false, kind, code: merged?.code ?? "FAILED" };
+    const sameKey = dictionaryWordKey(fromRow.word) === dictionaryWordKey(intoRow.word);
+    const unpin = fromState.pinned && !intoPinned && !sameKey ? [merged.word] : [];
+    return {
+      ok: true,
+      kind,
+      merged: 1,
+      undo: [{ restore: [fromState], into: [merged.word], unpin }],
+    };
+  }
+
+  _applyTidyOp(op) {
+    const text = (value) => (typeof value === "string" ? value.trim() : "");
+    const valid = (word) =>
+      !!dictionaryWordKey(word) && word.length <= MAX_DICTIONARY_WORD_CHARS && !/[\r\n]/.test(word);
+    const wordList = (value) =>
+      (Array.isArray(value) ? value : []).map(text).filter((word) => valid(word));
+    switch (op?.kind) {
+      case "remove": {
+        const words = wordList(op.words);
+        if (words.length === 0) return { ok: false, kind: "remove", code: "INVALID_WORD" };
+        const removed = this._removeDictionaryWordsForTidy(words);
+        if (removed.length === 0) return { ok: false, kind: "remove", code: "NOT_FOUND" };
+        return { ok: true, kind: "remove", removed: removed.length, undo: [{ restore: removed }] };
+      }
+      case "merge": {
+        const from = text(op.from);
+        const into = text(op.into);
+        if (!valid(from) || !valid(into)) return { ok: false, kind: "merge", code: "INVALID_WORD" };
+        return this._tidyMerge(from, into);
+      }
+      case "respell": {
+        const from = text(op.from);
+        const to = text(op.to);
+        if (!valid(from) || !valid(to)) return { ok: false, kind: "respell", code: "INVALID_WORD" };
+        const row = this._findLiveDictionaryRow(this._liveDictionaryRows(), from);
+        if (!row) return { ok: false, kind: "respell", code: "NOT_FOUND" };
+        const renamed = this.renameDictionaryWord(row.word, to);
+        if (renamed.success) {
+          if (!renamed.changed) return { ok: true, kind: "respell", renamed: 0, undo: [] };
+          return {
+            ok: true,
+            kind: "respell",
+            renamed: 1,
+            undo: [{ rename: { from: renamed.word, to: row.word } }],
+          };
+        }
+        // The new spelling is another word's: fold this one into it.
+        if (renamed.code === "EXISTS" && renamed.existing) {
+          return this._tidyMerge(row.word, renamed.existing, "respell");
+        }
+        return { ok: false, kind: "respell", code: renamed.code ?? "FAILED" };
+      }
+      case "add-phrase": {
+        const phrase = text(op.phrase);
+        const parts = wordList(op.parts);
+        if (!valid(phrase) || parts.length === 0) {
+          return { ok: false, kind: "add-phrase", code: "INVALID_WORD" };
+        }
+        let added = null;
+        if (!this._findLiveDictionaryRow(this._liveDictionaryRows(), phrase)) {
+          const result = this.applyDictionaryChanges({ add: [phrase] }, "manual");
+          added =
+            result.added > 0
+              ? (this._findLiveDictionaryRow(this._liveDictionaryRows(), phrase)?.word ?? null)
+              : null;
+          if (!added) return { ok: false, kind: "add-phrase", code: "FAILED" };
+        }
+        const phraseKey = dictionaryWordKey(phrase);
+        const removed = this._removeDictionaryWordsForTidy(
+          parts.filter((part) => dictionaryWordKey(part) !== phraseKey)
+        );
+        if (!added && removed.length === 0) {
+          return { ok: false, kind: "add-phrase", code: "NOT_FOUND" };
+        }
+        return {
+          ok: true,
+          kind: "add-phrase",
+          added: added ? 1 : 0,
+          removed: removed.length,
+          undo: [
+            {
+              restore: removed,
+              ...(added ? { remove: [added], expect: [added] } : {}),
+            },
+          ],
+        };
+      }
+      default:
+        return { ok: false, kind: null, code: "INVALID_OP" };
+    }
+  }
+
+  /**
+   * Applies Tidy up's choices in one transaction, each in its own savepoint.
+   * Returns per choice `{ ok, kind, code?, removed?, merged?, renamed?, added?,
+   * undo? }`; `undo` is what undoDictionaryTidy needs to reverse it.
+   */
+  applyDictionaryTidy(ops) {
+    if (!this.db) throw new Error("Database not initialized");
+    const list = Array.isArray(ops) ? ops : [];
+    const results = [];
+    this.db.transaction(() => {
+      for (const op of list) {
+        results.push(this.db.transaction(() => this._applyTidyOp(op))());
+      }
+    })();
+    return { success: true, results };
+  }
+
+  /**
+   * Puts removed words back: a tombstoned row reactivated, a hard-deleted one
+   * inserted again with its original created date, each with its source and
+   * pin, marked for sync (a new row pushes as an add; a tombstone whose
+   * deletion hasn't been pushed yet pushes as an edit of its cloud entry, so
+   * the server's copy is kept). All or nothing, refused when:
+   * - `into`: a word the restored ones were merged into is gone (INTO_GONE);
+   * - `expect` / `remove`: a word the action left is no longer spelled so
+   *   (EDITED);
+   * - another live word now has a restored word's spelling (EXISTS; the
+   *   `into` word of the same key, a case variant it was merged into, doesn't count).
+   * `remove` takes words out in the same transaction (a phrase Tidy up
+   * added); `unpin` unpins words (what a merge pinned).
+   */
+  restoreDictionaryWords(
+    entries,
+    { into = [], expect = [], remove = [], unpin = [], now = () => new Date().toISOString() } = {}
+  ) {
+    if (!this.db) throw new Error("Database not initialized");
+    const restoreList = [];
+    for (const entry of Array.isArray(entries) ? entries : []) {
+      const word = typeof entry?.word === "string" ? entry.word.trim() : "";
+      const key = dictionaryWordKey(word);
+      if (!key || word.length > MAX_DICTIONARY_WORD_CHARS || /[\r\n]/.test(word)) {
+        return { success: false, code: "INVALID_WORD" };
+      }
+      if (restoreList.some((other) => other.word === word)) continue;
+      const createdAt =
+        typeof entry.createdAt === "string" &&
+        /^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(:\d{2}(\.\d{1,6})?)?(Z|[+-]\d{2}:?\d{2})?$/.test(
+          entry.createdAt
+        )
+          ? entry.createdAt
+          : null;
+      restoreList.push({
+        word,
+        key,
+        source: entry.source === "learned" ? "learned" : "manual",
+        createdAt,
+        pinned: entry.pinned === true,
+      });
+    }
+    const words = (value) =>
+      (Array.isArray(value) ? value : [])
+        .filter((word) => typeof word === "string" && word.trim())
+        .map((word) => word.trim());
+    const intoWords = words(into);
+    const expectWords = words(expect);
+    const removeWords = words(remove);
+    const unpinWords = words(unpin);
+
+    let result = null;
+    this.db.transaction(() => {
+      const live = this._liveDictionaryRows();
+      const liveByWord = new Map(live.map((row) => [row.word, row]));
+      for (const word of intoWords) {
+        if (!liveByWord.has(word)) {
+          result = { success: false, code: "INTO_GONE", word };
+          return;
+        }
+      }
+      for (const word of [...expectWords, ...removeWords]) {
+        if (!liveByWord.has(word)) {
+          result = { success: false, code: "EDITED", word };
+          return;
+        }
+      }
+      const removing = new Set(removeWords.map((word) => liveByWord.get(word).id));
+      const intoIds = new Set(intoWords.map((word) => liveByWord.get(word).id));
+      for (const entry of restoreList) {
+        const clash = live.find(
+          (row) =>
+            !removing.has(row.id) &&
+            !intoIds.has(row.id) &&
+            dictionaryWordKey(row.word) === entry.key
+        );
+        if (clash) {
+          result = { success: false, code: "EXISTS", word: entry.word, existing: clash.word };
+          return;
+        }
+      }
+
+      const stmts = this._dictionaryWriteStatements();
+      for (const word of removeWords) this._deleteDictionaryRow(stmts, liveByWord.get(word));
+      const deleted = this.db
+        .prepare(
+          "SELECT id, word FROM custom_dictionary WHERE deleted_at IS NOT NULL ORDER BY id DESC"
+        )
+        .all();
+      const reactivate = this.db.prepare(
+        `UPDATE custom_dictionary SET deleted_at = NULL, word = ?, source = ?,
+           created_at = COALESCE(?, created_at), updated_at = datetime('now'), sync_status = 'pending'
+         WHERE id = ?`
+      );
+      const insert = this.db.prepare(
+        `INSERT INTO custom_dictionary (word, source, client_dict_id, sync_status, created_at, updated_at)
+         VALUES (?, ?, ?, 'pending', COALESCE(?, CURRENT_TIMESTAMP), datetime('now'))`
+      );
+      const pin = this.dictionaryStateReady
+        ? this.db.prepare(
+            "INSERT OR IGNORE INTO dictionary_pins (word_key, pinned_at) VALUES (?, ?)"
+          )
+        : null;
+      const used = new Set();
+      for (const entry of restoreList) {
+        const tombstone =
+          deleted.find((row) => !used.has(row.id) && row.word === entry.word) ??
+          deleted.find((row) => !used.has(row.id) && dictionaryWordKey(row.word) === entry.key);
+        if (tombstone) {
+          used.add(tombstone.id);
+          reactivate.run(entry.word, entry.source, entry.createdAt, tombstone.id);
+        } else {
+          insert.run(entry.word, entry.source, randomUUID(), entry.createdAt);
+        }
+        if (entry.pinned && pin) pin.run(entry.key, now());
+      }
+      if (this.dictionaryStateReady) {
+        const unpinStmt = this.db.prepare("DELETE FROM dictionary_pins WHERE word_key = ?");
+        for (const word of unpinWords) unpinStmt.run(dictionaryWordKey(word));
+      }
+      this._pruneDictionaryPins();
+      result = { success: true, restored: restoreList.length, removed: removeWords.length };
+    })();
+    return result;
+  }
+
+  /**
+   * Reverses one Tidy up action from the steps applyDictionaryTidy returned,
+   * last step first, in one transaction: every step or none. A refusal says
+   * which word and why (EDITED, EXISTS, INTO_GONE).
+   */
+  undoDictionaryTidy(steps) {
+    if (!this.db) throw new Error("Database not initialized");
+    const list = Array.isArray(steps) ? steps : [];
+    let refusal = null;
+    try {
+      this.db.transaction(() => {
+        for (let i = list.length - 1; i >= 0; i -= 1) {
+          const step = list[i];
+          let result;
+          if (step?.rename) {
+            const renamed = this.renameDictionaryWord(step.rename.from, step.rename.to, {
+              exact: true,
+            });
+            result = renamed.success
+              ? { success: true }
+              : {
+                  success: false,
+                  code: renamed.code === "NOT_FOUND" ? "EDITED" : renamed.code,
+                  word: renamed.code === "EXISTS" ? step.rename.to : step.rename.from,
+                  ...(renamed.existing ? { existing: renamed.existing } : {}),
+                };
+          } else {
+            result = this.restoreDictionaryWords(step?.restore ?? [], {
+              into: step?.into,
+              expect: step?.expect,
+              remove: step?.remove,
+              unpin: step?.unpin,
+            });
+          }
+          if (!result?.success) {
+            refusal = result ?? { success: false, code: "FAILED" };
+            throw new Error("Tidy up undo refused");
+          }
+        }
+      })();
+    } catch (error) {
+      if (refusal) return refusal;
+      throw error;
+    }
+    return { success: true, steps: list.length };
   }
 
   /**

@@ -5189,6 +5189,158 @@
         "pending": "Counting from local History…",
         "other": "Counts aren't available right now."
       }
+    },
+    "tidy": {
+      "button": "Tidy up",
+      "buttonLabel_one": "Tidy up, {{count}} suggestion selected",
+      "buttonLabel_other": "Tidy up, {{count}} suggestions selected",
+      "title_one": "{{count}} word needs a look",
+      "title_other": "{{count}} words need a look",
+      "titleNone": "Nothing needs a look",
+      "checking": "Checking your dictionary…",
+      "subtitle": "Checked on this computer just now, using your dictionary and {{days}} days of History. Nothing changes until you choose.",
+      "subtitleNoHistory": "Checked on this computer just now, using your dictionary only. Nothing changes until you choose.",
+      "close": "Back to the list",
+      "filtersLabel": "Show",
+      "all": "All",
+      "needsHistory": "Needs this account's local History",
+      "partial": "Only the everyday words auto-learn ignores are listed. The rest needs this account's local History.",
+      "empty": "Nothing here.",
+      "capped": "Showing the first {{shown}} of {{total}}.",
+      "groups": {
+        "variants": {
+          "title": "Same word, two spellings",
+          "why": "Pick the one you want written. The others are merged into it, and a typed or pinned one stays so."
+        },
+        "plurals": {
+          "title": "Singular and plural",
+          "why": "Both forms take a slot. Keep the one you write, or neither when speech spells both."
+        },
+        "ordinary": {
+          "title": "Ordinary words",
+          "why": "Speech models already spell these. They take slots and pull other words toward them."
+        },
+        "typos": {
+          "title": "Likely typos",
+          "why": "Rarely heard or written, and a letter or two from a word you say often."
+        },
+        "fragments": {
+          "title": "Fragments",
+          "why": "Pieces of sentences, numbers or punctuation, not vocabulary."
+        },
+        "splitPhrases": {
+          "title": "Split phrases",
+          "why": "Two words you say together. One phrase takes one slot and biases better."
+        },
+        "neverHeard": {
+          "title": "Never heard in {{days}} days",
+          "why": "Auto-learned over a month ago and in no dictation since. Keep the ones you'll need."
+        }
+      },
+      "reasons": {
+        "keepWritten_one": "Keeps “{{word}}”: written {{count}} time, more than the others",
+        "keepWritten_other": "Keeps “{{word}}”: written {{count}} times, more than the others",
+        "keepTyped": "Keeps “{{word}}”: you typed it",
+        "keepNewest": "Keeps “{{word}}”: the newest",
+        "keepProtected": "Keeps “{{word}}”: a glossary spelling or snippet trigger",
+        "allOrdinary": "Both are ordinary words speech spells right",
+        "ordinaryLearner": "An everyday word that auto-learn no longer learns",
+        "ordinaryHeard_one": "Speech wrote it {{count}} time and never missed it",
+        "ordinaryHeard_other": "Speech wrote it {{count}} times and never missed it",
+        "typoToken_one": "Close to “{{target}}”, in {{count}} of your dictations",
+        "typoToken_other": "Close to “{{target}}”, in {{count}} of your dictations",
+        "typoWord": "Close to “{{target}}”, already in your dictionary",
+        "fragment": {
+          "punctuation": "Punctuation inside: a piece of a sentence",
+          "digits": "Only digits: a number, not vocabulary",
+          "edge": "Starts or ends with a hyphen or a dot",
+          "short": "A single character"
+        },
+        "splitPhrase_one": "Side by side in {{together}} of the {{count}} dictation with “{{word}}”",
+        "splitPhrase_other": "Side by side in {{together}} of the {{count}} dictations with “{{word}}”",
+        "phraseExists": "“{{phrase}}” is already in your dictionary",
+        "neverHeard": "Added {{when}}, in no dictation since"
+      },
+      "actions": {
+        "select": "Select {{word}}",
+        "remove": "Remove",
+        "keep": "Keep",
+        "keepBoth": "Keep both",
+        "keepAll": "Keep all",
+        "keepOne": "Keep one",
+        "removeAll": "Remove all",
+        "neither": "Neither",
+        "change": "Change",
+        "changeTo": "Change to “{{word}}”",
+        "addPhrase": "Add “{{phrase}}”",
+        "removeParts": "Remove the parts",
+        "spellingLabel": "Which spelling of {{words}} to keep",
+        "apply_one": "Apply {{count}} selected",
+        "apply_other": "Apply {{count}} selected",
+        "showKept_one": "Show {{count}} kept suggestion again",
+        "showKept_other": "Show {{count}} kept suggestions again"
+      },
+      "undo": {
+        "undo": "Undo",
+        "undoAll": "Undo all ({{count}})",
+        "session": "Undo stays available until the app restarts.",
+        "evidence": "Undo after a merge doesn't bring back what the word replaced: that comes from History.",
+        "refused": {
+          "edited": "Can't undo: “{{word}}” was changed since.",
+          "exists": "Can't undo: “{{word}}” is back in your dictionary as “{{existing}}”.",
+          "intoGone": "Can't undo: “{{word}}”, which it was merged into, is gone.",
+          "other": "Couldn't undo."
+        }
+      },
+      "summary": {
+        "removed_one": "Removed {{count}}",
+        "removed_other": "Removed {{count}}",
+        "merged_one": "Merged {{count}}",
+        "merged_other": "Merged {{count}}",
+        "changed_one": "Changed {{count}}",
+        "changed_other": "Changed {{count}}",
+        "added_one": "Added {{count}}",
+        "added_other": "Added {{count}}",
+        "kept_one": "Kept {{count}}",
+        "kept_other": "Kept {{count}}",
+        "failed_one": "{{count}} couldn't be applied",
+        "failed_other": "{{count}} couldn't be applied",
+        "nothing": "Nothing changed."
+      },
+      "review": {
+        "groupTitle": "Model suggestions",
+        "tag": "AI",
+        "description": "Ask a model too: it catches what the rules can't, like names that look like ordinary words, phrases worth keeping whole and spellings to prefer.",
+        "groupWhy": "From {{model}}. Each one is a suggestion: nothing changes until you choose.",
+        "modelLabel": "Model to ask",
+        "roles": {
+          "cleanup": "Cleanup",
+          "chat": "Chat",
+          "assistant": "Voice Assistant"
+        },
+        "ask": "Ask a model",
+        "cancel": "Cancel",
+        "running": "Asking {{model}}…",
+        "estimate_one": "Sends your {{count}} word with its source and counts, never your dictations. One request, ≈ {{tokens}} tokens.",
+        "estimate_other": "Sends your {{count}} words with their source and counts, never your dictations. One request, ≈ {{tokens}} tokens.",
+        "noModels": "No configured model can review the list. Set up a Cleanup, Chat or Voice Assistant model in Settings.",
+        "kept_one": "{{count}} suggestion.",
+        "kept_other": "{{count}} suggestions.",
+        "none": "The model suggests no changes.",
+        "dropped_one": "{{count}} was dropped: it named words not in your dictionary, or wasn't valid.",
+        "dropped_other": "{{count}} were dropped: they named words not in your dictionary, or weren't valid.",
+        "stale": "Your dictionary changed while the model was working, so its suggestions were dropped. Ask again.",
+        "malformed": "The model's answer wasn't in the expected format, so nothing was kept.",
+        "oversized": "The model's answer was too large, so nothing was kept.",
+        "failed": "The model couldn't review the list.",
+        "keepTag": "Keep",
+        "dismiss": "Dismiss",
+        "actions": {
+          "remove": "Remove",
+          "respell": "Change",
+          "merge": "Merge"
+        }
+      }
     }
   },
   "support": {

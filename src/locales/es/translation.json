@@ -4889,6 +4889,158 @@
         "pending": "Contando a partir del historial local…",
         "other": "Los recuentos no están disponibles ahora."
       }
+    },
+    "tidy": {
+      "button": "Ordenar",
+      "buttonLabel_one": "Ordenar, {{count}} sugerencia seleccionada",
+      "buttonLabel_other": "Ordenar, {{count}} sugerencias seleccionadas",
+      "title_one": "{{count}} palabra merece un vistazo",
+      "title_other": "{{count}} palabras merecen un vistazo",
+      "titleNone": "Nada que revisar",
+      "checking": "Revisando tu diccionario…",
+      "subtitle": "Revisado en este equipo ahora mismo, con tu diccionario y {{days}} días de historial. Nada cambia hasta que elijas.",
+      "subtitleNoHistory": "Revisado en este equipo ahora mismo, solo con tu diccionario. Nada cambia hasta que elijas.",
+      "close": "Volver a la lista",
+      "filtersLabel": "Mostrar",
+      "all": "Todas",
+      "needsHistory": "Necesita el historial local de esta cuenta",
+      "partial": "Solo aparecen las palabras cotidianas que el aprendizaje automático ignora. El resto necesita el historial local de esta cuenta.",
+      "empty": "No hay nada aquí.",
+      "capped": "Se muestran las primeras {{shown}} de {{total}}.",
+      "groups": {
+        "variants": {
+          "title": "Misma palabra, dos grafías",
+          "why": "Elige la que quieres escrita. Las demás se fusionan con ella, y si alguna era escrita o fijada, lo sigue siendo."
+        },
+        "plurals": {
+          "title": "Singular y plural",
+          "why": "Ambas formas ocupan un hueco. Quédate con la que escribes, o con ninguna si el reconocimiento escribe bien las dos."
+        },
+        "ordinary": {
+          "title": "Palabras comunes",
+          "why": "Los modelos de voz ya las escriben bien. Ocupan huecos y atraen otras palabras hacia ellas."
+        },
+        "typos": {
+          "title": "Posibles erratas",
+          "why": "Casi nunca oídas ni escritas, y a una o dos letras de una palabra que dices a menudo."
+        },
+        "fragments": {
+          "title": "Fragmentos",
+          "why": "Trozos de frases, números o signos de puntuación, no vocabulario."
+        },
+        "splitPhrases": {
+          "title": "Frases partidas",
+          "why": "Dos palabras que dices juntas. Una frase ocupa un hueco y orienta mejor."
+        },
+        "neverHeard": {
+          "title": "Nunca oídas en {{days}} días",
+          "why": "Aprendidas hace más de un mes y en ningún dictado desde entonces. Quédate con las que vayas a necesitar."
+        }
+      },
+      "reasons": {
+        "keepWritten_one": "Se queda «{{word}}»: escrita {{count}} vez, más que las otras",
+        "keepWritten_other": "Se queda «{{word}}»: escrita {{count}} veces, más que las otras",
+        "keepTyped": "Se queda «{{word}}»: la escribiste tú",
+        "keepNewest": "Se queda «{{word}}»: la más reciente",
+        "keepProtected": "Se queda «{{word}}»: una grafía del glosario o un activador de fragmento",
+        "allOrdinary": "Las dos son palabras comunes que el reconocimiento escribe bien",
+        "ordinaryLearner": "Una palabra cotidiana que el aprendizaje automático ya no aprende",
+        "ordinaryHeard_one": "El reconocimiento la escribió {{count}} vez y nunca falló",
+        "ordinaryHeard_other": "El reconocimiento la escribió {{count}} veces y nunca falló",
+        "typoToken_one": "Parecida a «{{target}}», en {{count}} de tus dictados",
+        "typoToken_other": "Parecida a «{{target}}», en {{count}} de tus dictados",
+        "typoWord": "Parecida a «{{target}}», que ya está en tu diccionario",
+        "fragment": {
+          "punctuation": "Tiene puntuación dentro: un trozo de frase",
+          "digits": "Solo dígitos: un número, no vocabulario",
+          "edge": "Empieza o termina con guion o punto",
+          "short": "Un solo carácter"
+        },
+        "splitPhrase_one": "Juntas en {{together}} del {{count}} dictado con «{{word}}»",
+        "splitPhrase_other": "Juntas en {{together}} de los {{count}} dictados con «{{word}}»",
+        "phraseExists": "«{{phrase}}» ya está en tu diccionario",
+        "neverHeard": "Añadida {{when}}, en ningún dictado desde entonces"
+      },
+      "actions": {
+        "select": "Seleccionar {{word}}",
+        "remove": "Quitar",
+        "keep": "Conservar",
+        "keepBoth": "Conservar ambas",
+        "keepAll": "Conservar todas",
+        "keepOne": "Conservar una",
+        "removeAll": "Quitar todas",
+        "neither": "Ninguna",
+        "change": "Cambiar",
+        "changeTo": "Cambiar a «{{word}}»",
+        "addPhrase": "Añadir «{{phrase}}»",
+        "removeParts": "Quitar las partes",
+        "spellingLabel": "Qué grafía de {{words}} conservar",
+        "apply_one": "Aplicar {{count}} seleccionada",
+        "apply_other": "Aplicar {{count}} seleccionadas",
+        "showKept_one": "Volver a mostrar {{count}} sugerencia conservada",
+        "showKept_other": "Volver a mostrar {{count}} sugerencias conservadas"
+      },
+      "undo": {
+        "undo": "Deshacer",
+        "undoAll": "Deshacer todo ({{count}})",
+        "session": "Deshacer sigue disponible hasta que reinicies la app.",
+        "evidence": "Deshacer una fusión no recupera lo que la palabra reemplazó: eso sale del historial.",
+        "refused": {
+          "edited": "No se puede deshacer: «{{word}}» ha cambiado desde entonces.",
+          "exists": "No se puede deshacer: «{{word}}» vuelve a estar en tu diccionario como «{{existing}}».",
+          "intoGone": "No se puede deshacer: «{{word}}», con la que se fusionó, ya no está.",
+          "other": "No se pudo deshacer."
+        }
+      },
+      "summary": {
+        "removed_one": "{{count}} quitada",
+        "removed_other": "{{count}} quitadas",
+        "merged_one": "{{count}} fusionada",
+        "merged_other": "{{count}} fusionadas",
+        "changed_one": "{{count}} cambiada",
+        "changed_other": "{{count}} cambiadas",
+        "added_one": "{{count}} añadida",
+        "added_other": "{{count}} añadidas",
+        "kept_one": "{{count}} conservada",
+        "kept_other": "{{count}} conservadas",
+        "failed_one": "{{count}} no se pudo aplicar",
+        "failed_other": "{{count}} no se pudieron aplicar",
+        "nothing": "No ha cambiado nada."
+      },
+      "review": {
+        "groupTitle": "Sugerencias del modelo",
+        "tag": "IA",
+        "description": "Pregunta también a un modelo: detecta lo que las reglas no ven, como nombres que parecen palabras comunes, frases que conviene mantener enteras y grafías preferibles.",
+        "groupWhy": "De {{model}}. Cada una es una sugerencia: nada cambia hasta que elijas.",
+        "modelLabel": "Modelo al que preguntar",
+        "roles": {
+          "cleanup": "Limpieza",
+          "chat": "Chat",
+          "assistant": "Asistente de voz"
+        },
+        "ask": "Preguntar a un modelo",
+        "cancel": "Cancelar",
+        "running": "Preguntando a {{model}}…",
+        "estimate_one": "Envía tu {{count}} palabra con su origen y recuentos, nunca tus dictados. Una solicitud, ≈ {{tokens}} tokens.",
+        "estimate_other": "Envía tus {{count}} palabras con su origen y recuentos, nunca tus dictados. Una solicitud, ≈ {{tokens}} tokens.",
+        "noModels": "Ningún modelo configurado puede revisar la lista. Configura un modelo de limpieza, chat o asistente de voz en Ajustes.",
+        "kept_one": "{{count}} sugerencia.",
+        "kept_other": "{{count}} sugerencias.",
+        "none": "El modelo no sugiere cambios.",
+        "dropped_one": "Se descartó {{count}}: nombraba palabras que no están en tu diccionario o no era válida.",
+        "dropped_other": "Se descartaron {{count}}: nombraban palabras que no están en tu diccionario o no eran válidas.",
+        "stale": "Tu diccionario cambió mientras el modelo trabajaba, así que se descartaron sus sugerencias. Vuelve a preguntar.",
+        "malformed": "La respuesta del modelo no tenía el formato esperado, así que no se conservó nada.",
+        "oversized": "La respuesta del modelo era demasiado grande, así que no se conservó nada.",
+        "failed": "El modelo no pudo revisar la lista.",
+        "keepTag": "Conservar",
+        "dismiss": "Descartar",
+        "actions": {
+          "remove": "Quitar",
+          "respell": "Cambiar",
+          "merge": "Fusionar"
+        }
+      }
     }
   },
   "insights": {

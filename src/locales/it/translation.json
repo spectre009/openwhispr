@@ -4837,6 +4837,158 @@
         "pending": "Conteggio dalla cronologia locale…",
         "other": "I conteggi non sono disponibili al momento."
       }
+    },
+    "tidy": {
+      "button": "Riordina",
+      "buttonLabel_one": "Riordina, {{count}} suggerimento selezionato",
+      "buttonLabel_other": "Riordina, {{count}} suggerimenti selezionati",
+      "title_one": "{{count}} parola da controllare",
+      "title_other": "{{count}} parole da controllare",
+      "titleNone": "Niente da controllare",
+      "checking": "Controllo del dizionario…",
+      "subtitle": "Controllato su questo computer proprio ora, con il tuo dizionario e {{days}} giorni di cronologia. Nulla cambia finché non scegli.",
+      "subtitleNoHistory": "Controllato su questo computer proprio ora, solo con il tuo dizionario. Nulla cambia finché non scegli.",
+      "close": "Torna all'elenco",
+      "filtersLabel": "Mostra",
+      "all": "Tutte",
+      "needsHistory": "Richiede la cronologia locale di questo account",
+      "partial": "Sono elencate solo le parole comuni che l'apprendimento automatico ignora. Il resto richiede la cronologia locale di questo account.",
+      "empty": "Niente qui.",
+      "capped": "Mostrate le prime {{shown}} di {{total}}.",
+      "groups": {
+        "variants": {
+          "title": "Stessa parola, due grafie",
+          "why": "Scegli quella da scrivere. Le altre vengono unite a questa; se una era digitata o fissata, resta tale."
+        },
+        "plurals": {
+          "title": "Singolare e plurale",
+          "why": "Entrambe le forme occupano un posto. Tieni quella che scrivi, o nessuna se il riconoscimento le scrive bene entrambe."
+        },
+        "ordinary": {
+          "title": "Parole comuni",
+          "why": "I modelli vocali le scrivono già bene. Occupano posti e attirano altre parole verso di sé."
+        },
+        "typos": {
+          "title": "Probabili refusi",
+          "why": "Raramente sentite o scritte, e a una o due lettere da una parola che dici spesso."
+        },
+        "fragments": {
+          "title": "Frammenti",
+          "why": "Pezzi di frasi, numeri o punteggiatura, non vocabolario."
+        },
+        "splitPhrases": {
+          "title": "Espressioni spezzate",
+          "why": "Due parole che dici insieme. Un'espressione occupa un posto e orienta meglio."
+        },
+        "neverHeard": {
+          "title": "Mai sentite in {{days}} giorni",
+          "why": "Apprese più di un mese fa e in nessuna dettatura da allora. Tieni quelle che ti serviranno."
+        }
+      },
+      "reasons": {
+        "keepWritten_one": "Tiene «{{word}}»: scritta {{count}} volta, più delle altre",
+        "keepWritten_other": "Tiene «{{word}}»: scritta {{count}} volte, più delle altre",
+        "keepTyped": "Tiene «{{word}}»: l'hai digitata tu",
+        "keepNewest": "Tiene «{{word}}»: la più recente",
+        "keepProtected": "Tiene «{{word}}»: una grafia del glossario o un attivatore di snippet",
+        "allOrdinary": "Entrambe parole comuni che il riconoscimento scrive bene",
+        "ordinaryLearner": "Una parola comune che l'apprendimento automatico non impara più",
+        "ordinaryHeard_one": "Il riconoscimento l'ha scritta {{count}} volta senza mai sbagliarla",
+        "ordinaryHeard_other": "Il riconoscimento l'ha scritta {{count}} volte senza mai sbagliarla",
+        "typoToken_one": "Simile a «{{target}}», in {{count}} delle tue dettature",
+        "typoToken_other": "Simile a «{{target}}», in {{count}} delle tue dettature",
+        "typoWord": "Simile a «{{target}}», già nel tuo dizionario",
+        "fragment": {
+          "punctuation": "Punteggiatura all'interno: un pezzo di frase",
+          "digits": "Solo cifre: un numero, non vocabolario",
+          "edge": "Inizia o finisce con un trattino o un punto",
+          "short": "Un solo carattere"
+        },
+        "splitPhrase_one": "Vicine in {{together}} su {{count}} dettatura con «{{word}}»",
+        "splitPhrase_other": "Vicine in {{together}} delle {{count}} dettature con «{{word}}»",
+        "phraseExists": "«{{phrase}}» è già nel tuo dizionario",
+        "neverHeard": "Aggiunta {{when}}, in nessuna dettatura da allora"
+      },
+      "actions": {
+        "select": "Seleziona {{word}}",
+        "remove": "Rimuovi",
+        "keep": "Tieni",
+        "keepBoth": "Tieni entrambe",
+        "keepAll": "Tieni tutte",
+        "keepOne": "Tienine una",
+        "removeAll": "Rimuovi tutte",
+        "neither": "Nessuna",
+        "change": "Cambia",
+        "changeTo": "Cambia in «{{word}}»",
+        "addPhrase": "Aggiungi «{{phrase}}»",
+        "removeParts": "Rimuovi le parti",
+        "spellingLabel": "Quale grafia di {{words}} tenere",
+        "apply_one": "Applica {{count}} selezionata",
+        "apply_other": "Applica {{count}} selezionate",
+        "showKept_one": "Mostra di nuovo {{count}} suggerimento tenuto",
+        "showKept_other": "Mostra di nuovo {{count}} suggerimenti tenuti"
+      },
+      "undo": {
+        "undo": "Annulla",
+        "undoAll": "Annulla tutto ({{count}})",
+        "session": "Annulla resta disponibile fino al riavvio dell'app.",
+        "evidence": "Annullare un'unione non ripristina ciò che la parola sostituiva: viene dalla cronologia.",
+        "refused": {
+          "edited": "Impossibile annullare: «{{word}}» è stata modificata nel frattempo.",
+          "exists": "Impossibile annullare: «{{word}}» è di nuovo nel dizionario come «{{existing}}».",
+          "intoGone": "Impossibile annullare: «{{word}}», a cui era stata unita, non c'è più.",
+          "other": "Impossibile annullare."
+        }
+      },
+      "summary": {
+        "removed_one": "{{count}} rimossa",
+        "removed_other": "{{count}} rimosse",
+        "merged_one": "{{count}} unita",
+        "merged_other": "{{count}} unite",
+        "changed_one": "{{count}} cambiata",
+        "changed_other": "{{count}} cambiate",
+        "added_one": "{{count}} aggiunta",
+        "added_other": "{{count}} aggiunte",
+        "kept_one": "{{count}} tenuta",
+        "kept_other": "{{count}} tenute",
+        "failed_one": "{{count}} non applicata",
+        "failed_other": "{{count}} non applicate",
+        "nothing": "Non è cambiato nulla."
+      },
+      "review": {
+        "groupTitle": "Suggerimenti del modello",
+        "tag": "IA",
+        "description": "Chiedi anche a un modello: coglie ciò che le regole non vedono, come nomi che sembrano parole comuni, espressioni da tenere intere e grafie da preferire.",
+        "groupWhy": "Da {{model}}. Ognuno è solo un suggerimento: nulla cambia finché non scegli.",
+        "modelLabel": "Modello da interpellare",
+        "roles": {
+          "cleanup": "Pulizia",
+          "chat": "Chat",
+          "assistant": "Assistente vocale"
+        },
+        "ask": "Chiedi a un modello",
+        "cancel": "Annulla",
+        "running": "Richiesta a {{model}}…",
+        "estimate_one": "Invia la tua {{count}} parola con origine e conteggi, mai le tue dettature. Una richiesta, ≈ {{tokens}} token.",
+        "estimate_other": "Invia le tue {{count}} parole con origine e conteggi, mai le tue dettature. Una richiesta, ≈ {{tokens}} token.",
+        "noModels": "Nessun modello configurato può esaminare l'elenco. Configura un modello di pulizia, chat o assistente vocale nelle Impostazioni.",
+        "kept_one": "{{count}} suggerimento.",
+        "kept_other": "{{count}} suggerimenti.",
+        "none": "Il modello non suggerisce modifiche.",
+        "dropped_one": "{{count}} è stato scartato: citava parole che non sono nel tuo dizionario o non era valido.",
+        "dropped_other": "{{count}} sono stati scartati: citavano parole che non sono nel tuo dizionario o non erano validi.",
+        "stale": "Il dizionario è cambiato mentre il modello lavorava, quindi i suoi suggerimenti sono stati scartati. Chiedi di nuovo.",
+        "malformed": "La risposta del modello non aveva il formato previsto, quindi non è stato tenuto nulla.",
+        "oversized": "La risposta del modello era troppo grande, quindi non è stato tenuto nulla.",
+        "failed": "Il modello non è riuscito a esaminare l'elenco.",
+        "keepTag": "Tieni",
+        "dismiss": "Nascondi",
+        "actions": {
+          "remove": "Rimuovi",
+          "respell": "Cambia",
+          "merge": "Unisci"
+        }
+      }
     }
   },
   "insights": {

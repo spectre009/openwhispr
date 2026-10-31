@@ -10,6 +10,10 @@ import type {
   ChineseScriptPreference,
   DictionaryMergeResult,
   DictionaryRenameResult,
+  DictionaryTidyApplyResult,
+  DictionaryTidyOp,
+  DictionaryTidyUndoResult,
+  DictionaryTidyUndoStep,
   LocalTranscriptionProvider,
   InferenceMode,
   LocalServerPrefs,
@@ -1340,6 +1344,10 @@ export interface SettingsState
   mergeDictionaryWords: (from: string, into: string) => Promise<DictionaryMergeResult>;
   /** "Mark typed": learned words become typed. Resolves how many changed. */
   markDictionaryWordsTyped: (words: string[]) => Promise<number>;
+  /** Tidy up's choices in one batch (main), then the stored list adopted. */
+  applyDictionaryTidy: (ops: DictionaryTidyOp[]) => Promise<DictionaryTidyApplyResult>;
+  /** One Tidy up action reversed (main), then the stored list adopted. */
+  undoDictionaryTidy: (steps: DictionaryTidyUndoStep[]) => Promise<DictionaryTidyUndoResult>;
   applyCustomDictionaryFromExternal: (words: string[]) => void;
   setSnippets: (snippets: Snippet[]) => void;
   applySnippetsFromExternal: (snippets: Snippet[]) => void;
@@ -2570,6 +2578,30 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
     const changed = result?.success ? (result.changed ?? 0) : 0;
     if (changed > 0) await adoptStoredDictionary(set);
     return changed;
+  },
+
+  // Tidy up's batch and its Undo: main applies them in place and broadcasts;
+  // this window adopts the stored list and pushes to OpenWhispr Cloud.
+  applyDictionaryTidy: async (ops: DictionaryTidyOp[]) => {
+    const api = window.electronAPI;
+    if (!api?.applyDictionaryTidy || ops.length === 0) {
+      return { success: false, code: "UNAVAILABLE" } as DictionaryTidyApplyResult;
+    }
+    const result = await api.applyDictionaryTidy(ops);
+    if (result.success && result.results.some((entry) => entry.ok)) {
+      await adoptStoredDictionary(set);
+    }
+    return result;
+  },
+
+  undoDictionaryTidy: async (steps: DictionaryTidyUndoStep[]) => {
+    const api = window.electronAPI;
+    if (!api?.undoDictionaryTidy || steps.length === 0) {
+      return { success: false, code: "UNAVAILABLE" } as DictionaryTidyUndoResult;
+    }
+    const result = await api.undoDictionaryTidy(steps);
+    if (result.success) await adoptStoredDictionary(set);
+    return result;
   },
 
   setSnippets: (snippets: Snippet[]) => {

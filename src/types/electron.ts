@@ -161,6 +161,81 @@ export type DictionaryRenameResult =
 export type DictionaryMergeResult =
   { success: true; word: string; source: DictionaryEntrySource } | { success: false; code: string };
 
+/** A History token and the rows of the last 90 days it appears in (Tidy up). */
+export interface DictionaryTidyToken {
+  token: string;
+  rows: number;
+}
+
+/** Two dictionary words seen side by side: `a` the one that usually comes first. */
+export interface DictionaryTidyPair {
+  a: string;
+  b: string;
+  /** Rows with them next to each other, in either order. */
+  together: number;
+  /** Rows containing the rarer of the two. */
+  rarerRows: number;
+}
+
+/** Tidy up's History aggregates (dictionaryUsage.js): words and counts only. */
+export type DictionaryTidyInputsResult =
+  | {
+      available: true;
+      days: number;
+      rows: number;
+      frequentTokens: DictionaryTidyToken[];
+      adjacency: DictionaryTidyPair[];
+    }
+  | { available: false; reason?: string };
+
+/** One Tidy up choice, applied by main through the dictionary's own operations. */
+export type DictionaryTidyOp =
+  | { kind: "remove"; words: string[] }
+  | { kind: "merge"; from: string; into: string }
+  | { kind: "respell"; from: string; to: string }
+  | { kind: "add-phrase"; phrase: string; parts: string[] };
+
+/** A removed word as it was: what an Undo puts back. */
+export interface DictionaryRestoreEntry {
+  word: string;
+  source: DictionaryEntrySource;
+  createdAt: string | null;
+  pinned: boolean;
+}
+
+/** One step that reverses part of a Tidy up action (database.js undoDictionaryTidy). */
+export type DictionaryTidyUndoStep =
+  | { rename: { from: string; to: string } }
+  | {
+      restore: DictionaryRestoreEntry[];
+      /** Words the restored ones were merged into: they must still be there. */
+      into?: string[];
+      /** Words the action left that must still be spelled so. */
+      expect?: string[];
+      /** Words to take out again (a phrase Tidy up added). */
+      remove?: string[];
+      /** Words to unpin (what a merge pinned). */
+      unpin?: string[];
+    };
+
+export interface DictionaryTidyOpResult {
+  ok: boolean;
+  kind: DictionaryTidyOp["kind"] | null;
+  code?: string;
+  removed?: number;
+  merged?: number;
+  renamed?: number;
+  added?: number;
+  undo?: DictionaryTidyUndoStep[];
+}
+
+export type DictionaryTidyApplyResult =
+  { success: true; results: DictionaryTidyOpResult[] } | { success: false; code: string };
+
+export type DictionaryTidyUndoResult =
+  | { success: true; steps?: number }
+  | { success: false; code: string; word?: string; existing?: string };
+
 /** A glossary rule as the editor saves it: no id creates one. */
 export interface GlossaryRuleInput {
   id?: string;
@@ -2548,6 +2623,12 @@ declare global {
         words: string[],
         source: "manual"
       ) => Promise<{ success: boolean; changed?: number; code?: string }>;
+      /** Tidy up's History aggregates: frequent tokens and adjacent words (counts only). */
+      getDictionaryTidyInputs?: () => Promise<DictionaryTidyInputsResult>;
+      /** Tidy up's choices in one batch; each applied one returns its Undo steps. */
+      applyDictionaryTidy?: (ops: DictionaryTidyOp[]) => Promise<DictionaryTidyApplyResult>;
+      /** Reverses one Tidy up action: all of its steps or none, refused with the reason. */
+      undoDictionaryTidy?: (steps: DictionaryTidyUndoStep[]) => Promise<DictionaryTidyUndoResult>;
 
       // Note operations
       saveNote: (

@@ -5189,6 +5189,158 @@
         "pending": "Wird aus dem lokalen Verlauf gezählt…",
         "other": "Zählungen sind gerade nicht verfügbar."
       }
+    },
+    "tidy": {
+      "button": "Aufräumen",
+      "buttonLabel_one": "Aufräumen, {{count}} Vorschlag ausgewählt",
+      "buttonLabel_other": "Aufräumen, {{count}} Vorschläge ausgewählt",
+      "title_one": "{{count}} Wort solltest du dir ansehen",
+      "title_other": "{{count}} Wörter solltest du dir ansehen",
+      "titleNone": "Nichts zu prüfen",
+      "checking": "Dein Wörterbuch wird geprüft…",
+      "subtitle": "Gerade auf diesem Computer geprüft, mit deinem Wörterbuch und {{days}} Tagen Verlauf. Nichts ändert sich, bis du entscheidest.",
+      "subtitleNoHistory": "Gerade auf diesem Computer geprüft, nur mit deinem Wörterbuch. Nichts ändert sich, bis du entscheidest.",
+      "close": "Zurück zur Liste",
+      "filtersLabel": "Anzeigen",
+      "all": "Alle",
+      "needsHistory": "Braucht den lokalen Verlauf dieses Kontos",
+      "partial": "Nur die Alltagswörter, die das automatische Lernen ignoriert, sind aufgeführt. Der Rest braucht den lokalen Verlauf dieses Kontos.",
+      "empty": "Hier ist nichts.",
+      "capped": "Die ersten {{shown}} von {{total}} werden angezeigt.",
+      "groups": {
+        "variants": {
+          "title": "Ein Wort, zwei Schreibweisen",
+          "why": "Wähle die, die geschrieben werden soll. Die anderen werden mit ihr zusammengeführt; eingetippt oder angeheftet bleibt erhalten."
+        },
+        "plurals": {
+          "title": "Singular und Plural",
+          "why": "Beide Formen belegen einen Platz. Behalte die, die du schreibst, oder keine, wenn die Spracherkennung beide richtig schreibt."
+        },
+        "ordinary": {
+          "title": "Gewöhnliche Wörter",
+          "why": "Spracherkennungsmodelle schreiben sie schon richtig. Sie belegen Plätze und ziehen andere Wörter zu sich."
+        },
+        "typos": {
+          "title": "Wahrscheinliche Tippfehler",
+          "why": "Selten gehört oder geschrieben und ein, zwei Buchstaben von einem Wort entfernt, das du oft sagst."
+        },
+        "fragments": {
+          "title": "Bruchstücke",
+          "why": "Satzteile, Zahlen oder Satzzeichen, kein Wortschatz."
+        },
+        "splitPhrases": {
+          "title": "Getrennte Wendungen",
+          "why": "Zwei Wörter, die du zusammen sagst. Eine Wendung belegt einen Platz und wirkt besser."
+        },
+        "neverHeard": {
+          "title": "In {{days}} Tagen nie gehört",
+          "why": "Vor über einem Monat automatisch gelernt und seitdem in keinem Diktat. Behalte die, die du brauchst."
+        }
+      },
+      "reasons": {
+        "keepWritten_one": "Behält „{{word}}“: {{count}}-mal geschrieben, öfter als die anderen",
+        "keepWritten_other": "Behält „{{word}}“: {{count}}-mal geschrieben, öfter als die anderen",
+        "keepTyped": "Behält „{{word}}“: von dir eingetippt",
+        "keepNewest": "Behält „{{word}}“: die neueste",
+        "keepProtected": "Behält „{{word}}“: eine Glossar-Schreibweise oder ein Snippet-Auslöser",
+        "allOrdinary": "Beides gewöhnliche Wörter, die die Spracherkennung richtig schreibt",
+        "ordinaryLearner": "Ein Alltagswort, das das automatische Lernen nicht mehr lernt",
+        "ordinaryHeard_one": "Die Spracherkennung schrieb es {{count}}-mal und verfehlte es nie",
+        "ordinaryHeard_other": "Die Spracherkennung schrieb es {{count}}-mal und verfehlte es nie",
+        "typoToken_one": "Nah an „{{target}}“, in {{count}} deiner Diktate",
+        "typoToken_other": "Nah an „{{target}}“, in {{count}} deiner Diktate",
+        "typoWord": "Nah an „{{target}}“, das schon in deinem Wörterbuch ist",
+        "fragment": {
+          "punctuation": "Satzzeichen darin: ein Satzteil",
+          "digits": "Nur Ziffern: eine Zahl, kein Wortschatz",
+          "edge": "Beginnt oder endet mit Bindestrich oder Punkt",
+          "short": "Ein einzelnes Zeichen"
+        },
+        "splitPhrase_one": "Nebeneinander in {{together}} von {{count}} Diktat mit „{{word}}“",
+        "splitPhrase_other": "Nebeneinander in {{together}} von {{count}} Diktaten mit „{{word}}“",
+        "phraseExists": "„{{phrase}}“ ist schon in deinem Wörterbuch",
+        "neverHeard": "Hinzugefügt {{when}}, seitdem in keinem Diktat"
+      },
+      "actions": {
+        "select": "{{word}} auswählen",
+        "remove": "Entfernen",
+        "keep": "Behalten",
+        "keepBoth": "Beide behalten",
+        "keepAll": "Alle behalten",
+        "keepOne": "Eine behalten",
+        "removeAll": "Alle entfernen",
+        "neither": "Keine",
+        "change": "Ändern",
+        "changeTo": "Zu „{{word}}“ ändern",
+        "addPhrase": "„{{phrase}}“ hinzufügen",
+        "removeParts": "Die Teile entfernen",
+        "spellingLabel": "Welche Schreibweise von {{words}} behalten",
+        "apply_one": "{{count}} ausgewählten anwenden",
+        "apply_other": "{{count}} ausgewählte anwenden",
+        "showKept_one": "{{count}} behaltenen Vorschlag wieder zeigen",
+        "showKept_other": "{{count}} behaltene Vorschläge wieder zeigen"
+      },
+      "undo": {
+        "undo": "Rückgängig",
+        "undoAll": "Alles rückgängig ({{count}})",
+        "session": "Rückgängig bleibt bis zum Neustart der App möglich.",
+        "evidence": "Rückgängig nach einem Zusammenführen bringt nicht zurück, was das Wort ersetzt hat: Das stammt aus dem Verlauf.",
+        "refused": {
+          "edited": "Nicht rückgängig zu machen: „{{word}}“ wurde inzwischen geändert.",
+          "exists": "Nicht rückgängig zu machen: „{{word}}“ ist als „{{existing}}“ wieder im Wörterbuch.",
+          "intoGone": "Nicht rückgängig zu machen: „{{word}}“, mit dem es zusammengeführt wurde, ist weg.",
+          "other": "Konnte nicht rückgängig gemacht werden."
+        }
+      },
+      "summary": {
+        "removed_one": "{{count}} entfernt",
+        "removed_other": "{{count}} entfernt",
+        "merged_one": "{{count}} zusammengeführt",
+        "merged_other": "{{count}} zusammengeführt",
+        "changed_one": "{{count}} geändert",
+        "changed_other": "{{count}} geändert",
+        "added_one": "{{count}} hinzugefügt",
+        "added_other": "{{count}} hinzugefügt",
+        "kept_one": "{{count}} behalten",
+        "kept_other": "{{count}} behalten",
+        "failed_one": "{{count}} ließ sich nicht anwenden",
+        "failed_other": "{{count}} ließen sich nicht anwenden",
+        "nothing": "Nichts geändert."
+      },
+      "review": {
+        "groupTitle": "Vorschläge des Modells",
+        "tag": "KI",
+        "description": "Frag auch ein Modell: Es findet, was die Regeln nicht finden, etwa Namen, die wie gewöhnliche Wörter aussehen, Wendungen, die zusammenbleiben sollten, und bessere Schreibweisen.",
+        "groupWhy": "Von {{model}}. Jeder ist ein Vorschlag: Nichts ändert sich, bis du entscheidest.",
+        "modelLabel": "Zu fragendes Modell",
+        "roles": {
+          "cleanup": "Bereinigung",
+          "chat": "Chat",
+          "assistant": "Sprachassistent"
+        },
+        "ask": "Modell fragen",
+        "cancel": "Abbrechen",
+        "running": "{{model}} wird gefragt…",
+        "estimate_one": "Sendet dein {{count}} Wort mit Herkunft und Zählungen, nie deine Diktate. Eine Anfrage, ≈ {{tokens}} Tokens.",
+        "estimate_other": "Sendet deine {{count}} Wörter mit Herkunft und Zählungen, nie deine Diktate. Eine Anfrage, ≈ {{tokens}} Tokens.",
+        "noModels": "Kein eingerichtetes Modell kann die Liste prüfen. Richte in den Einstellungen ein Modell für Bereinigung, Chat oder Sprachassistent ein.",
+        "kept_one": "{{count}} Vorschlag.",
+        "kept_other": "{{count}} Vorschläge.",
+        "none": "Das Modell schlägt keine Änderungen vor.",
+        "dropped_one": "{{count}} wurde verworfen: Er nannte Wörter, die nicht in deinem Wörterbuch sind, oder war ungültig.",
+        "dropped_other": "{{count}} wurden verworfen: Sie nannten Wörter, die nicht in deinem Wörterbuch sind, oder waren ungültig.",
+        "stale": "Dein Wörterbuch hat sich geändert, während das Modell arbeitete, deshalb wurden seine Vorschläge verworfen. Frag noch einmal.",
+        "malformed": "Die Antwort des Modells hatte nicht das erwartete Format, deshalb wurde nichts übernommen.",
+        "oversized": "Die Antwort des Modells war zu groß, deshalb wurde nichts übernommen.",
+        "failed": "Das Modell konnte die Liste nicht prüfen.",
+        "keepTag": "Behalten",
+        "dismiss": "Ausblenden",
+        "actions": {
+          "remove": "Entfernen",
+          "respell": "Ändern",
+          "merge": "Zusammenführen"
+        }
+      }
     }
   },
   "support": {

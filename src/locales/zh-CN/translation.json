@@ -4837,6 +4837,158 @@
         "pending": "正在从本地历史记录统计…",
         "other": "暂时无法统计。"
       }
+    },
+    "tidy": {
+      "button": "整理",
+      "buttonLabel_one": "整理，已选 {{count}} 条建议",
+      "buttonLabel_other": "整理，已选 {{count}} 条建议",
+      "title_one": "{{count}} 个词需要看一下",
+      "title_other": "{{count}} 个词需要看一下",
+      "titleNone": "没有需要查看的词",
+      "checking": "正在检查你的词典…",
+      "subtitle": "刚刚在这台电脑上检查，用到你的词典和 {{days}} 天的历史记录。在你选择之前不会有任何改动。",
+      "subtitleNoHistory": "刚刚在这台电脑上检查，只用到你的词典。在你选择之前不会有任何改动。",
+      "close": "返回列表",
+      "filtersLabel": "显示",
+      "all": "全部",
+      "needsHistory": "需要此账户的本地历史记录",
+      "partial": "只列出自动学习会忽略的日常词。其余检查需要此账户的本地历史记录。",
+      "empty": "这里没有内容。",
+      "capped": "显示 {{total}} 项中的前 {{shown}} 项。",
+      "groups": {
+        "variants": {
+          "title": "同一个词，两种写法",
+          "why": "选出你想写的那种。其他写法会合并进来；手动输入或已固定的状态会保留。"
+        },
+        "plurals": {
+          "title": "单数和复数",
+          "why": "两种形式各占一个位置。保留你写的那个；如果语音识别两种都写得对，就都不留。"
+        },
+        "ordinary": {
+          "title": "普通词",
+          "why": "语音模型本来就能写对。它们占用位置，还会把别的词往自己身上拉。"
+        },
+        "typos": {
+          "title": "可能的拼写错误",
+          "why": "很少被听到或写出，而且和你常说的某个词只差一两个字母。"
+        },
+        "fragments": {
+          "title": "片段",
+          "why": "句子碎片、数字或标点，不是词汇。"
+        },
+        "splitPhrases": {
+          "title": "被拆开的短语",
+          "why": "你总是连着说的两个词。合成一个短语只占一个位置，效果也更好。"
+        },
+        "neverHeard": {
+          "title": "{{days}} 天内从未听到",
+          "why": "一个多月前自动学习的词，之后没有出现在任何听写中。保留你会用到的。"
+        }
+      },
+      "reasons": {
+        "keepWritten_one": "保留“{{word}}”：写出 {{count}} 次，比其他写法多",
+        "keepWritten_other": "保留“{{word}}”：写出 {{count}} 次，比其他写法多",
+        "keepTyped": "保留“{{word}}”：这是你手动输入的",
+        "keepNewest": "保留“{{word}}”：最新的写法",
+        "keepProtected": "保留“{{word}}”：术语表写法或片段触发词",
+        "allOrdinary": "两个都是语音识别能写对的普通词",
+        "ordinaryLearner": "自动学习已不再学习的日常词",
+        "ordinaryHeard_one": "语音识别写出它 {{count}} 次，从未漏掉",
+        "ordinaryHeard_other": "语音识别写出它 {{count}} 次，从未漏掉",
+        "typoToken_one": "接近“{{target}}”，出现在你的 {{count}} 次听写中",
+        "typoToken_other": "接近“{{target}}”，出现在你的 {{count}} 次听写中",
+        "typoWord": "接近词典中已有的“{{target}}”",
+        "fragment": {
+          "punctuation": "中间带标点：是句子的一部分",
+          "digits": "只有数字：是数字，不是词汇",
+          "edge": "以连字符或句点开头或结尾",
+          "short": "只有一个字符"
+        },
+        "splitPhrase_one": "在包含“{{word}}”的 {{count}} 次听写中，有 {{together}} 次紧挨着",
+        "splitPhrase_other": "在包含“{{word}}”的 {{count}} 次听写中，有 {{together}} 次紧挨着",
+        "phraseExists": "“{{phrase}}”已在你的词典中",
+        "neverHeard": "添加于{{when}}，之后没有出现在任何听写中"
+      },
+      "actions": {
+        "select": "选择 {{word}}",
+        "remove": "移除",
+        "keep": "保留",
+        "keepBoth": "两个都保留",
+        "keepAll": "全部保留",
+        "keepOne": "保留一个",
+        "removeAll": "全部移除",
+        "neither": "都不保留",
+        "change": "更改",
+        "changeTo": "改为“{{word}}”",
+        "addPhrase": "添加“{{phrase}}”",
+        "removeParts": "移除拆开的部分",
+        "spellingLabel": "{{words}} 中保留哪种写法",
+        "apply_one": "应用所选的 {{count}} 项",
+        "apply_other": "应用所选的 {{count}} 项",
+        "showKept_one": "重新显示 {{count}} 条保留的建议",
+        "showKept_other": "重新显示 {{count}} 条保留的建议"
+      },
+      "undo": {
+        "undo": "撤销",
+        "undoAll": "全部撤销（{{count}}）",
+        "session": "在应用重启之前都可以撤销。",
+        "evidence": "撤销合并不会找回这个词替换过的内容：那些来自历史记录。",
+        "refused": {
+          "edited": "无法撤销：“{{word}}”之后被修改过。",
+          "exists": "无法撤销：“{{word}}”已以“{{existing}}”的形式回到词典中。",
+          "intoGone": "无法撤销：它被合并进的“{{word}}”已不存在。",
+          "other": "无法撤销。"
+        }
+      },
+      "summary": {
+        "removed_one": "已移除 {{count}} 个",
+        "removed_other": "已移除 {{count}} 个",
+        "merged_one": "已合并 {{count}} 个",
+        "merged_other": "已合并 {{count}} 个",
+        "changed_one": "已更改 {{count}} 个",
+        "changed_other": "已更改 {{count}} 个",
+        "added_one": "已添加 {{count}} 个",
+        "added_other": "已添加 {{count}} 个",
+        "kept_one": "已保留 {{count}} 个",
+        "kept_other": "已保留 {{count}} 个",
+        "failed_one": "{{count}} 项无法应用",
+        "failed_other": "{{count}} 项无法应用",
+        "nothing": "没有任何改动。"
+      },
+      "review": {
+        "groupTitle": "模型建议",
+        "tag": "AI",
+        "description": "也问问模型：它能发现规则发现不了的问题，比如看起来像普通词的名字、应该整体保留的短语，以及更合适的写法。",
+        "groupWhy": "来自 {{model}}。每条都只是建议：在你选择之前不会有任何改动。",
+        "modelLabel": "要询问的模型",
+        "roles": {
+          "cleanup": "清理",
+          "chat": "聊天",
+          "assistant": "语音助手"
+        },
+        "ask": "询问模型",
+        "cancel": "取消",
+        "running": "正在询问 {{model}}…",
+        "estimate_one": "发送你的 {{count}} 个词及其来源和计数，绝不发送你的听写内容。一次请求，约 {{tokens}} 个 token。",
+        "estimate_other": "发送你的 {{count}} 个词及其来源和计数，绝不发送你的听写内容。一次请求，约 {{tokens}} 个 token。",
+        "noModels": "没有已配置的模型可以检查这个列表。请在设置中配置清理、聊天或语音助手模型。",
+        "kept_one": "{{count}} 条建议。",
+        "kept_other": "{{count}} 条建议。",
+        "none": "模型没有建议任何改动。",
+        "dropped_one": "已丢弃 {{count}} 条：其中提到了不在你词典中的词，或格式无效。",
+        "dropped_other": "已丢弃 {{count}} 条：其中提到了不在你词典中的词，或格式无效。",
+        "stale": "模型处理期间你的词典发生了变化，所以它的建议已被丢弃。请再问一次。",
+        "malformed": "模型的回答格式不符合预期，所以没有保留任何内容。",
+        "oversized": "模型的回答太大，所以没有保留任何内容。",
+        "failed": "模型无法检查这个列表。",
+        "keepTag": "保留",
+        "dismiss": "关闭",
+        "actions": {
+          "remove": "移除",
+          "respell": "更改",
+          "merge": "合并"
+        }
+      }
     }
   },
   "insights": {

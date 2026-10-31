@@ -4765,6 +4765,158 @@
         "pending": "ローカル履歴から集計中…",
         "other": "現在、集計は利用できません。"
       }
+    },
+    "tidy": {
+      "button": "整理",
+      "buttonLabel_one": "整理：{{count}} 件の提案を選択中",
+      "buttonLabel_other": "整理：{{count}} 件の提案を選択中",
+      "title_one": "確認したい単語が {{count}} 件あります",
+      "title_other": "確認したい単語が {{count}} 件あります",
+      "titleNone": "確認が必要なものはありません",
+      "checking": "辞書を確認しています…",
+      "subtitle": "このコンピューター上で、辞書と {{days}} 日分の履歴を使って今確認しました。選ぶまで何も変わりません。",
+      "subtitleNoHistory": "このコンピューター上で、辞書だけを使って今確認しました。選ぶまで何も変わりません。",
+      "close": "一覧に戻る",
+      "filtersLabel": "表示",
+      "all": "すべて",
+      "needsHistory": "このアカウントのローカル履歴が必要です",
+      "partial": "自動学習が無視する日常語だけを表示しています。残りはこのアカウントのローカル履歴が必要です。",
+      "empty": "ここには何もありません。",
+      "capped": "{{total}} 件のうち最初の {{shown}} 件を表示しています。",
+      "groups": {
+        "variants": {
+          "title": "同じ単語の 2 つの表記",
+          "why": "書きたい表記を選んでください。他の表記はそれに統合され、入力や固定の状態は引き継がれます。"
+        },
+        "plurals": {
+          "title": "単数形と複数形",
+          "why": "どちらの形も枠を使います。書く方を残すか、音声認識が両方正しく書くなら両方とも外しましょう。"
+        },
+        "ordinary": {
+          "title": "一般的な単語",
+          "why": "音声モデルはもともと正しく書けます。枠を使い、他の単語を引き寄せてしまいます。"
+        },
+        "typos": {
+          "title": "入力ミスの可能性",
+          "why": "聞き取りにも書き込みにもほとんど現れず、よく話す単語と 1〜2 文字しか違いません。"
+        },
+        "fragments": {
+          "title": "断片",
+          "why": "文の一部、数字、記号で、語彙ではありません。"
+        },
+        "splitPhrases": {
+          "title": "分かれたフレーズ",
+          "why": "いつも一緒に話す 2 つの単語です。1 つのフレーズにすれば枠も 1 つで、認識への効き目も上がります。"
+        },
+        "neverHeard": {
+          "title": "{{days}} 日間一度も聞かれていない",
+          "why": "1 か月以上前に自動学習され、それ以降どのディクテーションにもありません。必要なものだけ残しましょう。"
+        }
+      },
+      "reasons": {
+        "keepWritten_one": "「{{word}}」を残す：{{count}} 回書かれ、他より多い",
+        "keepWritten_other": "「{{word}}」を残す：{{count}} 回書かれ、他より多い",
+        "keepTyped": "「{{word}}」を残す：あなたが入力した表記",
+        "keepNewest": "「{{word}}」を残す：いちばん新しい表記",
+        "keepProtected": "「{{word}}」を残す：用語集の表記またはスニペットのトリガー",
+        "allOrdinary": "どちらも音声認識が正しく書ける一般的な単語です",
+        "ordinaryLearner": "自動学習がもう覚えない日常語です",
+        "ordinaryHeard_one": "音声認識が {{count}} 回書き、一度も聞き逃していません",
+        "ordinaryHeard_other": "音声認識が {{count}} 回書き、一度も聞き逃していません",
+        "typoToken_one": "「{{target}}」に近い（{{count}} 件のディクテーションに出現）",
+        "typoToken_other": "「{{target}}」に近い（{{count}} 件のディクテーションに出現）",
+        "typoWord": "辞書にある「{{target}}」に近い",
+        "fragment": {
+          "punctuation": "途中に記号を含む：文の一部です",
+          "digits": "数字だけ：語彙ではなく数値です",
+          "edge": "ハイフンかピリオドで始まるか終わります",
+          "short": "1 文字だけです"
+        },
+        "splitPhrase_one": "「{{word}}」を含む {{count}} 件のうち {{together}} 件で隣り合っています",
+        "splitPhrase_other": "「{{word}}」を含む {{count}} 件のうち {{together}} 件で隣り合っています",
+        "phraseExists": "「{{phrase}}」はすでに辞書にあります",
+        "neverHeard": "{{when}}に追加され、それ以降どのディクテーションにもありません"
+      },
+      "actions": {
+        "select": "{{word}} を選択",
+        "remove": "削除",
+        "keep": "残す",
+        "keepBoth": "両方残す",
+        "keepAll": "すべて残す",
+        "keepOne": "1 つ残す",
+        "removeAll": "すべて削除",
+        "neither": "どちらも残さない",
+        "change": "変更",
+        "changeTo": "「{{word}}」に変更",
+        "addPhrase": "「{{phrase}}」を追加",
+        "removeParts": "部分を削除",
+        "spellingLabel": "{{words}} のうち残す表記",
+        "apply_one": "選択した {{count}} 件を適用",
+        "apply_other": "選択した {{count}} 件を適用",
+        "showKept_one": "残した提案 {{count}} 件を再表示",
+        "showKept_other": "残した提案 {{count}} 件を再表示"
+      },
+      "undo": {
+        "undo": "元に戻す",
+        "undoAll": "すべて元に戻す（{{count}}）",
+        "session": "元に戻す操作はアプリを再起動するまで使えます。",
+        "evidence": "統合を元に戻しても、その単語が置き換えた内容は戻りません。それは履歴から得られるものです。",
+        "refused": {
+          "edited": "元に戻せません：「{{word}}」はその後変更されました。",
+          "exists": "元に戻せません：「{{word}}」は「{{existing}}」として再び辞書にあります。",
+          "intoGone": "元に戻せません：統合先の「{{word}}」がもうありません。",
+          "other": "元に戻せませんでした。"
+        }
+      },
+      "summary": {
+        "removed_one": "{{count}} 件削除",
+        "removed_other": "{{count}} 件削除",
+        "merged_one": "{{count}} 件統合",
+        "merged_other": "{{count}} 件統合",
+        "changed_one": "{{count}} 件変更",
+        "changed_other": "{{count}} 件変更",
+        "added_one": "{{count}} 件追加",
+        "added_other": "{{count}} 件追加",
+        "kept_one": "{{count}} 件残す",
+        "kept_other": "{{count}} 件残す",
+        "failed_one": "{{count}} 件は適用できませんでした",
+        "failed_other": "{{count}} 件は適用できませんでした",
+        "nothing": "何も変わりませんでした。"
+      },
+      "review": {
+        "groupTitle": "モデルの提案",
+        "tag": "AI",
+        "description": "モデルにも聞いてみましょう。一般的な単語に見える名前、まとめて残すべきフレーズ、望ましい表記など、ルールでは見つからないものを見つけます。",
+        "groupWhy": "{{model}} より。どれも提案です。選ぶまで何も変わりません。",
+        "modelLabel": "質問するモデル",
+        "roles": {
+          "cleanup": "クリーンアップ",
+          "chat": "チャット",
+          "assistant": "音声アシスタント"
+        },
+        "ask": "モデルに聞く",
+        "cancel": "キャンセル",
+        "running": "{{model}} に問い合わせています…",
+        "estimate_one": "{{count}} 件の単語とその出所・回数を送ります。ディクテーションは送りません。リクエスト 1 件、約 {{tokens}} トークン。",
+        "estimate_other": "{{count}} 件の単語とその出所・回数を送ります。ディクテーションは送りません。リクエスト 1 件、約 {{tokens}} トークン。",
+        "noModels": "一覧を確認できる設定済みのモデルがありません。設定でクリーンアップ、チャット、音声アシスタントのいずれかのモデルを設定してください。",
+        "kept_one": "提案 {{count}} 件。",
+        "kept_other": "提案 {{count}} 件。",
+        "none": "モデルからの変更提案はありません。",
+        "dropped_one": "{{count}} 件を除外しました：辞書にない単語を挙げていたか、無効でした。",
+        "dropped_other": "{{count}} 件を除外しました：辞書にない単語を挙げていたか、無効でした。",
+        "stale": "モデルの処理中に辞書が変わったため、提案を破棄しました。もう一度聞いてください。",
+        "malformed": "モデルの回答が想定の形式ではなかったため、何も残していません。",
+        "oversized": "モデルの回答が大きすぎたため、何も残していません。",
+        "failed": "モデルが一覧を確認できませんでした。",
+        "keepTag": "残す",
+        "dismiss": "閉じる",
+        "actions": {
+          "remove": "削除",
+          "respell": "変更",
+          "merge": "統合"
+        }
+      }
     }
   },
   "referral": {

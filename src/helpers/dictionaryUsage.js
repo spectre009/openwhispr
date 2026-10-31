@@ -11,8 +11,9 @@
 //   raw-only hits would cancel out.
 // These are heuristics, and 0/0 means unknown, never "speech gets it right".
 // The same rows and matching give one word's counts per week (the
-// Dictionary's word detail) and the dictation pace (dictations a day, for the
-// monthly token estimate).
+// Dictionary's word detail), the dictation pace (dictations a day, for the
+// monthly token estimate) and Tidy up's aggregates (frequent tokens and which
+// dictionary words sit side by side), all as words and counts.
 //
 // A token index, not a regex per word: each row is tokenized once into
 // lowercase word tokens; a one-token word is a set lookup, and a word with
@@ -172,6 +173,141 @@ export function countDictionaryUsage(rows, words, { snippetExpansions = [] } = {
   };
 }
 
+// ─── Tidy up's History aggregates ──────────────────────────────────────────
+// Two bounded aggregates of the same rows, from the final text (snippet
+// expansions removed, as "written" reads it), in one pass with the same token
+// index: the most frequent tokens with the rows each appears in (likely
+// typos: "gonestly" is a letter from "honestly", which you say often), and,
+// for each pair of dictionary words that ever sit next to each other, the rows
+// where they do, in either order, beside the rows containing the rarer one
+// (split phrases: "Little" + "Buddy"). Words and counts only: no row's text
+// leaves this module.
+
+export const TIDY_FREQUENT_TOKENS = 5000;
+export const TIDY_MAX_PAIRS = 5000;
+
+/**
+ * Tidy up's aggregates over `rows` (`{ raw, final }`) for `words`. Pure.
+ * `frequentTokens`: the top `maxTokens` lowercase word tokens by the rows
+ * they appear in. `adjacency`: `{ a, b, together, rarerRows }` for each pair
+ * of words that appear next to each other, `a` the one that comes first more
+ * often; `together` the rows with them side by side, `rarerRows` the rows
+ * containing the rarer of the two. At most `maxPairs`, most frequent first.
+ */
+export function countTidyInputs(
+  rows,
+  words,
+  { snippetExpansions = [], maxTokens = TIDY_FREQUENT_TOKENS, maxPairs = TIDY_MAX_PAIRS } = {}
+) {
+  const list = Array.isArray(words) ? words.filter((w) => typeof w === "string") : [];
+  const expansions = (Array.isArray(snippetExpansions) ? snippetExpansions : []).filter(
+    (text) => typeof text === "string" && text.trim()
+  );
+  const index = buildUsageIndex(list);
+  // Each word's token sequence, to match where it starts and how long it runs.
+  const sequences = list.map((word) => usageTokens(dictionaryWordKey(word)));
+  const sequenceKeys = sequences.map((tokens) => tokens.join(" "));
+
+  const tokenRows = new Map();
+  const tokenStamps = new Map();
+  const wordRows = new Int32Array(list.length);
+  const wordStamps = new Int32Array(list.length).fill(-1);
+  // "i j" (i < j) → { ab, ba, together, stamp }: rows with i before j, j before i, either.
+  const pairs = new Map();
+  let counted = 0;
+
+  for (const row of Array.isArray(rows) ? rows : []) {
+    if (!row || typeof row.raw !== "string") continue;
+    const stamp = counted;
+    counted += 1;
+    const finalText = typeof row.final === "string" ? row.final : row.raw;
+    const tokens = usageTokens(
+      expansions.length ? withoutExpansions(finalText, expansions) : finalText
+    );
+
+    // Where each dictionary word starts in this row, and how many tokens it spans.
+    const starts = new Map();
+    for (let i = 0; i < tokens.length; i += 1) {
+      const token = tokens[i];
+      if (tokenStamps.get(token) !== stamp) {
+        tokenStamps.set(token, stamp);
+        tokenRows.set(token, (tokenRows.get(token) ?? 0) + 1);
+      }
+      const single = index.singles.get(token);
+      const multi = index.multisByFirst.get(token);
+      if (!single && !multi) continue;
+      const here = [];
+      if (single) for (const word of single) here.push(word);
+      if (multi) {
+        for (const { word } of multi) {
+          const seq = sequences[word];
+          let match = i + seq.length <= tokens.length;
+          for (let k = 1; match && k < seq.length; k += 1) match = tokens[i + k] === seq[k];
+          if (match) here.push(word);
+        }
+      }
+      if (here.length === 0) continue;
+      starts.set(i, here);
+      for (const word of here) {
+        if (wordStamps[word] !== stamp) {
+          wordStamps[word] = stamp;
+          wordRows[word] += 1;
+        }
+      }
+    }
+
+    // Two words side by side: one ends where the other starts.
+    for (const [i, here] of starts) {
+      for (const a of here) {
+        const next = starts.get(i + sequences[a].length);
+        if (!next) continue;
+        for (const b of next) {
+          if (sequenceKeys[a] === sequenceKeys[b]) continue;
+          const [lo, hi] = a < b ? [a, b] : [b, a];
+          const key = `${lo} ${hi}`;
+          let pair = pairs.get(key);
+          if (!pair) {
+            pair = { lo, hi, ab: 0, ba: 0, together: 0, stamp: -1, orderStamp: 0 };
+            pairs.set(key, pair);
+          }
+          // Each order once per row, and the row once for "together".
+          const bit = a === lo ? 1 : 2;
+          if (pair.stamp !== stamp) {
+            pair.stamp = stamp;
+            pair.orderStamp = 0;
+            pair.together += 1;
+          }
+          if ((pair.orderStamp & bit) === 0) {
+            pair.orderStamp |= bit;
+            if (bit === 1) pair.ab += 1;
+            else pair.ba += 1;
+          }
+        }
+      }
+    }
+  }
+
+  const frequentTokens = [...tokenRows]
+    .sort((x, y) => y[1] - x[1] || (x[0] < y[0] ? -1 : x[0] > y[0] ? 1 : 0))
+    .slice(0, Math.max(0, maxTokens))
+    .map(([token, count]) => ({ token, rows: count }));
+
+  const adjacency = [...pairs.values()]
+    .sort((x, y) => y.together - x.together || x.lo - y.lo || x.hi - y.hi)
+    .slice(0, Math.max(0, maxPairs))
+    .map((pair) => {
+      const [first, second] = pair.ba > pair.ab ? [pair.hi, pair.lo] : [pair.lo, pair.hi];
+      return {
+        a: list[first],
+        b: list[second],
+        together: pair.together,
+        rarerRows: Math.min(wordRows[pair.lo], wordRows[pair.hi]),
+      };
+    });
+
+  return { rows: counted, frequentTokens, adjacency };
+}
+
 const DAY_MS = 24 * 60 * 60 * 1000;
 // The word detail's chart: 13 weeks ending now (the oldest one starts where
 // the 90-day window does, so it's a day short).
@@ -283,6 +419,16 @@ export function computeWordUsage(
   return countWordUsageByWeek(rows, word, { snippetExpansions, now, days });
 }
 
+/** Tidy up's aggregates over `db`'s History, by computeDictionaryUsage's rows. */
+export function computeDictionaryTidyInputs(
+  db,
+  words,
+  { days = DICTIONARY_USAGE_DAYS, owner = null, snippetExpansions = [], now = Date.now() } = {}
+) {
+  const rows = usageRows(db, { days, owner, now });
+  return countTidyInputs(rows, words, { snippetExpansions });
+}
+
 const STORAGE_REASONS = Object.freeze({
   POLICY_OFF: "policy-off",
   PENDING: "pending",
@@ -324,6 +470,7 @@ export function createDictionaryUsageService({
   minIntervalMs = DICTIONARY_USAGE_MIN_INTERVAL_MS,
   days = DICTIONARY_USAGE_DAYS,
   onComputed = null,
+  onTidyComputed = null,
 }) {
   let cache = null;
   let inFlight = null;
@@ -428,13 +575,54 @@ export function createDictionaryUsageService({
     return { available: true, days, sets: db.getDictionaryCleanupScopeCounts({ owner, since }) };
   }
 
+  // Tidy up's aggregates (frequent tokens, adjacency), cached like the
+  // totals: by owner, day, words and expansions, until History changes.
+  let tidyCache = null;
+
+  async function getTidyInputs() {
+    const { owner, reason } = readableOwner();
+    if (!owner) return { available: false, reason };
+    const at = now();
+    const words = db.getDictionary();
+    const expansions = getSnippetExpansions() ?? [];
+    const revision = db.getHistoryContentRevision?.() ?? null;
+    const shape = JSON.stringify([owner, dayKey(at), words, expansions]);
+    if (tidyCache && tidyCache.shape === shape) {
+      const fresh = revision !== null && tidyCache.revision === revision;
+      if (fresh || at - tidyCache.at < minIntervalMs) return tidyCache.result;
+    }
+    const counts = computeDictionaryTidyInputs(db, words, {
+      days,
+      owner,
+      snippetExpansions: expansions,
+      now: at,
+    });
+    const result = {
+      available: true,
+      days,
+      rows: counts.rows,
+      frequentTokens: counts.frequentTokens,
+      adjacency: counts.adjacency,
+    };
+    tidyCache = { shape, revision, at, result };
+    onTidyComputed?.({
+      rows: counts.rows,
+      tokens: counts.frequentTokens.length,
+      pairs: counts.adjacency.length,
+      ms: now() - at,
+    });
+    return result;
+  }
+
   return {
     get,
     getWord,
     getCleanupScopeCounts,
+    getTidyInputs,
     /** History's policy or owner changed: the next read recomputes. */
     invalidate() {
       cache = null;
+      tidyCache = null;
       wordCache.clear();
     },
   };

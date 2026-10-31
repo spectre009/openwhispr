@@ -3,6 +3,7 @@ const assert = require("node:assert/strict");
 
 const {
   countDictionaryUsage,
+  countTidyInputs,
   countWordUsageByWeek,
   createDictionaryUsageService,
   dictationPace,
@@ -275,4 +276,163 @@ test("dictation pace: a day's average over 30 days, or since History began", () 
   assert.deepEqual(dictationPace([], { now }), { perDay: 0 });
   assert.equal(usageRowTime("2026-10-30 12:00:00"), now, "SQLite's UTC format");
   assert.ok(Number.isNaN(usageRowTime(null)));
+});
+
+// ─── Tidy up's aggregates ───
+
+test("tidy inputs: frequent tokens by the rows they're in, from the final text", () => {
+  const result = countTidyInputs(
+    [
+      row("so honestly", "So honestly, honestly."),
+      row("honestly", "Honestly."),
+      row("sessions", "Sessions and sessions."),
+      row("raw only words", "Final words."),
+      row("my sig", "Thanks, sent from my laptop"),
+      { final: "no raw transcript" },
+    ],
+    [],
+    { snippetExpansions: ["sent from my laptop"], maxTokens: 4 }
+  );
+  assert.equal(result.rows, 5, "rows without a raw transcript aren't read");
+  assert.deepEqual(result.frequentTokens, [
+    { token: "honestly", rows: 2 },
+    { token: "and", rows: 1 },
+    { token: "final", rows: 1 },
+    { token: "sessions", rows: 1 },
+  ]);
+  assert.equal(
+    result.frequentTokens.some((entry) => entry.token === "laptop"),
+    false,
+    "a snippet's expansion wasn't said"
+  );
+  assert.deepEqual(result.adjacency, []);
+});
+
+test("tidy inputs: dictionary words side by side, either order, against the rarer one's rows", () => {
+  const words = ["Little", "Buddy", "agents-shared", "Repo", "CLAUDE", "Claude"];
+  const result = countTidyInputs(
+    [
+      row("hey little buddy", "Hey Little Buddy."),
+      row("little buddy again", "Little Buddy again, little buddy."),
+      row("buddy little", "Buddy, little one."),
+      row("buddy alone", "Buddy alone."),
+      row("little", "Little."),
+      row("agents shared repo", "agents-shared repo"),
+      row("claude claude", "Claude CLAUDE"),
+    ],
+    words
+  );
+  const pair = (a, b) =>
+    result.adjacency.find(
+      (entry) => (entry.a === a && entry.b === b) || (entry.a === b && entry.b === a)
+    );
+  // Rows: Little in 4, Buddy in 4; together in 3 (one of them "Buddy, little").
+  assert.deepEqual(pair("Little", "Buddy"), {
+    a: "Little",
+    b: "Buddy",
+    together: 3,
+    rarerRows: 4,
+  });
+  // A several-token word sits next to the one after it.
+  assert.deepEqual(pair("agents-shared", "Repo"), {
+    a: "agents-shared",
+    b: "Repo",
+    together: 1,
+    rarerRows: 1,
+  });
+  // Two spellings of one word are never a pair.
+  assert.equal(pair("Claude", "CLAUDE"), undefined);
+});
+
+test("tidy inputs: at most the top tokens and pairs", () => {
+  const rows = Array.from({ length: 30 }, (_, i) => row(`t${i} a b`, `t${i} a b`));
+  const result = countTidyInputs(rows, ["a", "b"], { maxTokens: 2, maxPairs: 1 });
+  assert.deepEqual(result.frequentTokens, [
+    { token: "a", rows: 30 },
+    { token: "b", rows: 30 },
+  ]);
+  assert.deepEqual(result.adjacency, [{ a: "a", b: "b", together: 30, rarerRows: 30 }]);
+});
+
+test("timing: tidy inputs for 5,000 rows × 250 words stay under 300 ms", () => {
+  let seed = 11;
+  const random = () => {
+    seed = (seed * 1103515245 + 12345) % 2147483648;
+    return seed / 2147483648;
+  };
+  // A vocabulary larger than the 5,000 tokens kept.
+  const vocabulary = Array.from({ length: 8000 }, (_, i) => `word${i}`);
+  const words = Array.from({ length: 250 }, (_, i) =>
+    i % 4 === 0 ? `Multi Term${i}` : i % 7 === 0 ? `dotted${i}.md` : `Term${i}`
+  );
+  const rows = Array.from({ length: 5000 }, () => {
+    const tokens = Array.from({ length: 40 }, () => vocabulary[Math.floor(random() * 8000)]);
+    const first = words[Math.floor(random() * 250)];
+    const second = words[Math.floor(random() * 250)];
+    const text = `${tokens.join(" ")} ${first} ${second}.`;
+    return row(text.toLowerCase(), text);
+  });
+  countTidyInputs(rows.slice(0, 200), words); // warm up the JIT
+  const started = process.hrtime.bigint();
+  const result = countTidyInputs(rows, words);
+  const ms = Number(process.hrtime.bigint() - started) / 1e6;
+  console.log(`countTidyInputs: 5,000 rows × 250 words in ${ms.toFixed(1)} ms`);
+  assert.equal(result.rows, 5000);
+  assert.equal(result.frequentTokens.length, 5000);
+  assert.ok(result.adjacency.length > 0);
+  assert.ok(ms < 300, `took ${ms.toFixed(1)} ms; the budget is 300 ms`);
+});
+
+test("the service's tidy inputs: owner-scoped, durable-History-only, cached by revision", async () => {
+  const db = {
+    reads: 0,
+    revision: 1,
+    words: ["Little", "Buddy"],
+    getDictionary() {
+      return [...this.words];
+    },
+    getHistoryContentRevision() {
+      return this.revision;
+    },
+    getDictionaryUsageRows({ owner }) {
+      this.reads += 1;
+      assert.equal(owner, "account:a");
+      return [row("little buddy", "Little Buddy."), row("little buddy", "Little Buddy!")];
+    },
+  };
+  const policy = { synced: true, enabled: true, forcedOff: false, resolved: true };
+  let at = Date.parse("2026-10-30T12:00:00Z");
+  const computed = [];
+  const service = createDictionaryUsageService({
+    db,
+    getOwner: () => "account:a",
+    getPolicy: () => policy,
+    now: () => at,
+    onTidyComputed: (counts) => computed.push(counts),
+  });
+  const first = await service.getTidyInputs();
+  assert.equal(first.available, true);
+  assert.equal(first.days, 90);
+  assert.deepEqual(first.adjacency, [{ a: "Little", b: "Buddy", together: 2, rarerRows: 2 }]);
+  assert.deepEqual(
+    Object.keys(computed[0]).sort(),
+    ["ms", "pairs", "rows", "tokens"],
+    "counts only"
+  );
+  await service.getTidyInputs();
+  assert.equal(db.reads, 1, "the same revision: cached");
+  db.revision = 2;
+  at += 60_000;
+  await service.getTidyInputs();
+  assert.equal(db.reads, 2, "History changed");
+  db.words = ["Little"];
+  await service.getTidyInputs();
+  assert.equal(db.reads, 3, "the words changed");
+
+  policy.enabled = false;
+  assert.deepEqual(await service.getTidyInputs(), { available: false, reason: "history-off" });
+  policy.enabled = true;
+  policy.forcedOff = true;
+  assert.deepEqual(await service.getTidyInputs(), { available: false, reason: "policy-off" });
+  assert.equal(db.reads, 3, "nothing read while History isn't durable");
 });

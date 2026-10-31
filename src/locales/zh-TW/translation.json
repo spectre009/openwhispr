@@ -4837,6 +4837,158 @@
         "pending": "正在從本機歷史記錄統計…",
         "other": "目前無法統計。"
       }
+    },
+    "tidy": {
+      "button": "整理",
+      "buttonLabel_one": "整理，已選 {{count}} 則建議",
+      "buttonLabel_other": "整理，已選 {{count}} 則建議",
+      "title_one": "{{count}} 個詞需要看一下",
+      "title_other": "{{count}} 個詞需要看一下",
+      "titleNone": "沒有需要查看的詞",
+      "checking": "正在檢查你的字典…",
+      "subtitle": "剛剛在這台電腦上檢查，用到你的字典和 {{days}} 天的歷史記錄。在你選擇之前不會有任何變更。",
+      "subtitleNoHistory": "剛剛在這台電腦上檢查，只用到你的字典。在你選擇之前不會有任何變更。",
+      "close": "返回清單",
+      "filtersLabel": "顯示",
+      "all": "全部",
+      "needsHistory": "需要此帳戶的本機歷史記錄",
+      "partial": "只列出自動學習會忽略的日常詞。其餘檢查需要此帳戶的本機歷史記錄。",
+      "empty": "這裡沒有內容。",
+      "capped": "顯示 {{total}} 項中的前 {{shown}} 項。",
+      "groups": {
+        "variants": {
+          "title": "同一個詞，兩種寫法",
+          "why": "選出你想寫的那種。其他寫法會合併進來；手動輸入或已釘選的狀態會保留。"
+        },
+        "plurals": {
+          "title": "單數和複數",
+          "why": "兩種形式各占一個位置。保留你寫的那個；如果語音辨識兩種都寫得對，就都不留。"
+        },
+        "ordinary": {
+          "title": "普通詞",
+          "why": "語音模型本來就能寫對。它們占用位置，還會把別的詞往自己身上拉。"
+        },
+        "typos": {
+          "title": "可能的拼寫錯誤",
+          "why": "很少被聽到或寫出，而且和你常說的某個詞只差一兩個字母。"
+        },
+        "fragments": {
+          "title": "片段",
+          "why": "句子碎片、數字或標點，不是詞彙。"
+        },
+        "splitPhrases": {
+          "title": "被拆開的片語",
+          "why": "你總是連著說的兩個詞。合成一個片語只占一個位置，效果也更好。"
+        },
+        "neverHeard": {
+          "title": "{{days}} 天內從未聽到",
+          "why": "一個多月前自動學習的詞，之後沒有出現在任何聽寫中。保留你會用到的。"
+        }
+      },
+      "reasons": {
+        "keepWritten_one": "保留「{{word}}」：寫出 {{count}} 次，比其他寫法多",
+        "keepWritten_other": "保留「{{word}}」：寫出 {{count}} 次，比其他寫法多",
+        "keepTyped": "保留「{{word}}」：這是你手動輸入的",
+        "keepNewest": "保留「{{word}}」：最新的寫法",
+        "keepProtected": "保留「{{word}}」：詞彙表寫法或片段觸發詞",
+        "allOrdinary": "兩個都是語音辨識能寫對的普通詞",
+        "ordinaryLearner": "自動學習已不再學習的日常詞",
+        "ordinaryHeard_one": "語音辨識寫出它 {{count}} 次，從未漏掉",
+        "ordinaryHeard_other": "語音辨識寫出它 {{count}} 次，從未漏掉",
+        "typoToken_one": "接近「{{target}}」，出現在你的 {{count}} 次聽寫中",
+        "typoToken_other": "接近「{{target}}」，出現在你的 {{count}} 次聽寫中",
+        "typoWord": "接近字典中已有的「{{target}}」",
+        "fragment": {
+          "punctuation": "中間帶標點：是句子的一部分",
+          "digits": "只有數字：是數字，不是詞彙",
+          "edge": "以連字號或句點開頭或結尾",
+          "short": "只有一個字元"
+        },
+        "splitPhrase_one": "在包含「{{word}}」的 {{count}} 次聽寫中，有 {{together}} 次緊挨著",
+        "splitPhrase_other": "在包含「{{word}}」的 {{count}} 次聽寫中，有 {{together}} 次緊挨著",
+        "phraseExists": "「{{phrase}}」已在你的字典中",
+        "neverHeard": "新增於{{when}}，之後沒有出現在任何聽寫中"
+      },
+      "actions": {
+        "select": "選取 {{word}}",
+        "remove": "移除",
+        "keep": "保留",
+        "keepBoth": "兩個都保留",
+        "keepAll": "全部保留",
+        "keepOne": "保留一個",
+        "removeAll": "全部移除",
+        "neither": "都不保留",
+        "change": "變更",
+        "changeTo": "改為「{{word}}」",
+        "addPhrase": "新增「{{phrase}}」",
+        "removeParts": "移除拆開的部分",
+        "spellingLabel": "{{words}} 中保留哪種寫法",
+        "apply_one": "套用所選的 {{count}} 項",
+        "apply_other": "套用所選的 {{count}} 項",
+        "showKept_one": "重新顯示 {{count}} 則保留的建議",
+        "showKept_other": "重新顯示 {{count}} 則保留的建議"
+      },
+      "undo": {
+        "undo": "復原",
+        "undoAll": "全部復原（{{count}}）",
+        "session": "在 App 重新啟動之前都可以復原。",
+        "evidence": "復原合併不會找回這個詞取代過的內容：那些來自歷史記錄。",
+        "refused": {
+          "edited": "無法復原：「{{word}}」之後被修改過。",
+          "exists": "無法復原：「{{word}}」已以「{{existing}}」的形式回到字典中。",
+          "intoGone": "無法復原：它被合併進的「{{word}}」已不存在。",
+          "other": "無法復原。"
+        }
+      },
+      "summary": {
+        "removed_one": "已移除 {{count}} 個",
+        "removed_other": "已移除 {{count}} 個",
+        "merged_one": "已合併 {{count}} 個",
+        "merged_other": "已合併 {{count}} 個",
+        "changed_one": "已變更 {{count}} 個",
+        "changed_other": "已變更 {{count}} 個",
+        "added_one": "已新增 {{count}} 個",
+        "added_other": "已新增 {{count}} 個",
+        "kept_one": "已保留 {{count}} 個",
+        "kept_other": "已保留 {{count}} 個",
+        "failed_one": "{{count}} 項無法套用",
+        "failed_other": "{{count}} 項無法套用",
+        "nothing": "沒有任何變更。"
+      },
+      "review": {
+        "groupTitle": "模型建議",
+        "tag": "AI",
+        "description": "也問問模型：它能發現規則發現不了的問題，例如看起來像普通詞的名稱、應該整體保留的片語，以及更合適的寫法。",
+        "groupWhy": "來自 {{model}}。每則都只是建議：在你選擇之前不會有任何變更。",
+        "modelLabel": "要詢問的模型",
+        "roles": {
+          "cleanup": "清理",
+          "chat": "聊天",
+          "assistant": "語音助理"
+        },
+        "ask": "詢問模型",
+        "cancel": "取消",
+        "running": "正在詢問 {{model}}…",
+        "estimate_one": "傳送你的 {{count}} 個詞及其來源和計數，絕不傳送你的聽寫內容。一次請求，約 {{tokens}} 個 token。",
+        "estimate_other": "傳送你的 {{count}} 個詞及其來源和計數，絕不傳送你的聽寫內容。一次請求，約 {{tokens}} 個 token。",
+        "noModels": "沒有已設定的模型可以檢查這份清單。請在設定中設定清理、聊天或語音助理模型。",
+        "kept_one": "{{count}} 則建議。",
+        "kept_other": "{{count}} 則建議。",
+        "none": "模型沒有建議任何變更。",
+        "dropped_one": "已捨棄 {{count}} 則：其中提到了不在你字典中的詞，或格式無效。",
+        "dropped_other": "已捨棄 {{count}} 則：其中提到了不在你字典中的詞，或格式無效。",
+        "stale": "模型處理期間你的字典有了變化，所以它的建議已被捨棄。請再問一次。",
+        "malformed": "模型的回答格式不符合預期，所以沒有保留任何內容。",
+        "oversized": "模型的回答太大，所以沒有保留任何內容。",
+        "failed": "模型無法檢查這份清單。",
+        "keepTag": "保留",
+        "dismiss": "關閉",
+        "actions": {
+          "remove": "移除",
+          "respell": "變更",
+          "merge": "合併"
+        }
+      }
     }
   },
   "insights": {
