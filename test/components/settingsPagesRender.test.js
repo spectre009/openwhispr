@@ -236,6 +236,8 @@ test(
       ["preferences.uiLanguage", "appearance"],
       ["dictation.language", "recognition"],
       ["dictation.recognition.dictionaryOrder", "recognition"],
+      ["dictation.cleanup.dictionaryWords", "cleanup"],
+      ["dictation.cleanup.dictionaryGrouping", "cleanup"],
       ["dictation.output.autoPaste", "output"],
       ["dictation.output.autoLearn", "output"],
       ["preferences.sounds.dictation", "audio"],

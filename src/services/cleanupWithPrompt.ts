@@ -85,14 +85,17 @@ export function cleanupRouteKey(settings: SettingsState = getSettings()): string
 
 /**
  * The dictionary and languages a cleanup prompt is built with, read the way a
- * dictation reads them (cleanup's word set, BaseReasoningService's
- * languages), for a run to freeze.
+ * dictation reads them (cleanup's word set and its grouping by category,
+ * BaseReasoningService's languages), for a run to freeze: one snapshot, so a
+ * dictionary, category or setting change mid-run can't change later requests.
  */
 export function captureCleanupPromptInputs(
   settings: SettingsState = getSettings()
 ): CleanupPromptInputs {
+  const selection = selectCleanupDictionary(settings);
   return {
-    customDictionary: selectCleanupDictionary(settings).words,
+    customDictionary: selection.words,
+    ...(selection.groups ? { groups: selection.groups } : {}),
     preferredLanguage: resolveCleanupLanguage(settings.preferredLanguage),
     uiLanguage: settings.uiLanguage || "en",
   };

@@ -549,6 +549,25 @@ async function dictionaryInsight() {
   });
   await handlers.get("dictionary-pins-reorder")({}, [DICT_WORD_MARKER.toLowerCase(), "other"]);
   delete target.databaseManager.reorderDictionaryPins;
+  // Categories set: counts and codes, never a word or a category.
+  target.databaseManager.setDictionaryCategories = (items) => ({
+    success: true,
+    changed: 1,
+    results: items.map((item, index) => (index === 0 ? { ok: true } : { ok: false, code: "X" })),
+    categories: [{ key: DICT_WORD_MARKER.toLowerCase(), category: "people", source: "user" }],
+  });
+  const categorized = await handlers.get("dictionary-categories-set")({}, [
+    { word: DICT_WORD_MARKER, category: "people", source: "user" },
+    { word: `${DICT_WORD_MARKER}2`, category: "work", source: "model" },
+  ]);
+  assert.equal(categorized.success, true);
+  target.databaseManager.setDictionaryCategories = () => {
+    throw new Error(`boom ${"x".length}`);
+  };
+  await handlers.get("dictionary-categories-set")({}, [
+    { word: DICT_WORD_MARKER, category: null, source: "user" },
+  ]);
+  delete target.databaseManager.setDictionaryCategories;
 }
 
 const DICTIONARY_MARKERS = [DICT_WORD_MARKER, SPEECH_MARKER, SNIPPET_MARKER];
@@ -609,6 +628,8 @@ test("with Include dictated text off, no written log holds the dictated text", a
   assert.ok(written.includes("Dictionary speech variants answered"));
   assert.ok(written.includes("Dictionary occurrences not read"));
   assert.ok(written.includes("Dictionary pins reordered"), "the reorder was logged");
+  assert.ok(written.includes("Dictionary categories set"), "the categories were logged");
+  assert.ok(written.includes("Dictionary categories not set"));
   for (const marker of DICTIONARY_MARKERS) {
     assert.equal(
       written.toLowerCase().includes(marker.toLowerCase()),

@@ -151,6 +151,7 @@ import BuildInfoPanel from "./settings/BuildInfoPanel";
 import DictationOverview from "./settings/DictationOverview";
 import AutoLearnModeSetting from "./settings/AutoLearnModeSetting";
 import CleanupDictionaryWordsSetting from "./settings/CleanupDictionaryWordsSetting";
+import CleanupDictionaryGroupingSetting from "./settings/CleanupDictionaryGroupingSetting";
 import DictionaryHintOrderSetting from "./settings/DictionaryHintOrderSetting";
 import { HotkeyFeatureLink, HotkeyKbd, HotkeyTable, HotkeyTableRow } from "./settings/HotkeyTable";
 import type { ElsewhereLocation } from "./settings/search/types";
@@ -4604,6 +4605,9 @@ EOF`,
               <SettingsPanel>
                 <SettingsPanelRow data-setting-id="dictation.cleanup.dictionaryWords">
                   <CleanupDictionaryWordsSetting />
+                </SettingsPanelRow>
+                <SettingsPanelRow data-setting-id="dictation.cleanup.dictionaryGrouping">
+                  <CleanupDictionaryGroupingSetting />
                 </SettingsPanelRow>
               </SettingsPanel>
             )}

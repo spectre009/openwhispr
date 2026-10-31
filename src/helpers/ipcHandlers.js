@@ -2824,6 +2824,69 @@ class IPCHandlers {
       }
     });
 
+    // Categories: the explicit choices (the user's, and model proposals the
+    // user accepted), local only; main owns them, every window mirrors the
+    // broadcast and computes the automatic ones itself. Logged as counts and
+    // codes only, never a word or a category.
+    ipcMain.handle("dictionary-categories-get", async () => {
+      try {
+        return this.databaseManager.getDictionaryCategories();
+      } catch (error) {
+        debugLogger.warn("Dictionary categories not read", { error: error.message }, "dictionary");
+        return [];
+      }
+    });
+
+    const MAX_CATEGORY_ITEMS = 10_000;
+    ipcMain.handle("dictionary-categories-set", async (_event, items) => {
+      if (
+        !Array.isArray(items) ||
+        items.length > MAX_CATEGORY_ITEMS ||
+        !items.every(
+          (item) =>
+            item &&
+            typeof item === "object" &&
+            typeof item.word === "string" &&
+            item.word.trim() &&
+            item.word.length <= 500
+        )
+      ) {
+        return { success: false, code: "INVALID" };
+      }
+      const checked = items.map((item) => ({
+        word: item.word,
+        // Only an explicit null clears; anything else that isn't a string is refused.
+        category:
+          item.category === null
+            ? null
+            : typeof item.category === "string"
+              ? item.category
+              : "invalid",
+        source: typeof item.source === "string" ? item.source : null,
+      }));
+      try {
+        const result = this.databaseManager.setDictionaryCategories(checked);
+        if (result.success && result.changed > 0) {
+          broadcastToWindows("dictionary-categories-updated", result.categories);
+        }
+        debugLogger.debug(
+          "Dictionary categories set",
+          {
+            items: checked.length,
+            success: result.success,
+            changed: result.changed ?? 0,
+            refused: result.results?.filter((entry) => !entry.ok).length ?? 0,
+            code: result.code ?? null,
+          },
+          "dictionary"
+        );
+        return result;
+      } catch (error) {
+        debugLogger.warn("Dictionary categories not set", { error: error.message }, "dictionary");
+        return { success: false, code: "FAILED" };
+      }
+    });
+
     // Suggestions (auto-learn's Suggest mode), with this owner's evidence while
     // local history is durable for it. Never logged: counts and reasons only.
     const suggestionsList = () => {
@@ -3045,11 +3108,15 @@ class IPCHandlers {
       }
     });
 
-    // Everything keyed by a word (the list, its pins, the inbox) after a
-    // rename or merge, to every window.
+    // Everything keyed by a word (the list, its pins and categories, the
+    // inbox) after a rename or merge, to every window.
     const broadcastDictionaryChange = () => {
       broadcastToWindows("dictionary-updated", this.databaseManager.getDictionary());
       broadcastToWindows("dictionary-pins-updated", this.databaseManager.getDictionaryPins());
+      broadcastToWindows(
+        "dictionary-categories-updated",
+        this.databaseManager.getDictionaryCategories?.() ?? []
+      );
     };
 
     // A new spelling for a word, in place (its source, date, pin and evidence kept).
@@ -3161,6 +3228,9 @@ class IPCHandlers {
     const tidyDate = (value) => (typeof value === "string" && value.length <= 40 ? value : null);
     const tidyPlace = (value) =>
       Number.isInteger(value) && value >= 0 && value <= 1_000_000 ? value : null;
+    const tidyCategory = (value) =>
+      value === "people" || value === "work" || value === "everyday" ? value : null;
+    const tidyCategorySource = (value) => (value === "user" || value === "model" ? value : null);
     const tidyEntry = (entry) =>
       dictionaryWordArg(entry?.word)
         ? {
@@ -3169,6 +3239,8 @@ class IPCHandlers {
             createdAt: tidyDate(entry.createdAt),
             pinned: entry.pinned === true,
             pinPosition: tidyPlace(entry.pinPosition),
+            category: tidyCategory(entry.category),
+            categorySource: tidyCategorySource(entry.categorySource),
           }
         : null;
     const tidyRepin = (value) =>
@@ -3176,6 +3248,17 @@ class IPCHandlers {
         ? value
             .filter((item) => dictionaryWordArg(item?.word) && tidyPlace(item?.position) !== null)
             .map((item) => ({ word: item.word, position: item.position }))
+            .slice(0, TIDY_MAX_OPS)
+        : [];
+    const tidyRecategorize = (value) =>
+      Array.isArray(value)
+        ? value
+            .filter((item) => dictionaryWordArg(item?.word))
+            .map((item) => ({
+              word: item.word,
+              category: tidyCategory(item.category),
+              source: tidyCategorySource(item.source),
+            }))
             .slice(0, TIDY_MAX_OPS)
         : [];
     const tidyStep = (step) => {
@@ -3193,6 +3276,7 @@ class IPCHandlers {
         remove: tidyWords(step?.remove),
         unpin: tidyWords(step?.unpin),
         repin: tidyRepin(step?.repin),
+        recategorize: tidyRecategorize(step?.recategorize),
       };
     };
 

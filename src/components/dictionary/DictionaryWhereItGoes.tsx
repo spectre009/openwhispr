@@ -4,11 +4,14 @@ import { ChevronDown, ChevronUp } from "../icons";
 import { cn } from "../lib/utils";
 import { CARD_SURFACE_CLASS } from "../ui/surfaces";
 import CleanupDictionaryWordsSetting from "../settings/CleanupDictionaryWordsSetting";
+import CleanupDictionaryGroupingSetting from "../settings/CleanupDictionaryGroupingSetting";
 import { getSettings, useSettingsStore } from "../../stores/settingsStore";
 import { useDictionarySourcesStore } from "../../stores/dictionarySourcesStore";
 import { useDictionaryUsageStore } from "../../stores/dictionaryUsageStore";
+import { useDictionaryCategoriesStore } from "../../stores/dictionaryCategoriesStore";
 import { useGlossaryStore } from "../../stores/glossaryStore";
 import { glossaryCanonicalTerms } from "../../utils/glossary";
+import { effectiveDictionaryCategory } from "../../utils/dictionaryCategories";
 import {
   CLEANUP_DICTIONARY_SETTINGS,
   estimateDictionaryTokens,
@@ -32,23 +35,41 @@ function useCleanupNumbers() {
   const customDictionary = useSettingsStore((s) => s.customDictionary);
   const snippets = useSettingsStore((s) => s.snippets);
   const setting = useSettingsStore((s) => s.cleanupDictionaryWords);
+  const grouping = useSettingsStore((s) => s.cleanupDictionaryGrouping);
   const cleanupOn = useSettingsStore((s) => s.useCleanupModel);
   const learned = useDictionarySourcesStore((s) => s.learned);
   const sourcesLoaded = useDictionarySourcesStore((s) => s.loaded);
   const pinned = useDictionarySourcesStore((s) => s.pinned);
   const missed = useDictionaryUsageStore((s) => s.missed);
   const perDay = useDictionaryUsageStore((s) => s.perDay);
+  const categoriesReady = useDictionaryCategoriesStore((s) => s.ready);
+  const storedCategories = useDictionaryCategoriesStore((s) => s.stored);
+  const commonWords = useDictionaryCategoriesStore((s) => s.commonWords);
   const glossaryRules = useGlossaryStore((s) => s.rules);
   return useMemo(() => {
     const glossaryTerms = glossaryCanonicalTerms(glossaryRules);
-    const sources = { learned: sourcesLoaded ? learned : null, pinned, missed };
-    const settings = { customDictionary, snippets, cleanupDictionaryWords: setting };
+    const sources = {
+      learned: sourcesLoaded ? learned : null,
+      pinned,
+      missed,
+      categories: categoriesReady
+        ? (word: string) =>
+            effectiveDictionaryCategory(word, storedCategories, commonWords).category
+        : null,
+    };
+    const settings = {
+      customDictionary,
+      snippets,
+      cleanupDictionaryWords: setting,
+      cleanupDictionaryGrouping: grouping,
+    };
     const current = selectCleanupDictionary(settings, sources, glossaryTerms);
     const tokens = estimateDictionaryTokens(current.words);
     const chatWords = getDictionaryHintWords({ customDictionary, snippets }, glossaryTerms);
     return {
       setting,
       applied: current.scope.applied,
+      grouped: !!current.groups,
       words: current.scope.words,
       tokens,
       monthly: perDay != null && perDay > 0 ? Math.round(tokens * perDay * 30) : null,
@@ -60,12 +81,16 @@ function useCleanupNumbers() {
     customDictionary,
     snippets,
     setting,
+    grouping,
     cleanupOn,
     learned,
     sourcesLoaded,
     pinned,
     missed,
     perDay,
+    categoriesReady,
+    storedCategories,
+    commonWords,
     glossaryRules,
   ]);
 }
@@ -238,6 +263,7 @@ export default function DictionaryWhereItGoes({
           <p className={cellSub}>
             {[
               t("dictionary.where.cleanup.sends", { set: setName }),
+              cleanup.grouped ? t("dictionary.where.cleanup.grouped") : null,
               cleanup.cleanupOn && cleanup.monthly != null
                 ? t("dictionary.where.cleanup.monthly", { tokens: compact.format(cleanup.monthly) })
                 : null,
@@ -331,6 +357,9 @@ export default function DictionaryWhereItGoes({
               )}
               <div className="mt-3">
                 <CleanupDictionaryWordsSetting />
+              </div>
+              <div className="mt-3">
+                <CleanupDictionaryGroupingSetting />
               </div>
               <div className="mt-3">
                 <ScopeCounts />

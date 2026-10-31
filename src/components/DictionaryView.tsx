@@ -11,6 +11,7 @@ import {
 } from "react";
 import { useTranslation } from "react-i18next";
 import {
+  ChevronDown,
   ClipboardCheck,
   CornerDownLeft,
   Download,
@@ -26,6 +27,13 @@ import {
 import { Input } from "./ui/input";
 import { Textarea } from "./ui/textarea";
 import { Button } from "./ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "./ui/dropdown-menu";
 import { PAGE_CONTENT_WIDTH_CLASS } from "./ui/pageWidth";
 import { cn } from "./lib/utils";
 import { CARD_SURFACE_CLASS } from "./ui/surfaces";
@@ -42,8 +50,10 @@ import DictionaryWordList from "./dictionary/DictionaryWordList";
 import DictionaryWordDetail from "./dictionary/DictionaryWordDetail";
 import DictionaryWhereItGoes from "./dictionary/DictionaryWhereItGoes";
 import DictionaryTidy from "./dictionary/DictionaryTidy";
+import DictionaryCategories from "./dictionary/DictionaryCategories";
 import { useDictionaryTidy } from "./dictionary/useDictionaryTidy";
 import { CLEANUP_SET_KEYS, type CleanupInclusion } from "./dictionary/dictionaryLabels";
+import { CATEGORY_DOT_CLASS, CATEGORY_NAME_KEYS } from "./dictionary/categoryStyles";
 import { useDictionaryCoverage } from "./dictionary/useDictionaryCoverage";
 import { getSettings, useSettingsStore } from "../stores/settingsStore";
 import {
@@ -54,6 +64,17 @@ import {
 } from "../stores/dictionarySourcesStore";
 import { useDictionaryUsageStore } from "../stores/dictionaryUsageStore";
 import { loadCommonWords, useDictionaryTidyStore } from "../stores/dictionaryTidyStore";
+import {
+  setDictionaryCategories,
+  syncDictionaryCategories,
+  useDictionaryCategoriesStore,
+} from "../stores/dictionaryCategoriesStore";
+import { cancelCategoryReview } from "../stores/dictionaryCategoryReviewStore";
+import {
+  DICTIONARY_CATEGORIES,
+  effectiveDictionaryCategory,
+  type DictionaryCategory,
+} from "../utils/dictionaryCategories";
 import { glossaryRuleInput, useGlossaryStore } from "../stores/glossaryStore";
 import { getAgentName } from "../utils/agentName";
 import { parseDictionaryImportText } from "../helpers/dictionaryImport";
@@ -65,13 +86,16 @@ import { clearDictionaryWordRequest, useDictionaryWordRequest } from "../utils/o
 import GlossaryOfferNotice from "./dictionary/GlossaryOfferNotice";
 import DictionaryHintOrderMenu from "./dictionary/DictionaryHintOrderMenu";
 import {
+  DICTIONARY_CATEGORY_FILTERS,
   DICTIONARY_FILTERS,
   DICTIONARY_SORTS,
   USAGE_FILTERS,
   USAGE_SORTS,
   buildDictionaryListItems,
+  dictionaryCategoryFilterCounts,
   dictionaryFilterCounts,
   viewDictionaryList,
+  type DictionaryCategoryFilter,
   type DictionaryFilter,
   type DictionaryListItem,
   type DictionarySort,
@@ -144,7 +168,12 @@ function useWideLayout(ref: RefObject<HTMLDivElement | null>): boolean {
   return wide;
 }
 
-export default function DictionaryView() {
+export default function DictionaryView({
+  onOpenSettings,
+}: {
+  /** Opens Settings at a destination (`page#settingId`): "Sort into categories" links there. */
+  onOpenSettings?: (destination: string) => void;
+} = {}) {
   const { t, i18n } = useTranslation();
   const customDictionary = useSettingsStore((s) => s.customDictionary);
   const updateCustomDictionary = useSettingsStore((s) => s.updateCustomDictionary);
@@ -153,6 +182,7 @@ export default function DictionaryView() {
   const mergeDictionaryWords = useSettingsStore((s) => s.mergeDictionaryWords);
   const markDictionaryWordsTyped = useSettingsStore((s) => s.markDictionaryWordsTyped);
   const cleanupSetting = useSettingsStore((s) => s.cleanupDictionaryWords);
+  const cleanupGrouping = useSettingsStore((s) => s.cleanupDictionaryGrouping);
   const cleanupOn = useSettingsStore((s) => s.useCleanupModel);
   const hintOrder = useSettingsStore((s) => s.dictionaryHintOrder);
   const entries = useDictionarySourcesStore((s) => s.entries);
@@ -163,6 +193,9 @@ export default function DictionaryView() {
   const usageReason = useDictionaryUsageStore((s) => s.reason);
   const usageWords = useDictionaryUsageStore((s) => s.words);
   const missed = useDictionaryUsageStore((s) => s.missed);
+  const storedCategories = useDictionaryCategoriesStore((s) => s.stored);
+  const categoryWords = useDictionaryCategoriesStore((s) => s.commonWords);
+  const categoriesReady = useDictionaryCategoriesStore((s) => s.ready);
   const glossaryRules = useGlossaryStore((s) => s.rules);
   const coverage = useDictionaryCoverage();
   const agentName = getAgentName();
@@ -175,6 +208,7 @@ export default function DictionaryView() {
   const [search, setSearch] = useState("");
   const deferredSearch = useDeferredValue(search);
   const [filter, setFilter] = useState<DictionaryFilter>("all");
+  const [categoryFilter, setCategoryFilter] = useState<DictionaryCategoryFilter>("all");
   const [sort, setSort] = useState<DictionarySort>("sendOrder");
   const [selected, setSelected] = useState<ReadonlySet<string>>(() => new Set());
   const [focusedWord, setFocusedWord] = useState<string | null>(null);
@@ -199,6 +233,15 @@ export default function DictionaryView() {
   }, [agentName]);
 
   const usageAvailable = usageStatus === "ready";
+  // Categories: main's stored choices and the rules (the common-word list,
+  // shared with Tidy up), read when the page opens.
+  useEffect(() => {
+    syncDictionaryCategories({ loadWords: true });
+  }, []);
+  const categoryOf = useCallback(
+    (word: string) => effectiveDictionaryCategory(word, storedCategories, categoryWords),
+    [storedCategories, categoryWords]
+  );
   const items = useMemo(
     () =>
       buildDictionaryListItems({
@@ -209,6 +252,7 @@ export default function DictionaryView() {
         coverage: coverage.entries,
         usage: usageAvailable ? usageWords : null,
         hiddenKeys,
+        categoryOf,
       }),
     [
       customDictionary,
@@ -219,12 +263,14 @@ export default function DictionaryView() {
       usageAvailable,
       usageWords,
       hiddenKeys,
+      categoryOf,
     ]
   );
   const itemsByWord = useMemo(() => new Map(items.map((item) => [item.word, item])), [items]);
   const itemsByWordRef = useRef(itemsByWord);
   itemsByWordRef.current = itemsByWord;
   const counts = useMemo(() => dictionaryFilterCounts(items), [items]);
+  const categoryCounts = useMemo(() => dictionaryCategoryFilterCounts(items), [items]);
   const learnedWords = useMemo(
     () => items.filter((item) => item.source === "learned").map((item) => item.word),
     [items]
@@ -236,15 +282,33 @@ export default function DictionaryView() {
   const tidyButtonRef = useRef<HTMLButtonElement>(null);
   const openTidy = useCallback(() => {
     setDetailWord(null);
+    setCategoriesOpen(false);
     setTidyOpen(true);
   }, []);
   const closeTidy = useCallback(() => {
     setTidyOpen(false);
     requestAnimationFrame(() => tidyButtonRef.current?.focus({ preventScroll: true }));
   }, []);
-  // An emptied dictionary leaves Tidy up for the empty state.
+  // ─── Sort into categories ───
+  const [categoriesOpen, setCategoriesOpen] = useState(false);
+  const categoriesButtonRef = useRef<HTMLButtonElement>(null);
+  const openCategories = useCallback(() => {
+    setDetailWord(null);
+    setTidyOpen(false);
+    setCategoriesOpen(true);
+  }, []);
+  const closeCategories = useCallback(() => {
+    setCategoriesOpen(false);
+    requestAnimationFrame(() => categoriesButtonRef.current?.focus({ preventScroll: true }));
+  }, []);
+  // A review in flight belongs to the page: leaving it stops waiting.
+  useEffect(() => () => cancelCategoryReview(), []);
+  // An emptied dictionary leaves Tidy up and the categories for the empty state.
   useEffect(() => {
-    if (items.length === 0) setTidyOpen(false);
+    if (items.length === 0) {
+      setTidyOpen(false);
+      setCategoriesOpen(false);
+    }
   }, [items.length]);
 
   const shownFilter = !usageAvailable && USAGE_FILTERS.has(filter) ? "all" : filter;
@@ -255,9 +319,10 @@ export default function DictionaryView() {
         filter: shownFilter,
         sort: shownSort,
         search: deferredSearch,
+        category: categoryFilter,
         locale: i18n.language,
       }),
-    [items, shownFilter, shownSort, deferredSearch, i18n.language]
+    [items, shownFilter, shownSort, deferredSearch, categoryFilter, i18n.language]
   );
   const viewRef = useRef(view);
   viewRef.current = view;
@@ -570,8 +635,10 @@ export default function DictionaryView() {
     if (!target) return;
     clearDictionaryWordRequest();
     setTidyOpen(false);
+    setCategoriesOpen(false);
     setSearch("");
     setFilter("all");
+    setCategoryFilter("all");
     setFocusedWord(target.word);
     setDetailWord(target.word);
   }, [wordRequest, wordRequestId, itemsByWord, items]);
@@ -582,12 +649,23 @@ export default function DictionaryView() {
   const cleanupSelection = useMemo(() => {
     const glossaryTerms = glossaryCanonicalTerms(glossaryRules);
     const selection = selectCleanupDictionary(
-      { customDictionary, snippets, cleanupDictionaryWords: cleanupSetting },
-      { learned: sourcesLoaded ? learned : null, pinned, missed },
+      {
+        customDictionary,
+        snippets,
+        cleanupDictionaryWords: cleanupSetting,
+        cleanupDictionaryGrouping: cleanupGrouping,
+      },
+      {
+        learned: sourcesLoaded ? learned : null,
+        pinned,
+        missed,
+        categories: categoriesReady ? (word: string) => categoryOf(word).category : null,
+      },
       glossaryTerms
     );
     return {
       scope: selection.scope,
+      grouped: !!selection.groups,
       keys: new Set(selection.words.map((word) => dictionaryWordKey(word))),
       glossaryKeys: new Set(glossaryTerms.map((term) => dictionaryWordKey(term))),
     };
@@ -595,38 +673,84 @@ export default function DictionaryView() {
     customDictionary,
     snippets,
     cleanupSetting,
+    cleanupGrouping,
     sourcesLoaded,
     learned,
     pinned,
     missed,
+    categoriesReady,
+    categoryOf,
     glossaryRules,
   ]);
 
   const cleanupInclusion = useCallback(
     (item: DictionaryListItem): CleanupInclusion => {
-      const { scope, keys, glossaryKeys } = cleanupSelection;
+      const { scope, keys, glossaryKeys, grouped } = cleanupSelection;
       const set = t(CLEANUP_SET_KEYS[scope.setting]);
+      // Listed under its category's group when the prompt is grouped.
+      const withGroup = (inclusion: CleanupInclusion): CleanupInclusion =>
+        inclusion.included && grouped
+          ? {
+              ...inclusion,
+              grouped: t("dictionary.detail.cleanup.grouped", {
+                group: t(
+                  item.category
+                    ? CATEGORY_NAME_KEYS[item.category]
+                    : "dictionary.detail.cleanup.groupOther"
+                ),
+              }),
+            }
+          : inclusion;
       // Policy-effective, as a dictation's cleanup decides it.
       if (!cleanupOn || getSettings().useCleanupModel !== true) {
         return { included: false, key: "dictionary.detail.cleanup.off" };
       }
       if (glossaryKeys.has(item.key)) {
-        return { included: true, key: "dictionary.detail.cleanup.glossary" };
+        return withGroup({ included: true, key: "dictionary.detail.cleanup.glossary" });
       }
       if (scope.applied === "all") {
-        return scope.setting === "all"
-          ? { included: true, key: "dictionary.detail.cleanup.all" }
-          : { included: true, key: "dictionary.detail.cleanup.fallback", params: { set } };
+        if (scope.setting === "all") {
+          return withGroup({ included: true, key: "dictionary.detail.cleanup.all" });
+        }
+        return withGroup({
+          included: true,
+          key:
+            scope.setting === "noEveryday"
+              ? "dictionary.detail.cleanup.fallbackCategories"
+              : "dictionary.detail.cleanup.fallback",
+          params: { set },
+        });
       }
       if (scope.applied === "none")
         return { included: false, key: "dictionary.detail.cleanup.none" };
+      if (scope.applied === "noEveryday") {
+        return keys.has(item.key)
+          ? withGroup({
+              included: true,
+              key: "dictionary.detail.cleanup.notEveryday",
+              params: { set },
+            })
+          : { included: false, key: "dictionary.detail.cleanup.everyday", params: { set } };
+      }
       if (keys.has(item.key)) {
         if (item.pinned)
-          return { included: true, key: "dictionary.detail.cleanup.pinned", params: { set } };
+          return withGroup({
+            included: true,
+            key: "dictionary.detail.cleanup.pinned",
+            params: { set },
+          });
         if (item.source === "manual") {
-          return { included: true, key: "dictionary.detail.cleanup.typed", params: { set } };
+          return withGroup({
+            included: true,
+            key: "dictionary.detail.cleanup.typed",
+            params: { set },
+          });
         }
-        return { included: true, key: "dictionary.detail.cleanup.missed", params: { set } };
+        return withGroup({
+          included: true,
+          key: "dictionary.detail.cleanup.missed",
+          params: { set },
+        });
       }
       return scope.applied === "typedPinned"
         ? { included: false, key: "dictionary.detail.cleanup.notTypedPinned", params: { set } }
@@ -635,9 +759,23 @@ export default function DictionaryView() {
     [cleanupSelection, cleanupOn, t]
   );
 
+  // A category picked from a row's or the panel's pill: the user's choice;
+  // Automatic removes it.
+  const setCategory = useCallback(
+    (word: string, category: DictionaryCategory | null) => {
+      void setDictionaryCategories([{ word, category, source: "user" }]).then((result) => {
+        if (!result.success) {
+          toast({ title: t("dictionary.categories.setFailed"), variant: "destructive" });
+        }
+      });
+    },
+    [toast, t]
+  );
+
   const showSendOrder = useCallback(() => {
     setSort("sendOrder");
     setFilter("all");
+    setCategoryFilter("all");
     setSearch("");
     requestAnimationFrame(() => listRef.current?.focus({ preventScroll: true }));
   }, []);
@@ -820,6 +958,27 @@ export default function DictionaryView() {
   );
   const anySelectedUnpinned = selectedWords.some((word) => !itemsByWord.get(word)?.pinned);
   const anySelectedPinned = selectedWords.some((word) => itemsByWord.get(word)?.pinned);
+  // "Set category" for the selection: the user's choice (Automatic: removed).
+  const setSelectedCategory = async (category: DictionaryCategory | null) => {
+    if (selectedWords.length === 0) return;
+    const result = await setDictionaryCategories(
+      selectedWords.map((word) => ({ word, category, source: "user" as const }))
+    );
+    if (result.success) {
+      toast({
+        title: category
+          ? t("dictionary.categories.bulk.done", {
+              count: selectedWords.length - result.refused,
+              category: t(CATEGORY_NAME_KEYS[category]),
+            })
+          : t("dictionary.categories.bulk.doneAutomatic", {
+              count: selectedWords.length - result.refused,
+            }),
+      });
+    } else {
+      toast({ title: t("dictionary.categories.setFailed"), variant: "destructive" });
+    }
+  };
 
   const toolbar = (
     <div className="flex flex-col gap-2.5" data-dictionary-toolbar>
@@ -879,6 +1038,28 @@ export default function DictionaryView() {
           </SelectContent>
         </Select>
         <Button
+          ref={categoriesButtonRef}
+          size="sm"
+          variant="outline"
+          data-categories-open
+          onClick={openCategories}
+          aria-label={t("dictionary.categories.buttonLabel", {
+            count: categoriesReady ? categoryCounts.unsorted : 0,
+          })}
+        >
+          <span aria-hidden="true">🗂</span>
+          {t("dictionary.categories.button")}
+          {categoriesReady && categoryCounts.unsorted > 0 && (
+            <span
+              aria-hidden="true"
+              data-categories-unsorted-count
+              className="rounded-full bg-muted px-1.5 text-[10.5px] font-semibold tabular-nums text-foreground/80 dark:bg-white/10"
+            >
+              {categoryCounts.unsorted}
+            </span>
+          )}
+        </Button>
+        <Button
           ref={tidyButtonRef}
           size="sm"
           variant="outline"
@@ -909,6 +1090,48 @@ export default function DictionaryView() {
           <Download size={12} />
           {t("dictionary.list.export")}
         </Button>
+      </div>
+      <div
+        role="group"
+        aria-label={t("dictionary.categories.filtersLabel")}
+        data-dictionary-category-filters
+        className="flex flex-wrap items-center gap-1.5"
+      >
+        <span aria-hidden="true" className="me-1 text-[11px] text-muted-foreground">
+          {t("dictionary.categories.filtersTitle")}
+        </span>
+        {DICTIONARY_CATEGORY_FILTERS.map((option) => {
+          const active = categoryFilter === option;
+          return (
+            <button
+              key={option}
+              type="button"
+              aria-pressed={active}
+              data-dictionary-category-filter={option}
+              onClick={() => setCategoryFilter(option)}
+              className={cn(
+                "inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11.5px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
+                active
+                  ? "border-primary bg-primary/10 text-foreground"
+                  : "border-border/70 text-foreground/75 hover:border-foreground/30 dark:border-white/10"
+              )}
+            >
+              {option !== "all" && (
+                <span
+                  aria-hidden="true"
+                  className={cn(
+                    "inline-block h-1.5 w-1.5 rounded-full",
+                    CATEGORY_DOT_CLASS[option]
+                  )}
+                />
+              )}
+              {option === "all" ? t(FILTER_KEYS.all) : t(CATEGORY_NAME_KEYS[option])}
+              <span className="ms-0.5 tabular-nums text-muted-foreground">
+                {option === "all" || categoriesReady ? categoryCounts[option] : "—"}
+              </span>
+            </button>
+          );
+        })}
       </div>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div
@@ -1012,6 +1235,41 @@ export default function DictionaryView() {
         >
           {t("dictionary.actions.unpin")}
         </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button size="sm" variant="outline" data-bulk-set-category>
+              {t("dictionary.categories.bulk.set")}
+              <ChevronDown size={11} aria-hidden="true" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="center">
+            {DICTIONARY_CATEGORIES.map((option) => (
+              <DropdownMenuItem
+                key={option}
+                data-bulk-category={option}
+                className="text-xs"
+                onSelect={() => void setSelectedCategory(option)}
+              >
+                <span
+                  aria-hidden="true"
+                  className={cn(
+                    "me-1.5 inline-block h-1.5 w-1.5 rounded-full",
+                    CATEGORY_DOT_CLASS[option]
+                  )}
+                />
+                {t(CATEGORY_NAME_KEYS[option])}
+              </DropdownMenuItem>
+            ))}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              data-bulk-category="auto"
+              className="text-xs"
+              onSelect={() => void setSelectedCategory(null)}
+            >
+              {t("dictionary.categories.bulk.automatic")}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
         <Button size="sm" variant="ghost" onClick={clearSelection}>
           {t("dictionary.bulk.clear")}
         </Button>
@@ -1036,6 +1294,7 @@ export default function DictionaryView() {
       onRemove={askRemove}
       onSetPinned={setPinned}
       onMarkTyped={(word) => void markTyped([word])}
+      onSetCategory={setCategory}
       onMakeGlossaryRule={openGlossaryRule}
     />
   ) : null;
@@ -1108,6 +1367,7 @@ export default function DictionaryView() {
             onClick={() => {
               setSearch("");
               setFilter("all");
+              setCategoryFilter("all");
             }}
           >
             {t("dictionary.list.clearFilters")}
@@ -1137,6 +1397,7 @@ export default function DictionaryView() {
             onSetPinned={setPinned}
             onRemove={askRemove}
             onEscape={escapeFromList}
+            onSetCategory={setCategory}
             sections={sections}
             onMovePinned={movePinned}
           />
@@ -1192,6 +1453,12 @@ export default function DictionaryView() {
                   usageAvailable={usageAvailable}
                   usageReason={usageAvailable ? null : (usageReason ?? usageStatus)}
                   onClose={closeTidy}
+                />
+              ) : categoriesOpen && userWordCount > 0 ? (
+                <DictionaryCategories
+                  items={items}
+                  onClose={closeCategories}
+                  onOpenSettings={onOpenSettings}
                 />
               ) : (
                 <>

@@ -8,7 +8,23 @@ import { dictionaryWordKey } from "./dictionaryWordKey.js";
 import { normalizeDbDate } from "./dateFormatting";
 import { isSpeechMissed } from "../helpers/dictionaryUsage.js";
 import type { HintCoverage, HintSource } from "./dictionaryHints";
+import type {
+  DictionaryCategory,
+  DictionaryCategorySource,
+  EffectiveDictionaryCategory,
+} from "./dictionaryCategories";
 import type { DictionaryEntry, DictionaryWordUsage } from "../types/electron";
+
+/** The Dictionary's category chips: all, a category, or the words without one. */
+export type DictionaryCategoryFilter = "all" | DictionaryCategory | "unsorted";
+
+export const DICTIONARY_CATEGORY_FILTERS: readonly DictionaryCategoryFilter[] = [
+  "all",
+  "people",
+  "work",
+  "everyday",
+  "unsorted",
+];
 
 export type DictionaryFilter =
   | "all"
@@ -78,6 +94,9 @@ export interface DictionaryListItem {
   hintSource: HintSource | null;
   /** Heard and written over 90 days; null when the counts aren't available. */
   usage: DictionaryUsageCounts | null;
+  /** Its effective category (null: unsorted), and who decided it. */
+  category: DictionaryCategory | null;
+  categorySource: DictionaryCategorySource;
   /** Its place in the stored dictionary. */
   order: number;
 }
@@ -104,6 +123,8 @@ export interface BuildListInput {
   usage?: readonly DictionaryWordUsage[] | null;
   /** Keys never listed (the assistant's name). */
   hiddenKeys?: ReadonlySet<string>;
+  /** A word's effective category (dictionaryCategoriesStore); unsorted when absent. */
+  categoryOf?: ((word: string) => EffectiveDictionaryCategory) | null;
 }
 
 export function buildDictionaryListItems({
@@ -114,6 +135,7 @@ export function buildDictionaryListItems({
   coverage,
   usage,
   hiddenKeys,
+  categoryOf,
 }: BuildListInput): DictionaryListItem[] {
   const entryByWord = new Map<string, DictionaryEntry>();
   const entryByKey = new Map<string, DictionaryEntry>();
@@ -148,6 +170,7 @@ export function buildDictionaryListItems({
     const createdMs = createdAt ? normalizeDbDate(createdAt).getTime() : NaN;
     const hint = coverageByKey.get(key);
     const counts = usageByKey?.get(key);
+    const category = categoryOf?.(word) ?? null;
     items.push({
       word,
       key,
@@ -169,6 +192,8 @@ export function buildDictionaryListItems({
               counts?.bothRows ?? Math.max(0, (counts?.written ?? 0) - (counts?.missedRows ?? 0)),
           }
         : null,
+      category: category?.category ?? null,
+      categorySource: category?.source ?? "auto",
       order,
     });
   });
@@ -237,6 +262,31 @@ export function dictionaryFilterCounts(
 export function matchesDictionarySearch(item: DictionaryListItem, query: string): boolean {
   const needle = dictionaryWordKey(query);
   return !needle || item.key.includes(needle);
+}
+
+/** Whether an item passes a category chip. */
+export function matchesDictionaryCategory(
+  item: DictionaryListItem,
+  filter: DictionaryCategoryFilter
+): boolean {
+  if (filter === "all") return true;
+  if (filter === "unsorted") return item.category === null;
+  return item.category === filter;
+}
+
+/** Each category chip's count over the whole list. */
+export function dictionaryCategoryFilterCounts(
+  items: readonly DictionaryListItem[]
+): Record<DictionaryCategoryFilter, number> {
+  const counts: Record<DictionaryCategoryFilter, number> = {
+    all: items.length,
+    people: 0,
+    work: 0,
+    everyday: 0,
+    unsorted: 0,
+  };
+  for (const item of items) counts[item.category ?? "unsorted"] += 1;
+  return counts;
 }
 
 const COVERAGE_ORDER: Record<HintCoverage, number> = { read: 0, unread: 1, notSent: 2 };
@@ -336,6 +386,8 @@ export interface DictionaryListQuery {
   filter: DictionaryFilter;
   sort: DictionarySort;
   search: string;
+  /** A category chip; all by default. */
+  category?: DictionaryCategoryFilter;
   now?: number;
   locale?: string;
 }
@@ -358,9 +410,14 @@ export interface DictionaryListView {
  */
 export function viewDictionaryList(
   items: readonly DictionaryListItem[],
-  { filter, sort, search, now = Date.now(), locale }: DictionaryListQuery
+  { filter, sort, search, category = "all", now = Date.now(), locale }: DictionaryListQuery
 ): DictionaryListView {
-  if (sort === "sendOrder" && filter === "all" && !dictionaryWordKey(search)) {
+  if (
+    sort === "sendOrder" &&
+    filter === "all" &&
+    category === "all" &&
+    !dictionaryWordKey(search)
+  ) {
     const pinned = items
       .filter((item) => item.pinned)
       .sort((a, b) => (a.pinRank ?? Infinity) - (b.pinRank ?? Infinity) || a.order - b.order);
@@ -378,7 +435,10 @@ export function viewDictionaryList(
   }
   const shown = sortDictionaryItems(
     items.filter(
-      (item) => matchesDictionaryFilter(item, filter, now) && matchesDictionarySearch(item, search)
+      (item) =>
+        matchesDictionaryFilter(item, filter, now) &&
+        matchesDictionaryCategory(item, category) &&
+        matchesDictionarySearch(item, search)
     ),
     sort,
     locale

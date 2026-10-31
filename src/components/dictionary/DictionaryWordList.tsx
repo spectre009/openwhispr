@@ -33,6 +33,9 @@ import type {
 import { COVERAGE_DOT_CLASS, COVERAGE_TEXT_CLASS } from "./coverageStyles";
 import { APPEARANCE_KIND_BG, usageParts } from "./dictionaryLabels";
 import DictionaryUsageExplainer from "./DictionaryUsageExplainer";
+import DictionaryCategoryPill from "./DictionaryCategoryPill";
+import { CATEGORY_NAME_KEYS, categoryKey } from "./categoryStyles";
+import type { DictionaryCategory } from "../../utils/dictionaryCategories";
 
 // The Dictionary's word list: a multi-select listbox (↑/↓ move, Space
 // selects, Shift extends, Enter opens the word, F2 edits, Delete removes),
@@ -84,6 +87,8 @@ export interface DictionaryWordListProps {
   onSetPinned: (word: string, pinned: boolean) => void;
   onRemove: (word: string) => void;
   onEscape: () => boolean;
+  /** A category picked from a row's pill (null: back to automatic). */
+  onSetCategory?: (word: string, category: DictionaryCategory | null) => void;
   /** Send order's sections; null or absent: one list, pinned rows inline. */
   sections?: DictionaryWordListSections | null;
   /** Moves a pinned word to `index` in the pin order (0 first): one reorder. */
@@ -91,7 +96,7 @@ export interface DictionaryWordListProps {
 }
 
 const ROW_GRID =
-  "grid grid-cols-[1.25rem_minmax(0,1fr)_auto] items-center gap-x-3 @2xl:grid-cols-[1.25rem_minmax(0,1fr)_6rem_minmax(0,13rem)_5rem_9.5rem_2rem]";
+  "grid grid-cols-[1.25rem_minmax(0,1fr)_auto] items-center gap-x-3 @2xl:grid-cols-[1.25rem_minmax(0,1fr)_6rem_minmax(0,9rem)_minmax(0,13rem)_5rem_9.5rem_2rem]";
 
 // Where a drop on a row lands: above it, or below it past its middle. A row
 // without a measured height (no layout) takes it above, as the line shows.
@@ -244,6 +249,7 @@ interface RowProps {
   onCancelEdit: () => void;
   onEditSubmitted: () => void;
   onSetPinned: (word: string, pinned: boolean) => void;
+  onSetCategory?: ((word: string, category: DictionaryCategory | null) => void) | null;
   /** Only in "Always sent first". */
   pin?: PinnedRowState | null;
   drag?: PinDragHandlers | null;
@@ -325,6 +331,7 @@ const Row = memo(function Row({
   onCancelEdit,
   onEditSubmitted,
   onSetPinned,
+  onSetCategory = null,
   pin = null,
   drag = null,
 }: RowProps) {
@@ -339,6 +346,18 @@ const Row = memo(function Row({
   const added = item.createdAt ? formatRelativeTime(item.createdAt, t, i18n.language) : "";
   const usage = item.usage;
   const ranked = !!pin && !!drag;
+  const rowLabel = ranked
+    ? t("dictionary.pins.rowLabel", {
+        word: item.word,
+        rank: pin.rank,
+        source,
+        coverage: coverageText,
+      })
+    : t("dictionary.list.rowLabel", {
+        word: item.word,
+        source,
+        coverage: coverageText,
+      });
 
   return (
     <div
@@ -346,20 +365,15 @@ const Row = memo(function Row({
       role="option"
       aria-selected={checked}
       aria-label={
-        ranked
-          ? t("dictionary.pins.rowLabel", {
-              word: item.word,
-              rank: pin.rank,
-              source,
-              coverage: coverageText,
+        onSetCategory
+          ? t("dictionary.categories.rowLabel", {
+              label: rowLabel,
+              category: t(CATEGORY_NAME_KEYS[categoryKey(item.category)]),
             })
-          : t("dictionary.list.rowLabel", {
-              word: item.word,
-              source,
-              coverage: coverageText,
-            })
+          : rowLabel
       }
       data-dictionary-row={item.word}
+      data-category={categoryKey(item.category)}
       data-coverage={item.coverage}
       data-pin-rank={ranked ? pin.rank : undefined}
       data-drop={ranked && pin.drop ? pin.drop : undefined}
@@ -471,6 +485,18 @@ const Row = memo(function Row({
         {source}
       </span>
 
+      <span className="hidden min-w-0 @2xl:block" data-dictionary-row-category>
+        {onSetCategory ? (
+          <DictionaryCategoryPill
+            word={item.word}
+            category={item.category}
+            source={item.categorySource}
+            onChange={onSetCategory}
+            variant="row"
+          />
+        ) : null}
+      </span>
+
       <span className="hidden min-w-0 @2xl:block">
         <UsageCell usage={usage} />
       </span>
@@ -548,6 +574,7 @@ const DictionaryWordList = forwardRef<HTMLDivElement, DictionaryWordListProps>(
       onSetPinned,
       onRemove,
       onEscape,
+      onSetCategory,
       sections = null,
       onMovePinned,
     },
@@ -781,6 +808,7 @@ const DictionaryWordList = forwardRef<HTMLDivElement, DictionaryWordListProps>(
             onCancelEdit={onCancelEdit}
             onEditSubmitted={onEditSubmitted}
             onSetPinned={onSetPinned}
+            onSetCategory={onSetCategory}
             pin={
               inPinned
                 ? {
@@ -809,6 +837,7 @@ const DictionaryWordList = forwardRef<HTMLDivElement, DictionaryWordListProps>(
           <span aria-hidden="true" />
           <span aria-hidden="true">{t("dictionary.list.columns.word")}</span>
           <span aria-hidden="true">{t("dictionary.list.columns.source")}</span>
+          <span aria-hidden="true">{t("dictionary.list.columns.category")}</span>
           <span className="flex items-center gap-1">
             <span aria-hidden="true">{t("dictionary.list.columns.heard")}</span>
             <DictionaryUsageExplainer className="normal-case tracking-normal" />

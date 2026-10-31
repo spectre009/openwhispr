@@ -2,6 +2,7 @@ import { getCleanupSystemPrompt, type CleanupPromptOverride } from "../config/pr
 import { getSettings } from "../stores/settingsStore";
 import { resolveCleanupLanguage } from "../utils/chineseScript";
 import { getDictionaryHintWords, type CleanupDictionarySelection } from "../utils/snippets";
+import type { CleanupDictionaryGroup } from "../utils/dictionaryCategories";
 import type { InferenceScope } from "../config/inferenceScopes";
 import type { ScreenContextImage } from "../types/electron";
 
@@ -66,8 +67,11 @@ export interface ReasoningConfig {
    * Cleanup requests only (no systemPrompt): the dictionary words this
    * request's cleanup prompt carries (Settings › Dictation › Cleanup's word
    * set), chosen once per request by selectCleanupDictionary; its `scope` is
-   * what the step records. `promptInputs` wins when both are given. Read by
-   * processText and never forwarded to a provider.
+   * what the step records, and its `groups` (when cleanup's "Group words by
+   * category" is on) list the same words by category in this request's
+   * prompt only: OpenWhispr Cloud gets the flat `words`. `promptInputs` wins
+   * when both are given. Read by processText and never forwarded to a
+   * provider.
    */
   cleanupDictionary?: CleanupDictionarySelection;
   /**
@@ -94,6 +98,12 @@ export interface CleanupStyle {
 /** What a cleanup system prompt is built from besides its template. */
 export interface CleanupPromptInputs {
   customDictionary: string[];
+  /**
+   * The same words by category (cleanup's "Group words by category"): the
+   * prompt lists them grouped. Never reaches OpenWhispr Cloud, which gets
+   * `customDictionary`.
+   */
+  groups?: CleanupDictionaryGroup[];
   /** The cleanup language (resolveCleanupLanguage), "auto" kept as is. */
   preferredLanguage: string;
   uiLanguage: string;
@@ -144,7 +154,8 @@ export abstract class BaseReasoningService {
       inputs ? inputs.customDictionary : this.getCustomDictionary(),
       inputs ? inputs.preferredLanguage : this.getPreferredLanguage(),
       inputs ? inputs.uiLanguage : this.getUiLanguage(),
-      cleanupTemplate
+      cleanupTemplate,
+      inputs?.groups
     );
   }
 

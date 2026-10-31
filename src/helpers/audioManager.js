@@ -3497,8 +3497,9 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     { settings, agentName, cleanup, cleanupConfig, recordStep = passthroughStep }
   ) {
     if (cleanup.mode === "cloudReason") {
-      // Cloud builds the prompt; the request still carries cleanup's word set.
-      const dictionary = selectCleanupDictionary(settings);
+      // Cloud builds the prompt; the request still carries cleanup's word set:
+      // the request's own snapshot, flat (Cloud never gets the grouping).
+      const dictionary = cleanupConfig?.cleanupDictionary ?? selectCleanupDictionary(settings);
       return recordStep(
         "cleanup",
         {
@@ -4128,7 +4129,8 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
             );
             if (hasTextContent(reasoned)) processedText = reasoned;
           } else if (route.kind === "cleanup" && cleanupCloudMode === "openwhispr") {
-            const dictionary = selectCleanupDictionary(settings);
+            // The route's one snapshot of cleanup's word set, flat: Cloud never gets the grouping.
+            const dictionary = route.config?.cleanupDictionary ?? selectCleanupDictionary(settings);
             const cleaned = await recordStep(
               "cleanup",
               {
@@ -6697,7 +6699,9 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
                 );
               } else if (route.kind === "cleanup" && cleanupCloudMode === "openwhispr") {
                 let cloudModel = null;
-                const dictionary = selectCleanupDictionary(stSettings);
+                // The route's one snapshot of cleanup's word set, flat (never the grouping).
+                const dictionary =
+                  route.config?.cleanupDictionary ?? selectCleanupDictionary(stSettings);
                 const cleaned = await recordStep(
                   "cleanup",
                   {

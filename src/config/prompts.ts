@@ -6,6 +6,7 @@ import {
   type UnavailableCapability,
 } from "./agentCapabilities";
 import { NOTE_TAKER_LABEL } from "../utils/transcriptEvidence";
+import type { CleanupDictionaryGroup } from "../utils/dictionaryCategories";
 
 export {
   resolvePrompt,
@@ -23,16 +24,24 @@ export { detectAgentName } from "./agentDetection";
 
 /**
  * `template` is the cleanup prompt a request runs ("" for the built-in
- * default); left out, it is the saved one.
+ * default); left out, it is the saved one. `groups` (the same words by
+ * category) lists the dictionary grouped; left out, the flat list.
  */
 export function getCleanupSystemPrompt(
   agentName: string | null,
   customDictionary?: string[],
   language?: string,
   uiLanguage?: string,
-  template?: string
+  template?: string,
+  groups?: readonly CleanupDictionaryGroup[]
 ): string {
-  const opts = { agentName, language, customDictionary, uiLanguage };
+  const opts = {
+    agentName,
+    language,
+    customDictionary,
+    uiLanguage,
+    ...(groups ? { customDictionaryGroups: groups } : {}),
+  };
   return template === undefined
     ? resolvePrompt("cleanup", opts)
     : resolvePromptText("cleanup", template, opts);

@@ -2,6 +2,11 @@ import i18n, { normalizeUiLanguage } from "../../i18n";
 import { useSettingsStore } from "../../stores/settingsStore";
 import { en as enPrompts } from "../../locales/prompts";
 import { getLanguageInstruction } from "../../utils/languageSupport";
+import {
+  formatCleanupDictionaryGroups,
+  type CleanupDictionaryGroup,
+  type CleanupDictionaryGroupKey,
+} from "../../utils/dictionaryCategories";
 import { PROMPT_KINDS, PLAIN_TEXT_RESPONSE_SUFFIX, type PromptKind } from "./registry";
 
 export { PROMPT_KINDS, PROMPT_KIND_LIST, type PromptKind } from "./registry";
@@ -11,6 +16,8 @@ export interface ResolvePromptOptions {
   uiLanguage?: string;
   language?: string;
   customDictionary?: string[];
+  /** Cleanup only: the same words by category (the grouped suffix); the flat list otherwise. */
+  customDictionaryGroups?: readonly CleanupDictionaryGroup[];
   targetLanguageLabel?: string;
 }
 
@@ -77,16 +84,37 @@ export function appendScreenContextSuffix(prompt: string, uiLanguage?: string): 
   return prompt + suffix;
 }
 
+// The grouped dictionary's labels (prompts namespace, translated per locale).
+const DICTIONARY_GROUP_KEYS = {
+  people: "dictionaryGroupPeople",
+  work: "dictionaryGroupWork",
+  everyday: "dictionaryGroupEveryday",
+  other: "dictionaryGroupOther",
+} as const satisfies Record<CleanupDictionaryGroupKey, keyof typeof enPrompts>;
+
 export function appendDictionarySuffix(
   prompt: string,
   customDictionary?: string[],
-  uiLanguage?: string
+  uiLanguage?: string,
+  groups?: readonly CleanupDictionaryGroup[]
 ): string {
   if (!customDictionary?.length) return prompt;
   const locale = normalizeUiLanguage(uiLanguage || "en");
-  const suffix = i18n.getFixedT(locale, "prompts")("dictionarySuffix", {
+  const t = i18n.getFixedT(locale, "prompts");
+  const suffix = t("dictionarySuffix", {
     defaultValue: enPrompts.dictionarySuffix,
   });
+  // Grouped (cleanup's "Group words by category"): the same sentence, then
+  // "People: …; Work terms: …; Other: …" in the UI language.
+  if (groups?.some((group) => group.words.length > 0)) {
+    return (
+      prompt +
+      suffix +
+      formatCleanupDictionaryGroups(groups, (group) =>
+        t(DICTIONARY_GROUP_KEYS[group], { defaultValue: enPrompts[DICTIONARY_GROUP_KEYS[group]] })
+      )
+    );
+  }
   return prompt + suffix + customDictionary.join(", ");
 }
 
@@ -106,5 +134,10 @@ function applySubstitutions(template: string, opts: ResolvePromptOptions): strin
   const langInstruction = getLanguageInstruction(opts.language);
   if (langInstruction) prompt += "\n\n" + langInstruction;
 
-  return appendDictionarySuffix(prompt, opts.customDictionary, opts.uiLanguage);
+  return appendDictionarySuffix(
+    prompt,
+    opts.customDictionary,
+    opts.uiLanguage,
+    opts.customDictionaryGroups
+  );
 }

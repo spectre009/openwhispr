@@ -758,6 +758,7 @@
         "dictionaryScope": {
           "sets": {
             "all": "alle Wörter",
+            "noEveryday": "alle außer Alltagswörtern",
             "typedPinnedMissed": "eingetippte, angeheftete und verfehlte",
             "typedPinned": "eingetippte und angeheftete",
             "none": "keine"
@@ -3724,6 +3725,7 @@
       "description": "Die Bereinigung soll diese Wörter so schreiben, wie sie dastehen. Weniger Wörter ergeben einen kürzeren Prompt.",
       "options": {
         "all": "Alle Wörter",
+        "noEveryday": "Alle Wörter außer Alltagswörtern",
         "typedPinnedMissed": "Eingetippte, angeheftete und von der Spracherkennung verfehlte Wörter",
         "typedPinned": "Eingetippte und angeheftete",
         "none": "Keine"
@@ -3732,7 +3734,20 @@
       "count_other": "{{count}} Wörter · ≈ {{tokens}} Tokens",
       "sendsAll": "Sendet vorerst alle Wörter",
       "missedUnavailable": "Welche Wörter die Spracherkennung verfehlt, wird aus deinem lokalen Verlauf gezählt. Solange der Verlauf aus ist oder noch gezählt wird, bekommt die Bereinigung alle Wörter, und ihr Schritt sagt das.",
+      "categoriesUnavailable": "Welche Wörter Alltagswörter sind, ergibt sich aus ihren Kategorien, die auf diesem Computer sortiert werden. Bis sie bereit sind, bekommt die Bereinigung alle Wörter, und ihr Schritt sagt das.",
       "note": "Glossar-Schreibweisen und Snippet-Auslöser sind immer dabei. Die Wortliste des Sprachmodells, der Chat und der Sprachassistent behalten das ganze Wörterbuch."
+    },
+    "cleanupDictionaryGrouping": {
+      "title": "Wörterbuchwörter nach Kategorie gruppieren",
+      "description": "Der Bereinigungs-Prompt listet seine Wörterbuchwörter unter Personen, Arbeitsbegriffe und Alltagswörter, damit das Modell weiß, dass ein Name ein Name ist. Das ändert den Prompt. Nicht mit OpenWhispr Cloud.",
+      "groups": {
+        "people": "Personen {{n}}",
+        "work": "Arbeitsbegriffe {{n}}",
+        "everyday": "Alltagswörter {{n}}",
+        "other": "Sonstige {{n}}"
+      },
+      "unavailable": "Bis die Kategorien bereit sind, bekommt die Bereinigung die Wörter ungruppiert.",
+      "cloud": "Deine Bereinigung läuft über OpenWhispr Cloud, das seinen eigenen Prompt baut und die Wörter ungruppiert bekommt."
     },
     "dictionaryOrder": {
       "title": "Wörterbuch-Reihenfolge für die Spracherkennung",
@@ -5075,6 +5090,7 @@
       "columns": {
         "word": "Wort",
         "source": "Herkunft",
+        "category": "Kategorie",
         "heard": "Verwendet · 90 Tage",
         "added": "Hinzugefügt",
         "speech": "Sprachmodell"
@@ -5151,6 +5167,7 @@
         "tokens": "≈ {{tokens}} Tokens pro Bereinigung",
         "off": "Bereinigung ist aus",
         "sends": "Sendet: {{set}}",
+        "grouped": "nach Kategorie gruppiert",
         "monthly": "≈ {{tokens}} Tokens im Monat",
         "monthlyDetail": "≈ {{tokens}} Tokens im Monat bei deinem Diktiertempo",
         "monthlyUnavailable": "Eine Monatsschätzung braucht den lokalen Verlauf.",
@@ -5221,12 +5238,17 @@
         "glossary": "Ja: die Schreibweisen des Glossars gehen immer mit",
         "all": "Ja, mit allen Wörtern",
         "fallback": "Ja: „{{set}}“ braucht Zählungen, die noch fehlen, darum gehen vorerst alle Wörter",
+        "fallbackCategories": "Ja: „{{set}}“ braucht die Kategorien, die noch nicht bereit sind, darum gehen vorerst alle Wörter",
         "none": "Nein: der Bereinigungs-Prompt enthält keine Wörterbuchwörter",
         "pinned": "Ja: es ist angeheftet („{{set}}“)",
         "typed": "Ja: es ist eingetippt („{{set}}“)",
         "missed": "Ja: die Spracherkennung verfehlt es oft („{{set}}“)",
         "notTypedPinned": "Nein: „{{set}}“ sendet nur eingetippte und angeheftete Wörter",
-        "notMissed": "Nein: „{{set}}“ sendet automatisch gelernte Wörter nur, wenn die Spracherkennung sie oft verfehlt"
+        "notMissed": "Nein: „{{set}}“ sendet automatisch gelernte Wörter nur, wenn die Spracherkennung sie oft verfehlt",
+        "grouped": "Steht unter „{{group}}“",
+        "groupOther": "Sonstige",
+        "notEveryday": "Ja: kein Alltagswort („{{set}}“)",
+        "everyday": "Nein: „{{set}}“ lässt Alltagswörter weg"
       },
       "replaced": {
         "title": "Was es ersetzt hat",
@@ -5402,6 +5424,100 @@
           "respell": "Ändern",
           "merge": "Zusammenführen"
         }
+      }
+    },
+    "categories": {
+      "button": "In Kategorien sortieren",
+      "buttonLabel_one": "In Kategorien sortieren, {{count}} unsortiertes Wort",
+      "buttonLabel_other": "In Kategorien sortieren, {{count}} unsortierte Wörter",
+      "filtersLabel": "Nach Kategorie filtern",
+      "filtersTitle": "Kategorie",
+      "rowLabel": "{{label}}, {{category}}",
+      "setFailed": "Die Kategorie konnte nicht geändert werden.",
+      "names": {
+        "people": "Personen",
+        "work": "Arbeitsbegriffe",
+        "everyday": "Alltagswörter",
+        "unsorted": "Unsortiert"
+      },
+      "source": {
+        "auto": "auto",
+        "user": "du",
+        "model": "Modell"
+      },
+      "pill": {
+        "label": "Kategorie von {{word}}: {{category}} ({{who}}). Ändern",
+        "title": "{{category}} · gesetzt von {{who}}",
+        "menuTitle": "Kategorie von „{{word}}“",
+        "automatic": "Automatisch ({{category}})"
+      },
+      "bulk": {
+        "set": "Kategorie setzen",
+        "automatic": "Automatisch",
+        "done_one": "{{count}} Wort auf {{category}} gesetzt",
+        "done_other": "{{count}} Wörter auf {{category}} gesetzt",
+        "doneAutomatic_one": "{{count}} Wort wieder automatisch",
+        "doneAutomatic_other": "{{count}} Wörter wieder automatisch"
+      },
+      "title": "Sortiere deine Wörter in Kategorien",
+      "subtitle": "Auf diesem Computer nach der Form jedes Wortes sortiert. Ändere jedes Wort mit einem Klick; ein Modell kann den Rest prüfen. Nichts ändert sich, bevor du annimmst.",
+      "loading": "Die Wortliste der Regeln wird gelesen …",
+      "cards": {
+        "people": "Namen von Personen und Assistenten: großgeschrieben, kein englisches Wort.",
+        "work": "Produkte, Tools, Abkürzungen, Code: Großbuchstaben im Wort, Punkte, Ziffern, alles groß.",
+        "everyday": "In der Liste häufiger englischer Wörter.",
+        "unsorted": "Die Regeln konnten es nicht sagen. Frag ein Modell oder wähle selbst."
+      },
+      "review": {
+        "title": "Von einem Modell prüfen lassen",
+        "estimate_one": "Sendet dein {{count}} Wort und seine aktuelle Kategorie, nie deine Diktate. Eine Anfrage, ≈ {{tokens}} Tokens.",
+        "estimate_other": "Sendet deine {{count}} Wörter und ihre aktuelle Kategorie, nie deine Diktate. Eine Anfrage, ≈ {{tokens}} Tokens.",
+        "ask": "Fragen",
+        "failed": "Das Modell konnte die Kategorien nicht prüfen.",
+        "stale": "Dein Wörterbuch oder seine Kategorien haben sich geändert, während das Modell arbeitete, deshalb wurden seine Vorschläge verworfen. Frag noch einmal.",
+        "malformed": "Die Antwort des Modells hatte nicht das erwartete Format, darum wurde nichts übernommen.",
+        "oversized": "Die Antwort des Modells war zu groß, darum wurde nichts übernommen.",
+        "proposalsTitle": "Vorgeschlagene Änderungen",
+        "none": "{{model}} schlägt keine Änderungen vor.",
+        "kept_one": "{{count}} von {{model}} · {{shown}} angezeigt",
+        "kept_other": "{{count}} von {{model}} · {{shown}} angezeigt",
+        "dropped_one": "{{count}} wurde verworfen: Er nannte ein Wort, das nicht in deinem Wörterbuch ist, oder eine unbekannte Kategorie, oder war ungültig.",
+        "dropped_other": "{{count}} wurden verworfen: Sie nannten Wörter, die nicht in deinem Wörterbuch sind, oder unbekannte Kategorien, oder waren ungültig.",
+        "acceptAll_one": "Alle annehmen ({{count}})",
+        "acceptAll_other": "Alle annehmen ({{count}})",
+        "accept": "Annehmen",
+        "acceptLabel": "{{category}} für {{word}} annehmen",
+        "dismissLabel": "Vorschlag für {{word}} verwerfen",
+        "accepted": "Angenommen",
+        "noChange": "Keine Änderung",
+        "userKept": "Deine Wahl bleibt",
+        "change": "{{from}} zu {{to}}:",
+        "acceptedNotice_one": "{{count}} Kategorie geändert.",
+        "acceptedNotice_other": "{{count}} Kategorien geändert."
+      },
+      "unsorted": {
+        "title_one": "Unsortierte Wörter ({{count}})",
+        "title_other": "Unsortierte Wörter ({{count}})",
+        "hint": "Wähle für jedes eine Kategorie oder frag oben ein Modell.",
+        "none": "Jedes Wort hat eine Kategorie."
+      },
+      "notes": {
+        "title": "Was Kategorien bewirken",
+        "filterLabel": "Filtern und gemeinsam bearbeiten",
+        "filter": "Wähle über der Liste eine Kategorie, markiere die Wörter und nutze dann Kategorie setzen, Anheften oder Entfernen.",
+        "groupingLabel": "Bereinigungs-Prompt",
+        "grouping": "Mit „Wörterbuchwörter nach Kategorie gruppieren“ listet der Bereinigungs-Prompt die Wörter unter Personen, Arbeitsbegriffe und Alltagswörter, damit das Modell weiß, dass ein Name ein Name ist. Nicht mit OpenWhispr Cloud.",
+        "groupingOn": "Es ist an.",
+        "groupingOff": "Es ist aus.",
+        "openSettings": "In den Einstellungen öffnen",
+        "wordSetLabel": "Wörter der Bereinigung",
+        "wordSet_one": "„Alle Wörter außer Alltagswörtern“ lässt {{count}} Wort weg (≈ {{tokens}} Tokens pro Bereinigung).",
+        "wordSet_other": "„Alle Wörter außer Alltagswörtern“ lässt {{count}} Wörter weg (≈ {{tokens}} Tokens pro Bereinigung).",
+        "wordSetUnavailable": "„Alle Wörter außer Alltagswörtern“ lässt deine Alltagswörter weg, sobald die Kategorien bereit sind.",
+        "wordSetNow": "Jetzt: {{set}}.",
+        "tidyLabel": "Aufräumen",
+        "tidy": "Seine Prüfungen ändern sich nicht: Es schlägt vor, gewöhnliche Wörter zu entfernen, die die Spracherkennung schon richtig schreibt.",
+        "local": "Kategorien bleiben auf diesem Computer, wie angeheftete Wörter: nie synchronisiert und nur dann an ein Modell gesendet, wenn du eines prüfen lässt."
       }
     },
     "kinds": {

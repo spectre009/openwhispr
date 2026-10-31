@@ -6,6 +6,7 @@ import { useDictionarySourcesStore } from "./dictionarySourcesStore";
 import { dictionaryRevision, parseDictionaryReviewReply } from "../utils/dictionaryReview";
 import type { ReviewRequest, ReviewSuggestion } from "../utils/dictionaryReview";
 import type { TidyAggregates } from "../utils/dictionaryTidy";
+import { loadCommonWordList } from "../utils/commonWords";
 import {
   cancelDictionaryReview,
   runDictionaryReview,
@@ -199,21 +200,13 @@ export function syncDictionaryTidy(): void {
 
 let commonWordsLoad: Promise<void> | null = null;
 
-/** Loads the bundled common-word list once; an empty set if it can't be read. */
+/** Loads the bundled common-word list once (shared, utils/commonWords); an empty set if it can't be read. */
 export function loadCommonWords(): Promise<void> {
   if (commonWordsLoad) return commonWordsLoad;
-  commonWordsLoad = import("../config/commonEnglishWords.json")
-    .then((module) => {
-      const list = (module as { default?: unknown }).default ?? module;
-      const words = Array.isArray(list)
-        ? list.filter((word): word is string => typeof word === "string")
-        : [];
-      setState({ commonWords: new Set(words) });
-    })
-    .catch((error) => {
-      logger.warn("Couldn't load the common-word list", { error: (error as Error)?.message });
-      setState({ commonWords: new Set<string>() });
-    });
+  commonWordsLoad = loadCommonWordList().then((words) => {
+    if (!words) logger.warn("Couldn't load the common-word list");
+    setState({ commonWords: words ?? new Set<string>() });
+  });
   return commonWordsLoad;
 }
 

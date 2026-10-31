@@ -120,6 +120,7 @@ import {
 import { syncGlossaryRules } from "./glossaryStore";
 import { refreshDictionarySources, syncDictionarySources } from "./dictionarySourcesStore";
 import { scheduleDictionaryUsageRefresh, syncDictionaryUsage } from "./dictionaryUsageStore";
+import { loadDictionaryCategoryWords, syncDictionaryCategories } from "./dictionaryCategoriesStore";
 import type { EnterpriseSetupMode } from "../types/enterpriseIdentity";
 import { getManagedScopeResolution } from "./enterpriseIdentityStore";
 
@@ -403,6 +404,7 @@ const BOOLEAN_SETTINGS = new Set([
   "saveDiscardedTranscriptions",
   "noteFilesEnabled",
   "showTranscriptionPreview",
+  "cleanupDictionaryGrouping",
   "cleanupDisableThinking",
   "dictationAgentDisableThinking",
   "dictationAgentVisionDisableThinking",
@@ -1130,6 +1132,8 @@ export interface SettingsState
   autoLearnMode: AutoLearnMode;
   /** Dictionary words in the cleanup prompt (Settings › Dictation › Cleanup). */
   cleanupDictionaryWords: CleanupDictionarySetting;
+  /** The cleanup prompt lists its dictionary words by category (Settings › Dictation › Cleanup). */
+  cleanupDictionaryGrouping: boolean;
   /** The speech-to-text hint list's order for unpinned words (Settings › Dictation › Recognition). */
   dictionaryHintOrder: DictionaryHintOrder;
   showTranscriptionPreview: boolean;
@@ -1506,6 +1510,7 @@ export interface SettingsState
   setRecordingQuality: (quality: RecordingQuality) => void;
   setAutoLearnMode: (mode: AutoLearnMode) => void;
   setCleanupDictionaryWords: (setting: CleanupDictionarySetting) => void;
+  setCleanupDictionaryGrouping: (value: boolean) => void;
   setDictionaryHintOrder: (order: DictionaryHintOrder) => void;
   setShowTranscriptionPreview: (value: boolean) => void;
   setAutoPasteEnabled: (value: boolean) => void;
@@ -2093,6 +2098,7 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   cleanupDictionaryWords: normalizeCleanupDictionarySetting(
     readString("cleanupDictionaryWords", "all")
   ),
+  cleanupDictionaryGrouping: readBoolean("cleanupDictionaryGrouping", false),
   dictionaryHintOrder: normalizeDictionaryHintOrder(readString("dictionaryHintOrder", "evidence")),
   showTranscriptionPreview: readBoolean("showTranscriptionPreview", false),
   autoPasteEnabled: readBoolean("autoPasteEnabled", true),
@@ -3111,6 +3117,9 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
     if (isBrowser) localStorage.setItem("cleanupDictionaryWords", next);
     set({ cleanupDictionaryWords: next });
   },
+  // Read when a dictation's cleanup request is built: the prompt lists its
+  // words by category (never OpenWhispr Cloud's request).
+  setCleanupDictionaryGrouping: createBooleanSetter("cleanupDictionaryGrouping"),
   // Read whenever a speech-to-text request builds its hint list (and by
   // Re-transcribe and the Dictionary page, which send and show the same).
   setDictionaryHintOrder: (order: DictionaryHintOrder) => {
@@ -4230,6 +4239,17 @@ export async function initializeSettings(): Promise<void> {
     useSettingsStore.subscribe((next, previous) => {
       if (next.dataRetentionEnabled !== previous.dataRetentionEnabled) {
         scheduleDictionaryUsageRefresh(1000);
+      }
+    });
+    // Categories (cleanup's "All words except everyday words" and its
+    // grouping): main's stored choices, and the common-word list the rules
+    // read, loaded only once a setting needs it.
+    const categoriesNeeded = (state: SettingsState) =>
+      state.cleanupDictionaryWords === "noEveryday" || state.cleanupDictionaryGrouping === true;
+    syncDictionaryCategories({ loadWords: categoriesNeeded(useSettingsStore.getState()) });
+    useSettingsStore.subscribe((next, previous) => {
+      if (categoriesNeeded(next) && !categoriesNeeded(previous)) {
+        void loadDictionaryCategoryWords();
       }
     });
     // Main watches no edits until a window says which auto-learn mode is on.

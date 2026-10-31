@@ -758,6 +758,7 @@
         "dictionaryScope": {
           "sets": {
             "all": "すべての単語",
+            "noEveryday": "日常語以外のすべて",
             "typedPinnedMissed": "入力・固定・聞き逃し",
             "typedPinned": "入力・固定",
             "none": "なし"
@@ -3630,6 +3631,7 @@
       "description": "クリーンアップにはこれらを表記どおりに書くよう指示します。単語が少ないほどプロンプトは短くなります。",
       "options": {
         "all": "すべての単語",
+        "noEveryday": "日常語以外のすべての単語",
         "typedPinnedMissed": "入力・固定した単語と音声認識が聞き逃す単語",
         "typedPinned": "入力・固定した単語",
         "none": "なし"
@@ -3638,7 +3640,20 @@
       "count_other": "{{count}} 語 · 約 {{tokens}} トークン",
       "sendsAll": "現在はすべての単語を送信します",
       "missedUnavailable": "音声認識が聞き逃す単語はローカルの履歴から数えます。履歴がオフ、またはまだ集計中の間は、クリーンアップにすべての単語が渡され、そのステップにそう記録されます。",
+      "categoriesUnavailable": "どの単語が日常語かは、このコンピューターで分類したカテゴリーで決まります。準備ができるまではクリーンアップにすべての単語が送られ、そのステップに記録されます。",
       "note": "用語集の表記とスニペットのトリガーは常に含まれます。音声モデルの単語リスト、チャット、音声アシスタントは辞書全体を使い続けます。"
+    },
+    "cleanupDictionaryGrouping": {
+      "title": "辞書の単語をカテゴリー別にまとめる",
+      "description": "クリーンアップのプロンプトで辞書の単語を人名・仕事の用語・日常語に分けて並べ、名前が名前だとモデルに伝えます。プロンプトが変わります。OpenWhispr Cloud では使われません。",
+      "groups": {
+        "people": "人名 {{n}}",
+        "work": "仕事の用語 {{n}}",
+        "everyday": "日常語 {{n}}",
+        "other": "その他 {{n}}"
+      },
+      "unavailable": "カテゴリーの準備ができるまで、クリーンアップには単語がまとめずに送られます。",
+      "cloud": "クリーンアップは OpenWhispr Cloud で行われます。Cloud は独自のプロンプトを作り、単語はまとめずに受け取ります。"
     },
     "dictionaryOrder": {
       "title": "音声認識に送る辞書の順番",
@@ -4651,6 +4666,7 @@
       "columns": {
         "word": "単語",
         "source": "追加元",
+        "category": "カテゴリー",
         "heard": "使用 · 90 日",
         "added": "追加日",
         "speech": "音声モデル"
@@ -4727,6 +4743,7 @@
         "tokens": "クリーンアップごとに約 {{tokens}} トークン",
         "off": "クリーンアップはオフです",
         "sends": "送信：{{set}}",
+        "grouped": "カテゴリー別",
         "monthly": "月あたり約 {{tokens}} トークン",
         "monthlyDetail": "現在の音声入力ペースで月あたり約 {{tokens}} トークン",
         "monthlyUnavailable": "月間の推定にはローカル履歴が必要です。",
@@ -4797,12 +4814,17 @@
         "glossary": "はい：用語集の表記は常に送信されます",
         "all": "はい、すべての単語と一緒に",
         "fallback": "はい：「{{set}}」に必要な集計がまだないため、当面はすべての単語が送信されます",
+        "fallbackCategories": "はい：「{{set}}」に必要なカテゴリーがまだ準備できていないため、当面はすべての単語が送信されます",
         "none": "いいえ：クリーンアップのプロンプトには辞書の単語が含まれません",
         "pinned": "はい：固定されています（「{{set}}」）",
         "typed": "はい：入力した単語です（「{{set}}」）",
         "missed": "はい：音声認識がよく聞き逃します（「{{set}}」）",
         "notTypedPinned": "いいえ：「{{set}}」は入力・固定した単語だけを送信します",
-        "notMissed": "いいえ：「{{set}}」は音声認識がよく聞き逃す自動学習の単語だけを送信します"
+        "notMissed": "いいえ：「{{set}}」は音声認識がよく聞き逃す自動学習の単語だけを送信します",
+        "grouped": "「{{group}}」に分類",
+        "groupOther": "その他",
+        "notEveryday": "はい：日常語ではありません（「{{set}}」）",
+        "everyday": "いいえ：「{{set}}」は日常語を除きます"
       },
       "replaced": {
         "title": "置き換えた内容",
@@ -4978,6 +5000,100 @@
           "respell": "変更",
           "merge": "統合"
         }
+      }
+    },
+    "categories": {
+      "button": "カテゴリーに分類",
+      "buttonLabel_one": "カテゴリーに分類、未分類の単語 {{count}} 件",
+      "buttonLabel_other": "カテゴリーに分類、未分類の単語 {{count}} 件",
+      "filtersLabel": "カテゴリーで絞り込む",
+      "filtersTitle": "カテゴリー",
+      "rowLabel": "{{label}}、{{category}}",
+      "setFailed": "カテゴリーを変更できませんでした。",
+      "names": {
+        "people": "人名",
+        "work": "仕事の用語",
+        "everyday": "日常語",
+        "unsorted": "未分類"
+      },
+      "source": {
+        "auto": "自動",
+        "user": "あなた",
+        "model": "モデル"
+      },
+      "pill": {
+        "label": "{{word}} のカテゴリー：{{category}}（{{who}}）。変更",
+        "title": "{{category}} · 設定：{{who}}",
+        "menuTitle": "「{{word}}」のカテゴリー",
+        "automatic": "自動（{{category}}）"
+      },
+      "bulk": {
+        "set": "カテゴリーを設定",
+        "automatic": "自動",
+        "done_one": "{{count}} 語を{{category}}に設定しました",
+        "done_other": "{{count}} 語を{{category}}に設定しました",
+        "doneAutomatic_one": "{{count}} 語を自動に戻しました",
+        "doneAutomatic_other": "{{count}} 語を自動に戻しました"
+      },
+      "title": "単語をカテゴリーに分類",
+      "subtitle": "このコンピューターで各単語の形から分類しました。どの単語もクリックで変更でき、残りはモデルに確認させられます。承認するまで何も変わりません。",
+      "loading": "ルールが使う単語リストを読み込んでいます…",
+      "cards": {
+        "people": "人やアシスタントの名前：大文字で始まり、英単語ではないもの。",
+        "work": "製品、ツール、略語、コード：途中の大文字、ドット、数字、すべて大文字。",
+        "everyday": "一般的な英単語リストにあるもの。",
+        "unsorted": "ルールでは判断できませんでした。モデルに聞くか、自分で選んでください。"
+      },
+      "review": {
+        "title": "モデルに確認してもらう",
+        "estimate_one": "{{count}} 語とその現在のカテゴリーを送ります。ディクテーションは送りません。リクエスト 1 件、約 {{tokens}} トークン。",
+        "estimate_other": "{{count}} 語とその現在のカテゴリーを送ります。ディクテーションは送りません。リクエスト 1 件、約 {{tokens}} トークン。",
+        "ask": "聞く",
+        "failed": "モデルはカテゴリーを確認できませんでした。",
+        "stale": "モデルの処理中に辞書またはカテゴリーが変わったため、提案を破棄しました。もう一度聞いてください。",
+        "malformed": "モデルの回答が想定した形式ではなかったため、何も残していません。",
+        "oversized": "モデルの回答が大きすぎたため、何も残していません。",
+        "proposalsTitle": "提案された変更",
+        "none": "{{model}} は変更を提案していません。",
+        "kept_one": "{{model}} から {{count}} 件 · {{shown}} 件を表示",
+        "kept_other": "{{model}} から {{count}} 件 · {{shown}} 件を表示",
+        "dropped_one": "{{count}} 件を破棄しました：辞書にない単語や不明なカテゴリーを含んでいたか、無効でした。",
+        "dropped_other": "{{count}} 件を破棄しました：辞書にない単語や不明なカテゴリーを含んでいたか、無効でした。",
+        "acceptAll_one": "すべて承認（{{count}}）",
+        "acceptAll_other": "すべて承認（{{count}}）",
+        "accept": "承認",
+        "acceptLabel": "{{word}} を{{category}}として承認",
+        "dismissLabel": "{{word}} への提案を却下",
+        "accepted": "承認済み",
+        "noChange": "変更なし",
+        "userKept": "あなたの選択を維持",
+        "change": "{{from}} → {{to}}：",
+        "acceptedNotice_one": "{{count}} 件のカテゴリーを変更しました。",
+        "acceptedNotice_other": "{{count}} 件のカテゴリーを変更しました。"
+      },
+      "unsorted": {
+        "title_one": "未分類の単語（{{count}}）",
+        "title_other": "未分類の単語（{{count}}）",
+        "hint": "それぞれにカテゴリーを選ぶか、上でモデルに聞いてください。",
+        "none": "すべての単語にカテゴリーがあります。"
+      },
+      "notes": {
+        "title": "カテゴリーでできること",
+        "filterLabel": "絞り込みと一括編集",
+        "filter": "一覧の上でカテゴリーを選び、単語を選択してから、カテゴリーを設定・固定・削除します。",
+        "groupingLabel": "クリーンアップのプロンプト",
+        "grouping": "「辞書の単語をカテゴリー別にまとめる」をオンにすると、クリーンアップのプロンプトで単語を人名・仕事の用語・日常語に分けて並べ、名前が名前だとモデルに伝えます。OpenWhispr Cloud では使われません。",
+        "groupingOn": "現在オンです。",
+        "groupingOff": "現在オフです。",
+        "openSettings": "設定で開く",
+        "wordSetLabel": "クリーンアップに含める単語",
+        "wordSet_one": "「日常語以外のすべての単語」は {{count}} 語を除きます（クリーンアップ 1 回あたり約 {{tokens}} トークン）。",
+        "wordSet_other": "「日常語以外のすべての単語」は {{count}} 語を除きます（クリーンアップ 1 回あたり約 {{tokens}} トークン）。",
+        "wordSetUnavailable": "「日常語以外のすべての単語」は、カテゴリーの準備ができると日常語を除きます。",
+        "wordSetNow": "現在：{{set}}。",
+        "tidyLabel": "整理",
+        "tidy": "チェック内容は変わりません。音声認識がすでに正しく書ける一般的な単語の削除を提案します。",
+        "local": "カテゴリーは固定と同じくこのコンピューターに残ります。同期されず、モデルに確認を頼んだときだけ送られます。"
       }
     },
     "kinds": {

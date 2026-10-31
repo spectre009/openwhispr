@@ -6,6 +6,12 @@ import {
   isDictionarySourcesLoaded,
 } from "../stores/dictionarySourcesStore";
 import { getMissedDictionaryKeys } from "../stores/dictionaryUsageStore";
+import { getDictionaryCategoryLookup } from "../stores/dictionaryCategoriesStore";
+import {
+  groupCleanupDictionaryWords,
+  type CleanupDictionaryGroup,
+  type DictionaryCategory,
+} from "./dictionaryCategories";
 
 export interface Snippet {
   trigger: string;
@@ -158,13 +164,16 @@ export function getDictionaryHintWords(
 
 /**
  * Settings › Dictation › Cleanup › "Dictionary words in the cleanup prompt":
- * every word (today's behaviour), typed and pinned words plus the words
- * speech often misses, typed and pinned words only, or none.
+ * every word (today's behaviour), every word except everyday words (by
+ * category), typed and pinned words plus the words speech often misses,
+ * typed and pinned words only, or none.
  */
-export type CleanupDictionarySetting = "all" | "typedPinnedMissed" | "typedPinned" | "none";
+export type CleanupDictionarySetting =
+  "all" | "noEveryday" | "typedPinnedMissed" | "typedPinned" | "none";
 
 export const CLEANUP_DICTIONARY_SETTINGS: readonly CleanupDictionarySetting[] = [
   "all",
+  "noEveryday",
   "typedPinnedMissed",
   "typedPinned",
   "none",
@@ -178,9 +187,10 @@ export function normalizeCleanupDictionarySetting(value: unknown): CleanupDictio
 
 /**
  * What one cleanup request's dictionary was: the setting, the set applied
- * (All when the setting's inputs weren't there: no heard/written counts, or
- * the word sources not read yet) and how many dictionary words it carried.
- * Recorded on the cleanup step (or the one-step style step) as is.
+ * (All when the setting's inputs weren't there: no heard/written counts, the
+ * word sources not read yet, or the categories not ready) and how many
+ * dictionary words it carried. Recorded on the cleanup step (or the one-step
+ * style step) as is.
  */
 export interface CleanupDictionaryScope {
   setting: CleanupDictionarySetting;
@@ -188,10 +198,17 @@ export interface CleanupDictionaryScope {
   words: number;
 }
 
-/** One cleanup request's dictionary: the words its prompt carries, and its scope. */
+/**
+ * One cleanup request's dictionary: the words its prompt carries, and its
+ * scope. `groups` (Settings › Dictation › Cleanup's "Group words by
+ * category", once the categories are ready) is the same words by category,
+ * each group in the flat list's order: the prompt lists them so, inside the
+ * request's own provider context. OpenWhispr Cloud only ever gets `words`.
+ */
 export interface CleanupDictionarySelection {
   words: string[];
   scope: CleanupDictionaryScope;
+  groups?: CleanupDictionaryGroup[];
 }
 
 /** What the set is chosen from besides the settings (the stores, by default). */
@@ -202,6 +219,8 @@ export interface CleanupDictionarySources {
   pinned: ReadonlySet<string>;
   /** Keys of the words speech often misses; null when counts aren't available. */
   missed: ReadonlySet<string> | null;
+  /** A word's effective category; null (or absent) until the categories are ready. */
+  categories?: ((word: string) => DictionaryCategory | null) | null;
 }
 
 function defaultCleanupDictionarySources(): CleanupDictionarySources {
@@ -209,6 +228,7 @@ function defaultCleanupDictionarySources(): CleanupDictionarySources {
     learned: isDictionarySourcesLoaded() ? getLearnedDictionaryWords() : null,
     pinned: getPinnedDictionaryKeys(),
     missed: getMissedDictionaryKeys(),
+    categories: getDictionaryCategoryLookup(),
   };
 }
 
@@ -219,13 +239,17 @@ function defaultCleanupDictionarySources(): CleanupDictionarySources {
  * are filtered: the glossary's canonical forms and snippet triggers always
  * follow, so cleanup never undoes the glossary or breaks a trigger. Chat, the
  * assistant, translation and speech-to-text keep the full list
- * (getDictionaryHintWords).
+ * (getDictionaryHintWords). With `cleanupDictionaryGrouping` on and the
+ * categories ready, `groups` holds the same words by category: dictionary
+ * words and glossary canonical forms by their effective category, snippet
+ * triggers and unsorted words under Other.
  */
 export function selectCleanupDictionary(
   settings?: {
     customDictionary?: string[] | null;
     snippets?: Snippet[] | null;
     cleanupDictionaryWords?: CleanupDictionarySetting | string | null;
+    cleanupDictionaryGrouping?: boolean | null;
   } | null,
   sources: CleanupDictionarySources = defaultCleanupDictionarySources(),
   glossaryTerms: readonly string[] = getGlossaryCanonicalTerms()
@@ -234,18 +258,23 @@ export function selectCleanupDictionary(
   const dictionary = (
     Array.isArray(settings?.customDictionary) ? settings.customDictionary : []
   ).filter((word): word is string => typeof word === "string");
+  const categoryOf = sources.categories ?? null;
   let applied: CleanupDictionarySetting = setting;
   // Typed words can't be told apart before the sources are read, nor missed
-  // ones without counts: All, and the step says so.
+  // ones without counts, nor everyday words before the categories are
+  // ready: All, and the step says so.
   if ((setting === "typedPinned" || setting === "typedPinnedMissed") && !sources.learned) {
     applied = "all";
   }
   if (applied === "typedPinnedMissed" && !sources.missed) applied = "all";
+  if (applied === "noEveryday" && !categoryOf) applied = "all";
 
   let words: string[];
   if (applied === "all") words = dictionary;
   else if (applied === "none") words = [];
-  else {
+  else if (applied === "noEveryday") {
+    words = dictionary.filter((word) => categoryOf?.(word) !== "everyday");
+  } else {
     words = dictionary.filter((word) => {
       const key = dictionaryWordKey(word);
       if (sources.pinned.has(key)) return true;
@@ -253,13 +282,23 @@ export function selectCleanupDictionary(
       return applied === "typedPinnedMissed" && !!sources.missed?.has(key);
     });
   }
-  return {
-    words: getDictionaryHintWords(
-      { customDictionary: words, snippets: settings?.snippets },
-      glossaryTerms
-    ),
+  const flat = getDictionaryHintWords(
+    { customDictionary: words, snippets: settings?.snippets },
+    glossaryTerms
+  );
+  const selection: CleanupDictionarySelection = {
+    words: flat,
     scope: { setting, applied, words: words.length },
   };
+  if (settings?.cleanupDictionaryGrouping === true && categoryOf && flat.length > 0) {
+    // The dictionary words and canonical forms come first in the flat list;
+    // snippet triggers follow them and go under Other.
+    const named = getDictionaryHintWords({ customDictionary: words }, glossaryTerms).length;
+    selection.groups = groupCleanupDictionaryWords(flat, (word, index) =>
+      index < named ? categoryOf(word) : null
+    );
+  }
+  return selection;
 }
 
 /** The words a cleanup prompt carries (selectCleanupDictionary's `words`). */

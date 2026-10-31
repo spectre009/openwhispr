@@ -252,6 +252,23 @@ test("a cleanup or style step keeps its dictionary word set, enums and a count o
   );
 });
 
+test("a cleanup step keeps 'all but everyday words' and its fallback to All", () => {
+  const applied = { setting: "noEveryday", applied: "noEveryday", words: 140 };
+  const fellBack = { setting: "noEveryday", applied: "all", words: 215 };
+  const normalized = normalizeTrace(
+    baseTrace({
+      steps: [
+        { kind: "cleanup", outcome: "ok", output: "a", detail: { dictionaryScope: applied } },
+        { kind: "cleanup", outcome: "ok", output: "b", detail: { dictionaryScope: fellBack } },
+      ],
+    })
+  );
+  assert.deepEqual(
+    normalized.steps.map((step) => step.detail),
+    [{ dictionaryScope: applied }, { dictionaryScope: fellBack }]
+  );
+});
+
 test("a run completes once, and a newer retry overtakes an older one", () => {
   let ids = 0;
   let clock = 1_000;

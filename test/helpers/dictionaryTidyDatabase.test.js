@@ -90,6 +90,8 @@ test("restore: a tombstoned row comes back as it was, the same row", (t) => {
           createdAt: "2026-08-03 10:00:00",
           pinned: true,
           pinPosition: 0,
+          category: null,
+          categorySource: null,
         },
       ],
     },

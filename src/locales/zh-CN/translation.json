@@ -758,6 +758,7 @@
         "dictionaryScope": {
           "sets": {
             "all": "所有词语",
+            "noEveryday": "除日常用词外的所有词语",
             "typedPinnedMissed": "手动输入、已固定和常漏掉的",
             "typedPinned": "手动输入和已固定的",
             "none": "不包含"
@@ -3630,6 +3631,7 @@
       "description": "整理时会要求按原样书写这些词语。词语越少，提示词越短。",
       "options": {
         "all": "所有词语",
+        "noEveryday": "除日常用词外的所有词语",
         "typedPinnedMissed": "手动输入、已固定以及语音识别常漏掉的词语",
         "typedPinned": "手动输入和已固定的词语",
         "none": "不包含"
@@ -3638,7 +3640,20 @@
       "count_other": "{{count}} 个词语 · 约 {{tokens}} 个 token",
       "sendsAll": "目前发送所有词语",
       "missedUnavailable": "语音识别常漏掉的词语根据你的本地历史记录统计。在历史记录关闭或仍在统计时，整理会收到所有词语，其步骤中也会注明。",
+      "categoriesUnavailable": "哪些词是日常用词，取决于在这台电脑上整理出的分类。分类准备好之前，整理会收到所有词语，它的步骤也会注明。",
       "note": "术语表的写法和片段触发词始终包含在内。语音模型的词语列表、聊天和语音助手仍使用完整词典。"
+    },
+    "cleanupDictionaryGrouping": {
+      "title": "按分类列出词典词语",
+      "description": "整理提示词把词典词语按人名、工作术语和日常用词分组列出，让模型知道名字就是名字。这会改变提示词。OpenWhispr Cloud 不使用。",
+      "groups": {
+        "people": "人名 {{n}}",
+        "work": "工作术语 {{n}}",
+        "everyday": "日常用词 {{n}}",
+        "other": "其他 {{n}}"
+      },
+      "unavailable": "分类准备好之前，整理收到的词语不分组。",
+      "cloud": "你的整理在 OpenWhispr Cloud 上进行，它自己生成提示词，收到的词语不分组。"
     },
     "dictionaryOrder": {
       "title": "语音转文字的词典顺序",
@@ -4723,6 +4738,7 @@
       "columns": {
         "word": "词语",
         "source": "来源",
+        "category": "分类",
         "heard": "使用 · 90 天",
         "added": "添加时间",
         "speech": "语音模型"
@@ -4799,6 +4815,7 @@
         "tokens": "每次清理约 {{tokens}} 个 token",
         "off": "清理已关闭",
         "sends": "发送：{{set}}",
+        "grouped": "按分类列出",
         "monthly": "每月约 {{tokens}} 个 token",
         "monthlyDetail": "按你的听写频率，每月约 {{tokens}} 个 token",
         "monthlyUnavailable": "月度估算需要本地历史记录。",
@@ -4869,12 +4886,17 @@
         "glossary": "是：术语表的拼写总会发送",
         "all": "是，随所有词语一起",
         "fallback": "是：“{{set}}”需要的统计还没准备好，所以暂时发送所有词语",
+        "fallbackCategories": "是：“{{set}}”需要的分类还没准备好，所以暂时发送所有词语",
         "none": "否：清理提示词不含词典词语",
         "pinned": "是：已固定（“{{set}}”）",
         "typed": "是：手动输入（“{{set}}”）",
         "missed": "是：语音识别常漏掉它（“{{set}}”）",
         "notTypedPinned": "否：“{{set}}”只发送手动输入和已固定的词",
-        "notMissed": "否：“{{set}}”只在语音识别常漏掉时才发送自动学习的词"
+        "notMissed": "否：“{{set}}”只在语音识别常漏掉时才发送自动学习的词",
+        "grouped": "列在“{{group}}”下",
+        "groupOther": "其他",
+        "notEveryday": "是：不是日常用词（“{{set}}”）",
+        "everyday": "否：“{{set}}”不包含日常用词"
       },
       "replaced": {
         "title": "它替换了什么",
@@ -5050,6 +5072,100 @@
           "respell": "更改",
           "merge": "合并"
         }
+      }
+    },
+    "categories": {
+      "button": "整理分类",
+      "buttonLabel_one": "整理分类，{{count}} 个未分类的词",
+      "buttonLabel_other": "整理分类，{{count}} 个未分类的词",
+      "filtersLabel": "按分类筛选",
+      "filtersTitle": "分类",
+      "rowLabel": "{{label}}，{{category}}",
+      "setFailed": "无法更改分类。",
+      "names": {
+        "people": "人名",
+        "work": "工作术语",
+        "everyday": "日常用词",
+        "unsorted": "未分类"
+      },
+      "source": {
+        "auto": "自动",
+        "user": "你",
+        "model": "模型"
+      },
+      "pill": {
+        "label": "{{word}} 的分类：{{category}}（{{who}}）。更改",
+        "title": "{{category}} · 设置者：{{who}}",
+        "menuTitle": "“{{word}}”的分类",
+        "automatic": "自动（{{category}}）"
+      },
+      "bulk": {
+        "set": "设置分类",
+        "automatic": "自动",
+        "done_one": "已将 {{count}} 个词设为{{category}}",
+        "done_other": "已将 {{count}} 个词设为{{category}}",
+        "doneAutomatic_one": "{{count}} 个词已恢复为自动",
+        "doneAutomatic_other": "{{count}} 个词已恢复为自动"
+      },
+      "title": "把你的词语整理到分类中",
+      "subtitle": "在这台电脑上根据每个词的形式整理。点一下即可更改任何词，其余的可以让模型检查。你接受之前什么都不会改变。",
+      "loading": "正在读取规则使用的词表…",
+      "cards": {
+        "people": "人和助手的名字：首字母大写，不是英文单词。",
+        "work": "产品、工具、缩写、代码：中间有大写、点、数字或全大写。",
+        "everyday": "在常用英文单词表中。",
+        "unsorted": "规则无法判断。问问模型，或自己选。"
+      },
+      "review": {
+        "title": "让模型检查",
+        "estimate_one": "发送你的 {{count}} 个词及其当前分类，绝不发送你的听写内容。一次请求，约 {{tokens}} 个 token。",
+        "estimate_other": "发送你的 {{count}} 个词及其当前分类，绝不发送你的听写内容。一次请求，约 {{tokens}} 个 token。",
+        "ask": "询问",
+        "failed": "模型无法检查分类。",
+        "stale": "模型处理期间你的词典或分类发生了变化，所以它的建议已被丢弃。请再问一次。",
+        "malformed": "模型的回答格式不符合预期，所以没有保留任何内容。",
+        "oversized": "模型的回答太大，所以没有保留任何内容。",
+        "proposalsTitle": "建议的更改",
+        "none": "{{model}} 没有建议更改。",
+        "kept_one": "来自 {{model}} 的 {{count}} 条 · 显示 {{shown}} 条",
+        "kept_other": "来自 {{model}} 的 {{count}} 条 · 显示 {{shown}} 条",
+        "dropped_one": "已丢弃 {{count}} 条：包含不在你词典中的词或未知分类，或无效。",
+        "dropped_other": "已丢弃 {{count}} 条：包含不在你词典中的词或未知分类，或无效。",
+        "acceptAll_one": "全部接受（{{count}}）",
+        "acceptAll_other": "全部接受（{{count}}）",
+        "accept": "接受",
+        "acceptLabel": "接受将 {{word}} 设为{{category}}",
+        "dismissLabel": "忽略对 {{word}} 的建议",
+        "accepted": "已接受",
+        "noChange": "无变化",
+        "userKept": "保留你的选择",
+        "change": "{{from}} → {{to}}：",
+        "acceptedNotice_one": "已更改 {{count}} 个分类。",
+        "acceptedNotice_other": "已更改 {{count}} 个分类。"
+      },
+      "unsorted": {
+        "title_one": "未分类的词（{{count}}）",
+        "title_other": "未分类的词（{{count}}）",
+        "hint": "为每个词选一个分类，或在上方询问模型。",
+        "none": "每个词都有分类。"
+      },
+      "notes": {
+        "title": "分类的作用",
+        "filterLabel": "筛选和批量编辑",
+        "filter": "在列表上方选择一个分类，选中词语，然后设置分类、固定或移除。",
+        "groupingLabel": "整理提示词",
+        "grouping": "打开“按分类列出词典词语”后，整理提示词会把词语按人名、工作术语和日常用词分组列出，让模型知道名字就是名字。OpenWhispr Cloud 不使用。",
+        "groupingOn": "目前已打开。",
+        "groupingOff": "目前已关闭。",
+        "openSettings": "在设置中打开",
+        "wordSetLabel": "整理使用的词语",
+        "wordSet_one": "“除日常用词外的所有词语”会去掉 {{count}} 个词（每次整理约 {{tokens}} 个 token）。",
+        "wordSet_other": "“除日常用词外的所有词语”会去掉 {{count}} 个词（每次整理约 {{tokens}} 个 token）。",
+        "wordSetUnavailable": "分类准备好后，“除日常用词外的所有词语”会去掉你的日常用词。",
+        "wordSetNow": "当前：{{set}}。",
+        "tidyLabel": "整理",
+        "tidy": "它的检查不变：建议移除语音识别已经能写对的常用词。",
+        "local": "分类和固定一样留在这台电脑上：从不同步，只有你让模型检查时才会发送给它。"
       }
     },
     "kinds": {

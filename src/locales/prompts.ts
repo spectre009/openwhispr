@@ -14,6 +14,11 @@ export interface PromptBundle {
   cleanupPrompt: string;
   fullPrompt: string;
   dictionarySuffix: string;
+  /** The cleanup prompt's grouped dictionary (Settings › Dictation › Cleanup): its labels. */
+  dictionaryGroupPeople: string;
+  dictionaryGroupWork: string;
+  dictionaryGroupEveryday: string;
+  dictionaryGroupOther: string;
   screenContextSuffix: string;
   translatePrompt: string;
 }

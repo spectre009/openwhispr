@@ -842,9 +842,44 @@ export const SETTINGS_SEARCH_DESCRIPTORS: readonly SettingDescriptor[] = [
   }),
   row("dictation.cleanup.dictionaryWords", CLEANUP, "settingsPage.cleanupDictionary.title", {
     descriptionKey: "settingsPage.cleanupDictionary.description",
-    aliases: ["dictionary", "words", "tokens", "prompt size", "vocabulary", "custom words"],
+    aliases: [
+      "dictionary",
+      "words",
+      "tokens",
+      "prompt size",
+      "vocabulary",
+      "custom words",
+      "everyday words",
+      "common words",
+      "categories",
+    ],
+    aliasKeys: ["settingsPage.cleanupDictionary.options.noEveryday"],
     available: cleanupOn,
   }),
+  row(
+    "dictation.cleanup.dictionaryGrouping",
+    CLEANUP,
+    "settingsPage.cleanupDictionaryGrouping.title",
+    {
+      descriptionKey: "settingsPage.cleanupDictionaryGrouping.description",
+      aliases: [
+        "dictionary",
+        "categories",
+        "group",
+        "people",
+        "names",
+        "work terms",
+        "everyday words",
+        "cleanup prompt",
+      ],
+      aliasKeys: [
+        "dictionary.categories.names.people",
+        "dictionary.categories.names.work",
+        "dictionary.categories.names.everyday",
+      ],
+      available: cleanupOn,
+    }
+  ),
   row("dictation.cleanup.prompt", CLEANUP, "settingsPage.prompts.title", {
     descriptionKey: "settingsPage.prompts.description",
     aliases: ["prompt studio", "system prompt", "instructions", "custom prompt", "test set"],

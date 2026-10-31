@@ -301,6 +301,9 @@ export interface DictionaryRestoreEntry {
   pinned: boolean;
   /** Its place in the pin order when it was pinned (0 first); null when unknown. */
   pinPosition?: number | null;
+  /** Its stored category (an explicit choice) and who chose it; null: automatic. */
+  category?: "people" | "work" | "everyday" | null;
+  categorySource?: "user" | "model" | null;
 }
 
 /** One step that reverses part of a Tidy up action (database.js undoDictionaryTidy). */
@@ -318,7 +321,38 @@ export type DictionaryTidyUndoStep =
       unpin?: string[];
       /** Pins a merge moved up, back to their own place. */
       repin?: Array<{ word: string; position: number }>;
+      /** Categories a merge changed on the word kept, back as they were (null: automatic). */
+      recategorize?: Array<{
+        word: string;
+        category: "people" | "work" | "everyday" | null;
+        source: "user" | "model" | null;
+      }>;
     };
+
+/** A stored category choice (main's dictionary_categories), keyed by dictionaryWordKey. */
+export interface DictionaryCategoryRecord {
+  key: string;
+  category: "people" | "work" | "everyday";
+  source: "user" | "model";
+}
+
+/** One choice to store: a category, or null to go back to automatic. */
+export interface DictionaryCategorySetItem {
+  word: string;
+  category: "people" | "work" | "everyday" | null;
+  source: "user" | "model";
+}
+
+export interface DictionaryCategoriesSetResult {
+  success: boolean;
+  code?: string;
+  /** How many stored choices changed. */
+  changed?: number;
+  /** Per item, in request order: whether it applied, and why not. */
+  results?: Array<{ ok: boolean; code?: string }>;
+  /** Every stored choice after the request. */
+  categories?: DictionaryCategoryRecord[];
+}
 
 export interface DictionaryTidyOpResult {
   ok: boolean;
@@ -780,8 +814,8 @@ export interface TranscriptionStepRecord {
  * many dictionary words it carried.
  */
 export interface CleanupDictionaryScopeRecord {
-  setting: "all" | "typedPinnedMissed" | "typedPinned" | "none";
-  applied: "all" | "typedPinnedMissed" | "typedPinned" | "none";
+  setting: "all" | "noEveryday" | "typedPinnedMissed" | "typedPinned" | "none";
+  applied: "all" | "noEveryday" | "typedPinnedMissed" | "typedPinned" | "none";
   words: number;
 }
 
@@ -2722,6 +2756,15 @@ declare global {
         keys: string[]
       ) => Promise<{ success: boolean; changed?: boolean; pins?: string[]; code?: string }>;
       onDictionaryPinsUpdated?: (callback: (pins: string[]) => void) => () => void;
+      // Categories (main-owned, local-only): the explicit choices; auto is computed in the renderer
+      getDictionaryCategories?: () => Promise<DictionaryCategoryRecord[]>;
+      /** Stores choices (null: back to automatic); unknown words and values refused per item. */
+      setDictionaryCategories?: (
+        items: DictionaryCategorySetItem[]
+      ) => Promise<DictionaryCategoriesSetResult>;
+      onDictionaryCategoriesUpdated?: (
+        callback: (categories: DictionaryCategoryRecord[]) => void
+      ) => () => void;
       // Auto-learn's suggestions (main-owned, local-only)
       listDictionarySuggestions?: () => Promise<DictionarySuggestionList>;
       acceptDictionarySuggestions?: (

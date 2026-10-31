@@ -758,6 +758,7 @@
         "dictionaryScope": {
           "sets": {
             "all": "todas las palabras",
+            "noEveryday": "todas salvo las cotidianas",
             "typedPinnedMissed": "escritas, fijadas y falladas",
             "typedPinned": "escritas y fijadas",
             "none": "ninguna"
@@ -3682,6 +3683,7 @@
       "description": "Se pide a la corrección que las escriba tal cual. Menos palabras hacen un prompt más corto.",
       "options": {
         "all": "Todas las palabras",
+        "noEveryday": "Todas las palabras salvo las cotidianas",
         "typedPinnedMissed": "Escritas, fijadas y las que el reconocimiento falla",
         "typedPinned": "Escritas y fijadas",
         "none": "Ninguna"
@@ -3690,7 +3692,20 @@
       "count_other": "{{count}} palabras · ≈ {{tokens}} tokens",
       "sendsAll": "Por ahora envía todas las palabras",
       "missedUnavailable": "Las palabras que el reconocimiento falla se cuentan a partir de tu historial local. Mientras el historial esté desactivado o se siga contando, la corrección recibe todas las palabras, y su paso lo indica.",
+      "categoriesUnavailable": "Qué palabras son cotidianas sale de sus categorías, que se ordenan en este equipo. Hasta que estén listas, la corrección recibe todas las palabras y su paso lo indica.",
       "note": "Las grafías del glosario y los activadores de fragmentos se incluyen siempre. La lista de palabras del modelo de voz, el chat y el asistente de voz conservan el diccionario completo."
+    },
+    "cleanupDictionaryGrouping": {
+      "title": "Agrupar las palabras del diccionario por categoría",
+      "description": "El prompt de corrección lista sus palabras del diccionario bajo Personas, Términos de trabajo y Palabras cotidianas, para que el modelo sepa que un nombre es un nombre. Cambia el prompt. No se usa con OpenWhispr Cloud.",
+      "groups": {
+        "people": "Personas {{n}}",
+        "work": "Términos de trabajo {{n}}",
+        "everyday": "Palabras cotidianas {{n}}",
+        "other": "Otras {{n}}"
+      },
+      "unavailable": "Hasta que las categorías estén listas, la corrección recibe las palabras sin agrupar.",
+      "cloud": "Tu corrección se hace en OpenWhispr Cloud, que crea su propio prompt y recibe las palabras sin agrupar."
     },
     "dictionaryOrder": {
       "title": "Orden del diccionario para la voz a texto",
@@ -4775,6 +4790,7 @@
       "columns": {
         "word": "Palabra",
         "source": "Origen",
+        "category": "Categoría",
         "heard": "Usada · 90 días",
         "added": "Añadida",
         "speech": "Modelo de voz"
@@ -4851,6 +4867,7 @@
         "tokens": "≈ {{tokens}} tokens por limpieza",
         "off": "La limpieza está desactivada",
         "sends": "Envía: {{set}}",
+        "grouped": "agrupadas por categoría",
         "monthly": "≈ {{tokens}} tokens al mes",
         "monthlyDetail": "≈ {{tokens}} tokens al mes a tu ritmo de dictado",
         "monthlyUnavailable": "Una estimación mensual necesita el historial local.",
@@ -4921,12 +4938,17 @@
         "glossary": "Sí: las grafías del glosario siempre van",
         "all": "Sí, con todas las palabras",
         "fallback": "Sí: «{{set}}» necesita recuentos que aún no están listos, así que por ahora van todas las palabras",
+        "fallbackCategories": "Sí: «{{set}}» necesita las categorías, que aún no están listas, así que por ahora van todas las palabras",
         "none": "No: el prompt de limpieza no lleva palabras del diccionario",
         "pinned": "Sí: está fijada («{{set}}»)",
         "typed": "Sí: está escrita («{{set}}»)",
         "missed": "Sí: el reconocimiento suele fallarla («{{set}}»)",
         "notTypedPinned": "No: «{{set}}» solo envía palabras escritas y fijadas",
-        "notMissed": "No: «{{set}}» envía palabras aprendidas solo cuando el reconocimiento suele fallarlas"
+        "notMissed": "No: «{{set}}» envía palabras aprendidas solo cuando el reconocimiento suele fallarlas",
+        "grouped": "Aparece en «{{group}}»",
+        "groupOther": "Otras",
+        "notEveryday": "Sí: no es una palabra cotidiana («{{set}}»)",
+        "everyday": "No: «{{set}}» deja fuera las palabras cotidianas"
       },
       "replaced": {
         "title": "Qué reemplazó",
@@ -5102,6 +5124,100 @@
           "respell": "Cambiar",
           "merge": "Fusionar"
         }
+      }
+    },
+    "categories": {
+      "button": "Ordenar en categorías",
+      "buttonLabel_one": "Ordenar en categorías, {{count}} palabra sin categoría",
+      "buttonLabel_other": "Ordenar en categorías, {{count}} palabras sin categoría",
+      "filtersLabel": "Filtrar por categoría",
+      "filtersTitle": "Categoría",
+      "rowLabel": "{{label}}, {{category}}",
+      "setFailed": "No se pudo cambiar la categoría.",
+      "names": {
+        "people": "Personas",
+        "work": "Términos de trabajo",
+        "everyday": "Palabras cotidianas",
+        "unsorted": "Sin categoría"
+      },
+      "source": {
+        "auto": "auto",
+        "user": "tú",
+        "model": "modelo"
+      },
+      "pill": {
+        "label": "Categoría de {{word}}: {{category}} ({{who}}). Cambiarla",
+        "title": "{{category}} · elegida por {{who}}",
+        "menuTitle": "Categoría de «{{word}}»",
+        "automatic": "Automática ({{category}})"
+      },
+      "bulk": {
+        "set": "Poner categoría",
+        "automatic": "Automática",
+        "done_one": "{{count}} palabra en {{category}}",
+        "done_other": "{{count}} palabras en {{category}}",
+        "doneAutomatic_one": "{{count}} palabra vuelve a automática",
+        "doneAutomatic_other": "{{count}} palabras vuelven a automática"
+      },
+      "title": "Ordena tus palabras en categorías",
+      "subtitle": "Ordenadas en este equipo según la forma de cada palabra. Cambia cualquiera con un clic; un modelo puede revisar el resto. Nada cambia hasta que aceptes.",
+      "loading": "Leyendo la lista de palabras que usan las reglas…",
+      "cards": {
+        "people": "Nombres de personas y asistentes: con mayúscula, no son palabras en inglés.",
+        "work": "Productos, herramientas, siglas, código: mayúsculas internas, puntos, dígitos, todo en mayúsculas.",
+        "everyday": "En la lista de palabras comunes en inglés.",
+        "unsorted": "Las reglas no pudieron decidir. Pregunta a un modelo o elige tú."
+      },
+      "review": {
+        "title": "Pedir a un modelo que revise",
+        "estimate_one": "Envía tu {{count}} palabra y su categoría actual, nunca tus dictados. Una solicitud, ≈ {{tokens}} tokens.",
+        "estimate_other": "Envía tus {{count}} palabras y su categoría actual, nunca tus dictados. Una solicitud, ≈ {{tokens}} tokens.",
+        "ask": "Preguntar",
+        "failed": "El modelo no pudo revisar las categorías.",
+        "stale": "Tu diccionario o sus categorías cambiaron mientras el modelo trabajaba, así que se descartaron sus propuestas. Vuelve a preguntar.",
+        "malformed": "La respuesta del modelo no tenía el formato esperado, así que no se guardó nada.",
+        "oversized": "La respuesta del modelo era demasiado grande, así que no se guardó nada.",
+        "proposalsTitle": "Cambios propuestos",
+        "none": "{{model}} no propone cambios.",
+        "kept_one": "{{count}} de {{model}} · {{shown}} visibles",
+        "kept_other": "{{count}} de {{model}} · {{shown}} visibles",
+        "dropped_one": "Se descartó {{count}}: nombraba una palabra que no está en tu diccionario o una categoría desconocida, o no era válida.",
+        "dropped_other": "Se descartaron {{count}}: nombraban palabras que no están en tu diccionario o categorías desconocidas, o no eran válidas.",
+        "acceptAll_one": "Aceptar todo ({{count}})",
+        "acceptAll_other": "Aceptar todo ({{count}})",
+        "accept": "Aceptar",
+        "acceptLabel": "Aceptar {{category}} para {{word}}",
+        "dismissLabel": "Descartar la propuesta para {{word}}",
+        "accepted": "Aceptada",
+        "noChange": "Sin cambio",
+        "userKept": "Se mantiene tu elección",
+        "change": "{{from}} a {{to}}:",
+        "acceptedNotice_one": "{{count}} categoría cambiada.",
+        "acceptedNotice_other": "{{count}} categorías cambiadas."
+      },
+      "unsorted": {
+        "title_one": "Palabras sin categoría ({{count}})",
+        "title_other": "Palabras sin categoría ({{count}})",
+        "hint": "Elige una categoría para cada una o pregunta a un modelo arriba.",
+        "none": "Todas las palabras tienen categoría."
+      },
+      "notes": {
+        "title": "Para qué sirven las categorías",
+        "filterLabel": "Filtrar y editar en bloque",
+        "filter": "Elige una categoría encima de la lista, selecciona las palabras y luego Poner categoría, Fijar o Quitar.",
+        "groupingLabel": "Prompt de corrección",
+        "grouping": "Con «Agrupar las palabras del diccionario por categoría» activado, el prompt de corrección lista las palabras bajo Personas, Términos de trabajo y Palabras cotidianas, para que el modelo sepa que un nombre es un nombre. No se usa con OpenWhispr Cloud.",
+        "groupingOn": "Está activado.",
+        "groupingOff": "Está desactivado.",
+        "openSettings": "Abrir en Ajustes",
+        "wordSetLabel": "Palabras de la corrección",
+        "wordSet_one": "«Todas las palabras salvo las cotidianas» deja fuera {{count}} palabra (≈ {{tokens}} tokens por corrección).",
+        "wordSet_other": "«Todas las palabras salvo las cotidianas» deja fuera {{count}} palabras (≈ {{tokens}} tokens por corrección).",
+        "wordSetUnavailable": "«Todas las palabras salvo las cotidianas» deja fuera tus palabras cotidianas cuando las categorías estén listas.",
+        "wordSetNow": "Ahora: {{set}}.",
+        "tidyLabel": "Ordenar",
+        "tidy": "Sus comprobaciones no cambian: sugiere quitar las palabras comunes que el reconocimiento ya escribe bien.",
+        "local": "Las categorías se quedan en este equipo, como las palabras fijadas: nunca se sincronizan y solo se envían a un modelo cuando le pides que las revise."
       }
     },
     "kinds": {

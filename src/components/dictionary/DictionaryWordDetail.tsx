@@ -27,6 +27,8 @@ import type { UsageWeekRange } from "./usageWeeks";
 import DictionaryUsageExplainer from "./DictionaryUsageExplainer";
 import DictionaryWordOccurrences from "./DictionaryWordOccurrences";
 import DictionarySpeechVariants from "./DictionarySpeechVariants";
+import DictionaryCategoryPill from "./DictionaryCategoryPill";
+import type { DictionaryCategory } from "../../utils/dictionaryCategories";
 
 // One dictionary word in full (the Dictionary page's side panel, or an
 // overlay on a narrow window): when it was added and by whom, how often it
@@ -56,6 +58,8 @@ export interface DictionaryWordDetailProps {
   onRemove: (word: string) => void;
   onSetPinned: (word: string, pinned: boolean) => void;
   onMarkTyped: (word: string) => void;
+  /** A category picked from the panel's pill (null: back to automatic). */
+  onSetCategory: (word: string, category: DictionaryCategory | null) => void;
   /** The rule editor for this word; from a speech variant, with that spelling and its evidence. */
   onMakeGlossaryRule: (word: string, variant?: DictionarySpeechVariant) => void;
 }
@@ -159,6 +163,7 @@ export default function DictionaryWordDetail({
   onRemove,
   onSetPinned,
   onMarkTyped,
+  onSetCategory,
   onMakeGlossaryRule,
 }: DictionaryWordDetailProps) {
   const { t, i18n } = useTranslation();
@@ -321,6 +326,14 @@ export default function DictionaryWordDetail({
                   item.source === "manual" ? "dictionary.source.typed" : "dictionary.source.learned"
                 )}
               </span>
+              <span data-dictionary-detail-category>
+                <DictionaryCategoryPill
+                  word={word}
+                  category={item.category}
+                  source={item.categorySource}
+                  onChange={onSetCategory}
+                />
+              </span>
               {item.pinned && <span>{t("dictionary.detail.pinned")}</span>}
               <span>{added}</span>
             </p>
@@ -436,7 +449,12 @@ export default function DictionaryWordDetail({
             )}
           </Row>
           <Row label={t("dictionary.detail.where.cleanupLabel")}>
-            {t(cleanup.key, cleanup.params)}
+            <span data-dictionary-detail-cleanup>{t(cleanup.key, cleanup.params)}</span>
+            {cleanup.grouped && (
+              <span className="mt-0.5 block text-muted-foreground" data-dictionary-detail-group>
+                {cleanup.grouped}
+              </span>
+            )}
           </Row>
           <Row label={t("dictionary.detail.where.chatLabel")}>
             {t("dictionary.detail.where.chatAlways")}

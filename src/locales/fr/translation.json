@@ -758,6 +758,7 @@
         "dictionaryScope": {
           "sets": {
             "all": "tous les mots",
+            "noEveryday": "tous sauf les mots courants",
             "typedPinnedMissed": "saisis, épinglés et manqués",
             "typedPinned": "saisis et épinglés",
             "none": "aucun"
@@ -3724,6 +3725,7 @@
       "description": "La correction doit les écrire tels quels. Moins de mots, c'est un prompt plus court.",
       "options": {
         "all": "Tous les mots",
+        "noEveryday": "Tous les mots sauf les mots courants",
         "typedPinnedMissed": "Saisis, épinglés et mots que la reconnaissance manque",
         "typedPinned": "Saisis et épinglés",
         "none": "Aucun"
@@ -3732,7 +3734,20 @@
       "count_other": "{{count}} mots · ≈ {{tokens}} tokens",
       "sendsAll": "Envoie tous les mots pour l'instant",
       "missedUnavailable": "Les mots que la reconnaissance manque sont comptés à partir de votre historique local. Tant que l'historique est désactivé ou en cours de comptage, la correction reçoit tous les mots, et son étape l'indique.",
+      "categoriesUnavailable": "Les mots courants se déduisent de leurs catégories, triées sur cet ordinateur. Tant qu'elles ne sont pas prêtes, la correction reçoit tous les mots, et son étape l'indique.",
       "note": "Les graphies du glossaire et les déclencheurs d'extraits sont toujours inclus. La liste de mots du modèle vocal, le chat et l'assistant vocal gardent le dictionnaire complet."
+    },
+    "cleanupDictionaryGrouping": {
+      "title": "Regrouper les mots du dictionnaire par catégorie",
+      "description": "Le prompt de correction liste ses mots du dictionnaire sous Personnes, Termes de travail et Mots courants, pour que le modèle sache qu'un nom est un nom. Cela modifie le prompt. Non utilisé avec OpenWhispr Cloud.",
+      "groups": {
+        "people": "Personnes {{n}}",
+        "work": "Termes de travail {{n}}",
+        "everyday": "Mots courants {{n}}",
+        "other": "Autres {{n}}"
+      },
+      "unavailable": "Tant que les catégories ne sont pas prêtes, la correction reçoit les mots sans regroupement.",
+      "cloud": "Votre correction passe par OpenWhispr Cloud, qui construit son propre prompt et reçoit les mots sans regroupement."
     },
     "dictionaryOrder": {
       "title": "Ordre du dictionnaire pour la reconnaissance vocale",
@@ -5075,6 +5090,7 @@
       "columns": {
         "word": "Mot",
         "source": "Origine",
+        "category": "Catégorie",
         "heard": "Utilisé · 90 jours",
         "added": "Ajouté",
         "speech": "Modèle vocal"
@@ -5151,6 +5167,7 @@
         "tokens": "≈ {{tokens}} tokens par nettoyage",
         "off": "Le nettoyage est désactivé",
         "sends": "Envoie : {{set}}",
+        "grouped": "regroupés par catégorie",
         "monthly": "≈ {{tokens}} tokens par mois",
         "monthlyDetail": "≈ {{tokens}} tokens par mois à votre rythme de dictée",
         "monthlyUnavailable": "Une estimation mensuelle nécessite l'historique local.",
@@ -5221,12 +5238,17 @@
         "glossary": "Oui : les orthographes du glossaire sont toujours envoyées",
         "all": "Oui, avec tous les mots",
         "fallback": "Oui : « {{set}} » a besoin de décomptes pas encore prêts, donc tous les mots partent pour l'instant",
+        "fallbackCategories": "Oui : « {{set}} » a besoin des catégories, pas encore prêtes, donc tous les mots partent pour l'instant",
         "none": "Non : le prompt de nettoyage ne contient aucun mot du dictionnaire",
         "pinned": "Oui : il est épinglé (« {{set}} »)",
         "typed": "Oui : il est saisi (« {{set}} »)",
         "missed": "Oui : la reconnaissance le manque souvent (« {{set}} »)",
         "notTypedPinned": "Non : « {{set}} » n'envoie que les mots saisis et épinglés",
-        "notMissed": "Non : « {{set}} » n'envoie les mots appris que lorsque la reconnaissance les manque souvent"
+        "notMissed": "Non : « {{set}} » n'envoie les mots appris que lorsque la reconnaissance les manque souvent",
+        "grouped": "Classé sous « {{group}} »",
+        "groupOther": "Autres",
+        "notEveryday": "Oui : ce n'est pas un mot courant (« {{set}} »)",
+        "everyday": "Non : « {{set}} » laisse de côté les mots courants"
       },
       "replaced": {
         "title": "Ce qu'il a remplacé",
@@ -5402,6 +5424,100 @@
           "respell": "Modifier",
           "merge": "Fusionner"
         }
+      }
+    },
+    "categories": {
+      "button": "Trier en catégories",
+      "buttonLabel_one": "Trier en catégories, {{count}} mot non classé",
+      "buttonLabel_other": "Trier en catégories, {{count}} mots non classés",
+      "filtersLabel": "Filtrer par catégorie",
+      "filtersTitle": "Catégorie",
+      "rowLabel": "{{label}}, {{category}}",
+      "setFailed": "Impossible de changer la catégorie.",
+      "names": {
+        "people": "Personnes",
+        "work": "Termes de travail",
+        "everyday": "Mots courants",
+        "unsorted": "Non classés"
+      },
+      "source": {
+        "auto": "auto",
+        "user": "vous",
+        "model": "modèle"
+      },
+      "pill": {
+        "label": "Catégorie de {{word}} : {{category}} ({{who}}). La changer",
+        "title": "{{category}} · choisie par {{who}}",
+        "menuTitle": "Catégorie de « {{word}} »",
+        "automatic": "Automatique ({{category}})"
+      },
+      "bulk": {
+        "set": "Définir la catégorie",
+        "automatic": "Automatique",
+        "done_one": "{{count}} mot classé en {{category}}",
+        "done_other": "{{count}} mots classés en {{category}}",
+        "doneAutomatic_one": "{{count}} mot repasse en automatique",
+        "doneAutomatic_other": "{{count}} mots repassent en automatique"
+      },
+      "title": "Triez vos mots en catégories",
+      "subtitle": "Triés sur cet ordinateur d'après la forme de chaque mot. Changez n'importe quel mot d'un clic ; un modèle peut vérifier le reste. Rien ne change tant que vous n'acceptez pas.",
+      "loading": "Lecture de la liste de mots des règles…",
+      "cards": {
+        "people": "Noms de personnes et d'assistants : avec une majuscule, pas un mot anglais.",
+        "work": "Produits, outils, sigles, code : majuscules internes, points, chiffres, tout en majuscules.",
+        "everyday": "Dans la liste des mots anglais courants.",
+        "unsorted": "Les règles n'ont pas pu trancher. Demandez à un modèle, ou choisissez."
+      },
+      "review": {
+        "title": "Faire vérifier par un modèle",
+        "estimate_one": "Envoie votre {{count}} mot et sa catégorie actuelle, jamais vos dictées. Une requête, ≈ {{tokens}} jetons.",
+        "estimate_other": "Envoie vos {{count}} mots et leur catégorie actuelle, jamais vos dictées. Une requête, ≈ {{tokens}} jetons.",
+        "ask": "Demander",
+        "failed": "Le modèle n'a pas pu vérifier les catégories.",
+        "stale": "Votre dictionnaire ou ses catégories ont changé pendant que le modèle travaillait, ses propositions ont donc été écartées. Redemandez.",
+        "malformed": "La réponse du modèle n'avait pas le format attendu, rien n'a donc été gardé.",
+        "oversized": "La réponse du modèle était trop volumineuse, rien n'a donc été gardé.",
+        "proposalsTitle": "Modifications proposées",
+        "none": "{{model}} ne propose aucune modification.",
+        "kept_one": "{{count}} de {{model}} · {{shown}} affichées",
+        "kept_other": "{{count}} de {{model}} · {{shown}} affichées",
+        "dropped_one": "{{count}} a été écartée : elle nommait un mot absent de votre dictionnaire ou une catégorie inconnue, ou n'était pas valide.",
+        "dropped_other": "{{count}} ont été écartées : elles nommaient des mots absents de votre dictionnaire ou des catégories inconnues, ou n'étaient pas valides.",
+        "acceptAll_one": "Tout accepter ({{count}})",
+        "acceptAll_other": "Tout accepter ({{count}})",
+        "accept": "Accepter",
+        "acceptLabel": "Accepter {{category}} pour {{word}}",
+        "dismissLabel": "Écarter la proposition pour {{word}}",
+        "accepted": "Acceptée",
+        "noChange": "Aucun changement",
+        "userKept": "Votre choix est gardé",
+        "change": "{{from}} vers {{to}} :",
+        "acceptedNotice_one": "{{count}} catégorie changée.",
+        "acceptedNotice_other": "{{count}} catégories changées."
+      },
+      "unsorted": {
+        "title_one": "Mots non classés ({{count}})",
+        "title_other": "Mots non classés ({{count}})",
+        "hint": "Choisissez une catégorie pour chacun, ou demandez à un modèle ci-dessus.",
+        "none": "Chaque mot a une catégorie."
+      },
+      "notes": {
+        "title": "À quoi servent les catégories",
+        "filterLabel": "Filtrer et modifier en lot",
+        "filter": "Choisissez une catégorie au-dessus de la liste, sélectionnez les mots, puis Définir la catégorie, Épingler ou Retirer.",
+        "groupingLabel": "Prompt de correction",
+        "grouping": "Avec « Regrouper les mots du dictionnaire par catégorie » activé, le prompt de correction liste les mots sous Personnes, Termes de travail et Mots courants, pour que le modèle sache qu'un nom est un nom. Non utilisé avec OpenWhispr Cloud.",
+        "groupingOn": "C'est activé.",
+        "groupingOff": "C'est désactivé.",
+        "openSettings": "Ouvrir dans les Paramètres",
+        "wordSetLabel": "Mots de la correction",
+        "wordSet_one": "« Tous les mots sauf les mots courants » laisse de côté {{count}} mot (≈ {{tokens}} jetons par correction).",
+        "wordSet_other": "« Tous les mots sauf les mots courants » laisse de côté {{count}} mots (≈ {{tokens}} jetons par correction).",
+        "wordSetUnavailable": "« Tous les mots sauf les mots courants » laissera de côté vos mots courants dès que les catégories seront prêtes.",
+        "wordSetNow": "Actuellement : {{set}}.",
+        "tidyLabel": "Faire le ménage",
+        "tidy": "Ses vérifications ne changent pas : il propose de retirer les mots ordinaires que la reconnaissance écrit déjà correctement.",
+        "local": "Les catégories restent sur cet ordinateur, comme les mots épinglés : jamais synchronisées, et envoyées à un modèle seulement quand vous lui demandez de les vérifier."
       }
     },
     "kinds": {

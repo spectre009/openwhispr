@@ -1,29 +1,29 @@
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { useSettingsStore } from "../../stores/settingsStore";
 import { useDictionarySourcesStore } from "../../stores/dictionarySourcesStore";
 import { useDictionaryUsageStore } from "../../stores/dictionaryUsageStore";
+import {
+  loadDictionaryCategoryWords,
+  useDictionaryCategoriesStore,
+} from "../../stores/dictionaryCategoriesStore";
 import { useGlossaryStore } from "../../stores/glossaryStore";
 import { glossaryCanonicalTerms } from "../../utils/glossary";
+import { effectiveDictionaryCategory } from "../../utils/dictionaryCategories";
 import {
   CLEANUP_DICTIONARY_SETTINGS,
   estimateDictionaryTokens,
   selectCleanupDictionary,
-  type CleanupDictionarySetting,
 } from "../../utils/snippets";
+import { CLEANUP_SET_KEYS } from "../dictionary/dictionaryLabels";
 
 // Settings › Dictation › Cleanup › "Dictionary words in the cleanup prompt":
 // which dictionary words a cleanup request carries, to experiment with. Each
 // option shows how many words it would send now and roughly what the list
 // costs (≈ characters ÷ 4, glossary spellings and snippet triggers included:
 // those always go). The step history records the set each cleanup ran with.
-
-const OPTION_KEYS: Record<CleanupDictionarySetting, string> = {
-  all: "settingsPage.cleanupDictionary.options.all",
-  typedPinnedMissed: "settingsPage.cleanupDictionary.options.typedPinnedMissed",
-  typedPinned: "settingsPage.cleanupDictionary.options.typedPinned",
-  none: "settingsPage.cleanupDictionary.options.none",
-};
+// "All words except everyday words" reads the words' categories, so the
+// common-word list the rules use loads when this row shows.
 
 export default function CleanupDictionaryWordsSetting() {
   const { t } = useTranslation();
@@ -35,12 +35,22 @@ export default function CleanupDictionaryWordsSetting() {
   const sourcesLoaded = useDictionarySourcesStore((s) => s.loaded);
   const pinned = useDictionarySourcesStore((s) => s.pinned);
   const missed = useDictionaryUsageStore((s) => s.missed);
+  const categoriesReady = useDictionaryCategoriesStore((s) => s.ready);
+  const storedCategories = useDictionaryCategoriesStore((s) => s.stored);
+  const commonWords = useDictionaryCategoriesStore((s) => s.commonWords);
   const glossaryRules = useGlossaryStore((s) => s.rules);
   const label = t("settingsPage.cleanupDictionary.title");
 
+  useEffect(() => {
+    void loadDictionaryCategoryWords();
+  }, []);
+
   const options = useMemo(() => {
     const glossaryTerms = glossaryCanonicalTerms(glossaryRules);
-    const sources = { learned: sourcesLoaded ? learned : null, pinned, missed };
+    const categories = categoriesReady
+      ? (word: string) => effectiveDictionaryCategory(word, storedCategories, commonWords).category
+      : null;
+    const sources = { learned: sourcesLoaded ? learned : null, pinned, missed, categories };
     return CLEANUP_DICTIONARY_SETTINGS.map((option) => {
       const selection = selectCleanupDictionary(
         { customDictionary, snippets, cleanupDictionaryWords: option },
@@ -54,11 +64,21 @@ export default function CleanupDictionaryWordsSetting() {
         fallsBack: selection.scope.applied !== option,
       };
     });
-  }, [customDictionary, snippets, learned, sourcesLoaded, pinned, missed, glossaryRules]);
+  }, [
+    customDictionary,
+    snippets,
+    learned,
+    sourcesLoaded,
+    pinned,
+    missed,
+    categoriesReady,
+    storedCategories,
+    commonWords,
+    glossaryRules,
+  ]);
 
-  const missedUnavailable = options.find(
-    (entry) => entry.option === "typedPinnedMissed"
-  )?.fallsBack;
+  const fallsBack = (option: string) =>
+    options.find((entry) => entry.option === option)?.fallsBack === true;
 
   return (
     <div>
@@ -71,7 +91,7 @@ export default function CleanupDictionaryWordsSetting() {
         aria-label={label}
         className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2"
       >
-        {options.map(({ option, words, tokens, fallsBack }) => {
+        {options.map(({ option, words, tokens, fallsBack: optionFallsBack }) => {
           const selected = option === setting;
           return (
             <button
@@ -88,10 +108,10 @@ export default function CleanupDictionaryWordsSetting() {
               }`}
             >
               <span className="block text-xs font-semibold text-foreground">
-                {t(OPTION_KEYS[option])}
+                {t(CLEANUP_SET_KEYS[option])}
               </span>
               <span className="mt-1 block text-[11px] tabular-nums text-muted-foreground">
-                {fallsBack
+                {optionFallsBack
                   ? t("settingsPage.cleanupDictionary.sendsAll")
                   : t("settingsPage.cleanupDictionary.count", { count: words, tokens })}
               </span>
@@ -99,9 +119,17 @@ export default function CleanupDictionaryWordsSetting() {
           );
         })}
       </div>
-      {missedUnavailable && (
+      {fallsBack("typedPinnedMissed") && (
         <p className="mt-2 text-[11px] leading-snug text-muted-foreground">
           {t("settingsPage.cleanupDictionary.missedUnavailable")}
+        </p>
+      )}
+      {fallsBack("noEveryday") && (
+        <p
+          className="mt-2 text-[11px] leading-snug text-muted-foreground"
+          data-cleanup-categories-unavailable
+        >
+          {t("settingsPage.cleanupDictionary.categoriesUnavailable")}
         </p>
       )}
       <p className="mt-2 text-[11px] leading-snug text-muted-foreground">

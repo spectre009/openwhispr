@@ -11,6 +11,7 @@ type Translate = (key: string, options?: Record<string, unknown>) => string;
 
 export const CLEANUP_SET_KEYS: Record<CleanupDictionarySetting, string> = {
   all: "settingsPage.cleanupDictionary.options.all",
+  noEveryday: "settingsPage.cleanupDictionary.options.noEveryday",
   typedPinnedMissed: "settingsPage.cleanupDictionary.options.typedPinnedMissed",
   typedPinned: "settingsPage.cleanupDictionary.options.typedPinned",
   none: "settingsPage.cleanupDictionary.options.none",
@@ -21,6 +22,8 @@ export interface CleanupInclusion {
   included: boolean;
   key: string;
   params?: Record<string, unknown>;
+  /** The prompt is grouped: the group it's listed under ("Listed under People"). */
+  grouped?: string;
 }
 
 /** "Azure Speech · MAI-Transcribe-2": who reads the hints. */

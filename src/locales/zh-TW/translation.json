@@ -758,6 +758,7 @@
         "dictionaryScope": {
           "sets": {
             "all": "所有字詞",
+            "noEveryday": "日常用詞以外的所有字詞",
             "typedPinnedMissed": "手動輸入、已釘選和常漏掉的",
             "typedPinned": "手動輸入和已釘選的",
             "none": "不包含"
@@ -3630,6 +3631,7 @@
       "description": "整理時會要求照原樣書寫這些字詞。字詞越少，提示詞越短。",
       "options": {
         "all": "所有字詞",
+        "noEveryday": "日常用詞以外的所有字詞",
         "typedPinnedMissed": "手動輸入、已釘選以及語音辨識常漏掉的字詞",
         "typedPinned": "手動輸入和已釘選的字詞",
         "none": "不包含"
@@ -3638,7 +3640,20 @@
       "count_other": "{{count}} 個字詞 · 約 {{tokens}} 個 token",
       "sendsAll": "目前傳送所有字詞",
       "missedUnavailable": "語音辨識常漏掉的字詞會根據你的本機記錄統計。在記錄關閉或仍在統計時，整理會收到所有字詞，其步驟中也會註明。",
+      "categoriesUnavailable": "哪些字詞是日常用詞，取決於在這台電腦上整理出的分類。分類就緒之前，整理會收到所有字詞，它的步驟也會註明。",
       "note": "詞彙表的寫法和片段觸發詞一律包含在內。語音模型的字詞清單、聊天和語音助理仍使用完整字典。"
+    },
+    "cleanupDictionaryGrouping": {
+      "title": "依分類列出字典字詞",
+      "description": "整理提示詞會把字典字詞依人名、工作術語和日常用詞分組列出，讓模型知道名字就是名字。這會改變提示詞。OpenWhispr Cloud 不會使用。",
+      "groups": {
+        "people": "人名 {{n}}",
+        "work": "工作術語 {{n}}",
+        "everyday": "日常用詞 {{n}}",
+        "other": "其他 {{n}}"
+      },
+      "unavailable": "分類就緒之前，整理收到的字詞不會分組。",
+      "cloud": "你的整理在 OpenWhispr Cloud 上進行，它會自行產生提示詞，收到的字詞不會分組。"
     },
     "dictionaryOrder": {
       "title": "語音轉文字的字典順序",
@@ -4723,6 +4738,7 @@
       "columns": {
         "word": "字詞",
         "source": "來源",
+        "category": "分類",
         "heard": "使用 · 90 天",
         "added": "新增時間",
         "speech": "語音模型"
@@ -4799,6 +4815,7 @@
         "tokens": "每次清理約 {{tokens}} 個 token",
         "off": "清理已關閉",
         "sends": "傳送：{{set}}",
+        "grouped": "依分類列出",
         "monthly": "每月約 {{tokens}} 個 token",
         "monthlyDetail": "依你的聽寫頻率，每月約 {{tokens}} 個 token",
         "monthlyUnavailable": "每月估計需要本機歷史記錄。",
@@ -4869,12 +4886,17 @@
         "glossary": "是：詞彙表的拼寫一律會傳送",
         "all": "是，與所有字詞一起",
         "fallback": "是：「{{set}}」需要的統計尚未就緒，所以暫時傳送所有字詞",
+        "fallbackCategories": "是：「{{set}}」需要的分類尚未就緒，所以暫時傳送所有字詞",
         "none": "否：清理提示詞不含詞典字詞",
         "pinned": "是：已釘選（「{{set}}」）",
         "typed": "是：手動輸入（「{{set}}」）",
         "missed": "是：語音辨識常漏掉它（「{{set}}」）",
         "notTypedPinned": "否：「{{set}}」只傳送手動輸入和已釘選的字詞",
-        "notMissed": "否：「{{set}}」只在語音辨識常漏掉時才傳送自動學習的字詞"
+        "notMissed": "否：「{{set}}」只在語音辨識常漏掉時才傳送自動學習的字詞",
+        "grouped": "列在「{{group}}」下",
+        "groupOther": "其他",
+        "notEveryday": "是：不是日常用詞（「{{set}}」）",
+        "everyday": "否：「{{set}}」不包含日常用詞"
       },
       "replaced": {
         "title": "它取代了什麼",
@@ -5050,6 +5072,100 @@
           "respell": "變更",
           "merge": "合併"
         }
+      }
+    },
+    "categories": {
+      "button": "整理分類",
+      "buttonLabel_one": "整理分類，{{count}} 個未分類的字詞",
+      "buttonLabel_other": "整理分類，{{count}} 個未分類的字詞",
+      "filtersLabel": "依分類篩選",
+      "filtersTitle": "分類",
+      "rowLabel": "{{label}}，{{category}}",
+      "setFailed": "無法變更分類。",
+      "names": {
+        "people": "人名",
+        "work": "工作術語",
+        "everyday": "日常用詞",
+        "unsorted": "未分類"
+      },
+      "source": {
+        "auto": "自動",
+        "user": "你",
+        "model": "模型"
+      },
+      "pill": {
+        "label": "{{word}} 的分類：{{category}}（{{who}}）。變更",
+        "title": "{{category}} · 設定者：{{who}}",
+        "menuTitle": "「{{word}}」的分類",
+        "automatic": "自動（{{category}}）"
+      },
+      "bulk": {
+        "set": "設定分類",
+        "automatic": "自動",
+        "done_one": "已將 {{count}} 個字詞設為{{category}}",
+        "done_other": "已將 {{count}} 個字詞設為{{category}}",
+        "doneAutomatic_one": "{{count}} 個字詞已改回自動",
+        "doneAutomatic_other": "{{count}} 個字詞已改回自動"
+      },
+      "title": "把你的字詞整理到分類中",
+      "subtitle": "在這台電腦上依每個字詞的形式整理。點一下即可變更任何字詞，其餘可以讓模型檢查。你接受之前不會有任何改變。",
+      "loading": "正在讀取規則使用的字詞表…",
+      "cards": {
+        "people": "人和助理的名字：首字母大寫，不是英文單字。",
+        "work": "產品、工具、縮寫、程式碼：中間有大寫、點、數字或全大寫。",
+        "everyday": "在常用英文單字表中。",
+        "unsorted": "規則無法判斷。問問模型，或自己選。"
+      },
+      "review": {
+        "title": "讓模型檢查",
+        "estimate_one": "傳送你的 {{count}} 個字詞及其目前分類，絕不傳送你的聽寫內容。一次請求，約 {{tokens}} 個 token。",
+        "estimate_other": "傳送你的 {{count}} 個字詞及其目前分類，絕不傳送你的聽寫內容。一次請求，約 {{tokens}} 個 token。",
+        "ask": "詢問",
+        "failed": "模型無法檢查分類。",
+        "stale": "模型處理期間你的字典或分類有了變化，所以它的建議已被捨棄。請再問一次。",
+        "malformed": "模型的回答格式不符預期，所以沒有保留任何內容。",
+        "oversized": "模型的回答太大，所以沒有保留任何內容。",
+        "proposalsTitle": "建議的變更",
+        "none": "{{model}} 沒有建議變更。",
+        "kept_one": "來自 {{model}} 的 {{count}} 項 · 顯示 {{shown}} 項",
+        "kept_other": "來自 {{model}} 的 {{count}} 項 · 顯示 {{shown}} 項",
+        "dropped_one": "已捨棄 {{count}} 項：包含不在你字典中的字詞或未知分類，或無效。",
+        "dropped_other": "已捨棄 {{count}} 項：包含不在你字典中的字詞或未知分類，或無效。",
+        "acceptAll_one": "全部接受（{{count}}）",
+        "acceptAll_other": "全部接受（{{count}}）",
+        "accept": "接受",
+        "acceptLabel": "接受將 {{word}} 設為{{category}}",
+        "dismissLabel": "略過對 {{word}} 的建議",
+        "accepted": "已接受",
+        "noChange": "沒有變更",
+        "userKept": "保留你的選擇",
+        "change": "{{from}} → {{to}}：",
+        "acceptedNotice_one": "已變更 {{count}} 個分類。",
+        "acceptedNotice_other": "已變更 {{count}} 個分類。"
+      },
+      "unsorted": {
+        "title_one": "未分類的字詞（{{count}}）",
+        "title_other": "未分類的字詞（{{count}}）",
+        "hint": "為每個字詞選一個分類，或在上方詢問模型。",
+        "none": "每個字詞都有分類。"
+      },
+      "notes": {
+        "title": "分類的作用",
+        "filterLabel": "篩選與批次編輯",
+        "filter": "在清單上方選擇一個分類，選取字詞，再設定分類、釘選或移除。",
+        "groupingLabel": "整理提示詞",
+        "grouping": "開啟「依分類列出字典字詞」後，整理提示詞會把字詞依人名、工作術語和日常用詞分組列出，讓模型知道名字就是名字。OpenWhispr Cloud 不會使用。",
+        "groupingOn": "目前已開啟。",
+        "groupingOff": "目前已關閉。",
+        "openSettings": "在設定中開啟",
+        "wordSetLabel": "整理使用的字詞",
+        "wordSet_one": "「日常用詞以外的所有字詞」會去掉 {{count}} 個字詞（每次整理約 {{tokens}} 個 token）。",
+        "wordSet_other": "「日常用詞以外的所有字詞」會去掉 {{count}} 個字詞（每次整理約 {{tokens}} 個 token）。",
+        "wordSetUnavailable": "分類就緒後，「日常用詞以外的所有字詞」會去掉你的日常用詞。",
+        "wordSetNow": "目前：{{set}}。",
+        "tidyLabel": "整理",
+        "tidy": "它的檢查不變：建議移除語音辨識已經能寫對的常用字詞。",
+        "local": "分類和釘選一樣留在這台電腦上：從不同步，只有你請模型檢查時才會傳送給它。"
       }
     },
     "kinds": {

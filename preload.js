@@ -308,6 +308,13 @@ contextBridge.exposeInMainWorld("electronAPI", {
     "dictionary-pins-updated",
     (callback) => (_event, pins) => callback(pins)
   ),
+  // Categories (main-owned, local-only: the explicit choices)
+  getDictionaryCategories: () => ipcRenderer.invoke("dictionary-categories-get"),
+  setDictionaryCategories: (items) => ipcRenderer.invoke("dictionary-categories-set", items),
+  onDictionaryCategoriesUpdated: registerListener(
+    "dictionary-categories-updated",
+    (callback) => (_event, categories) => callback(categories)
+  ),
   // Auto-learn's suggestions (main-owned, local-only)
   listDictionarySuggestions: () => ipcRenderer.invoke("dictionary-suggestions-list"),
   acceptDictionarySuggestions: (ids) => ipcRenderer.invoke("dictionary-suggestions-accept", ids),

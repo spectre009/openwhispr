@@ -1479,7 +1479,7 @@ export default function ControlPanel({ initialSettingsSection }: ControlPanelPro
               )}
               {activeView === "dictionary" && (
                 <Suspense fallback={null}>
-                  <DictionaryView />
+                  <DictionaryView onOpenSettings={openSettings} />
                 </Suspense>
               )}
               {activeView === "upload" && policyActionsAllowed && (

@@ -56,6 +56,13 @@ const EVIDENCE_SAVE_SLACK_MS = 60 * 1000;
 const MAX_DICTIONARY_WORD_CHARS = 500;
 // A pin's place as an Undo may carry it back: an integer from 0.
 const MAX_PIN_POSITION = 1_000_000;
+// A word's stored category (dictionary_categories) and who chose it: the
+// user's choice beats an accepted model proposal, which beats none (automatic).
+const DICTIONARY_CATEGORY_VALUES = new Set(["people", "work", "everyday"]);
+const CATEGORY_SOURCE_RANK = new Map([
+  ["user", 2],
+  ["model", 1],
+]);
 
 // Server-enforced trigger cap (openwhispr-api); enforced here so one oversized
 // trigger can't 400 the whole sync batch.
@@ -3488,13 +3495,20 @@ class DatabaseManager {
 
   // ─── Dictionary pins, suggestions and evidence ─────────────────────────
   // Local only, never synced: upstream sync carries a dictionary row's word
-  // and source, so nothing else may ride on custom_dictionary. All three are
+  // and source, so nothing else may ride on custom_dictionary. All four are
   // keyed by dictionaryWordKey (trimmed, NFC, lowercased).
   // - dictionary_pins: words always sent first, in the order of `position`
   //   (the user's ranking: 0 first; gaps are fine, ties fall back to
   //   pinned_at then word_key). A pin follows its word, its position kept,
   //   through every mutation below (delete, rename, merge, replace, cloud
   //   pull, Tidy up and its Undo).
+  // - dictionary_categories: a word's explicit category (people, work or
+  //   everyday), the user's or a model proposal the user accepted. Only
+  //   explicit choices are stored; the automatic one is computed in the
+  //   renderer from the word's shape. A choice follows its word exactly like
+  //   a pin (pruned with it, moved by a rename, kept by a merge: the user's
+  //   beats the model's, equal sources keep the target's), and Tidy up's
+  //   Undo puts it back. Sent nowhere but a category review's request.
   // - dictionary_suggestions: auto-learn's inbox in Suggest mode. Device-wide
   //   vocabulary state: the word and the user's decision, nothing from History.
   // - dictionary_word_evidence: what a learned word replaced, in which app,
@@ -3531,6 +3545,12 @@ class DatabaseManager {
         ON dictionary_word_evidence(owner, word_key);
       CREATE INDEX IF NOT EXISTS idx_dictionary_word_evidence_transcription
         ON dictionary_word_evidence(transcription_id);
+      CREATE TABLE IF NOT EXISTS dictionary_categories (
+        word_key TEXT PRIMARY KEY,
+        category TEXT NOT NULL CHECK (category IN ('people', 'work', 'everyday')),
+        source TEXT NOT NULL CHECK (source IN ('user', 'model')),
+        updated_at TEXT NOT NULL
+      );
     `);
     this._migrateDictionaryPinPositions();
     this.dictionaryStateReady = true;
@@ -3696,9 +3716,10 @@ class DatabaseManager {
     return keys;
   }
 
-  // Drops every pin whose word left the dictionary. Called inside each
-  // dictionary mutation's transaction, so a pin never outlives its word,
-  // whichever path removed it (a delete, a replacement, a cloud pull).
+  // Drops every pin whose word left the dictionary, and every stored
+  // category with it (one prune for both). Called inside each dictionary
+  // mutation's transaction, so neither outlives its word, whichever path
+  // removed it (a delete, a replacement, a cloud pull).
   _pruneDictionaryPins() {
     if (!this.dictionaryStateReady) return 0;
     const live = this._liveDictionaryKeys();
@@ -3707,7 +3728,131 @@ class DatabaseManager {
     for (const { word_key: key } of this.db.prepare("SELECT word_key FROM dictionary_pins").all()) {
       if (!live.has(key)) removed += drop.run(key).changes;
     }
+    this._pruneDictionaryCategories(live);
     return removed;
+  }
+
+  // A stored category whose word left the dictionary goes (pins' twin).
+  _pruneDictionaryCategories(live = this._liveDictionaryKeys()) {
+    if (!this.dictionaryStateReady) return 0;
+    let removed = 0;
+    const drop = this.db.prepare("DELETE FROM dictionary_categories WHERE word_key = ?");
+    for (const { word_key: key } of this.db
+      .prepare("SELECT word_key FROM dictionary_categories")
+      .all()) {
+      if (!live.has(key)) removed += drop.run(key).changes;
+    }
+    return removed;
+  }
+
+  // A word's stored category (`category`, `source`), or null (automatic).
+  _dictionaryCategory(key) {
+    if (!this.dictionaryStateReady || !key) return null;
+    return (
+      this.db
+        .prepare("SELECT category, source FROM dictionary_categories WHERE word_key = ?")
+        .get(key) ?? null
+    );
+  }
+
+  // Gives `key` the category `choice` unless it has a stronger one: the
+  // user's beats the model's, which beats none (automatic); between equal
+  // sources the one already there (the target's) stays.
+  _keepDictionaryCategory(key, choice, at = new Date().toISOString()) {
+    if (!this.dictionaryStateReady || !key || !choice) return;
+    const existing = this._dictionaryCategory(key);
+    if (
+      existing &&
+      (CATEGORY_SOURCE_RANK.get(existing.source) ?? 0) >=
+        (CATEGORY_SOURCE_RANK.get(choice.source) ?? 0)
+    ) {
+      return;
+    }
+    this.db
+      .prepare(
+        `INSERT INTO dictionary_categories (word_key, category, source, updated_at)
+         VALUES (?, ?, ?, ?)
+         ON CONFLICT(word_key) DO UPDATE SET
+           category = excluded.category, source = excluded.source, updated_at = excluded.updated_at`
+      )
+      .run(key, choice.category, choice.source, at);
+  }
+
+  // A renamed word keeps its category (inside the rename's transaction), as
+  // its pin does; onto a key that has one already (a cloud pull folding two
+  // spellings together), the stronger choice wins, the target's on a tie.
+  _moveDictionaryCategory(fromWord, toWord) {
+    if (!this.dictionaryStateReady) return;
+    const from = dictionaryWordKey(fromWord);
+    const to = dictionaryWordKey(toWord);
+    if (!from || !to || from === to) return;
+    const choice = this._dictionaryCategory(from);
+    if (!choice) return;
+    this.db.prepare("DELETE FROM dictionary_categories WHERE word_key = ?").run(from);
+    this._keepDictionaryCategory(to, choice);
+  }
+
+  /** The stored category choices: `[{ key, category, source }]`, by key. */
+  getDictionaryCategories() {
+    if (!this.db) throw new Error("Database not initialized");
+    if (!this.dictionaryStateReady) return [];
+    return this.db
+      .prepare("SELECT word_key, category, source FROM dictionary_categories ORDER BY word_key")
+      .all()
+      .map((row) => ({ key: row.word_key, category: row.category, source: row.source }));
+  }
+
+  /**
+   * Stores category choices in one transaction: `[{ word, category, source }]`,
+   * `category` one of people / work / everyday, or null to remove the stored
+   * choice (back to automatic); `source` "user" or "model". Each item is
+   * checked on its own: a word not in the dictionary (NOT_IN_DICTIONARY), an
+   * unknown category (INVALID_CATEGORY) or source (INVALID_SOURCE) is refused
+   * and the others apply. More items than the dictionary has words is
+   * refused whole (TOO_MANY). Answers per item, how many choices changed, and
+   * every stored choice after it.
+   */
+  setDictionaryCategories(items, { now = () => new Date().toISOString() } = {}) {
+    if (!this.db) throw new Error("Database not initialized");
+    if (!this.dictionaryStateReady) return { success: false, code: "UNAVAILABLE" };
+    if (!Array.isArray(items)) return { success: false, code: "INVALID" };
+    let result = null;
+    this.db.transaction(() => {
+      const live = this._liveDictionaryKeys();
+      if (items.length > live.size) {
+        result = { success: false, code: "TOO_MANY", categories: this.getDictionaryCategories() };
+        return;
+      }
+      const upsert = this.db.prepare(
+        `INSERT INTO dictionary_categories (word_key, category, source, updated_at)
+         VALUES (?, ?, ?, ?)
+         ON CONFLICT(word_key) DO UPDATE SET
+           category = excluded.category, source = excluded.source, updated_at = excluded.updated_at`
+      );
+      const remove = this.db.prepare("DELETE FROM dictionary_categories WHERE word_key = ?");
+      const at = now();
+      let changed = 0;
+      const results = items.map((item) => {
+        const word = typeof item?.word === "string" ? item.word.trim() : "";
+        const key = word && word.length <= MAX_DICTIONARY_WORD_CHARS ? dictionaryWordKey(word) : "";
+        if (!key || !live.has(key)) return { ok: false, code: "NOT_IN_DICTIONARY" };
+        const category = item.category === null ? null : item.category;
+        if (category !== null && !DICTIONARY_CATEGORY_VALUES.has(category)) {
+          return { ok: false, code: "INVALID_CATEGORY" };
+        }
+        if (!CATEGORY_SOURCE_RANK.has(item.source)) return { ok: false, code: "INVALID_SOURCE" };
+        const before = this._dictionaryCategory(key);
+        if (category === null) {
+          changed += remove.run(key).changes;
+        } else if (before?.category !== category || before?.source !== item.source) {
+          upsert.run(key, category, item.source, at);
+          changed += 1;
+        }
+        return { ok: true };
+      });
+      result = { success: true, changed, results, categories: this.getDictionaryCategories() };
+    })();
+    return result;
   }
 
   // A renamed word keeps its pin and its place (inside the rename's
@@ -4395,7 +4540,7 @@ class DatabaseManager {
         for (const [lower, word] of additions) {
           if (this._upsertDictionaryWord(stmts, word, byLower.get(lower), source)) added += 1;
         }
-        // A removed word's pin goes with it.
+        // A removed word's pin and category go with it.
         if (removed > 0) this._pruneDictionaryPins();
       })();
 
@@ -4571,6 +4716,7 @@ class DatabaseManager {
         .run(word, row.id);
       if (rowKey !== toKey) {
         this._moveDictionaryPin(row.word, word);
+        this._moveDictionaryCategory(row.word, word);
         this._moveDictionaryEvidence(rowKey, toKey);
         this._moveDictionarySuggestion(rowKey, toKey, word, now());
       }
@@ -4618,6 +4764,10 @@ class DatabaseManager {
         // place (the smaller number) wins. `from`'s own pin goes with its word.
         const pin = this._dictionaryPin(fromKey);
         if (pin) this._keepDictionaryPin(intoKey, pin);
+        // So does a stored category: the user's beats the model's, which
+        // beats none; on a tie `into` keeps its own.
+        const category = this._dictionaryCategory(fromKey);
+        if (category) this._keepDictionaryCategory(intoKey, category);
         this._moveDictionaryEvidence(fromKey, intoKey);
       }
       this._deleteDictionaryRow(this._dictionaryWriteStatements(), fromRow);
@@ -4669,10 +4819,11 @@ class DatabaseManager {
   // isn't restored: it comes from History.
 
   // A live row's state, for an Undo to restore it as it was: its pin with
-  // its place in the pin order.
+  // its place in the pin order, and its stored category with who chose it.
   _dictionaryWordState(row) {
     const key = dictionaryWordKey(row.word);
     const pin = this.dictionaryStateReady ? this._dictionaryPin(key) : null;
+    const category = this._dictionaryCategory(key);
     const stored = this.db
       .prepare("SELECT created_at FROM custom_dictionary WHERE id = ?")
       .get(row.id);
@@ -4682,6 +4833,8 @@ class DatabaseManager {
       createdAt: typeof stored?.created_at === "string" ? stored.created_at : null,
       pinned: !!pin,
       pinPosition: pin && Number.isInteger(pin.position) ? pin.position : null,
+      category: category?.category ?? null,
+      categorySource: category?.source ?? null,
     };
   }
 
@@ -4728,12 +4881,32 @@ class DatabaseManager {
       after?.position !== intoState.pinPosition
         ? [{ word: merged.word, position: intoState.pinPosition }]
         : [];
+    // The merge gave `into` `from`'s stronger category: Undo puts its own back.
+    const afterCategory = this._dictionaryCategory(dictionaryWordKey(merged.word));
+    const recategorize =
+      !sameKey &&
+      ((afterCategory?.category ?? null) !== intoState.category ||
+        (afterCategory?.source ?? null) !== intoState.categorySource)
+        ? [
+            {
+              word: merged.word,
+              category: intoState.category,
+              source: intoState.categorySource,
+            },
+          ]
+        : [];
     return {
       ok: true,
       kind,
       merged: 1,
       undo: [
-        { restore: [fromState], into: [merged.word], unpin, ...(repin.length ? { repin } : {}) },
+        {
+          restore: [fromState],
+          into: [merged.word],
+          unpin,
+          ...(repin.length ? { repin } : {}),
+          ...(recategorize.length ? { recategorize } : {}),
+        },
       ],
     };
   }
@@ -4853,7 +5026,10 @@ class DatabaseManager {
    * a merge moved up back at its own place (`[{ word, position }]`). A
    * restored pin goes back to its place (`pinPosition`): a place that's taken
    * now pushes that pin and the ones after it down; one without a place goes
-   * last.
+   * last. `recategorize` puts back the category a merge changed on the word
+   * it kept (`[{ word, category, source }]`, null: automatic), and a restored
+   * word gets its stored category back (`category`, `categorySource`) unless
+   * its key has one now (a case variant it was merged into keeps its own).
    */
   restoreDictionaryWords(
     entries,
@@ -4863,12 +5039,17 @@ class DatabaseManager {
       remove = [],
       unpin = [],
       repin = [],
+      recategorize = [],
       now = () => new Date().toISOString(),
     } = {}
   ) {
     if (!this.db) throw new Error("Database not initialized");
     const place = (value) =>
       Number.isInteger(value) && value >= 0 && value <= MAX_PIN_POSITION ? value : null;
+    const categoryOf = (category, source) =>
+      DICTIONARY_CATEGORY_VALUES.has(category) && CATEGORY_SOURCE_RANK.has(source)
+        ? { category, source }
+        : null;
     const restoreList = [];
     for (const entry of Array.isArray(entries) ? entries : []) {
       const word = typeof entry?.word === "string" ? entry.word.trim() : "";
@@ -4891,6 +5072,7 @@ class DatabaseManager {
         createdAt,
         pinned: entry.pinned === true,
         pinPosition: place(entry.pinPosition),
+        category: categoryOf(entry.category, entry.categorySource),
       });
     }
     const words = (value) =>
@@ -4905,6 +5087,13 @@ class DatabaseManager {
       .filter((item) => typeof item?.word === "string" && item.word.trim())
       .map((item) => ({ key: dictionaryWordKey(item.word), position: place(item.position) }))
       .filter((item) => item.key && item.position !== null);
+    const recategorizeList = (Array.isArray(recategorize) ? recategorize : [])
+      .filter((item) => typeof item?.word === "string" && item.word.trim())
+      .map((item) => ({
+        key: dictionaryWordKey(item.word),
+        choice: categoryOf(item.category, item.source),
+      }))
+      .filter((item) => item.key);
 
     let result = null;
     this.db.transaction(() => {
@@ -4989,6 +5178,26 @@ class DatabaseManager {
         for (const { entry } of pins) {
           this._insertDictionaryPinAt(entry.key, entry.pinPosition, now());
         }
+        // Categories the same way: the word a merge kept gets its own back
+        // (or none), then each restored word its stored one, unless its key
+        // has one now (a case variant it was merged into keeps its own).
+        const dropCategory = this.db.prepare(
+          "DELETE FROM dictionary_categories WHERE word_key = ?"
+        );
+        const putCategory = this.db.prepare(
+          `INSERT INTO dictionary_categories (word_key, category, source, updated_at)
+           VALUES (?, ?, ?, ?)
+           ON CONFLICT(word_key) DO UPDATE SET
+             category = excluded.category, source = excluded.source, updated_at = excluded.updated_at`
+        );
+        for (const { key, choice } of recategorizeList) {
+          if (choice) putCategory.run(key, choice.category, choice.source, now());
+          else dropCategory.run(key);
+        }
+        for (const entry of restoreList) {
+          if (!entry.category || this._dictionaryCategory(entry.key)) continue;
+          putCategory.run(entry.key, entry.category.category, entry.category.source, now());
+        }
       }
       this._pruneDictionaryPins();
       result = { success: true, restored: restoreList.length, removed: removeWords.length };
@@ -5029,6 +5238,7 @@ class DatabaseManager {
               remove: step?.remove,
               unpin: step?.unpin,
               repin: step?.repin,
+              recategorize: step?.recategorize,
             });
           }
           if (!result?.success) {
@@ -5111,7 +5321,7 @@ class DatabaseManager {
   hardDeleteDictionaryEntry(id) {
     try {
       if (!this.db) throw new Error("Database not initialized");
-      // A cloud deletion pull removes a live row here: its pin goes with it.
+      // A cloud deletion pull removes a live row here: its pin and category go with it.
       const result = this.db.transaction(() => {
         const deleted = this.db.prepare("DELETE FROM custom_dictionary WHERE id = ?").run(id);
         if (deleted.changes > 0) this._pruneDictionaryPins();
@@ -5201,9 +5411,12 @@ class DatabaseManager {
                WHERE id = ?`
             )
             .run(cloudEntry.id, clientDictId, word, mergedSource, updatedAt, existing.id);
-          // A rename from another device keeps the word's pin (a live row only:
-          // a tombstoned one lost its pin when it was deleted).
-          if (!existing.deleted_at) this._moveDictionaryPin(existing.word, word);
+          // A rename from another device keeps the word's pin and category (a
+          // live row only: a tombstoned one lost both when it was deleted).
+          if (!existing.deleted_at) {
+            this._moveDictionaryPin(existing.word, word);
+            this._moveDictionaryCategory(existing.word, word);
+          }
           this._pruneDictionaryPins();
         })();
         return this.db.prepare("SELECT * FROM custom_dictionary WHERE id = ?").get(existing.id);

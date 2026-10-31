@@ -95,3 +95,103 @@ test("an unknown setting reads as All; the estimate is characters ÷ 4", () => {
   assert.equal(estimateDictionaryTokens([]), 0);
   assert.equal(estimateDictionaryTokens(["abcd", "efgh"]), 3, "'abcd, efgh' is 10 characters");
 });
+
+// ─── Categories (Dictionary v2, Stage C) ───
+
+const CATEGORY = new Map([
+  ["openwhispr", "work"],
+  ["enghub", "work"],
+  ["scout web", "people"],
+  ["the", "everyday"],
+  ["kusto", "everyday"],
+  ["little buddy", "people"],
+]);
+const categoryOf = (word) => CATEGORY.get(word.trim().toLowerCase()) ?? null;
+
+test("All words except everyday words: everyday words leave; the glossary and triggers stay", () => {
+  const { words, scope } = selectCleanupDictionary(
+    settings("noEveryday"),
+    { ...SOURCES, categories: categoryOf },
+    GLOSSARY
+  );
+  // "Kusto" is an everyday word here, but the glossary's "kusto" still goes.
+  assert.deepEqual(words, [
+    "OpenWhispr",
+    "gonestly",
+    "EngHub",
+    "Scout Web",
+    "Little Buddy",
+    "kusto",
+    "cal link",
+  ]);
+  assert.deepEqual(scope, { setting: "noEveryday", applied: "noEveryday", words: 4 });
+});
+
+test("All words except everyday words, before the categories are ready: All, and the scope says so", () => {
+  for (const categories of [null, undefined]) {
+    const { words, scope } = selectCleanupDictionary(
+      settings("noEveryday"),
+      { ...SOURCES, categories },
+      GLOSSARY
+    );
+    assert.equal(words.length, 8);
+    assert.deepEqual(scope, { setting: "noEveryday", applied: "all", words: 6 });
+  }
+});
+
+test("grouping: the same flat words, plus groups in the flat list's order; triggers under Other", () => {
+  const grouped = selectCleanupDictionary(
+    { ...settings("all"), cleanupDictionaryGrouping: true },
+    { ...SOURCES, categories: categoryOf },
+    GLOSSARY
+  );
+  const flat = selectCleanupDictionary(settings("all"), SOURCES, GLOSSARY);
+  assert.deepEqual(grouped.words, flat.words, "the flat list doesn't change");
+  assert.deepEqual(grouped.scope, flat.scope);
+  assert.deepEqual(grouped.groups, [
+    { group: "people", words: ["Scout Web", "Little Buddy"] },
+    { group: "work", words: ["OpenWhispr", "EngHub"] },
+    { group: "everyday", words: ["the", "Kusto"] },
+    { group: "other", words: ["gonestly", "cal link"] },
+  ]);
+  // Every flat word is in exactly one group.
+  assert.deepEqual(grouped.groups.flatMap((entry) => entry.words).sort(), [...flat.words].sort());
+});
+
+test("grouping off, or the categories not ready: no groups at all (the request is today's)", () => {
+  const off = selectCleanupDictionary(
+    settings("all"),
+    { ...SOURCES, categories: categoryOf },
+    GLOSSARY
+  );
+  assert.equal("groups" in off, false);
+  assert.deepEqual(Object.keys(off), ["words", "scope"]);
+  const notReady = selectCleanupDictionary(
+    { ...settings("all"), cleanupDictionaryGrouping: true },
+    { ...SOURCES, categories: null },
+    GLOSSARY
+  );
+  assert.equal("groups" in notReady, false);
+  const empty = selectCleanupDictionary(
+    { customDictionary: [], snippets: [], cleanupDictionaryGrouping: true },
+    { ...SOURCES, categories: categoryOf },
+    []
+  );
+  assert.equal("groups" in empty, false, "nothing to group");
+});
+
+test("grouping with a word set: the groups follow the set", () => {
+  const { words, groups } = selectCleanupDictionary(
+    { ...settings("noEveryday"), cleanupDictionaryGrouping: true },
+    { ...SOURCES, categories: categoryOf },
+    GLOSSARY
+  );
+  assert.deepEqual(groups, [
+    { group: "people", words: ["Scout Web", "Little Buddy"] },
+    { group: "work", words: ["OpenWhispr", "EngHub"] },
+    // The glossary's spelling stays, under its own category.
+    { group: "everyday", words: ["kusto"] },
+    { group: "other", words: ["gonestly", "cal link"] },
+  ]);
+  assert.equal(groups.flatMap((entry) => entry.words).length, words.length);
+});

@@ -758,6 +758,7 @@
         "dictionaryScope": {
           "sets": {
             "all": "all words",
+            "noEveryday": "all but everyday words",
             "typedPinnedMissed": "typed, pinned and missed",
             "typedPinned": "typed and pinned",
             "none": "none"
@@ -3724,6 +3725,7 @@
       "description": "Cleanup is told to spell these as written. Fewer words make a shorter prompt.",
       "options": {
         "all": "All words",
+        "noEveryday": "All words except everyday words",
         "typedPinnedMissed": "Typed, pinned and words speech misses",
         "typedPinned": "Typed and pinned",
         "none": "None"
@@ -3732,7 +3734,20 @@
       "count_other": "{{count}} words · ≈ {{tokens}} tokens",
       "sendsAll": "Sends all words for now",
       "missedUnavailable": "Which words speech misses is counted from your local History. While History is off or still being counted, cleanup gets all words, and its step says so.",
+      "categoriesUnavailable": "Which words are everyday words comes from their categories, sorted on this computer. Until those are ready, cleanup gets all words, and its step says so.",
       "note": "Glossary spellings and snippet triggers are always included. The speech model's word list, chat and the Voice Assistant keep the full dictionary."
+    },
+    "cleanupDictionaryGrouping": {
+      "title": "Group dictionary words by category",
+      "description": "The cleanup prompt lists its dictionary words under People, Work terms and Everyday words, so the model knows a name is a name. It changes the prompt. Not used with OpenWhispr Cloud.",
+      "groups": {
+        "people": "People {{n}}",
+        "work": "Work terms {{n}}",
+        "everyday": "Everyday words {{n}}",
+        "other": "Other {{n}}"
+      },
+      "unavailable": "Until the categories are ready, cleanup gets the words ungrouped.",
+      "cloud": "Your cleanup runs on OpenWhispr Cloud, which builds its own prompt and gets the words ungrouped."
     },
     "dictionaryOrder": {
       "title": "Dictionary order for speech-to-text",
@@ -5075,6 +5090,7 @@
       "columns": {
         "word": "Word",
         "source": "Source",
+        "category": "Category",
         "heard": "Used · 90 days",
         "added": "Added",
         "speech": "Speech model"
@@ -5151,6 +5167,7 @@
         "tokens": "≈ {{tokens}} tokens every cleanup",
         "off": "Cleanup is off",
         "sends": "Sends: {{set}}",
+        "grouped": "grouped by category",
         "monthly": "≈ {{tokens}} tokens a month",
         "monthlyDetail": "≈ {{tokens}} tokens a month at your dictation pace",
         "monthlyUnavailable": "A monthly estimate needs local History.",
@@ -5221,12 +5238,17 @@
         "glossary": "Yes: the glossary's spellings always go",
         "all": "Yes, with all words",
         "fallback": "Yes: “{{set}}” needs counts that aren't ready, so all words go for now",
+        "fallbackCategories": "Yes: “{{set}}” needs the categories, which aren't ready, so all words go for now",
         "none": "No: the cleanup prompt carries no dictionary words",
         "pinned": "Yes: it's pinned (“{{set}}”)",
         "typed": "Yes: it's typed (“{{set}}”)",
         "missed": "Yes: speech often misses it (“{{set}}”)",
         "notTypedPinned": "No: “{{set}}” sends typed and pinned words only",
-        "notMissed": "No: “{{set}}” sends auto-learned words only when speech often misses them"
+        "notMissed": "No: “{{set}}” sends auto-learned words only when speech often misses them",
+        "grouped": "Listed under “{{group}}”",
+        "groupOther": "Other",
+        "notEveryday": "Yes: not an everyday word (“{{set}}”)",
+        "everyday": "No: “{{set}}” leaves out everyday words"
       },
       "replaced": {
         "title": "What it replaced",
@@ -5402,6 +5424,100 @@
           "respell": "Change",
           "merge": "Merge"
         }
+      }
+    },
+    "categories": {
+      "button": "Sort into categories",
+      "buttonLabel_one": "Sort into categories, {{count}} unsorted word",
+      "buttonLabel_other": "Sort into categories, {{count}} unsorted words",
+      "filtersLabel": "Filter by category",
+      "filtersTitle": "Category",
+      "rowLabel": "{{label}}, {{category}}",
+      "setFailed": "Couldn't change the category.",
+      "names": {
+        "people": "People",
+        "work": "Work terms",
+        "everyday": "Everyday words",
+        "unsorted": "Unsorted"
+      },
+      "source": {
+        "auto": "auto",
+        "user": "you",
+        "model": "model"
+      },
+      "pill": {
+        "label": "Category of {{word}}: {{category}} ({{who}}). Change it",
+        "title": "{{category}} · set by {{who}}",
+        "menuTitle": "Category of “{{word}}”",
+        "automatic": "Automatic ({{category}})"
+      },
+      "bulk": {
+        "set": "Set category",
+        "automatic": "Automatic",
+        "done_one": "{{count}} word set to {{category}}",
+        "done_other": "{{count}} words set to {{category}}",
+        "doneAutomatic_one": "{{count}} word back to automatic",
+        "doneAutomatic_other": "{{count}} words back to automatic"
+      },
+      "title": "Sort your words into categories",
+      "subtitle": "Sorted on this computer from each word's shape. Change any word with a click; a model can check the rest. Nothing changes until you accept.",
+      "loading": "Reading the word list the rules use…",
+      "cards": {
+        "people": "Names of people and assistants: capitalized, not an English word.",
+        "work": "Products, tools, acronyms, code: inner capitals, dots, digits, all caps.",
+        "everyday": "In the common English word list.",
+        "unsorted": "The rules couldn't tell. Ask a model, or pick."
+      },
+      "review": {
+        "title": "Ask a model to check",
+        "estimate_one": "Sends your {{count}} word and its current category, never your dictations. One request, ≈ {{tokens}} tokens.",
+        "estimate_other": "Sends your {{count}} words and their current category, never your dictations. One request, ≈ {{tokens}} tokens.",
+        "ask": "Ask",
+        "failed": "The model couldn't check the categories.",
+        "stale": "Your dictionary or its categories changed while the model was working, so its proposals were dropped. Ask again.",
+        "malformed": "The model's answer wasn't in the expected format, so nothing was kept.",
+        "oversized": "The model's answer was too large, so nothing was kept.",
+        "proposalsTitle": "Proposed changes",
+        "none": "{{model}} proposes no changes.",
+        "kept_one": "{{count}} from {{model}} · {{shown}} shown",
+        "kept_other": "{{count}} from {{model}} · {{shown}} shown",
+        "dropped_one": "{{count}} was dropped: it named a word that isn't in your dictionary or an unknown category, or wasn't valid.",
+        "dropped_other": "{{count}} were dropped: they named words that aren't in your dictionary or unknown categories, or weren't valid.",
+        "acceptAll_one": "Accept all ({{count}})",
+        "acceptAll_other": "Accept all ({{count}})",
+        "accept": "Accept",
+        "acceptLabel": "Accept {{category}} for {{word}}",
+        "dismissLabel": "Dismiss the proposal for {{word}}",
+        "accepted": "Accepted",
+        "noChange": "No change",
+        "userKept": "Your choice kept",
+        "change": "{{from}} to {{to}}:",
+        "acceptedNotice_one": "{{count}} category changed.",
+        "acceptedNotice_other": "{{count}} categories changed."
+      },
+      "unsorted": {
+        "title_one": "Unsorted words ({{count}})",
+        "title_other": "Unsorted words ({{count}})",
+        "hint": "Pick a category for each, or ask a model above.",
+        "none": "Every word has a category."
+      },
+      "notes": {
+        "title": "What categories do",
+        "filterLabel": "Filter and bulk edit",
+        "filter": "Pick a category chip above the list, select the words, then Set category, Pin or Remove.",
+        "groupingLabel": "Cleanup prompt",
+        "grouping": "With “Group dictionary words by category” on, the cleanup prompt lists the words under People, Work terms and Everyday words, so the model knows a name is a name. Not used with OpenWhispr Cloud.",
+        "groupingOn": "It's on.",
+        "groupingOff": "It's off.",
+        "openSettings": "Open in Settings",
+        "wordSetLabel": "Cleanup word set",
+        "wordSet_one": "“All words except everyday words” leaves out {{count}} word (≈ {{tokens}} tokens a cleanup).",
+        "wordSet_other": "“All words except everyday words” leaves out {{count}} words (≈ {{tokens}} tokens a cleanup).",
+        "wordSetUnavailable": "“All words except everyday words” leaves out your everyday words once the categories are ready.",
+        "wordSetNow": "Now: {{set}}.",
+        "tidyLabel": "Tidy up",
+        "tidy": "Its checks don't change: ordinary words that speech already gets right are what it suggests removing.",
+        "local": "Categories stay on this computer, like pins: never synced, and sent to a model only when you ask one to check them."
       }
     },
     "kinds": {

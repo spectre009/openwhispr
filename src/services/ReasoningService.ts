@@ -704,11 +704,20 @@ class ReasoningService extends BaseReasoningService {
     // A style only joins a cleanup request; a request with its own system prompt ignores it.
     // So does cleanup's dictionary word set: it replaces the full list in this
     // cleanup prompt (and in what Cloud is given), never in a system-prompt request.
+    // Its grouping lives only in the prompt built here: Cloud gets the flat words.
     const inputs =
       promptInputs ??
       (cleanupDictionary && !dispatchConfig.systemPrompt
         ? {
             customDictionary: [...cleanupDictionary.words],
+            ...(cleanupDictionary.groups
+              ? {
+                  groups: cleanupDictionary.groups.map((entry) => ({
+                    group: entry.group,
+                    words: [...entry.words],
+                  })),
+                }
+              : {}),
             preferredLanguage: this.getPreferredLanguage(),
             uiLanguage: this.getUiLanguage(),
           }

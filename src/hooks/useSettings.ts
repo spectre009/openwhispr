@@ -421,6 +421,8 @@ function useSettingsInternal() {
     setAutoLearnMode: store.setAutoLearnMode,
     cleanupDictionaryWords: store.cleanupDictionaryWords,
     setCleanupDictionaryWords: store.setCleanupDictionaryWords,
+    cleanupDictionaryGrouping: store.cleanupDictionaryGrouping,
+    setCleanupDictionaryGrouping: store.setCleanupDictionaryGrouping,
     dictionaryHintOrder: store.dictionaryHintOrder,
     setDictionaryHintOrder: store.setDictionaryHintOrder,
     showTranscriptionPreview: store.showTranscriptionPreview,

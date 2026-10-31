@@ -115,7 +115,13 @@ function normalizeStyleRef(ref, idKey) {
 
 // Cleanup's dictionary word set (Settings › Dictation › Cleanup): the setting,
 // the set applied, and a word count. Enums and a bounded integer only.
-const DICTIONARY_SCOPES = new Set(["all", "typedPinnedMissed", "typedPinned", "none"]);
+const DICTIONARY_SCOPES = new Set([
+  "all",
+  "noEveryday",
+  "typedPinnedMissed",
+  "typedPinned",
+  "none",
+]);
 const MAX_DICTIONARY_SCOPE_WORDS = 10_000;
 
 function normalizeDictionaryScope(scope) {
