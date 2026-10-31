@@ -377,7 +377,9 @@ test("usage reads completed, recent dictations, never translations or the assist
 
   const usage = computeDictionaryUsage(db, ["OpenWhispr"], { owner: "account:a" });
   assert.equal(usage.rows, 1);
-  assert.deepEqual(usage.words, [{ word: "OpenWhispr", heard: 0, written: 1, missedRows: 1 }]);
+  assert.deepEqual(usage.words, [
+    { word: "OpenWhispr", heard: 0, written: 1, missedRows: 1, bothRows: 0 },
+  ]);
 });
 
 test("the usage service recomputes after Re-transcribe and Re-run cleanup rewrite a row", async (t) => {
@@ -394,7 +396,13 @@ test("the usage service recomputes after Re-transcribe and Re-run cleanup rewrit
   });
   const id = dictate("open whisper", "OpenWhispr.");
   const first = await service.get();
-  assert.deepEqual(first.words[0], { word: "OpenWhispr", heard: 0, written: 1, missedRows: 1 });
+  assert.deepEqual(first.words[0], {
+    word: "OpenWhispr",
+    heard: 0,
+    written: 1,
+    missedRows: 1,
+    bothRows: 0,
+  });
 
   // Re-transcribe's new raw transcript (saveRetranscription → updateTranscriptionText).
   now += 31_000;
@@ -411,6 +419,7 @@ test("the usage service recomputes after Re-transcribe and Re-run cleanup rewrit
     heard: 1,
     written: 1,
     missedRows: 0,
+    bothRows: 1,
   });
 
   // Re-run cleanup's rewrite (completeRetry with its trace).
@@ -426,5 +435,6 @@ test("the usage service recomputes after Re-transcribe and Re-run cleanup rewrit
     heard: 1,
     written: 0,
     missedRows: 0,
+    bothRows: 0,
   });
 });

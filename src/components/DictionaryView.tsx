@@ -6,6 +6,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type ReactNode,
   type RefObject,
 } from "react";
 import { useTranslation } from "react-i18next";
@@ -51,12 +52,16 @@ import {
   useDictionarySourcesStore,
 } from "../stores/dictionarySourcesStore";
 import { useDictionaryUsageStore } from "../stores/dictionaryUsageStore";
+import { loadCommonWords, useDictionaryTidyStore } from "../stores/dictionaryTidyStore";
 import { glossaryRuleInput, useGlossaryStore } from "../stores/glossaryStore";
 import { getAgentName } from "../utils/agentName";
 import { parseDictionaryImportText } from "../helpers/dictionaryImport";
 import { glossaryCanonicalTerms } from "../utils/glossary";
 import { dictionaryWordKey } from "../utils/dictionaryWordKey.js";
 import { selectCleanupDictionary } from "../utils/snippets";
+import { glossaryOfferFor } from "../utils/dictionaryGlossaryOffer";
+import { clearDictionaryWordRequest, useDictionaryWordRequest } from "../utils/openDictionaryWord";
+import GlossaryOfferNotice from "./dictionary/GlossaryOfferNotice";
 import {
   DICTIONARY_FILTERS,
   DICTIONARY_SORTS,
@@ -69,7 +74,7 @@ import {
   type DictionaryListItem,
   type DictionarySort,
 } from "../utils/dictionaryList";
-import type { GlossaryRuleInput } from "../types/electron";
+import type { DictionarySpeechVariant, GlossaryRuleInput } from "../types/electron";
 
 // The Dictionary page (its Dictionary tab; Glossary and Snippets are their own
 // views). Auto-learn's suggestions, where the dictionary goes and what it
@@ -89,8 +94,15 @@ const FILTER_KEYS: Record<DictionaryFilter, string> = {
   learned: "dictionary.list.filters.learned",
   pinned: "dictionary.list.filters.pinned",
   notSent: "dictionary.list.filters.notSent",
+  speechMisses: "dictionary.list.filters.speechMisses",
   neverHeard: "dictionary.list.filters.neverHeard",
   addedThisWeek: "dictionary.list.filters.addedThisWeek",
+};
+
+const FILTER_HINT_KEYS: Partial<Record<DictionaryFilter, string>> = {
+  notSent: "dictionary.list.filters.notSentHint",
+  speechMisses: "dictionary.list.filters.speechMissesHint",
+  neverHeard: "dictionary.list.filters.neverHeardHint",
 };
 
 const SORT_KEYS: Record<DictionarySort, string> = {
@@ -163,7 +175,7 @@ export default function DictionaryView() {
   const [whereExpanded, setWhereExpanded] = useState(false);
   const [confirm, setConfirm] = useState<ConfirmState | null>(null);
   const [glossaryRule, setGlossaryRule] = useState<GlossaryRuleInput | null>(null);
-  const [glossaryExisting, setGlossaryExisting] = useState(false);
+  const [glossaryNotice, setGlossaryNotice] = useState<ReactNode>(null);
   const addInputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -452,10 +464,27 @@ export default function DictionaryView() {
   );
 
   const openGlossaryRule = useCallback(
-    (word: string) => {
+    (word: string, variant?: DictionarySpeechVariant) => {
+      const rules = useGlossaryStore.getState().rules;
+      if (variant) {
+        // From what speech wrote: the spelling's scope follows its evidence.
+        const offer = glossaryOfferFor(rules, word, variant.spelling, {
+          keptInFinal: variant.keptInFinal,
+          commonWords: useDictionaryTidyStore.getState().commonWords,
+        });
+        setGlossaryNotice(
+          <GlossaryOfferNotice
+            offer={offer}
+            spelling={variant.spelling}
+            keptInFinal={variant.keptInFinal}
+          />
+        );
+        setGlossaryRule(offer.rule);
+        return;
+      }
       const key = dictionaryWordKey(word);
-      const existing = glossaryRules.find((rule) => dictionaryWordKey(rule.canonical) === key);
-      setGlossaryExisting(!!existing);
+      const existing = rules.find((rule) => dictionaryWordKey(rule.canonical) === key);
+      setGlossaryNotice(existing ? t("dictionary.detail.glossaryExisting") : null);
       setGlossaryRule(
         existing
           ? glossaryRuleInput(existing)
@@ -467,8 +496,33 @@ export default function DictionaryView() {
             }
       );
     },
-    [glossaryRules]
+    [t]
   );
+
+  // The common-word list a speech variant's scope reads (loaded once).
+  useEffect(() => {
+    if (detailWord) void loadCommonWords();
+  }, [detailWord]);
+
+  // "Open in Dictionary" (History's dictionary card): that word's panel, once
+  // it's in the list.
+  const wordRequest = useDictionaryWordRequest((state) => state.word);
+  const wordRequestId = useDictionaryWordRequest((state) => state.request);
+  useEffect(() => {
+    if (!wordRequest) return;
+    const key = dictionaryWordKey(wordRequest);
+    const target =
+      itemsByWord.get(wordRequest) ?? items.find((candidate) => candidate.key === key) ?? null;
+    if (!target) return;
+    clearDictionaryWordRequest();
+    setTidyOpen(false);
+    setSearch("");
+    setFilter("all");
+    setFocusedWord(target.word);
+    setDetailWord(target.word);
+  }, [wordRequest, wordRequestId, itemsByWord, items]);
+  // A request the page never found leaves with it.
+  useEffect(() => () => clearDictionaryWordRequest(), []);
 
   // ─── Cleanup's word set, for the detail ───
   const cleanupSelection = useMemo(() => {
@@ -819,11 +873,7 @@ export default function DictionaryView() {
                   data-dictionary-filter={option}
                   onClick={() => setFilter(option)}
                   title={
-                    option === "neverHeard"
-                      ? t("dictionary.list.filters.neverHeardHint")
-                      : option === "notSent"
-                        ? t("dictionary.list.filters.notSentHint")
-                        : undefined
+                    FILTER_HINT_KEYS[option] ? t(FILTER_HINT_KEYS[option] as string) : undefined
                   }
                   className={cn(
                     "rounded-full border px-2.5 py-0.5 text-[11.5px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
@@ -987,7 +1037,7 @@ export default function DictionaryView() {
         onOpenChange={(open) => {
           if (!open) setGlossaryRule(null);
         }}
-        notice={glossaryExisting ? t("dictionary.detail.glossaryExisting") : undefined}
+        notice={glossaryNotice ?? undefined}
       />
 
       <div className={cn(PAGE_CONTENT_WIDTH_CLASS, "px-6 pt-6")}>

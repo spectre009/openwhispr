@@ -842,13 +842,20 @@
       "app": "App",
       "appSelected": "App: {{app}}",
       "anyApp": "Cualquier app",
-      "noApps": "Aún no hay apps registradas"
+      "noApps": "Aún no hay apps registradas",
+      "dictionaryFixed": "Corregido por el diccionario",
+      "dictionaryWord": "Con «{{word}}»",
+      "clearDictionaryWord": "Mostrar todos los dictados, no solo los que tienen «{{word}}»"
     },
     "list": {
       "label": "Dictados",
       "noText": "Sin texto",
       "loadingMore": "Cargando más…",
-      "moreFailed": "No se pudieron cargar más."
+      "moreFailed": "No se pudieron cargar más.",
+      "dictionaryFixes_one": "{{count}} corregida",
+      "dictionaryFixes_other": "{{count}} corregidas",
+      "dictionaryFixesHint_one": "{{count}} palabra del diccionario corregida tras el reconocimiento",
+      "dictionaryFixesHint_other": "{{count}} palabras del diccionario corregidas tras el reconocimiento"
     },
     "marks": {
       "changed": "{{step}} cambió el texto",
@@ -1053,6 +1060,24 @@
       "cleanup": "Limpieza fallida",
       "style": "Estilo no aplicado",
       "translation": "Traducción fallida"
+    },
+    "dictionary": {
+      "title": "El diccionario en este dictado",
+      "asNow": "Tus palabras del diccionario, tal como está ahora",
+      "speechWrote": "El reconocimiento escribió",
+      "fixedAfterSpeech": "corregida tras el reconocimiento",
+      "fixedUnknown": "Corregida tras el reconocimiento; no está claro qué escribió ahí",
+      "times_one": "{{count}} vez",
+      "times_other": "{{count}} veces",
+      "got": "El reconocimiento la escribió; nada la cambió",
+      "gotAndChanged": "El reconocimiento la escribió; un sitio se cambió después",
+      "changed": "El reconocimiento la escribió y luego se cambió",
+      "openInDictionary": "Abrir en el diccionario",
+      "note": "Subrayadas en el texto de arriba: en verde, las que el reconocimiento acertó; en ámbar, las corregidas tras el reconocimiento. «Por el glosario» o «por la limpieza» solo aparece cuando los pasos registrados de este dictado lo muestran.",
+      "tooLong": "Este dictado es demasiado largo para compararlo palabra por palabra.",
+      "underlineOk": "Palabra del diccionario: el reconocimiento acertó",
+      "underlineFix": "Palabra del diccionario: corregida tras el reconocimiento",
+      "inserted": "Una palabra del diccionario que puso este paso"
     }
   },
   "reasoning": {
@@ -4709,27 +4734,28 @@
         "learned": "Aprendidas",
         "pinned": "Fijadas",
         "notSent": "No enviadas",
-        "neverHeard": "Nunca oídas",
+        "neverHeard": "Nunca usadas",
         "addedThisWeek": "Añadidas esta semana",
         "notSentHint": "Palabras que tu configuración de voz a texto actual no envía",
-        "neverHeardHint": "En ningún dictado de los últimos 90 días, ni oídas ni escritas"
+        "neverHeardHint": "En ningún dictado de los últimos 90 días, ni en lo que escribió el reconocimiento ni en el texto final",
+        "speechMisses": "El reconocimiento la falla",
+        "speechMissesHint": "Corregida tras el reconocimiento en al menos 2 dictados, o en una cuarta parte de los que la usaron"
       },
       "sorts": {
         "sendOrder": "Orden de envío",
         "recent": "Añadidas recientemente",
         "alpha": "A–Z",
-        "mostHeard": "Más oídas",
-        "leastHeard": "Menos oídas"
+        "mostHeard": "Más usadas",
+        "leastHeard": "Menos usadas"
       },
       "columns": {
         "word": "Palabra",
         "source": "Origen",
-        "heard": "Oída · 90 días",
+        "heard": "Usada · 90 días",
         "added": "Añadida",
         "speech": "Modelo de voz"
       },
-      "heardWritten": "oída {{heard}} · escrita {{written}}",
-      "missedHint": "El reconocimiento suele fallarla: escrita más veces que oída",
+      "missedHint": "El reconocimiento suele fallarla: a menudo se corrige tras el reconocimiento",
       "added": "añadida {{when}}",
       "noMatches": "Ninguna palabra coincide.",
       "clearFilters": "Quitar filtros",
@@ -4738,7 +4764,13 @@
         "unread_other": "Aquí el modelo de voz deja de leer · {{count}} palabras de abajo se envían pero probablemente no se leen",
         "notSent_one": "No se envía desde aquí · {{count}} palabra no se envía",
         "notSent_other": "No se envía desde aquí · {{count}} palabras no se envían"
-      }
+      },
+      "notUsed": "sin usar",
+      "usageSpeech": "reconocida {{count}}",
+      "usageFixed": "corregida {{count}}",
+      "usageShort": "usada {{used}} · reconocida {{ok}}",
+      "usageTitle_one": "{{count}} dictado: el reconocimiento acertó {{ok}}, corregida tras el reconocimiento {{fix}}, cambiada tras el reconocimiento {{chg}}",
+      "usageTitle_other": "{{count}} dictados: el reconocimiento acertó {{ok}}, corregida tras el reconocimiento {{fix}}, cambiada tras el reconocimiento {{chg}}"
     },
     "where": {
       "title": "Adónde va tu diccionario",
@@ -4830,16 +4862,21 @@
       "glossaryRule": "Crear regla de glosario",
       "glossaryExisting": "Una regla del glosario ya escribe esta palabra, así que se abrió esa regla.",
       "usage": {
-        "title": "Oída",
-        "last90": "Últimos 90 días",
-        "totals": "oída {{heard}} · escrita {{written}}",
-        "chartLabel": "Oída {{heard}} y escrita {{written}} veces en 90 días, por semana",
-        "heardLegend": "Oída (voz a texto)",
-        "writtenLegend": "Escrita (texto final)",
+        "title": "Usada en los últimos 90 días",
+        "chartLabel": "Usada {{used}} veces en 90 días, por semana: el reconocimiento acertó {{ok}}, corregida tras el reconocimiento {{fix}}, cambiada tras el reconocimiento {{chg}}",
         "never": "En ningún dictado de los últimos 90 días.",
-        "missed_one": "El reconocimiento suele fallarla: {{count}} dictado la escribió sin oírla.",
-        "missed_other": "El reconocimiento suele fallarla: {{count}} dictados la escribieron sin oírla.",
-        "note": "Contado a partir del historial local de esta cuenta, como orientación. Ni oída ni escrita significa desconocido."
+        "note": "Contado a partir del historial local de esta cuenta, como orientación. Nada usado y nada cambiado significa desconocido.",
+        "dictations_one": "{{count}} dictado",
+        "dictations_other": "{{count}} dictados",
+        "okCount": "el reconocimiento acertó {{count}}",
+        "fixCount": "corregida tras el reconocimiento {{count}}",
+        "chgCount": "cambiada tras el reconocimiento {{count}}",
+        "weekOf": "Semana del {{range}}",
+        "weekLabel": "Semana del {{range}}: usada {{used}}, el reconocimiento acertó {{ok}}, corregida tras el reconocimiento {{fix}}, cambiada tras el reconocimiento {{chg}}",
+        "clickToList": "Haz clic para ver estos dictados",
+        "clickToClear": "Haz clic otra vez para ver todas las semanas",
+        "missed_one": "El reconocimiento suele fallarla: corregida tras el reconocimiento en {{count}} dictado.",
+        "missed_other": "El reconocimiento suele fallarla: corregida tras el reconocimiento en {{count}} dictados."
       },
       "where": {
         "title": "Adónde va",
@@ -4884,7 +4921,7 @@
     },
     "usage": {
       "unavailable": {
-        "historyOff": "Oídas y escritas se cuentan a partir del historial local, que está desactivado.",
+        "historyOff": "El uso se cuenta a partir del historial local, que está desactivado.",
         "policyOff": "Tu organización mantiene desactivado el historial local, así que no se cuenta nada.",
         "pending": "Contando a partir del historial local…",
         "other": "Los recuentos no están disponibles ahora."
@@ -4922,7 +4959,7 @@
         },
         "typos": {
           "title": "Posibles erratas",
-          "why": "Casi nunca oídas ni escritas, y a una o dos letras de una palabra que dices a menudo."
+          "why": "Casi nunca en un dictado, y a una o dos letras de una palabra que dices a menudo."
         },
         "fragments": {
           "title": "Fragmentos",
@@ -4933,13 +4970,11 @@
           "why": "Dos palabras que dices juntas. Una frase ocupa un hueco y orienta mejor."
         },
         "neverHeard": {
-          "title": "Nunca oídas en {{days}} días",
+          "title": "Nunca usadas en {{days}} días",
           "why": "Aprendidas hace más de un mes y en ningún dictado desde entonces. Quédate con las que vayas a necesitar."
         }
       },
       "reasons": {
-        "keepWritten_one": "Se queda «{{word}}»: escrita {{count}} vez, más que las otras",
-        "keepWritten_other": "Se queda «{{word}}»: escrita {{count}} veces, más que las otras",
         "keepTyped": "Se queda «{{word}}»: la escribiste tú",
         "keepNewest": "Se queda «{{word}}»: la más reciente",
         "keepProtected": "Se queda «{{word}}»: una grafía del glosario o un activador de fragmento",
@@ -4959,7 +4994,9 @@
         "splitPhrase_one": "Juntas en {{together}} del {{count}} dictado con «{{word}}»",
         "splitPhrase_other": "Juntas en {{together}} de los {{count}} dictados con «{{word}}»",
         "phraseExists": "«{{phrase}}» ya está en tu diccionario",
-        "neverHeard": "Añadida {{when}}, en ningún dictado desde entonces"
+        "neverHeard": "Añadida {{when}}, en ningún dictado desde entonces",
+        "keepWritten_one": "Se queda «{{word}}»: usada {{count}} vez, más que las otras",
+        "keepWritten_other": "Se queda «{{word}}»: usada {{count}} veces, más que las otras"
       },
       "actions": {
         "select": "Seleccionar {{word}}",
@@ -5041,6 +5078,63 @@
           "merge": "Fusionar"
         }
       }
+    },
+    "kinds": {
+      "used": "Usada",
+      "ok": "El reconocimiento acertó",
+      "fix": "Corregida tras el reconocimiento",
+      "chg": "Cambiada tras el reconocimiento",
+      "by": {
+        "glossary": "por el glosario",
+        "cleanup": "por la limpieza",
+        "style": "por un estilo"
+      }
+    },
+    "explainer": {
+      "open": "Qué significan estas cifras",
+      "title": "Qué significan «usada», «el reconocimiento acertó» y «corregida»",
+      "subtitle": "Se cuenta por dictado en los últimos 90 días del historial local de esta cuenta.",
+      "wasWritten": "(antes «escrita»)",
+      "wasHeard": "(antes «oída»)",
+      "used": "Dictados cuyo texto final contiene la palabra: los que el reconocimiento acertó más los corregidos tras el reconocimiento. Es el texto que recibiste, antes de lo que editaras después.",
+      "ok": "El reconocimiento de voz escribió la palabra y el texto final la conserva.",
+      "fix": "El reconocimiento escribió otra cosa y el glosario, la limpieza o un estilo la convirtieron en la palabra. El texto final la tiene; la transcripción en bruto, no.",
+      "chg": "El reconocimiento escribió la palabra, pero la limpieza o un estilo la cambió o la quitó.",
+      "note": "Una orientación, no un registro: se compara la transcripción en bruto con el texto final usando tu diccionario tal como está ahora."
+    },
+    "variants": {
+      "title": "El reconocimiento la escribe como",
+      "none": "El reconocimiento no la ha escrito de otra forma en los últimos 90 días.",
+      "count_one": "{{count}} dictado",
+      "count_other": "{{count}} dictados",
+      "kept_one": "«{{spelling}}» también se quedó así en {{count}} dictado",
+      "kept_other": "«{{spelling}}» también se quedó así en {{count}} dictados",
+      "neverKept": "Nunca se quedó así en tu texto final.",
+      "makeRule": "Crear regla de glosario",
+      "handled": "El glosario ya se encarga",
+      "notice": {
+        "added": "«{{spelling}}» se añadió a la regla del glosario que ya escribe esta palabra.",
+        "kept_one": "«{{spelling}}» también se quedó así en {{count}} de tus dictados, así que empieza solo al inicio del dictado, en las apps que elijas. Elige las apps o reconsidera la regla.",
+        "kept_other": "«{{spelling}}» también se quedó así en {{count}} de tus dictados, así que empieza solo al inicio del dictado, en las apps que elijas. Elige las apps o reconsidera la regla.",
+        "common": "«{{spelling}}» está formada por palabras comunes, así que empieza solo al inicio del dictado, en las apps que elijas. Elige las apps o reconsidera la regla.",
+        "unknown": "Sin el historial local de esta cuenta no se puede comprobar si «{{spelling}}» también se queda así, así que empieza solo al inicio del dictado, en las apps que elijas.",
+        "anywhere": "«{{spelling}}» nunca se quedó así en tu texto final y no es una palabra común, así que la regla se aplica en cualquier lugar."
+      }
+    },
+    "occurrences": {
+      "title": "Dónde apareció",
+      "segmentsLabel": "Mostrar dictados donde",
+      "segments": {
+        "all": "Todos",
+        "chg": "Cambiada"
+      },
+      "open": "Abrir en el historial",
+      "none": "No hay dictados aquí.",
+      "more": "Cargar más",
+      "clearWeek": "Mostrar todas las semanas",
+      "unaligned_one": "{{count}} dictado es demasiado largo para compararlo palabra por palabra, así que no aparece.",
+      "unaligned_other": "{{count}} dictados son demasiado largos para compararlos palabra por palabra, así que no aparecen.",
+      "showInHistory": "Mostrar en el historial"
     }
   },
   "insights": {

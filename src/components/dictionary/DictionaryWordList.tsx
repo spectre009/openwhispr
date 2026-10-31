@@ -15,15 +15,23 @@ import { Input } from "../ui/input";
 import { cn } from "../lib/utils";
 import { formatRelativeTime } from "../../utils/dateFormatting";
 import { isSpeechMissed } from "../../helpers/dictionaryUsage.js";
-import type { DictionaryDivider, DictionaryListItem } from "../../utils/dictionaryList";
+import type {
+  DictionaryDivider,
+  DictionaryListItem,
+  DictionaryUsageCounts,
+} from "../../utils/dictionaryList";
 import { COVERAGE_DOT_CLASS, COVERAGE_TEXT_CLASS } from "./coverageStyles";
+import { APPEARANCE_KIND_BG, usageParts } from "./dictionaryLabels";
+import DictionaryUsageExplainer from "./DictionaryUsageExplainer";
 
 // The Dictionary's word list: a multi-select listbox (↑/↓ move, Space
 // selects, Shift extends, Enter opens the word, F2 edits, Delete removes),
-// one row per word with its checkbox, pin, source, heard/written, when it
-// was added and where the speech model has it. In send order, dividers mark
-// where the model stops reading and where the request stops. Rows are memoized
-// and skip layout off screen, so a thousand words filter smoothly.
+// one row per word with its checkbox, pin, source, how often it was used over
+// 90 days (speech got it, fixed after speech, as a two-tone bar), when it was
+// added and where the speech model has it. In send order, dividers mark where
+// the model stops reading and where the request stops. Rows are memoized and
+// skip layout off screen, so a thousand words filter smoothly. The usage
+// column's ⓘ explains the numbers.
 
 export interface DictionaryWordListProps {
   items: readonly DictionaryListItem[];
@@ -50,7 +58,62 @@ export interface DictionaryWordListProps {
 }
 
 const ROW_GRID =
-  "grid grid-cols-[1.25rem_minmax(0,1fr)_auto] items-center gap-x-3 @2xl:grid-cols-[1.25rem_minmax(0,1fr)_6.5rem_9rem_5rem_9.5rem_2rem]";
+  "grid grid-cols-[1.25rem_minmax(0,1fr)_auto] items-center gap-x-3 @2xl:grid-cols-[1.25rem_minmax(0,1fr)_6rem_minmax(0,13rem)_5rem_9.5rem_2rem]";
+
+/**
+ * "405 · speech 256 · fixed 149" with a two-tone bar (green: speech got it,
+ * amber: fixed after speech), "not used" when the final text never had it,
+ * "—" without counts.
+ */
+export function UsageCell({ usage }: { usage: DictionaryUsageCounts | null }) {
+  const { t } = useTranslation();
+  if (!usage) {
+    return <span className="text-muted-foreground/70">—</span>;
+  }
+  const { used, ok, fix, chg } = usageParts(usage);
+  const missed = isSpeechMissed(usage);
+  const title = [
+    t("dictionary.list.usageTitle", { count: used, ok, fix, chg }),
+    missed ? t("dictionary.list.missedHint") : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  const width = (n: number) =>
+    used > 0 && n > 0 ? `${Math.max(4, Math.round((n / used) * 100))}%` : "0%";
+  return (
+    <span className="flex min-w-0 items-center gap-2" title={title} data-dictionary-usage>
+      <span
+        aria-hidden
+        className="flex h-1.5 w-10 shrink-0 overflow-hidden rounded-full bg-muted dark:bg-white/10"
+      >
+        <span className={cn("h-full", APPEARANCE_KIND_BG.ok)} style={{ width: width(ok) }} />
+        <span className={cn("h-full", APPEARANCE_KIND_BG.fix)} style={{ width: width(fix) }} />
+      </span>
+      {used === 0 ? (
+        <span className="truncate text-muted-foreground">{t("dictionary.list.notUsed")}</span>
+      ) : (
+        <span
+          className={cn(
+            "truncate tabular-nums",
+            missed ? "text-foreground/85" : "text-foreground/75"
+          )}
+        >
+          <b className="font-semibold text-foreground/90">{used}</b>
+          {" · "}
+          {t("dictionary.list.usageSpeech", { count: ok })}
+          {fix > 0 && (
+            <>
+              {" · "}
+              <span className="text-warning">
+                {t("dictionary.list.usageFixed", { count: fix })}
+              </span>
+            </>
+          )}
+        </span>
+      )}
+    </span>
+  );
+}
 
 function EditField({
   word,
@@ -150,10 +213,6 @@ const Row = memo(function Row({
   );
   const added = item.createdAt ? formatRelativeTime(item.createdAt, t, i18n.language) : "";
   const usage = item.usage;
-  const missed = usage ? isSpeechMissed(usage) : false;
-  const usageText = usage
-    ? t("dictionary.list.heardWritten", { heard: usage.heard, written: usage.written })
-    : "—";
 
   return (
     <div
@@ -247,20 +306,8 @@ const Row = memo(function Row({
         {source}
       </span>
 
-      <span
-        className={cn(
-          "hidden truncate tabular-nums @2xl:block",
-          !usage
-            ? "text-muted-foreground/70"
-            : missed
-              ? "text-warning"
-              : usage.heard === 0 && usage.written === 0
-                ? "text-muted-foreground"
-                : "text-foreground/75"
-        )}
-        title={missed ? t("dictionary.list.missedHint") : undefined}
-      >
-        {usageText}
+      <span className="hidden min-w-0 @2xl:block">
+        <UsageCell usage={usage} />
       </span>
 
       <span className="hidden truncate text-muted-foreground @2xl:block">
@@ -437,19 +484,22 @@ const DictionaryWordList = forwardRef<HTMLDivElement, DictionaryWordListProps>(
     return (
       <div className="@container">
         <div
-          aria-hidden="true"
           className={cn(
             ROW_GRID,
             "hidden border-b border-border/60 bg-muted/40 px-3 py-2 text-[10.5px] font-medium uppercase tracking-wide text-muted-foreground @2xl:grid dark:border-white/10 dark:bg-white/3"
           )}
+          data-dictionary-list-header
         >
-          <span />
-          <span>{t("dictionary.list.columns.word")}</span>
-          <span>{t("dictionary.list.columns.source")}</span>
-          <span>{t("dictionary.list.columns.heard")}</span>
-          <span>{t("dictionary.list.columns.added")}</span>
-          <span>{t("dictionary.list.columns.speech")}</span>
-          <span />
+          <span aria-hidden="true" />
+          <span aria-hidden="true">{t("dictionary.list.columns.word")}</span>
+          <span aria-hidden="true">{t("dictionary.list.columns.source")}</span>
+          <span className="flex items-center gap-1">
+            <span aria-hidden="true">{t("dictionary.list.columns.heard")}</span>
+            <DictionaryUsageExplainer className="normal-case tracking-normal" />
+          </span>
+          <span aria-hidden="true">{t("dictionary.list.columns.added")}</span>
+          <span aria-hidden="true">{t("dictionary.list.columns.speech")}</span>
+          <span aria-hidden="true" />
         </div>
         <div
           ref={ref}

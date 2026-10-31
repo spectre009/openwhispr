@@ -36,10 +36,11 @@ const COVERAGE = [
   { term: "Kusto", source: "learned", coverage: "notSent", rank: 8 },
 ];
 const USAGE = [
-  { word: "OpenWhispr", heard: 0, written: 6, missedRows: 6 },
-  { word: "EngHub", heard: 5, written: 8, missedRows: 3 },
+  { word: "OpenWhispr", heard: 0, written: 6, missedRows: 6, bothRows: 0 },
+  { word: "EngHub", heard: 5, written: 8, missedRows: 3, bothRows: 5 },
+  // An older answer without bothRows: what's written and wasn't missed.
   { word: "SuperApp", heard: 5, written: 10, missedRows: 5 },
-  { word: "the", heard: 2752, written: 2760, missedRows: 0 },
+  { word: "the", heard: 2752, written: 2760, missedRows: 0, bothRows: 2745 },
 ];
 
 function items({ usage = USAGE } = {}) {
@@ -65,15 +66,15 @@ test("each row: source, pin, date, coverage and rank, heard/written (zero when n
   assert.equal(superApp.pinned, true);
   assert.equal(superApp.coverage, "read");
   assert.equal(superApp.rank, 1);
-  assert.deepEqual(superApp.usage, { heard: 5, written: 10, missedRows: 5 });
+  assert.deepEqual(superApp.usage, { heard: 5, written: 10, missedRows: 5, bothRows: 5 });
   const gonestly = rows.find((row) => row.word === "gonestly");
-  assert.deepEqual(gonestly.usage, { heard: 0, written: 0, missedRows: 0 });
+  assert.deepEqual(gonestly.usage, { heard: 0, written: 0, missedRows: 0, bothRows: 0 });
   assert.equal(rows.find((row) => row.word === "Kusto").createdMs, NaN);
   // Without counts, usage is null, never zero.
   assert.ok(items({ usage: null }).every((row) => row.usage === null));
 });
 
-test("filters and their counts; Never heard needs counts", () => {
+test("filters and their counts; Speech misses it and Never used need counts", () => {
   const rows = items();
   assert.deepEqual(list.dictionaryFilterCounts(rows, NOW), {
     all: 6,
@@ -81,6 +82,7 @@ test("filters and their counts; Never heard needs counts", () => {
     learned: 4,
     pinned: 1,
     notSent: 3,
+    speechMisses: 3,
     neverHeard: 2,
     addedThisWeek: 2,
   });
@@ -89,9 +91,28 @@ test("filters and their counts; Never heard needs counts", () => {
       .viewDictionaryList(rows, { filter, sort: "alpha", search: "", now: NOW, locale: "en" })
       .items.map((row) => row.word);
   assert.deepEqual(shown("neverHeard"), ["gonestly", "Kusto"]);
+  assert.deepEqual(shown("speechMisses"), ["EngHub", "OpenWhispr", "SuperApp"]);
   assert.deepEqual(shown("addedThisWeek"), ["EngHub", "gonestly"]);
   assert.deepEqual(shown("notSent"), ["gonestly", "Kusto", "the"]);
   assert.equal(list.dictionaryFilterCounts(items({ usage: null }), NOW).neverHeard, 0);
+  assert.equal(list.dictionaryFilterCounts(items({ usage: null }), NOW).speechMisses, 0);
+});
+
+test("most and least used: the final text first, then speech got it", () => {
+  const rows = list.buildDictionaryListItems({
+    words: ["Heardalot", "Usedalot", "Tie"],
+    usage: [
+      { word: "Heardalot", heard: 9, written: 1, missedRows: 0, bothRows: 1 },
+      { word: "Usedalot", heard: 1, written: 5, missedRows: 4, bothRows: 1 },
+      { word: "Tie", heard: 5, written: 5, missedRows: 0, bothRows: 5 },
+    ],
+  });
+  const sorted = (sort) =>
+    list
+      .viewDictionaryList(rows, { filter: "all", sort, search: "", now: NOW, locale: "en" })
+      .items.map((row) => row.word);
+  assert.deepEqual(sorted("mostHeard"), ["Tie", "Usedalot", "Heardalot"]);
+  assert.deepEqual(sorted("leastHeard"), ["Heardalot", "Usedalot", "Tie"]);
 });
 
 test("search: word contains, case-insensitive", () => {

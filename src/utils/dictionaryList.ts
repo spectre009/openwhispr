@@ -6,11 +6,19 @@
 
 import { dictionaryWordKey } from "./dictionaryWordKey.js";
 import { normalizeDbDate } from "./dateFormatting";
+import { isSpeechMissed } from "../helpers/dictionaryUsage.js";
 import type { HintCoverage, HintSource } from "./dictionaryHints";
 import type { DictionaryEntry, DictionaryWordUsage } from "../types/electron";
 
 export type DictionaryFilter =
-  "all" | "typed" | "learned" | "pinned" | "notSent" | "neverHeard" | "addedThisWeek";
+  | "all"
+  | "typed"
+  | "learned"
+  | "pinned"
+  | "notSent"
+  | "speechMisses"
+  | "neverHeard"
+  | "addedThisWeek";
 
 export const DICTIONARY_FILTERS: readonly DictionaryFilter[] = [
   "all",
@@ -18,6 +26,7 @@ export const DICTIONARY_FILTERS: readonly DictionaryFilter[] = [
   "learned",
   "pinned",
   "notSent",
+  "speechMisses",
   "neverHeard",
   "addedThisWeek",
 ];
@@ -32,16 +41,22 @@ export const DICTIONARY_SORTS: readonly DictionarySort[] = [
   "leastHeard",
 ];
 
-/** Sorts and filters that need the heard/written counts. */
+/** Sorts and filters that need the usage counts. */
 export const USAGE_SORTS: ReadonlySet<DictionarySort> = new Set(["mostHeard", "leastHeard"]);
-export const USAGE_FILTERS: ReadonlySet<DictionaryFilter> = new Set(["neverHeard"]);
+export const USAGE_FILTERS: ReadonlySet<DictionaryFilter> = new Set(["speechMisses", "neverHeard"]);
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
+/**
+ * A word's counts over 90 days (dictionaryUsage.js). The page says "used"
+ * for `written`, "speech got it" for `bothRows`, "fixed after speech" for
+ * `missedRows` and "changed after speech" for `heard − bothRows`.
+ */
 export interface DictionaryUsageCounts {
   heard: number;
   written: number;
   missedRows: number;
+  bothRows: number;
 }
 
 export interface DictionaryListItem {
@@ -145,6 +160,9 @@ export function buildDictionaryListItems({
             heard: counts?.heard ?? 0,
             written: counts?.written ?? 0,
             missedRows: counts?.missedRows ?? 0,
+            // Older answers lack it: what's written and wasn't missed.
+            bothRows:
+              counts?.bothRows ?? Math.max(0, (counts?.written ?? 0) - (counts?.missedRows ?? 0)),
           }
         : null,
       order,
@@ -168,8 +186,11 @@ export function matchesDictionaryFilter(
       return item.pinned;
     case "notSent":
       return item.coverage === "notSent";
+    case "speechMisses":
+      // Fixed after speech often: what cleanup's "words speech misses" set reads.
+      return !!item.usage && isSpeechMissed(item.usage);
     case "neverHeard":
-      // Not in a dictation for 90 days: neither heard nor written.
+      // Not in a dictation for 90 days: neither in the raw transcript nor the final text.
       return !!item.usage && item.usage.heard === 0 && item.usage.written === 0;
     case "addedThisWeek":
       return Number.isFinite(item.createdMs) && now - item.createdMs <= WEEK_MS;
@@ -210,8 +231,9 @@ function makeCollator(locale?: string): Intl.Collator {
 /**
  * The list in one order. Send order: what the model reads first (likely
  * read, then sent but likely not read, then not sent), each by its place in
- * the hint list's priority order. Heard sorts fall back to send order
- * without counts.
+ * the hint list's priority order. "Most used" / "least used": by the
+ * dictations whose final text has the word, then by those where speech got
+ * it; both fall back to send order without counts.
  */
 export function sortDictionaryItems(
   items: readonly DictionaryListItem[],
@@ -240,16 +262,16 @@ export function sortDictionaryItems(
       if (!hasUsage) return list.sort(bySend);
       return list.sort(
         (a, b) =>
-          (b.usage?.heard ?? 0) - (a.usage?.heard ?? 0) ||
           (b.usage?.written ?? 0) - (a.usage?.written ?? 0) ||
+          (b.usage?.bothRows ?? 0) - (a.usage?.bothRows ?? 0) ||
           byAlpha(a, b)
       );
     case "leastHeard":
       if (!hasUsage) return list.sort(bySend);
       return list.sort(
         (a, b) =>
-          (a.usage?.heard ?? 0) - (b.usage?.heard ?? 0) ||
           (a.usage?.written ?? 0) - (b.usage?.written ?? 0) ||
+          (a.usage?.bothRows ?? 0) - (b.usage?.bothRows ?? 0) ||
           byAlpha(a, b)
       );
     default:

@@ -20,6 +20,7 @@ import { useUiLocale } from "../../hooks/useUiLocale";
 import type { HistoryListRow, HistoryStepChange, HistoryStepMark } from "../../types/electron";
 import {
   setHistoryApp,
+  setHistoryDictionaryWord,
   setHistoryFilter,
   setHistoryQuery,
   useHistoryViewStore,
@@ -150,6 +151,16 @@ function Row({
         )}
         <span className="ms-auto flex shrink-0 items-center gap-0.5">
           <Rating rating={row.rating ?? null} />
+          {!failed && (row.dictionaryFixes ?? 0) > 0 && (
+            <span
+              data-dictionary-fixes={row.dictionaryFixes}
+              title={t("historyView.list.dictionaryFixesHint", { count: row.dictionaryFixes })}
+              className="me-0.5 inline-flex h-4 items-center gap-0.5 rounded border border-warning/50 bg-warning/10 px-1 text-[10px] leading-none font-medium text-warning"
+            >
+              <span aria-hidden="true">📖</span>
+              {t("historyView.list.dictionaryFixes", { count: row.dictionaryFixes })}
+            </span>
+          )}
           {!failed && row.stepFailure && (
             <span className="me-0.5 inline-flex h-4 items-center rounded border border-destructive/45 bg-destructive/10 px-1 text-[10px] leading-none font-medium text-destructive">
               {stepFailureBadgeLabel(row.stepFailure, t)}
@@ -296,12 +307,14 @@ function FilterChips() {
   const { t } = useTranslation();
   const filter = useHistoryViewStore((state) => state.filter);
   const app = useHistoryViewStore((state) => state.app);
+  const dictionaryWord = useHistoryViewStore((state) => state.dictionaryWord);
   const chip = (value: HistoryKindFilter, label: string, icon?: ReactNode) => {
-    const active = filter === value && (value !== "all" || !app);
+    const active = filter === value && (value !== "all" || (!app && !dictionaryWord));
     return (
       <button
         type="button"
         aria-pressed={active}
+        data-history-filter={value}
         onClick={() => setHistoryFilter(value)}
         className={chipClass(active)}
       >
@@ -320,7 +333,33 @@ function FilterChips() {
       {chip("flagged", t("historyView.filters.flagged"), <ThumbsDown size={11} />)}
       {chip("failed", t("historyView.filters.failed"))}
       {chip("cleanupChanged", t("historyView.filters.cleanupChanged"))}
+      {chip(
+        "dictionaryFixed",
+        t("historyView.filters.dictionaryFixed"),
+        <span aria-hidden="true">📖</span>
+      )}
       <AppFilter />
+      {dictionaryWord && (
+        <span className={cn(chipClass(true), "pe-1")} data-history-word-filter>
+          <span aria-hidden="true">📖</span>
+          {/* One flex item, so the chip's gap doesn't open the quotes. */}
+          <span className="max-w-48 truncate">
+            <BidiInterpolatedText
+              text={t("historyView.filters.dictionaryWord", { word: BIDI_VALUE_TOKEN })}
+              value={dictionaryWord}
+              dir="auto"
+            />
+          </span>
+          <button
+            type="button"
+            onClick={() => setHistoryDictionaryWord(null)}
+            aria-label={t("historyView.filters.clearDictionaryWord", { word: dictionaryWord })}
+            className="grid size-4 place-items-center rounded-full text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+          >
+            <X size={10} />
+          </button>
+        </span>
+      )}
     </div>
   );
 }

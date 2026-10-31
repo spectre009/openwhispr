@@ -129,7 +129,12 @@ test("pages are stable across equal timestamps and both stored formats", (t) => 
     limit: 3,
     cursor: { timestamp: "2026-08-03 08:00:00", id: ids[7] },
   });
-  assert.deepEqual(last, { success: true, rows: [], nextCursor: null });
+  assert.deepEqual(last, {
+    success: true,
+    rows: [],
+    nextCursor: null,
+    generation: ctx.db.getDictionaryGeneration(),
+  });
 });
 
 test("a new dictation above the cursor doesn't shift the next page", (t) => {
@@ -190,6 +195,7 @@ test("a list row is light: a preview cut in SQL, the raw text when there's no fi
     audioDurationMs: null,
     routeKind: "style:email",
     rating: null,
+    dictionaryFixes: 0,
     app: null,
     marks: null,
     stepFailure: null,

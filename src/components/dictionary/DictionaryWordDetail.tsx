@@ -4,22 +4,41 @@ import { ExternalLink, Pencil, Trash2, Wand2, X } from "../icons";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { cn } from "../lib/utils";
-import { formatRelativeTime, formatShortDate, normalizeDbDate } from "../../utils/dateFormatting";
+import { formatRelativeTime, formatShortDate } from "../../utils/dateFormatting";
 import { requestOpenHistoryItem } from "../../utils/openHistoryItem";
 import { similarWordsFor, type SimilarReason } from "../../utils/dictionarySimilar";
 import { isSpeechMissed } from "../../helpers/dictionaryUsage.js";
 import type { DictionaryListItem } from "../../utils/dictionaryList";
-import type { DictionaryUsageWeek, DictionarySuggestionEvidence } from "../../types/electron";
+import type {
+  DictionarySpeechVariant,
+  DictionaryUsageWeek,
+  DictionarySuggestionEvidence,
+} from "../../types/electron";
 import type { DictionaryCoverage } from "./useDictionaryCoverage";
 import { COVERAGE_DOT_CLASS } from "./coverageStyles";
-import { usageUnavailableKey, type CleanupInclusion } from "./dictionaryLabels";
+import {
+  APPEARANCE_KIND_TEXT,
+  usageParts,
+  usageUnavailableKey,
+  type CleanupInclusion,
+} from "./dictionaryLabels";
+import DictionaryUsageHistogram from "./DictionaryUsageHistogram";
+import type { UsageWeekRange } from "./usageWeeks";
+import DictionaryUsageExplainer from "./DictionaryUsageExplainer";
+import DictionaryWordOccurrences from "./DictionaryWordOccurrences";
+import DictionarySpeechVariants from "./DictionarySpeechVariants";
 
 // One dictionary word in full (the Dictionary page's side panel, or an
-// overlay on a narrow window): when it was added and by whom, heard and
-// written per week over 90 days of local History, where it's sent (the speech
-// model, cleanup, chat), what it replaced when auto-learn picked it up (this
-// account's evidence, each with Open in History), similar words in the
-// dictionary, and its actions. Counts come from main; nothing is logged.
+// overlay on a narrow window): when it was added and by whom, how often it
+// was used over 90 days of local History and per week (speech got it, fixed
+// after speech, changed after speech; a week's bar lists its dictations),
+// what speech writes instead (with a glossary rule offered where it's safe),
+// where it appeared (each dictation, opening in History), where it's sent
+// (the speech model, cleanup, chat), what it replaced when auto-learn picked
+// it up (this account's evidence), similar words, and its actions. Counts and
+// History's own text come from main; nothing is logged. Everything read from
+// History is read again when History, the dictionary or a snippet changes,
+// and dropped when the owner or History's policy does.
 
 export interface DictionaryWordDetailProps {
   item: DictionaryListItem;
@@ -28,7 +47,7 @@ export interface DictionaryWordDetailProps {
   /** Every listed word, for similar words. */
   words: readonly string[];
   itemsByWord: ReadonlyMap<string, DictionaryListItem>;
-  /** Why heard/written isn't available ("history-off", …), or null when it is. */
+  /** Why usage isn't available ("history-off", …), or null when it is. */
   usageUnavailableReason: string | null;
   overlay: boolean;
   onClose: () => void;
@@ -37,8 +56,11 @@ export interface DictionaryWordDetailProps {
   onRemove: (word: string) => void;
   onSetPinned: (word: string, pinned: boolean) => void;
   onMarkTyped: (word: string) => void;
-  onMakeGlossaryRule: (word: string) => void;
+  /** The rule editor for this word; from a speech variant, with that spelling and its evidence. */
+  onMakeGlossaryRule: (word: string, variant?: DictionarySpeechVariant) => void;
 }
+
+const HISTORY_REFRESH_MS = 1_000;
 
 const SIMILAR_REASON_KEYS: Record<SimilarReason, string> = {
   variant: "dictionary.detail.similar.variant",
@@ -46,12 +68,23 @@ const SIMILAR_REASON_KEYS: Record<SimilarReason, string> = {
   near: "dictionary.detail.similar.near",
 };
 
-function Card({ title, children }: { title: string; children: ReactNode }) {
+function Card({
+  title,
+  aside,
+  children,
+}: {
+  title: string;
+  aside?: ReactNode;
+  children: ReactNode;
+}) {
   return (
     <section className="rounded-xl border border-border/60 bg-card/40 px-3 py-2.5 dark:border-white/10">
-      <h3 className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-        {title}
-      </h3>
+      <div className="mb-1.5 flex items-center gap-1.5">
+        <h3 className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+          {title}
+        </h3>
+        {aside}
+      </div>
       {children}
     </section>
   );
@@ -76,51 +109,40 @@ type EvidenceState =
   | { status: "unavailable"; reason: string | null }
   | { status: "ready"; evidence: DictionarySuggestionEvidence[] };
 
-function UsageBars({ weeks }: { weeks: DictionaryUsageWeek[] }) {
-  const { t, i18n } = useTranslation();
-  const max = Math.max(1, ...weeks.map((week) => Math.max(week.heard, week.written)));
-  const month = (iso: string) =>
-    normalizeDbDate(iso).toLocaleDateString(i18n.language, { month: "short" });
-  const heard = weeks.reduce((sum, week) => sum + week.heard, 0);
-  const written = weeks.reduce((sum, week) => sum + week.written, 0);
-  return (
-    <div>
-      <div
-        role="img"
-        aria-label={t("dictionary.detail.usage.chartLabel", { heard, written })}
-        className="flex h-12 items-end gap-[3px]"
-        data-dictionary-usage-chart
-      >
-        {weeks.map((week) => (
-          <div key={week.start} className="flex h-full flex-1 items-end gap-px">
-            <span
-              className="block flex-1 rounded-t-sm bg-primary/60"
-              style={{ height: `${(week.heard / max) * 100}%` }}
-            />
-            <span
-              className="block flex-1 rounded-t-sm bg-foreground/25"
-              style={{ height: `${(week.written / max) * 100}%` }}
-            />
-          </div>
-        ))}
-      </div>
-      <div className="mt-1 flex justify-between text-[10.5px] text-muted-foreground" aria-hidden>
-        <span>{weeks.length > 0 ? month(weeks[0].start) : ""}</span>
-        <span>{weeks.length > 6 ? month(weeks[Math.floor(weeks.length / 2)].start) : ""}</span>
-        <span>{weeks.length > 0 ? month(weeks[weeks.length - 1].start) : ""}</span>
-      </div>
-      <div className="mt-1 flex gap-3 text-[10.5px] text-muted-foreground" aria-hidden>
-        <span className="flex items-center gap-1">
-          <span className="inline-block h-2 w-2 rounded-sm bg-primary/60" />
-          {t("dictionary.detail.usage.heardLegend")}
-        </span>
-        <span className="flex items-center gap-1">
-          <span className="inline-block h-2 w-2 rounded-sm bg-foreground/25" />
-          {t("dictionary.detail.usage.writtenLegend")}
-        </span>
-      </div>
-    </div>
-  );
+/**
+ * Keys that make the panel read History again: `refresh` when History, the
+ * dictionary or a snippet changed (debounced), `reset` when the owner or
+ * History's policy did (everything shown is dropped at once).
+ */
+function useHistoryRefresh(): { refresh: number; reset: number } {
+  const [refresh, setRefresh] = useState(0);
+  const [reset, setReset] = useState(0);
+  useEffect(() => {
+    const api = window.electronAPI;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const soon = () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        timer = null;
+        setRefresh((n) => n + 1);
+      }, HISTORY_REFRESH_MS);
+    };
+    const now = () => setRefresh((n) => n + 1);
+    const disposers = [
+      api?.onTranscriptionAdded?.(soon),
+      api?.onTranscriptionUpdated?.(soon),
+      api?.onTranscriptionDeleted?.(now),
+      api?.onTranscriptionsCleared?.(now),
+      api?.onDictionaryUpdated?.(now),
+      api?.onSnippetsUpdated?.(now),
+      api?.onDictionaryHistoryChanged?.(() => setReset((n) => n + 1)),
+    ];
+    return () => {
+      if (timer) clearTimeout(timer);
+      disposers.forEach((dispose) => dispose?.());
+    };
+  }, []);
+  return { refresh, reset };
 }
 
 export default function DictionaryWordDetail({
@@ -146,12 +168,21 @@ export default function DictionaryWordDetail({
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(word);
   const [saving, setSaving] = useState(false);
+  // A histogram week whose dictations "Where it appeared" lists.
+  const [week, setWeek] = useState<UsageWeekRange | null>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
+  const { refresh, reset } = useHistoryRefresh();
 
   useEffect(() => {
     setEditing(false);
     setDraft(word);
+    setWeek(null);
   }, [word]);
+
+  // Another owner or policy: the week's bounds came from the old counts.
+  useEffect(() => {
+    setWeek(null);
+  }, [reset]);
 
   // Over the list on a narrow window: focus moves in.
   useEffect(() => {
@@ -191,7 +222,7 @@ export default function DictionaryWordDetail({
     return () => {
       cancelled = true;
     };
-  }, [word, item.usage?.heard, item.usage?.written]);
+  }, [word, item.usage?.heard, item.usage?.written, refresh, reset]);
 
   const similar = useMemo(() => similarWordsFor(word, words), [word, words]);
 
@@ -224,6 +255,7 @@ export default function DictionaryWordDetail({
 
   const counts = item.usage;
   const missed = counts ? isSpeechMissed(counts) : false;
+  const parts = counts ? usageParts(counts) : null;
 
   return (
     <div
@@ -306,7 +338,7 @@ export default function DictionaryWordDetail({
       </div>
 
       <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-3">
-        <Card title={t("dictionary.detail.usage.title")}>
+        <Card title={t("dictionary.detail.usage.title")} aside={<DictionaryUsageExplainer />}>
           {usage.status === "unavailable" || usageUnavailableReason ? (
             <p className="text-xs leading-relaxed text-muted-foreground" data-usage-unavailable>
               {t(
@@ -317,15 +349,38 @@ export default function DictionaryWordDetail({
             </p>
           ) : (
             <>
-              {counts && (
-                <Row label={t("dictionary.detail.usage.last90")}>
-                  {t("dictionary.detail.usage.totals", {
-                    heard: counts.heard,
-                    written: counts.written,
-                  })}
-                </Row>
+              {parts && (
+                <p className="text-[13px] text-foreground/90" data-usage-totals>
+                  <b className="font-semibold">
+                    {t("dictionary.detail.usage.dictations", { count: parts.used })}
+                  </b>
+                  {" · "}
+                  <span className={APPEARANCE_KIND_TEXT.ok}>
+                    {t("dictionary.detail.usage.okCount", { count: parts.ok })}
+                  </span>
+                  {" · "}
+                  <span className={APPEARANCE_KIND_TEXT.fix}>
+                    {t("dictionary.detail.usage.fixCount", { count: parts.fix })}
+                  </span>
+                  {parts.chg > 0 && (
+                    <>
+                      {" · "}
+                      <span className={APPEARANCE_KIND_TEXT.chg}>
+                        {t("dictionary.detail.usage.chgCount", { count: parts.chg })}
+                      </span>
+                    </>
+                  )}
+                </p>
               )}
-              {usage.status === "ready" && <UsageBars weeks={usage.weeks} />}
+              {usage.status === "ready" && (
+                <div className="mt-2">
+                  <DictionaryUsageHistogram
+                    weeks={usage.weeks}
+                    selected={week?.start ?? null}
+                    onSelect={setWeek}
+                  />
+                </div>
+              )}
               {counts && counts.heard === 0 && counts.written === 0 && (
                 <p className="mt-1.5 text-[11px] leading-snug text-muted-foreground">
                   {t("dictionary.detail.usage.never")}
@@ -341,6 +396,25 @@ export default function DictionaryWordDetail({
               </p>
             </>
           )}
+        </Card>
+
+        <Card title={t("dictionary.variants.title")}>
+          <DictionarySpeechVariants
+            key={`${word}\u0000${reset}`}
+            word={word}
+            refreshKey={refresh}
+            onMakeRule={(variant) => onMakeGlossaryRule(word, variant)}
+          />
+        </Card>
+
+        <Card title={t("dictionary.occurrences.title")}>
+          <DictionaryWordOccurrences
+            key={`${word}\u0000${reset}`}
+            word={word}
+            week={week}
+            onClearWeek={() => setWeek(null)}
+            refreshKey={refresh}
+          />
         </Card>
 
         <Card title={t("dictionary.detail.where.title")}>
@@ -434,9 +508,9 @@ export default function DictionaryWordDetail({
                             )
                           : null,
                         other?.usage
-                          ? t("dictionary.list.heardWritten", {
-                              heard: other.usage.heard,
-                              written: other.usage.written,
+                          ? t("dictionary.list.usageShort", {
+                              used: usageParts(other.usage).used,
+                              ok: usageParts(other.usage).ok,
                             })
                           : null,
                       ]

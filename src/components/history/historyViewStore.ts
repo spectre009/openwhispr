@@ -6,7 +6,7 @@ import type { HistoryReviewRequest, HistoryReviewStage } from "../../types/elect
 // dictation before the view mounts. Review drafts live here too: nothing is
 // written to main before Save, and a draft survives switching rows and views.
 
-export type HistoryKindFilter = "all" | "failed" | "cleanupChanged" | "flagged";
+export type HistoryKindFilter = "all" | "failed" | "cleanupChanged" | "flagged" | "dictionaryFixed";
 
 /** A 👎 review being written: the form's fields, until it's saved or cancelled. */
 export interface ReviewDraft {
@@ -30,6 +30,8 @@ interface HistoryViewState {
   filter: HistoryKindFilter;
   /** The App filter (an exe name), combined with `filter`. */
   app: string | null;
+  /** "Show in History" from a dictionary word: rows whose raw or final text has it. */
+  dictionaryWord: string | null;
   selectedId: number | null;
   /** Narrow layouts: the detail is open over the list. */
   detailOpen: boolean;
@@ -53,6 +55,7 @@ export const useHistoryViewStore = create<HistoryViewState>()(() => ({
   query: "",
   filter: "all",
   app: null,
+  dictionaryWord: null,
   selectedId: null,
   detailOpen: false,
   openRequest: 0,
@@ -72,17 +75,41 @@ export function setHistoryQuery(query: string) {
   useHistoryViewStore.setState({ query });
 }
 
-/** "All" clears the App filter too. */
+/** "All" clears the App filter and a dictionary word too. */
 export function setHistoryFilter(filter: HistoryKindFilter) {
-  useHistoryViewStore.setState(filter === "all" ? { filter, app: null } : { filter });
+  useHistoryViewStore.setState(
+    filter === "all" ? { filter, app: null, dictionaryWord: null } : { filter }
+  );
 }
 
 export function setHistoryApp(app: string | null) {
   useHistoryViewStore.setState({ app });
 }
 
+export function setHistoryDictionaryWord(dictionaryWord: string | null) {
+  useHistoryViewStore.setState({ dictionaryWord });
+}
+
+/**
+ * "Show in History" from a dictionary word: only the dictations with that
+ * word, the other search and filters cleared, the newest one shown.
+ */
+export function showHistoryForDictionaryWord(word: string) {
+  useHistoryViewStore.setState((state) => ({
+    query: "",
+    filter: "all",
+    app: null,
+    dictionaryWord: word,
+    selectedId: null,
+    detailOpen: false,
+    openRequest: state.openRequest + 1,
+    holdSelection: false,
+    notice: null,
+  }));
+}
+
 export function clearHistorySearch() {
-  useHistoryViewStore.setState({ query: "", filter: "all", app: null });
+  useHistoryViewStore.setState({ query: "", filter: "all", app: null, dictionaryWord: null });
 }
 
 export function selectHistoryItem(id: number | null, { open = false } = {}) {

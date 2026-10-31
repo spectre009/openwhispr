@@ -53,6 +53,8 @@ import type {
 } from "../../types/electron";
 import HistoryAudioPlayer from "./HistoryAudioPlayer";
 import HistoryDiffText from "./HistoryDiffText";
+import HistoryDictionaryCard, { DictionaryFinalText } from "./HistoryDictionary";
+import { insertedDictionaryWords, visibleDictionaryWords } from "./historyDictionaryWords";
 import {
   HotkeyReviewBanner,
   ReviewButtons,
@@ -162,6 +164,7 @@ function StepCard({
   onRerunCleanup,
   rerunBusy,
   rerunning,
+  markWords,
 }: {
   index: number;
   step: TranscriptionStepRecord;
@@ -176,6 +179,8 @@ function StepCard({
   /** A re-run of this dictation is going; `rerunning`: it's Re-run cleanup. */
   rerunBusy: boolean;
   rerunning: boolean;
+  /** Dictionary words fixed after speech: marked where this step put them in. */
+  markWords?: readonly string[];
 }) {
   const { t } = useTranslation();
   const reused = stepReusedLabel(step, t);
@@ -200,7 +205,11 @@ function StepCard({
     isText = true;
     body =
       view === "changes" && input !== null && change === "changed" ? (
-        <HistoryDiffText before={input} after={step.output} />
+        <HistoryDiffText
+          before={input}
+          after={step.output}
+          markWords={step.kind === "cleanup" || step.kind === "style" ? markWords : undefined}
+        />
       ) : (
         <PlainText text={step.output} />
       );
@@ -328,6 +337,7 @@ function StepsSection({
   onRerunCleanup,
   rerunBusy,
   rerunning,
+  markWords,
 }: {
   result: LoadedItem;
   app: string | null;
@@ -336,6 +346,7 @@ function StepsSection({
   onRerunCleanup?: () => void;
   rerunBusy: boolean;
   rerunning: boolean;
+  markWords: readonly string[];
 }) {
   const { t } = useTranslation();
   const view = useHistoryViewStore((state) => state.textView);
@@ -463,6 +474,7 @@ function StepsSection({
                 onRerunCleanup={onRerunCleanup}
                 rerunBusy={rerunBusy}
                 rerunning={rerunning}
+                markWords={markWords}
               />
             );
           })}
@@ -628,6 +640,20 @@ export default function HistoryDetail({
 
   const reload = useCallback(() => setReloads((n) => n + 1), []);
 
+  // "Dictionary in this dictation" reads the current dictionary and, for who
+  // fixed a word, the current owner's steps: read the row again when either
+  // changes.
+  useEffect(() => {
+    const api = window.electronAPI;
+    const again = () => setReloads((n) => n + 1);
+    const disposers = [
+      api?.onDictionaryUpdated?.(again),
+      api?.onSnippetsUpdated?.(again),
+      api?.onDictionaryHistoryChanged?.(again),
+    ];
+    return () => disposers.forEach((dispose) => dispose?.());
+  }, []);
+
   const retry = useCallback(
     async (routeKind: string | null, kind: RerunKind = "transcribe") => {
       if (retrying) return;
@@ -721,6 +747,11 @@ function LoadedDetail({
   const review = useHistoryReview({ result, reload, confirm });
   const fixes = useHistoryFixes({ result, review, onCopy, onOpenSettings });
   const { item } = result;
+  const dictionaryWords = useMemo(
+    () => visibleDictionaryWords(result.dictionary),
+    [result.dictionary]
+  );
+  const markWords = useMemo(() => insertedDictionaryWords(dictionaryWords), [dictionaryWords]);
   const captured = result.status === "captured" && result.steps.length > 0;
   const app = captured ? (result.context?.targetApp ?? null) : null;
   const completed = item.status === "completed";
@@ -790,8 +821,9 @@ function LoadedDetail({
                   <p
                     dir="auto"
                     className="whitespace-pre-wrap wrap-break-word text-base font-medium leading-relaxed text-foreground"
+                    data-history-final-text
                   >
-                    {item.text}
+                    <DictionaryFinalText text={item.text} words={dictionaryWords} />
                   </p>
                 </ClampedText>
               ) : (
@@ -936,6 +968,14 @@ function LoadedDetail({
 
           {review.hotkey && reviewSection}
 
+          {completed && (
+            <HistoryDictionaryCard
+              itemId={item.id}
+              words={dictionaryWords}
+              aligned={result.dictionaryAligned !== false}
+            />
+          )}
+
           {captured ? (
             <StepsSection
               result={result}
@@ -945,6 +985,7 @@ function LoadedDetail({
               onRerunCleanup={rerunCleanup}
               rerunBusy={retrying !== null}
               rerunning={retrying === "cleanup"}
+              markWords={markWords}
             />
           ) : (
             completed && (

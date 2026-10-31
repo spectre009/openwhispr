@@ -160,6 +160,7 @@ const { applySmartSpacing } = require("./smartSpacing");
 const { applyAutoLearnSetting, DEFAULT_AUTO_LEARN_MODE } = require("./autoLearnSetting");
 // ESM, through require(esm): the Dictionary's heard/written counts.
 const { createDictionaryUsageService, usageAvailability } = require("./dictionaryUsage.js");
+const { createDictionaryOccurrencesService } = require("./dictionaryOccurrences.js");
 const { dictionaryWordKey } = require("../utils/dictionaryWordKey.js");
 const { DICTIONARY_ECHO_CODE } = require("../utils/dictionaryEchoFilter.js");
 const {
@@ -817,6 +818,31 @@ class IPCHandlers {
         debugLogger.debug("Dictionary usage counted", { rows, words, ms }, "dictionary"),
       onTidyComputed: ({ rows, tokens, pairs, ms }) =>
         debugLogger.debug("Tidy up inputs counted", { rows, tokens, pairs, ms }, "dictionary"),
+    });
+    // Where a dictionary word appeared and what speech wrote instead: the same
+    // owner and durability rule as the counts. Snippets of History rows cross
+    // IPC (History shows them already); logs carry counts only, never a word,
+    // a snippet or what speech wrote.
+    this.dictionaryOccurrences = createDictionaryOccurrencesService({
+      db: this.databaseManager,
+      getOwner: () => this.stepHistory.currentOwner(),
+      getPolicy: historyPolicy,
+      getSnippetExpansions: () => {
+        try {
+          return this.databaseManager.getSnippets().map((snippet) => snippet.replacement);
+        } catch {
+          return [];
+        }
+      },
+      getGeneration: () => this.databaseManager.getDictionaryGeneration(),
+      onComputed: ({ kind, rows, candidates, aligned, unaligned, spellings, ms }) =>
+        debugLogger.debug(
+          kind === "variants"
+            ? "Dictionary speech variants read"
+            : "Dictionary occurrences indexed",
+          { rows, candidates, aligned, unaligned, spellings, ms },
+          "dictionary"
+        ),
     });
     // Reviews of dictations (History view): the same owner as step history,
     // saved only while local history is durable for it.
@@ -1516,7 +1542,11 @@ class IPCHandlers {
       this._autoLearnPasteContext = null;
     }
     this.dictionaryUsage?.invalidate?.();
+    this.dictionaryOccurrences?.invalidate?.();
     broadcastToWindows("dictionary-suggestions-updated", { reason: "owner" });
+    // Where words appeared (and what speech wrote) is per owner: windows drop
+    // what they show and read again.
+    broadcastToWindows("dictionary-history-changed", { reason: "owner" });
   }
 
   async _logDetectedGpus() {
@@ -2248,6 +2278,14 @@ class IPCHandlers {
         code: "FAILED",
       })
     );
+    // Loaded rows' "📖 n fixed" badges, after the dictionary or a snippet changed.
+    ipcMain.handle("history-dictionary-fixes", (_event, ids) =>
+      historyRead(
+        "Failed to read history dictionary badges",
+        () => this.historyBrowser.dictionaryFixes(ids),
+        { success: false, fixes: {} }
+      )
+    );
 
     // Reviews of dictations: main decides the owner, the revision and whether
     // they may be kept; the renderer names the row. Never the text in a log.
@@ -2624,6 +2662,8 @@ class IPCHandlers {
           this.promptTestCases?.policyChanged();
           // Heard/written counts follow the same switch.
           this.dictionaryUsage?.invalidate();
+          this.dictionaryOccurrences?.invalidate();
+          broadcastToWindows("dictionary-history-changed", { reason: "policy" });
           // First point at which the local-history switch is known to be real.
           // After the sweep, so expired transcripts are gone before they can be
           // reconstructed into counters the sweep would only have to purge.
@@ -2915,6 +2955,58 @@ class IPCHandlers {
         return await this.dictionaryUsage.getCleanupScopeCounts();
       } catch (error) {
         debugLogger.warn("Cleanup word set counts not read", { error: error.message });
+        return { available: false, reason: "unavailable" };
+      }
+    });
+
+    // "Where it appeared": one word's dictations, a page at a time, with
+    // snippets of the rows' own text (as History shows it). While local
+    // history is durable for this owner. Logged as counts and codes only.
+    ipcMain.handle("dictionary-word-occurrences", async (_event, word, options) => {
+      const checked = dictionaryWordArg(word);
+      if (!checked) return { available: false, reason: "invalid" };
+      try {
+        const result = await this.dictionaryOccurrences.getOccurrences(checked, options);
+        debugLogger.debug(
+          "Dictionary occurrences read",
+          {
+            available: result.available,
+            reason: result.reason ?? null,
+            items: result.items?.length ?? 0,
+            more: Boolean(result.nextCursor),
+          },
+          "dictionary"
+        );
+        return result;
+      } catch (error) {
+        debugLogger.warn("Dictionary occurrences not read", { error: error.message }, "dictionary");
+        return { available: false, reason: "unavailable" };
+      }
+    });
+
+    // "Speech writes it as": the spellings speech wrote where the final text
+    // has the word, and how often each also stayed as written. Counts only in logs.
+    ipcMain.handle("dictionary-speech-variants", async (_event, word, options) => {
+      const checked = dictionaryWordArg(word);
+      if (!checked) return { available: false, reason: "invalid" };
+      try {
+        const result = await this.dictionaryOccurrences.getSpeechVariants(checked, options);
+        debugLogger.debug(
+          "Dictionary speech variants answered",
+          {
+            available: result.available,
+            reason: result.reason ?? null,
+            variants: result.variants?.length ?? 0,
+          },
+          "dictionary"
+        );
+        return result;
+      } catch (error) {
+        debugLogger.warn(
+          "Dictionary speech variants not read",
+          { error: error.message },
+          "dictionary"
+        );
         return { available: false, reason: "unavailable" };
       }
     });

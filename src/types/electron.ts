@@ -106,10 +106,12 @@ export interface DictionaryWordUsage {
   word: string;
   /** Rows whose raw transcript has it. */
   heard: number;
-  /** Rows whose final text has it. */
+  /** Rows whose final text has it ("used"). */
   written: number;
-  /** Rows where the final text has it and the raw transcript doesn't. */
+  /** Rows where the final text has it and the raw transcript doesn't ("fixed after speech"). */
   missedRows: number;
+  /** Rows whose raw transcript and final text both have it ("speech got it"). */
+  bothRows?: number;
 }
 
 export type DictionaryUsageResult =
@@ -128,14 +130,106 @@ export type DictionaryUsageResult =
 export interface DictionaryUsageWeek {
   /** The week's first moment (ISO). */
   start: string;
+  /** Its end (ISO), exclusive: the week is `[start, end)`. The click filter uses these bounds. */
+  end?: string;
   heard: number;
+  /** "Used": rows whose final text has it. */
   written: number;
+  /** "Fixed after speech". */
   missedRows: number;
+  /** "Speech got it": raw and final both have it. */
+  both?: number;
+  /** "Changed after speech": raw has it, final doesn't. */
+  changed?: number;
 }
 
 export type DictionaryWordUsageResult =
   | { available: true; days: number; weeks: DictionaryUsageWeek[] }
   | { available: false; reason?: string };
+
+/** What happened to a dictionary word at one place in a dictation (dictionaryOccurrences.js). */
+export type DictionaryAppearanceKind = "ok" | "fix" | "chg";
+/** Who fixed it, only when this owner's recorded steps show it. */
+export type DictionaryFixedBy = "glossary" | "cleanup" | "style";
+
+/** A dictation's text around one appearance: final text, or the raw transcript for "chg". */
+export interface DictionaryOccurrenceSnippet {
+  kind: DictionaryAppearanceKind;
+  before: string;
+  match: string;
+  after: string;
+}
+
+/** One dictation a word appeared in ("Where it appeared"). */
+export interface DictionaryOccurrence {
+  id: number;
+  /** History's timestamp. */
+  at: string | null;
+  /** From this owner's steps; null without them. */
+  app: string | null;
+  /** The kinds of its appearances; several when the dictation is mixed. */
+  kinds: DictionaryAppearanceKind[];
+  /** For a fix: what speech wrote there, as written; null when ambiguous. */
+  speechWrote: string | null;
+  by: DictionaryFixedBy | null;
+  snippet: DictionaryOccurrenceSnippet;
+}
+
+export interface DictionaryOccurrencesRequest {
+  /** One kind, or all of them. */
+  kind?: DictionaryAppearanceKind | null;
+  /** A histogram week's bounds, `[start, end)`. */
+  range?: { start: string; end: string } | null;
+  cursor?: HistoryCursor | null;
+  /** 1–50, 20 by default. */
+  limit?: number;
+}
+
+export type DictionaryOccurrencesResult =
+  | {
+      available: true;
+      generation: number | null;
+      items: DictionaryOccurrence[];
+      nextCursor: HistoryCursor | null;
+      /** Dictations with an appearance of each kind (a mixed one in each); `all`: with any. */
+      totals: { all: number; ok: number; fix: number; chg: number };
+      /** Dictations with the word too long to align: counted by the row summaries only. */
+      unaligned?: number;
+    }
+  | { available: false; reason?: string };
+
+/** A spelling speech wrote where the final text has the word ("Speech writes it as"). */
+export interface DictionarySpeechVariant {
+  spelling: string;
+  /** Dictations it was fixed from. */
+  count: number;
+  /** Dictations whose final text still has this spelling: a rule could harm them. */
+  keptInFinal: number;
+}
+
+export type DictionarySpeechVariantsResult =
+  | {
+      available: true;
+      generation: number | null;
+      variants: DictionarySpeechVariant[];
+      /** The spelling asked for (`options.spelling`), whether or not it's among the top. */
+      requested?: DictionarySpeechVariant | null;
+    }
+  | { available: false; reason?: string };
+
+/** A dictionary word in one History row: `start`/`end` into the final text, or the raw transcript for "chg". */
+export interface HistoryDictionaryAppearance {
+  kind: DictionaryAppearanceKind;
+  start: number;
+  end: number;
+  speechWrote: string | null;
+  by: DictionaryFixedBy | null;
+}
+
+export interface HistoryDictionaryWord {
+  word: string;
+  appearances: HistoryDictionaryAppearance[];
+}
 
 export type DictionaryWordEvidenceResult = {
   available: boolean;
@@ -746,6 +840,10 @@ export interface HistoryListFilters {
   app?: string | null;
   /** The current owner marked it bad. */
   flagged?: boolean;
+  /** A dictionary word in the final text and not in the raw transcript (the row summaries). */
+  dictionaryFixed?: boolean;
+  /** Rows whose raw transcript or final text has this word ("Show in History"). */
+  dictionaryWord?: string | null;
 }
 
 export interface HistoryListRequest {
@@ -754,6 +852,8 @@ export interface HistoryListRequest {
   limit?: number;
   query?: string;
   filters?: HistoryListFilters;
+  /** The dictionary generation the first page came with (later pages of a dictionary filter). */
+  generation?: number | null;
 }
 
 /** A History list row: lightweight, the text cut to a preview. */
@@ -776,6 +876,8 @@ export interface HistoryListRow {
   stepFailure?: "cleanup" | "style" | "translation" | null;
   /** The current owner's review of it, if any. */
   rating: HistoryVerdict | null;
+  /** Dictionary words its final text has and its raw transcript doesn't (the "📖 n fixed" badge). */
+  dictionaryFixes?: number;
 }
 
 export interface HistoryListResult {
@@ -783,6 +885,17 @@ export interface HistoryListResult {
   rows: HistoryListRow[];
   nextCursor: HistoryCursor | null;
   code?: "INVALID_CURSOR" | "FAILED";
+  /** The dictionary generation the filters and badges were read with. */
+  generation?: number | null;
+  /** A later page of a dictionary filter under an older generation: start over. */
+  stale?: boolean;
+}
+
+export interface HistoryDictionaryFixesResult {
+  success: boolean;
+  generation?: number | null;
+  /** Row id → its "📖 n fixed" count. */
+  fixes: Record<string, number>;
 }
 
 export interface HistoryAppsResult {
@@ -822,6 +935,15 @@ export type HistoryItemResult =
       owner: string | null;
       /** The current owner's review of this version of it. */
       feedback: HistoryFeedback | null;
+      /**
+       * Your dictionary words in it, as the dictionary is now (none for a
+       * translation or the assistant's row). `by` only from the current
+       * owner's steps.
+       */
+      dictionary?: HistoryDictionaryWord[];
+      /** False: too long to align, so no words are shown. */
+      dictionaryAligned?: boolean;
+      dictionaryGeneration?: number | null;
     }
   | { success: false; code: "NOT_FOUND" | "FAILED" };
 
@@ -2511,6 +2633,8 @@ declare global {
       listHistory?: (request: HistoryListRequest) => Promise<HistoryListResult>;
       getHistoryApps?: () => Promise<HistoryAppsResult>;
       getHistoryItem?: (id: number) => Promise<HistoryItemResult>;
+      /** Loaded rows' "📖 n fixed" badges, after a dictionary or snippet change. */
+      getHistoryDictionaryFixes?: (ids: number[]) => Promise<HistoryDictionaryFixesResult>;
       getHistoryFeedback?: (
         id: number
       ) => Promise<{ success: boolean; feedback: HistoryFeedback | null; code?: string }>;
@@ -2614,6 +2738,20 @@ declare global {
       getDictionaryWordEvidence?: (word: string) => Promise<DictionaryWordEvidenceResult>;
       /** How this owner's cleanups ran per dictionary word set (counts only). */
       getDictionaryCleanupScopeCounts?: () => Promise<CleanupScopeCountsResult>;
+      /** One word's dictations, newest first, with snippets of their own text. */
+      getDictionaryWordOccurrences?: (
+        word: string,
+        options?: DictionaryOccurrencesRequest
+      ) => Promise<DictionaryOccurrencesResult>;
+      /** The spellings speech wrote where the final text has the word; `spelling`: its own numbers too. */
+      getDictionarySpeechVariants?: (
+        word: string,
+        options?: { spelling?: string }
+      ) => Promise<DictionarySpeechVariantsResult>;
+      /** The owner or History's policy changed: drop what was read for the old one. */
+      onDictionaryHistoryChanged?: (
+        callback: (change: { reason: "owner" | "policy" }) => void
+      ) => () => void;
       /** A word's new spelling, in place: source, date, pin and evidence kept. */
       renameDictionaryWord?: (from: string, to: string) => Promise<DictionaryRenameResult>;
       /** Folds `from` into `into`: typed wins, a pin survives, evidence moves. */

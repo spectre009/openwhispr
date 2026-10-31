@@ -842,13 +842,20 @@
       "app": "應用程式",
       "appSelected": "應用程式：{{app}}",
       "anyApp": "任何應用程式",
-      "noApps": "尚未記錄任何應用程式"
+      "noApps": "尚未記錄任何應用程式",
+      "dictionaryFixed": "字典修正過",
+      "dictionaryWord": "含「{{word}}」",
+      "clearDictionaryWord": "顯示所有聽寫，而不只是含「{{word}}」的"
     },
     "list": {
       "label": "聽寫",
       "noText": "沒有文字",
       "loadingMore": "正在載入更多…",
-      "moreFailed": "無法載入更多。"
+      "moreFailed": "無法載入更多。",
+      "dictionaryFixes_one": "修正 {{count}} 個",
+      "dictionaryFixes_other": "修正 {{count}} 個",
+      "dictionaryFixesHint_one": "有 {{count}} 個字典詞在辨識後被修正",
+      "dictionaryFixesHint_other": "有 {{count}} 個字典詞在辨識後被修正"
     },
     "marks": {
       "changed": "{{step}}：修改了文字",
@@ -1053,6 +1060,24 @@
       "cleanup": "清理失敗",
       "style": "未套用風格",
       "translation": "翻譯失敗"
+    },
+    "dictionary": {
+      "title": "此次聽寫中的字典",
+      "asNow": "依目前字典列出的你的詞",
+      "speechWrote": "語音辨識寫成",
+      "fixedAfterSpeech": "辨識後修正",
+      "fixedUnknown": "辨識後修正；不清楚語音辨識在那裡寫了什麼",
+      "times_one": "{{count}} 次",
+      "times_other": "{{count}} 次",
+      "got": "語音辨識寫出了它，之後沒有改動",
+      "gotAndChanged": "語音辨識寫出了它；有一處在辨識後被變更",
+      "changed": "語音辨識寫出了它，之後被變更",
+      "openInDictionary": "在字典中開啟",
+      "note": "上方文字中的底線：綠色表示辨識正確，琥珀色表示辨識後修正。只有此次聽寫記錄的步驟能說明時，才會標出「由詞彙表」或「由文字整理」。",
+      "tooLong": "此次聽寫太長，無法逐詞比較。",
+      "underlineOk": "字典中的詞：辨識正確",
+      "underlineFix": "字典中的詞：辨識後修正",
+      "inserted": "此步驟加入的字典詞"
     }
   },
   "reasoning": {
@@ -4657,27 +4682,28 @@
         "learned": "自動學習",
         "pinned": "已釘選",
         "notSent": "未傳送",
-        "neverHeard": "從未聽到",
+        "neverHeard": "從未使用",
         "addedThisWeek": "本週新增",
         "notSentHint": "目前語音辨識設定不會傳送的字詞",
-        "neverHeardHint": "過去 90 天的聽寫中都沒有出現，既沒被聽到也沒被寫出"
+        "neverHeardHint": "過去 90 天的聽寫中都沒有出現，辨識結果和最終文字裡都沒有",
+        "speechMisses": "辨識常出錯",
+        "speechMissesHint": "至少 2 次聽寫、或用到它的聽寫中有四分之一在辨識後被修正"
       },
       "sorts": {
         "sendOrder": "傳送順序",
         "recent": "最近新增",
         "alpha": "A–Z",
-        "mostHeard": "聽到最多",
-        "leastHeard": "聽到最少"
+        "mostHeard": "使用最多",
+        "leastHeard": "使用最少"
       },
       "columns": {
         "word": "字詞",
         "source": "來源",
-        "heard": "聽到 · 90 天",
+        "heard": "使用 · 90 天",
         "added": "新增時間",
         "speech": "語音模型"
       },
-      "heardWritten": "聽到 {{heard}} · 寫出 {{written}}",
-      "missedHint": "語音辨識常漏掉它：寫出的次數多於聽到的次數",
+      "missedHint": "語音辨識常出錯：經常在辨識後被修正",
       "added": "新增於 {{when}}",
       "noMatches": "沒有相符的字詞。",
       "clearFilters": "清除篩選",
@@ -4686,7 +4712,13 @@
         "unread_other": "語音模型讀到這裡為止 · 下方 {{count}} 個字詞已傳送，但可能不會被讀取",
         "notSent_one": "從這裡開始不傳送 · {{count}} 個字詞未傳送",
         "notSent_other": "從這裡開始不傳送 · {{count}} 個字詞未傳送"
-      }
+      },
+      "notUsed": "未使用",
+      "usageSpeech": "辨識 {{count}}",
+      "usageFixed": "修正 {{count}}",
+      "usageShort": "使用 {{used}} · 辨識正確 {{ok}}",
+      "usageTitle_one": "{{count}} 次聽寫：辨識正確 {{ok}}，辨識後修正 {{fix}}，辨識後變更 {{chg}}",
+      "usageTitle_other": "{{count}} 次聽寫：辨識正確 {{ok}}，辨識後修正 {{fix}}，辨識後變更 {{chg}}"
     },
     "where": {
       "title": "你的詞典會傳送到哪裡",
@@ -4778,16 +4810,21 @@
       "glossaryRule": "建立詞彙表規則",
       "glossaryExisting": "已有詞彙表規則寫出這個字詞，因此開啟了該規則。",
       "usage": {
-        "title": "聽到",
-        "last90": "過去 90 天",
-        "totals": "聽到 {{heard}} · 寫出 {{written}}",
-        "chartLabel": "90 天內聽到 {{heard}} 次、寫出 {{written}} 次，依週統計",
-        "heardLegend": "聽到（語音辨識）",
-        "writtenLegend": "寫出（最終文字）",
+        "title": "最近 90 天的使用",
+        "chartLabel": "90 天內使用 {{used}} 次，依週統計：辨識正確 {{ok}}，辨識後修正 {{fix}}，辨識後變更 {{chg}}",
         "never": "過去 90 天的聽寫中都沒有出現。",
-        "missed_one": "語音辨識常漏掉它：有 {{count}} 次聽寫寫出了它，卻沒有聽到。",
-        "missed_other": "語音辨識常漏掉它：有 {{count}} 次聽寫寫出了它，卻沒有聽到。",
-        "note": "依此帳戶的本機歷史記錄統計，僅供參考。沒聽到也沒寫出表示未知。"
+        "note": "依此帳戶的本機歷史記錄統計，僅供參考。沒有使用也沒有變更表示未知。",
+        "dictations_one": "{{count}} 次聽寫",
+        "dictations_other": "{{count}} 次聽寫",
+        "okCount": "辨識正確 {{count}}",
+        "fixCount": "辨識後修正 {{count}}",
+        "chgCount": "辨識後變更 {{count}}",
+        "weekOf": "{{range}} 這一週",
+        "weekLabel": "{{range}} 這一週：使用 {{used}}，辨識正確 {{ok}}，辨識後修正 {{fix}}，辨識後變更 {{chg}}",
+        "clickToList": "點選列出這些聽寫",
+        "clickToClear": "再次點選顯示所有週",
+        "missed_one": "語音辨識常出錯：有 {{count}} 次聽寫在辨識後被修正。",
+        "missed_other": "語音辨識常出錯：有 {{count}} 次聽寫在辨識後被修正。"
       },
       "where": {
         "title": "傳送去向",
@@ -4832,7 +4869,7 @@
     },
     "usage": {
       "unavailable": {
-        "historyOff": "聽到和寫出的次數來自本機歷史記錄，而它已關閉。",
+        "historyOff": "使用情況來自本機歷史記錄，而它已關閉。",
         "policyOff": "你的組織關閉了本機歷史記錄，因此不會統計。",
         "pending": "正在從本機歷史記錄統計…",
         "other": "目前無法統計。"
@@ -4870,7 +4907,7 @@
         },
         "typos": {
           "title": "可能的拼寫錯誤",
-          "why": "很少被聽到或寫出，而且和你常說的某個詞只差一兩個字母。"
+          "why": "很少出現在聽寫中，而且和你常說的某個詞只差一兩個字母。"
         },
         "fragments": {
           "title": "片段",
@@ -4881,13 +4918,11 @@
           "why": "你總是連著說的兩個詞。合成一個片語只占一個位置，效果也更好。"
         },
         "neverHeard": {
-          "title": "{{days}} 天內從未聽到",
+          "title": "{{days}} 天內從未使用",
           "why": "一個多月前自動學習的詞，之後沒有出現在任何聽寫中。保留你會用到的。"
         }
       },
       "reasons": {
-        "keepWritten_one": "保留「{{word}}」：寫出 {{count}} 次，比其他寫法多",
-        "keepWritten_other": "保留「{{word}}」：寫出 {{count}} 次，比其他寫法多",
         "keepTyped": "保留「{{word}}」：這是你手動輸入的",
         "keepNewest": "保留「{{word}}」：最新的寫法",
         "keepProtected": "保留「{{word}}」：詞彙表寫法或片段觸發詞",
@@ -4907,7 +4942,9 @@
         "splitPhrase_one": "在包含「{{word}}」的 {{count}} 次聽寫中，有 {{together}} 次緊挨著",
         "splitPhrase_other": "在包含「{{word}}」的 {{count}} 次聽寫中，有 {{together}} 次緊挨著",
         "phraseExists": "「{{phrase}}」已在你的字典中",
-        "neverHeard": "新增於{{when}}，之後沒有出現在任何聽寫中"
+        "neverHeard": "新增於{{when}}，之後沒有出現在任何聽寫中",
+        "keepWritten_one": "保留「{{word}}」：使用 {{count}} 次，比其他寫法多",
+        "keepWritten_other": "保留「{{word}}」：使用 {{count}} 次，比其他寫法多"
       },
       "actions": {
         "select": "選取 {{word}}",
@@ -4989,6 +5026,63 @@
           "merge": "合併"
         }
       }
+    },
+    "kinds": {
+      "used": "使用",
+      "ok": "辨識正確",
+      "fix": "辨識後修正",
+      "chg": "辨識後變更",
+      "by": {
+        "glossary": "由詞彙表",
+        "cleanup": "由文字整理",
+        "style": "由風格"
+      }
+    },
+    "explainer": {
+      "open": "這些數字的意思",
+      "title": "「使用」「辨識正確」和「修正」的意思",
+      "subtitle": "依次統計此帳戶本機歷史記錄中最近 90 天的聽寫。",
+      "wasWritten": "（原「寫出」）",
+      "wasHeard": "（原「聽到」）",
+      "used": "最終文字中含有該詞的聽寫：辨識正確的，加上辨識後修正的。這是你收到的文字，不含你之後的編輯。",
+      "ok": "語音辨識自己寫出了這個詞，最終文字中也仍有它。",
+      "fix": "語音辨識寫的是別的內容，由詞彙表、文字整理或風格改成了這個詞。最終文字裡有它，原始辨識結果裡沒有。",
+      "chg": "語音辨識寫出了這個詞，但文字整理或風格把它改了或刪了。",
+      "note": "僅供參考，並非記錄：用你現在的字典比較原始辨識結果和最終文字。"
+    },
+    "variants": {
+      "title": "語音辨識寫成",
+      "none": "最近 90 天，語音辨識沒有把它寫成別的樣子。",
+      "count_one": "{{count}} 次聽寫",
+      "count_other": "{{count}} 次聽寫",
+      "kept_one": "「{{spelling}}」還在 {{count}} 次聽寫中保持原樣",
+      "kept_other": "「{{spelling}}」還在 {{count}} 次聽寫中保持原樣",
+      "neverKept": "從未在你的最終文字中保持原樣。",
+      "makeRule": "建立詞彙表規則",
+      "handled": "詞彙表已處理",
+      "notice": {
+        "added": "已把「{{spelling}}」加到已經寫出這個詞的詞彙表規則中。",
+        "kept_one": "「{{spelling}}」還在你的 {{count}} 次聽寫中保持原樣，所以先只用於你選擇的應用程式中的聽寫開頭。請選擇應用程式，或重新考慮這條規則。",
+        "kept_other": "「{{spelling}}」還在你的 {{count}} 次聽寫中保持原樣，所以先只用於你選擇的應用程式中的聽寫開頭。請選擇應用程式，或重新考慮這條規則。",
+        "common": "「{{spelling}}」由日常用詞組成，所以先只用於你選擇的應用程式中的聽寫開頭。請選擇應用程式，或重新考慮這條規則。",
+        "unknown": "沒有此帳戶的本機歷史記錄，無法檢查「{{spelling}}」是否也會保持原樣，所以先只用於你選擇的應用程式中的聽寫開頭。",
+        "anywhere": "「{{spelling}}」從未在你的最終文字中保持原樣，也不是日常用詞，所以這條規則在任何位置都適用。"
+      }
+    },
+    "occurrences": {
+      "title": "出現在哪裡",
+      "segmentsLabel": "顯示以下聽寫",
+      "segments": {
+        "all": "全部",
+        "chg": "已變更"
+      },
+      "open": "在歷史記錄中開啟",
+      "none": "這裡沒有聽寫。",
+      "more": "載入更多",
+      "clearWeek": "顯示所有週",
+      "unaligned_one": "{{count}} 次聽寫太長，無法逐詞比較，所以沒有列出。",
+      "unaligned_other": "{{count}} 次聽寫太長，無法逐詞比較，所以沒有列出。",
+      "showInHistory": "在歷史記錄中顯示"
     }
   },
   "insights": {

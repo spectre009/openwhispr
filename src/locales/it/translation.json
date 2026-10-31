@@ -842,13 +842,20 @@
       "app": "App",
       "appSelected": "App: {{app}}",
       "anyApp": "Qualsiasi app",
-      "noApps": "Ancora nessuna app registrata"
+      "noApps": "Ancora nessuna app registrata",
+      "dictionaryFixed": "Corretto dal dizionario",
+      "dictionaryWord": "Con «{{word}}»",
+      "clearDictionaryWord": "Mostra tutte le dettature, non solo quelle con «{{word}}»"
     },
     "list": {
       "label": "Dettature",
       "noText": "Nessun testo",
       "loadingMore": "Caricamento…",
-      "moreFailed": "Impossibile caricarne altre."
+      "moreFailed": "Impossibile caricarne altre.",
+      "dictionaryFixes_one": "{{count}} corretta",
+      "dictionaryFixes_other": "{{count}} corrette",
+      "dictionaryFixesHint_one": "{{count}} parola del dizionario corretta dopo il riconoscimento",
+      "dictionaryFixesHint_other": "{{count}} parole del dizionario corrette dopo il riconoscimento"
     },
     "marks": {
       "changed": "{{step}}: testo modificato",
@@ -1053,6 +1060,24 @@
       "cleanup": "Pulizia non riuscita",
       "style": "Stile non applicato",
       "translation": "Traduzione non riuscita"
+    },
+    "dictionary": {
+      "title": "Il dizionario in questa dettatura",
+      "asNow": "Le tue parole del dizionario, com'è adesso",
+      "speechWrote": "Il riconoscimento ha scritto",
+      "fixedAfterSpeech": "corretta dopo il riconoscimento",
+      "fixedUnknown": "Corretta dopo il riconoscimento; non è chiaro cosa avesse scritto lì",
+      "times_one": "{{count}} volta",
+      "times_other": "{{count}} volte",
+      "got": "Il riconoscimento l'ha scritta; niente l'ha cambiata",
+      "gotAndChanged": "Il riconoscimento l'ha scritta; un punto è stato cambiato dopo",
+      "changed": "Il riconoscimento l'ha scritta, poi è stata cambiata",
+      "openInDictionary": "Apri nel dizionario",
+      "note": "Sottolineate nel testo sopra: in verde, riconosciuta bene; in ambra, corretta dopo il riconoscimento. «Dal glossario» o «dalla pulizia» compare solo quando i passaggi registrati di questa dettatura lo mostrano.",
+      "tooLong": "Questa dettatura è troppo lunga per un confronto parola per parola.",
+      "underlineOk": "Parola del dizionario: riconosciuta bene",
+      "underlineFix": "Parola del dizionario: corretta dopo il riconoscimento",
+      "inserted": "Una parola del dizionario inserita da questo passaggio"
     }
   },
   "reasoning": {
@@ -4657,27 +4682,28 @@
         "learned": "Apprese",
         "pinned": "Fissate",
         "notSent": "Non inviate",
-        "neverHeard": "Mai sentite",
+        "neverHeard": "Mai usate",
         "addedThisWeek": "Aggiunte questa settimana",
         "notSentHint": "Parole che la tua configurazione di riconoscimento vocale attuale non invia",
-        "neverHeardHint": "In nessuna dettatura degli ultimi 90 giorni, né sentite né scritte"
+        "neverHeardHint": "In nessuna dettatura degli ultimi 90 giorni, né in ciò che ha scritto il riconoscimento né nel testo finale",
+        "speechMisses": "Il riconoscimento la sbaglia",
+        "speechMissesHint": "Corretta dopo il riconoscimento in almeno 2 dettature, o in un quarto di quelle che l'hanno usata"
       },
       "sorts": {
         "sendOrder": "Ordine di invio",
         "recent": "Aggiunte di recente",
         "alpha": "A–Z",
-        "mostHeard": "Più sentite",
-        "leastHeard": "Meno sentite"
+        "mostHeard": "Più usate",
+        "leastHeard": "Meno usate"
       },
       "columns": {
         "word": "Parola",
         "source": "Origine",
-        "heard": "Sentita · 90 giorni",
+        "heard": "Usata · 90 giorni",
         "added": "Aggiunta",
         "speech": "Modello vocale"
       },
-      "heardWritten": "sentita {{heard}} · scritta {{written}}",
-      "missedHint": "Il riconoscimento la sbaglia spesso: scritta più spesso che sentita",
+      "missedHint": "Il riconoscimento la sbaglia spesso: spesso corretta dopo il riconoscimento",
       "added": "aggiunta {{when}}",
       "noMatches": "Nessuna parola corrisponde.",
       "clearFilters": "Cancella filtri",
@@ -4686,7 +4712,13 @@
         "unread_other": "Qui il modello vocale smette di leggere · {{count}} parole sotto vengono inviate ma probabilmente non lette",
         "notSent_one": "Da qui in poi non inviate · {{count}} parola non viene inviata",
         "notSent_other": "Da qui in poi non inviate · {{count}} parole non vengono inviate"
-      }
+      },
+      "notUsed": "non usata",
+      "usageSpeech": "riconosciuta {{count}}",
+      "usageFixed": "corretta {{count}}",
+      "usageShort": "usata {{used}} · riconosciuta {{ok}}",
+      "usageTitle_one": "{{count}} dettatura: riconosciuta bene {{ok}}, corretta dopo il riconoscimento {{fix}}, cambiata dopo il riconoscimento {{chg}}",
+      "usageTitle_other": "{{count}} dettature: riconosciuta bene {{ok}}, corretta dopo il riconoscimento {{fix}}, cambiata dopo il riconoscimento {{chg}}"
     },
     "where": {
       "title": "Dove va il tuo dizionario",
@@ -4778,16 +4810,21 @@
       "glossaryRule": "Crea una regola del glossario",
       "glossaryExisting": "Una regola del glossario scrive già questa parola, quindi è stata aperta.",
       "usage": {
-        "title": "Sentita",
-        "last90": "Ultimi 90 giorni",
-        "totals": "sentita {{heard}} · scritta {{written}}",
-        "chartLabel": "Sentita {{heard}} e scritta {{written}} volte in 90 giorni, per settimana",
-        "heardLegend": "Sentita (riconoscimento vocale)",
-        "writtenLegend": "Scritta (testo finale)",
+        "title": "Usata negli ultimi 90 giorni",
+        "chartLabel": "Usata {{used}} volte in 90 giorni, per settimana: riconosciuta bene {{ok}}, corretta dopo il riconoscimento {{fix}}, cambiata dopo il riconoscimento {{chg}}",
         "never": "In nessuna dettatura degli ultimi 90 giorni.",
-        "missed_one": "Il riconoscimento la sbaglia spesso: {{count}} dettatura l'ha scritta senza sentirla.",
-        "missed_other": "Il riconoscimento la sbaglia spesso: {{count}} dettature l'hanno scritta senza sentirla.",
-        "note": "Contato dalla cronologia locale di questo account, come indicazione. Né sentita né scritta significa sconosciuto."
+        "note": "Contato dalla cronologia locale di questo account, come indicazione. Niente di usato e niente di cambiato significa sconosciuto.",
+        "dictations_one": "{{count}} dettatura",
+        "dictations_other": "{{count}} dettature",
+        "okCount": "riconosciuta bene {{count}}",
+        "fixCount": "corretta dopo il riconoscimento {{count}}",
+        "chgCount": "cambiata dopo il riconoscimento {{count}}",
+        "weekOf": "Settimana {{range}}",
+        "weekLabel": "Settimana {{range}}: usata {{used}}, riconosciuta bene {{ok}}, corretta dopo il riconoscimento {{fix}}, cambiata dopo il riconoscimento {{chg}}",
+        "clickToList": "Fai clic per elencare queste dettature",
+        "clickToClear": "Fai di nuovo clic per vedere tutte le settimane",
+        "missed_one": "Il riconoscimento la sbaglia spesso: corretta dopo il riconoscimento in {{count}} dettatura.",
+        "missed_other": "Il riconoscimento la sbaglia spesso: corretta dopo il riconoscimento in {{count}} dettature."
       },
       "where": {
         "title": "Dove va",
@@ -4832,7 +4869,7 @@
     },
     "usage": {
       "unavailable": {
-        "historyOff": "Sentite e scritte si contano dalla cronologia locale, che è disattivata.",
+        "historyOff": "L'uso si conta dalla cronologia locale, che è disattivata.",
         "policyOff": "La tua organizzazione tiene disattivata la cronologia locale, quindi non si conta nulla.",
         "pending": "Conteggio dalla cronologia locale…",
         "other": "I conteggi non sono disponibili al momento."
@@ -4870,7 +4907,7 @@
         },
         "typos": {
           "title": "Probabili refusi",
-          "why": "Raramente sentite o scritte, e a una o due lettere da una parola che dici spesso."
+          "why": "Raramente in una dettatura, e a una o due lettere da una parola che dici spesso."
         },
         "fragments": {
           "title": "Frammenti",
@@ -4881,13 +4918,11 @@
           "why": "Due parole che dici insieme. Un'espressione occupa un posto e orienta meglio."
         },
         "neverHeard": {
-          "title": "Mai sentite in {{days}} giorni",
+          "title": "Mai usate in {{days}} giorni",
           "why": "Apprese più di un mese fa e in nessuna dettatura da allora. Tieni quelle che ti serviranno."
         }
       },
       "reasons": {
-        "keepWritten_one": "Tiene «{{word}}»: scritta {{count}} volta, più delle altre",
-        "keepWritten_other": "Tiene «{{word}}»: scritta {{count}} volte, più delle altre",
         "keepTyped": "Tiene «{{word}}»: l'hai digitata tu",
         "keepNewest": "Tiene «{{word}}»: la più recente",
         "keepProtected": "Tiene «{{word}}»: una grafia del glossario o un attivatore di snippet",
@@ -4907,7 +4942,9 @@
         "splitPhrase_one": "Vicine in {{together}} su {{count}} dettatura con «{{word}}»",
         "splitPhrase_other": "Vicine in {{together}} delle {{count}} dettature con «{{word}}»",
         "phraseExists": "«{{phrase}}» è già nel tuo dizionario",
-        "neverHeard": "Aggiunta {{when}}, in nessuna dettatura da allora"
+        "neverHeard": "Aggiunta {{when}}, in nessuna dettatura da allora",
+        "keepWritten_one": "Tiene «{{word}}»: usata {{count}} volta, più delle altre",
+        "keepWritten_other": "Tiene «{{word}}»: usata {{count}} volte, più delle altre"
       },
       "actions": {
         "select": "Seleziona {{word}}",
@@ -4989,6 +5026,63 @@
           "merge": "Unisci"
         }
       }
+    },
+    "kinds": {
+      "used": "Usata",
+      "ok": "Riconosciuta bene",
+      "fix": "Corretta dopo il riconoscimento",
+      "chg": "Cambiata dopo il riconoscimento",
+      "by": {
+        "glossary": "dal glossario",
+        "cleanup": "dalla pulizia",
+        "style": "da uno stile"
+      }
+    },
+    "explainer": {
+      "open": "Cosa significano questi numeri",
+      "title": "Cosa significano «usata», «riconosciuta bene» e «corretta»",
+      "subtitle": "Contato per dettatura negli ultimi 90 giorni della cronologia locale di questo account.",
+      "wasWritten": "(prima «scritta»)",
+      "wasHeard": "(prima «sentita»)",
+      "used": "Dettature il cui testo finale contiene la parola: riconosciuta bene più corretta dopo il riconoscimento. È il testo che hai ricevuto, prima di qualsiasi tua modifica successiva.",
+      "ok": "Il riconoscimento vocale ha scritto la parola da sé, e il testo finale la contiene ancora.",
+      "fix": "Il riconoscimento ha scritto altro, e il glossario, la pulizia o uno stile l'hanno trasformato nella parola. Il testo finale la contiene; la trascrizione grezza no.",
+      "chg": "Il riconoscimento ha scritto la parola, ma la pulizia o uno stile l'ha cambiata o tolta.",
+      "note": "Un'indicazione, non un registro: la trascrizione grezza viene confrontata con il testo finale, usando il dizionario così com'è ora."
+    },
+    "variants": {
+      "title": "Il riconoscimento la scrive come",
+      "none": "Il riconoscimento non l'ha scritta in altro modo negli ultimi 90 giorni.",
+      "count_one": "{{count}} dettatura",
+      "count_other": "{{count}} dettature",
+      "kept_one": "«{{spelling}}» è rimasta anche così in {{count}} dettatura",
+      "kept_other": "«{{spelling}}» è rimasta anche così in {{count}} dettature",
+      "neverKept": "Non è mai rimasta così nel tuo testo finale.",
+      "makeRule": "Crea una regola del glossario",
+      "handled": "Se ne occupa il glossario",
+      "notice": {
+        "added": "«{{spelling}}» è stata aggiunta alla regola del glossario che scrive già questa parola.",
+        "kept_one": "«{{spelling}}» è rimasta così anche in {{count}} delle tue dettature, quindi vale solo all'inizio della dettatura, nelle app che scegli. Scegli le app o ripensa la regola.",
+        "kept_other": "«{{spelling}}» è rimasta così anche in {{count}} delle tue dettature, quindi vale solo all'inizio della dettatura, nelle app che scegli. Scegli le app o ripensa la regola.",
+        "common": "«{{spelling}}» è fatta di parole comuni, quindi vale solo all'inizio della dettatura, nelle app che scegli. Scegli le app o ripensa la regola.",
+        "unknown": "Senza la cronologia locale di questo account non si può verificare se «{{spelling}}» resta anche così, quindi vale solo all'inizio della dettatura, nelle app che scegli.",
+        "anywhere": "«{{spelling}}» non è mai rimasta così nel tuo testo finale e non è una parola comune, quindi la regola vale ovunque."
+      }
+    },
+    "occurrences": {
+      "title": "Dove è comparsa",
+      "segmentsLabel": "Mostra le dettature in cui",
+      "segments": {
+        "all": "Tutte",
+        "chg": "Cambiata"
+      },
+      "open": "Apri nella cronologia",
+      "none": "Nessuna dettatura qui.",
+      "more": "Carica altre",
+      "clearWeek": "Mostra tutte le settimane",
+      "unaligned_one": "{{count}} dettatura è troppo lunga per un confronto parola per parola, quindi non è elencata.",
+      "unaligned_other": "{{count}} dettature sono troppo lunghe per un confronto parola per parola, quindi non sono elencate.",
+      "showInHistory": "Mostra nella cronologia"
     }
   },
   "insights": {

@@ -5,11 +5,19 @@
 // Per word, over the completed, non-deleted dictations of the last 90 days
 // (translations and the assistant's answers left out by the database read):
 // - heard: rows whose raw transcript contains it (speech-to-text wrote it);
-// - written: rows whose final text contains it (what was pasted);
-// - missedRows: rows where the final text has it and the raw text doesn't.
-//   Paired per row, never written − heard: ten misses and ten unrelated
-//   raw-only hits would cancel out.
+// - written: rows whose final text contains it (what was pasted). The
+//   Dictionary calls it "used";
+// - bothRows: rows whose raw transcript and final text both contain it. The
+//   Dictionary calls it "speech got it" (not `heard`, which counts raw-only
+//   rows too);
+// - missedRows: rows where the final text has it and the raw text doesn't
+//   ("fixed after speech"). Paired per row, never written − heard: ten misses
+//   and ten unrelated raw-only hits would cancel out.
+// "Changed after speech" is heard − bothRows: raw has it, final doesn't.
 // These are heuristics, and 0/0 means unknown, never "speech gets it right".
+// Where in a dictation a word appeared, and what speech wrote instead, is
+// dictionaryOccurrences.js's alignment; these row summaries stay the counts,
+// the filters and Tidy up's input.
 // The same rows and matching give one word's counts per week (the
 // Dictionary's word detail), the dictation pace (dictations a day, for the
 // monthly token estimate) and Tidy up's aggregates (frequent tokens and which
@@ -52,9 +60,16 @@ export function isSpeechMissed(counts) {
   return missed >= MISSED_MIN_ROWS || missed >= MISSED_MIN_SHARE * written;
 }
 
+/** The snippets' expansions that count: non-blank strings. */
+export function usableExpansions(snippetExpansions) {
+  return (Array.isArray(snippetExpansions) ? snippetExpansions : []).filter(
+    (text) => typeof text === "string" && text.trim()
+  );
+}
+
 // The final text without what snippets expanded into: a word that appears
 // only inside an expansion wasn't said, so it isn't "written" either.
-function withoutExpansions(text, expansions) {
+export function withoutExpansions(text, expansions) {
   let out = text;
   for (const expansion of expansions) {
     if (out.includes(expansion)) out = out.split(expansion).join(" ");
@@ -114,13 +129,12 @@ export function buildUsageIndex(words) {
 /**
  * One row at a time against an index (buildUsageIndex): the positions of the
  * words its raw transcript has (heard), its final text has without snippet
- * expansions (written), and the second without the first (missed, paired per
- * row). Rows without a raw transcript return null.
+ * expansions (written), the second without the first (missed, paired per
+ * row), both (in raw and final) and the first without the second (changed).
+ * Rows without a raw transcript return null.
  */
 export function createUsageMatcher(index, { snippetExpansions = [] } = {}) {
-  const expansions = (Array.isArray(snippetExpansions) ? snippetExpansions : []).filter(
-    (text) => typeof text === "string" && text.trim()
-  );
+  const expansions = usableExpansions(snippetExpansions);
   const heardStamps = new Int32Array(index.size).fill(-1);
   const writtenStamps = new Int32Array(index.size).fill(-1);
   let stamp = -1;
@@ -136,8 +150,14 @@ export function createUsageMatcher(index, { snippetExpansions = [] } = {}) {
       stamp,
       []
     );
-    const missed = written.filter((word) => heardStamps[word] !== stamp);
-    return { heard, written, missed };
+    const missed = [];
+    const both = [];
+    for (const word of written) {
+      if (heardStamps[word] === stamp) both.push(word);
+      else missed.push(word);
+    }
+    const changed = heard.filter((word) => writtenStamps[word] !== stamp);
+    return { heard, written, missed, both, changed };
   };
 }
 
@@ -150,6 +170,7 @@ export function countDictionaryUsage(rows, words, { snippetExpansions = [] } = {
   const heard = new Array(list.length).fill(0);
   const written = new Array(list.length).fill(0);
   const missedRows = new Array(list.length).fill(0);
+  const bothRows = new Array(list.length).fill(0);
   const match = createUsageMatcher(buildUsageIndex(list), { snippetExpansions });
 
   let counted = 0;
@@ -160,6 +181,7 @@ export function countDictionaryUsage(rows, words, { snippetExpansions = [] } = {
     for (const word of found.heard) heard[word] += 1;
     for (const word of found.written) written[word] += 1;
     for (const word of found.missed) missedRows[word] += 1;
+    for (const word of found.both) bothRows[word] += 1;
   }
 
   return {
@@ -169,6 +191,7 @@ export function countDictionaryUsage(rows, words, { snippetExpansions = [] } = {
       heard: heard[index],
       written: written[index],
       missedRows: missedRows[index],
+      bothRows: bothRows[index],
     })),
   };
 }
@@ -200,9 +223,7 @@ export function countTidyInputs(
   { snippetExpansions = [], maxTokens = TIDY_FREQUENT_TOKENS, maxPairs = TIDY_MAX_PAIRS } = {}
 ) {
   const list = Array.isArray(words) ? words.filter((w) => typeof w === "string") : [];
-  const expansions = (Array.isArray(snippetExpansions) ? snippetExpansions : []).filter(
-    (text) => typeof text === "string" && text.trim()
-  );
+  const expansions = usableExpansions(snippetExpansions);
   const index = buildUsageIndex(list);
   // Each word's token sequence, to match where it starts and how long it runs.
   const sequences = list.map((word) => usageTokens(dictionaryWordKey(word)));
@@ -324,9 +345,30 @@ export function usageRowTime(at) {
 }
 
 /**
+ * The 13 weeks of a computation, anchored once at `now`: each `[start, end)`
+ * in ms, ending at `now`, the oldest starting no earlier than `days` ago (so
+ * it can be short). The word detail's tooltip and its click filter read the
+ * same bounds.
+ */
+export function usageWeekBounds({
+  now = Date.now(),
+  days = DICTIONARY_USAGE_DAYS,
+  weeks = DICTIONARY_USAGE_WEEKS,
+} = {}) {
+  const windowStart = now - days * DAY_MS;
+  const starts = Array.from({ length: weeks }, (_, k) =>
+    Math.max(windowStart, now - (weeks - k) * 7 * DAY_MS)
+  );
+  return starts.map((start, k) => ({ start, end: k + 1 < weeks ? starts[k + 1] : now }));
+}
+
+/**
  * One word's counts per week over `rows` (`{ raw, final, at }`), by the same
  * matching as countDictionaryUsage: `weeks` buckets of 7 days ending at
- * `now`, the oldest starting no earlier than `days` ago. Counts only.
+ * `now`, the oldest starting no earlier than `days` ago. Each week carries
+ * its bounds (`start`, `end`, ISO, `[start, end)`), `heard`, `written`,
+ * `missedRows` ("fixed after speech"), `both` ("speech got it") and
+ * `changed` (raw has it, final doesn't). Counts only.
  */
 export function countWordUsageByWeek(
   rows,
@@ -338,18 +380,28 @@ export function countWordUsageByWeek(
     weeks = DICTIONARY_USAGE_WEEKS,
   } = {}
 ) {
-  const windowStart = now - days * DAY_MS;
-  const buckets = Array.from({ length: weeks }, (_, k) => {
-    const start = Math.max(windowStart, now - (weeks - k) * 7 * DAY_MS);
-    return { start, heard: 0, written: 0, missedRows: 0 };
-  });
-  if (typeof word !== "string" || !dictionaryWordKey(word)) {
-    return buckets.map((bucket) => ({ ...bucket, start: new Date(bucket.start).toISOString() }));
-  }
+  const bounds = usageWeekBounds({ now, days, weeks });
+  const buckets = bounds.map(({ start, end }) => ({
+    start,
+    end,
+    heard: 0,
+    written: 0,
+    missedRows: 0,
+    both: 0,
+    changed: 0,
+  }));
+  const iso = () =>
+    buckets.map((bucket) => ({
+      ...bucket,
+      start: new Date(bucket.start).toISOString(),
+      end: new Date(bucket.end).toISOString(),
+    }));
+  if (typeof word !== "string" || !dictionaryWordKey(word)) return iso();
+  const windowStart = buckets[0]?.start ?? now;
   const match = createUsageMatcher(buildUsageIndex([word]), { snippetExpansions });
   for (const row of Array.isArray(rows) ? rows : []) {
     const at = usageRowTime(row?.at);
-    if (!Number.isFinite(at) || at < windowStart || at > now) continue;
+    if (!Number.isFinite(at) || at < windowStart || at >= now) continue;
     const found = match(row);
     if (!found) continue;
     let k = weeks - 1;
@@ -358,8 +410,10 @@ export function countWordUsageByWeek(
     if (found.heard.length > 0) bucket.heard += 1;
     if (found.written.length > 0) bucket.written += 1;
     if (found.missed.length > 0) bucket.missedRows += 1;
+    if (found.both.length > 0) bucket.both += 1;
+    if (found.changed.length > 0) bucket.changed += 1;
   }
-  return buckets.map((bucket) => ({ ...bucket, start: new Date(bucket.start).toISOString() }));
+  return iso();
 }
 
 /**

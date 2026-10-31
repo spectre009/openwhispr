@@ -842,13 +842,20 @@
       "app": "アプリ",
       "appSelected": "アプリ: {{app}}",
       "anyApp": "すべてのアプリ",
-      "noApps": "まだ記録されたアプリはありません"
+      "noApps": "まだ記録されたアプリはありません",
+      "dictionaryFixed": "辞書で修正",
+      "dictionaryWord": "「{{word}}」を含む",
+      "clearDictionaryWord": "「{{word}}」を含むものだけでなく、すべての音声入力を表示"
     },
     "list": {
       "label": "ディクテーション",
       "noText": "テキストなし",
       "loadingMore": "さらに読み込み中…",
-      "moreFailed": "これ以上読み込めませんでした。"
+      "moreFailed": "これ以上読み込めませんでした。",
+      "dictionaryFixes_one": "{{count}} 件修正",
+      "dictionaryFixes_other": "{{count}} 件修正",
+      "dictionaryFixesHint_one": "辞書の単語 {{count}} 件が認識後に修正されました",
+      "dictionaryFixesHint_other": "辞書の単語 {{count}} 件が認識後に修正されました"
     },
     "marks": {
       "changed": "{{step}}: テキストを変更",
@@ -1053,6 +1060,24 @@
       "cleanup": "クリーンアップ失敗",
       "style": "スタイル未適用",
       "translation": "翻訳失敗"
+    },
+    "dictionary": {
+      "title": "この音声入力の辞書の単語",
+      "asNow": "現在の辞書にあるあなたの単語",
+      "speechWrote": "音声認識の結果",
+      "fixedAfterSpeech": "認識後に修正",
+      "fixedUnknown": "認識後に修正。そこで音声認識が何を書いたかははっきりしません",
+      "times_one": "{{count}} 回",
+      "times_other": "{{count}} 回",
+      "got": "音声認識が書き、そのまま変更されていません",
+      "gotAndChanged": "音声認識が書きましたが、1 か所は認識後に変更されました",
+      "changed": "音声認識が書いた後、変更されました",
+      "openInDictionary": "辞書で開く",
+      "note": "上のテキストの下線：緑は正しく認識、琥珀色は認識後に修正。「用語集による」「クリーンアップによる」は、この音声入力の記録されたステップで分かる場合だけ表示します。",
+      "tooLong": "この音声入力は長すぎて単語ごとに比較できません。",
+      "underlineOk": "辞書の単語：正しく認識",
+      "underlineFix": "辞書の単語：認識後に修正",
+      "inserted": "このステップが入れた辞書の単語"
     }
   },
   "reasoning": {
@@ -4585,27 +4610,28 @@
         "learned": "自動学習",
         "pinned": "固定",
         "notSent": "未送信",
-        "neverHeard": "聞かれていない",
+        "neverHeard": "使われていない",
         "addedThisWeek": "今週追加",
         "notSentHint": "現在の音声認識の設定では送信されない単語",
-        "neverHeardHint": "過去 90 日間のどの音声入力にも、聞き取り・書き込みとも出てこない"
+        "neverHeardHint": "過去 90 日間のどの音声入力にも、認識結果にも最終テキストにも出てこない",
+        "speechMisses": "認識が外れる",
+        "speechMissesHint": "2 件以上の音声入力、または使用した音声入力の 4 分の 1 で認識後に修正された"
       },
       "sorts": {
         "sendOrder": "送信順",
         "recent": "最近追加",
         "alpha": "A–Z",
-        "mostHeard": "よく聞かれる順",
-        "leastHeard": "あまり聞かれない順"
+        "mostHeard": "よく使われる順",
+        "leastHeard": "あまり使われない順"
       },
       "columns": {
         "word": "単語",
         "source": "追加元",
-        "heard": "聞き取り · 90 日",
+        "heard": "使用 · 90 日",
         "added": "追加日",
         "speech": "音声モデル"
       },
-      "heardWritten": "聞き取り {{heard}} · 書き込み {{written}}",
-      "missedHint": "音声認識がよく聞き逃します：聞き取りより書き込みが多い",
+      "missedHint": "音声認識がよく外します：認識後によく修正されています",
       "added": "{{when}} に追加",
       "noMatches": "一致する単語はありません。",
       "clearFilters": "絞り込みを解除",
@@ -4614,7 +4640,13 @@
         "unread_other": "音声モデルはここで読むのをやめます · 下の {{count}} 語は送信されますが読まれない見込みです",
         "notSent_one": "ここから先は送信されません · {{count}} 語が未送信です",
         "notSent_other": "ここから先は送信されません · {{count}} 語が未送信です"
-      }
+      },
+      "notUsed": "未使用",
+      "usageSpeech": "認識 {{count}}",
+      "usageFixed": "修正 {{count}}",
+      "usageShort": "使用 {{used}} · 正しく認識 {{ok}}",
+      "usageTitle_one": "音声入力 {{count}} 件：正しく認識 {{ok}}、認識後に修正 {{fix}}、認識後に変更 {{chg}}",
+      "usageTitle_other": "音声入力 {{count}} 件：正しく認識 {{ok}}、認識後に修正 {{fix}}、認識後に変更 {{chg}}"
     },
     "where": {
       "title": "辞書の送信先",
@@ -4706,16 +4738,21 @@
       "glossaryRule": "用語集ルールを作成",
       "glossaryExisting": "この単語を書く用語集ルールがすでにあるため、そのルールを開きました。",
       "usage": {
-        "title": "聞き取り",
-        "last90": "過去 90 日間",
-        "totals": "聞き取り {{heard}} · 書き込み {{written}}",
-        "chartLabel": "90 日間で聞き取り {{heard}} 回、書き込み {{written}} 回（週ごと）",
-        "heardLegend": "聞き取り（音声認識）",
-        "writtenLegend": "書き込み（最終テキスト）",
+        "title": "過去 90 日間の使用",
+        "chartLabel": "90 日間で {{used}} 回使用（週ごと）：正しく認識 {{ok}}、認識後に修正 {{fix}}、認識後に変更 {{chg}}",
         "never": "過去 90 日間のどの音声入力にも出てきません。",
-        "missed_one": "音声認識がよく聞き逃します：{{count}} 件の音声入力で、聞き取られずに書き込まれました。",
-        "missed_other": "音声認識がよく聞き逃します：{{count}} 件の音声入力で、聞き取られずに書き込まれました。",
-        "note": "このアカウントのローカル履歴から数えた目安です。聞き取りも書き込みも 0 の場合は不明という意味です。"
+        "note": "このアカウントのローカル履歴から数えた目安です。使用も変更も 0 の場合は不明という意味です。",
+        "dictations_one": "音声入力 {{count}} 件",
+        "dictations_other": "音声入力 {{count}} 件",
+        "okCount": "正しく認識 {{count}}",
+        "fixCount": "認識後に修正 {{count}}",
+        "chgCount": "認識後に変更 {{count}}",
+        "weekOf": "{{range}} の週",
+        "weekLabel": "{{range}} の週：使用 {{used}}、正しく認識 {{ok}}、認識後に修正 {{fix}}、認識後に変更 {{chg}}",
+        "clickToList": "クリックするとこれらの音声入力を一覧表示します",
+        "clickToClear": "もう一度クリックするとすべての週を表示します",
+        "missed_one": "音声認識がよく外します：{{count}} 件の音声入力で認識後に修正されました。",
+        "missed_other": "音声認識がよく外します：{{count}} 件の音声入力で認識後に修正されました。"
       },
       "where": {
         "title": "送信先",
@@ -4760,7 +4797,7 @@
     },
     "usage": {
       "unavailable": {
-        "historyOff": "聞き取りと書き込みはローカル履歴から数えますが、履歴はオフです。",
+        "historyOff": "使用状況はローカル履歴から数えますが、履歴はオフです。",
         "policyOff": "組織がローカル履歴をオフにしているため、何も数えられません。",
         "pending": "ローカル履歴から集計中…",
         "other": "現在、集計は利用できません。"
@@ -4798,7 +4835,7 @@
         },
         "typos": {
           "title": "入力ミスの可能性",
-          "why": "聞き取りにも書き込みにもほとんど現れず、よく話す単語と 1〜2 文字しか違いません。"
+          "why": "音声入力にはほとんど出てこず、よく話す単語と 1〜2 文字しか違いません。"
         },
         "fragments": {
           "title": "断片",
@@ -4809,13 +4846,11 @@
           "why": "いつも一緒に話す 2 つの単語です。1 つのフレーズにすれば枠も 1 つで、認識への効き目も上がります。"
         },
         "neverHeard": {
-          "title": "{{days}} 日間一度も聞かれていない",
+          "title": "{{days}} 日間一度も使われていない",
           "why": "1 か月以上前に自動学習され、それ以降どのディクテーションにもありません。必要なものだけ残しましょう。"
         }
       },
       "reasons": {
-        "keepWritten_one": "「{{word}}」を残す：{{count}} 回書かれ、他より多い",
-        "keepWritten_other": "「{{word}}」を残す：{{count}} 回書かれ、他より多い",
         "keepTyped": "「{{word}}」を残す：あなたが入力した表記",
         "keepNewest": "「{{word}}」を残す：いちばん新しい表記",
         "keepProtected": "「{{word}}」を残す：用語集の表記またはスニペットのトリガー",
@@ -4835,7 +4870,9 @@
         "splitPhrase_one": "「{{word}}」を含む {{count}} 件のうち {{together}} 件で隣り合っています",
         "splitPhrase_other": "「{{word}}」を含む {{count}} 件のうち {{together}} 件で隣り合っています",
         "phraseExists": "「{{phrase}}」はすでに辞書にあります",
-        "neverHeard": "{{when}}に追加され、それ以降どのディクテーションにもありません"
+        "neverHeard": "{{when}}に追加され、それ以降どのディクテーションにもありません",
+        "keepWritten_one": "「{{word}}」を残す：{{count}} 回使われ、他より多い",
+        "keepWritten_other": "「{{word}}」を残す：{{count}} 回使われ、他より多い"
       },
       "actions": {
         "select": "{{word}} を選択",
@@ -4917,6 +4954,63 @@
           "merge": "統合"
         }
       }
+    },
+    "kinds": {
+      "used": "使用",
+      "ok": "正しく認識",
+      "fix": "認識後に修正",
+      "chg": "認識後に変更",
+      "by": {
+        "glossary": "用語集による",
+        "cleanup": "クリーンアップによる",
+        "style": "スタイルによる"
+      }
+    },
+    "explainer": {
+      "open": "これらの数値の意味",
+      "title": "「使用」「正しく認識」「修正」の意味",
+      "subtitle": "このアカウントのローカル履歴の過去 90 日間を、音声入力ごとに数えています。",
+      "wasWritten": "（旧「書き込み」）",
+      "wasHeard": "（旧「聞き取り」）",
+      "used": "最終テキストにその単語がある音声入力です。正しく認識されたものと、認識後に修正されたものの合計。受け取ったテキストで、その後の編集は含みません。",
+      "ok": "音声認識がその単語を自ら書き、最終テキストにも残っています。",
+      "fix": "音声認識は別のものを書き、用語集・クリーンアップ・スタイルがその単語に直しました。最終テキストにはあり、認識結果そのものにはありません。",
+      "chg": "音声認識はその単語を書きましたが、クリーンアップかスタイルが変更または削除しました。",
+      "note": "記録ではなく目安です。認識結果そのものと最終テキストを、現在の辞書で比べています。"
+    },
+    "variants": {
+      "title": "音声認識の書き方",
+      "none": "過去 90 日間、音声認識が別の書き方をしたことはありません。",
+      "count_one": "音声入力 {{count}} 件",
+      "count_other": "音声入力 {{count}} 件",
+      "kept_one": "「{{spelling}}」は {{count}} 件の音声入力でそのまま残りました",
+      "kept_other": "「{{spelling}}」は {{count}} 件の音声入力でそのまま残りました",
+      "neverKept": "最終テキストにそのまま残ったことはありません。",
+      "makeRule": "用語集ルールを作成",
+      "handled": "用語集で対応済み",
+      "notice": {
+        "added": "「{{spelling}}」を、この単語をすでに書く用語集ルールに追加しました。",
+        "kept_one": "「{{spelling}}」は {{count}} 件の音声入力でそのまま残っているため、選んだアプリの音声入力の冒頭だけに適用します。アプリを選ぶか、ルールを見直してください。",
+        "kept_other": "「{{spelling}}」は {{count}} 件の音声入力でそのまま残っているため、選んだアプリの音声入力の冒頭だけに適用します。アプリを選ぶか、ルールを見直してください。",
+        "common": "「{{spelling}}」は日常的な単語でできているため、選んだアプリの音声入力の冒頭だけに適用します。アプリを選ぶか、ルールを見直してください。",
+        "unknown": "このアカウントのローカル履歴がないため、「{{spelling}}」がそのまま残ることがあるか確認できません。選んだアプリの音声入力の冒頭だけに適用します。",
+        "anywhere": "「{{spelling}}」は最終テキストにそのまま残ったことがなく、日常的な単語でもないため、ルールはどこでも適用されます。"
+      }
+    },
+    "occurrences": {
+      "title": "出てきた場所",
+      "segmentsLabel": "表示する音声入力",
+      "segments": {
+        "all": "すべて",
+        "chg": "変更"
+      },
+      "open": "履歴で開く",
+      "none": "該当する音声入力はありません。",
+      "more": "さらに読み込む",
+      "clearWeek": "すべての週を表示",
+      "unaligned_one": "{{count}} 件の音声入力は長すぎて単語ごとに比較できないため、一覧にありません。",
+      "unaligned_other": "{{count}} 件の音声入力は長すぎて単語ごとに比較できないため、一覧にありません。",
+      "showInHistory": "履歴で表示"
     }
   },
   "referral": {

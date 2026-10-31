@@ -228,7 +228,7 @@ test(
     assert.match(cut.textContent, /Not sent beyond here · 7 words aren't sent/);
     const afterCut = rows().slice(rows().length - 7);
     assert.ok(afterCut.every((element) => element.getAttribute("data-coverage") === "notSent"));
-    assert.match(row("OpenWhispr").textContent, /heard 0 · written 6/);
+    assert.match(row("OpenWhispr").textContent, /6 · speech 0 · fixed 6/);
     assert.match(row("gonestly").textContent, /added 1d/);
 
     // A filter, then search.
@@ -301,10 +301,7 @@ test(
     await click(row("agents-shared"));
     assert.ok(detail(), "beside the list");
     assert.equal(detail().closest("aside").parentElement.querySelector("[inert]"), null);
-    assert.match(
-      detail().textContent,
-      /Heard and written are counted from local History, which is off\./
-    );
+    assert.match(detail().textContent, /Usage is counted from local History, which is off\./);
     assert.match(detail().textContent, /Where it goes/);
     assert.match(detail().textContent, /Sent, likely read · #\d+ in send order/);
     assert.match(detail().textContent, /Yes, with all words/);
@@ -338,7 +335,7 @@ test(
     await key(listbox(), "Home");
     await key(listbox(), "Enter");
     assert.ok(detail().querySelector("[data-dictionary-usage-chart]"));
-    assert.match(detail().textContent, /heard 0 · written 6/);
+    assert.match(detail().textContent, /6 dictations · speech got it 0 · fixed after speech 6/);
     assert.match(detail().textContent, /Speech often misses it/);
 
     // Rename in place; a clash offers a merge.

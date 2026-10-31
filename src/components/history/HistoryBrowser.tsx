@@ -90,6 +90,7 @@ export default function HistoryBrowser({
     query,
     filter,
     app,
+    dictionaryWord,
     selectedId,
     detailOpen,
     openRequest,
@@ -101,6 +102,7 @@ export default function HistoryBrowser({
       query: state.query,
       filter: state.filter,
       app: state.app,
+      dictionaryWord: state.dictionaryWord,
       selectedId: state.selectedId,
       detailOpen: state.detailOpen,
       openRequest: state.openRequest,
@@ -118,9 +120,11 @@ export default function HistoryBrowser({
     cleanupChanged: filter === "cleanupChanged",
     app,
     flagged: filter === "flagged",
+    dictionaryFixed: filter === "dictionaryFixed",
+    dictionaryWord,
   });
   const { rows, refreshRow } = list;
-  const criteriaActive = !!searched || filter !== "all" || !!app;
+  const criteriaActive = !!searched || filter !== "all" || !!app || !!dictionaryWord;
   const personalHistory = useSettingsStore((state) => state.dataRetentionEnabled);
   const historyOn = usePolicyStore((state) => effectiveLocalHistoryEnabled(state, personalHistory));
   const containerRef = useRef<HTMLDivElement>(null);
@@ -343,7 +347,7 @@ export default function HistoryBrowser({
             onSelect={(id, open) => selectHistoryItem(id, { open })}
             narrow={narrow}
             revealRequest={openRequest}
-            criteriaKey={`${searched}\u0000${filter}\u0000${app ?? ""}`}
+            criteriaKey={`${searched}\u0000${filter}\u0000${app ?? ""}\u0000${dictionaryWord ?? ""}`}
             criteriaActive={criteriaActive}
             onClearCriteria={clearHistorySearch}
             historyOn={historyOn}

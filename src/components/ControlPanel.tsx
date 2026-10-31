@@ -93,8 +93,13 @@ import {
 } from "../services/historyRerun";
 import { resolveStyleForRetry } from "../stores/styleStore";
 import { styleIdFromRouteKind } from "../config/styles/library";
-import { OPEN_HISTORY_ITEM_EVENT } from "../utils/openHistoryItem";
-import { requestHistoryItem, requestHistoryReview } from "./history/historyViewStore";
+import { OPEN_HISTORY_ITEM_EVENT, OPEN_HISTORY_WORD_EVENT } from "../utils/openHistoryItem";
+import { OPEN_DICTIONARY_WORD_EVENT, setDictionaryWordRequest } from "../utils/openDictionaryWord";
+import {
+  requestHistoryItem,
+  requestHistoryReview,
+  showHistoryForDictionaryWord,
+} from "./history/historyViewStore";
 import HistoryView from "./HistoryView";
 import BackgroundActionToastListener from "./notes/BackgroundActionToastListener";
 import AssistantNoteUndoListener from "./notes/AssistantNoteUndoListener";
@@ -377,6 +382,34 @@ export default function ControlPanel({ initialSettingsSection }: ControlPanelPro
     };
     window.addEventListener(OPEN_HISTORY_ITEM_EVENT, openHistoryItem);
     return () => window.removeEventListener(OPEN_HISTORY_ITEM_EVENT, openHistoryItem);
+  }, [closeSettings]);
+
+  // "Show in History" (a dictionary word's panel): History filtered to the
+  // dictations with that word. "Open in Dictionary" (History's dictionary
+  // card): the Dictionary page on that word's panel.
+  useEffect(() => {
+    const wordOf = (event: Event) => {
+      const word = (event as CustomEvent<{ word?: unknown }>).detail?.word;
+      return typeof word === "string" && word.trim() ? word : null;
+    };
+    const openHistoryForWord = (event: Event) => {
+      const word = wordOf(event);
+      if (!word || !closeSettings()) return;
+      showHistoryForDictionaryWord(word);
+      setActiveView("history");
+    };
+    const openDictionaryWord = (event: Event) => {
+      const word = wordOf(event);
+      if (!word || !closeSettings()) return;
+      setDictionaryWordRequest(word);
+      setActiveView("dictionary");
+    };
+    window.addEventListener(OPEN_HISTORY_WORD_EVENT, openHistoryForWord);
+    window.addEventListener(OPEN_DICTIONARY_WORD_EVENT, openDictionaryWord);
+    return () => {
+      window.removeEventListener(OPEN_HISTORY_WORD_EVENT, openHistoryForWord);
+      window.removeEventListener(OPEN_DICTIONARY_WORD_EVENT, openDictionaryWord);
+    };
   }, [closeSettings]);
 
   // "Review last dictation" (its hotkey or the tray): main holds the request

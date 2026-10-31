@@ -1,9 +1,11 @@
 import type { CleanupDictionarySetting } from "../../utils/snippets";
+import type { DictionaryAppearanceKind, DictionaryFixedBy } from "../../types/electron";
 import type { DictionaryCoverage, SpeechSetupLabel } from "./useDictionaryCoverage";
 
 // The Dictionary page's shared wording: cleanup's word sets, who reads the
-// speech-to-text hints and how much of the budget they use, and why
-// heard/written isn't available.
+// speech-to-text hints and how much of the budget they use, why usage isn't
+// available, and the kinds of an appearance ("speech got it", "fixed after
+// speech", "changed after speech") shared with History.
 
 type Translate = (key: string, options?: Record<string, unknown>) => string;
 
@@ -64,7 +66,50 @@ const UNAVAILABLE_KEYS: Record<string, string> = {
   idle: "dictionary.usage.unavailable.pending",
 };
 
-/** Why heard/written (or a word's evidence) can't be shown. */
+/** Why usage (or a word's evidence, or where it appeared) can't be shown. */
 export function usageUnavailableKey(reason: string | null | undefined): string {
   return UNAVAILABLE_KEYS[reason ?? ""] ?? "dictionary.usage.unavailable.other";
+}
+
+/** What happened to a word at one place: speech got it, fixed after speech, changed after speech. */
+export const APPEARANCE_KIND_KEYS: Record<DictionaryAppearanceKind, string> = {
+  ok: "dictionary.kinds.ok",
+  fix: "dictionary.kinds.fix",
+  chg: "dictionary.kinds.chg",
+};
+
+/** "by the glossary", "by cleanup", "by a style". */
+export const FIXED_BY_KEYS: Record<DictionaryFixedBy, string> = {
+  glossary: "dictionary.kinds.by.glossary",
+  cleanup: "dictionary.kinds.by.cleanup",
+  style: "dictionary.kinds.by.style",
+};
+
+/** The colors of the three kinds (the usage bar, the chart, History's underlines). */
+export const APPEARANCE_KIND_BG: Record<DictionaryAppearanceKind, string> = {
+  ok: "bg-success",
+  fix: "bg-warning",
+  chg: "bg-destructive",
+};
+
+export const APPEARANCE_KIND_TEXT: Record<DictionaryAppearanceKind, string> = {
+  ok: "text-success",
+  fix: "text-warning",
+  chg: "text-destructive",
+};
+
+/** A word's counts as the page says them, from the row summaries (dictionaryUsage.js). */
+export function usageParts(usage: {
+  heard: number;
+  written: number;
+  missedRows: number;
+  bothRows?: number;
+}): { used: number; ok: number; fix: number; chg: number } {
+  const ok = usage.bothRows ?? Math.max(0, usage.written - usage.missedRows);
+  return {
+    used: usage.written,
+    ok,
+    fix: usage.missedRows,
+    chg: Math.max(0, usage.heard - ok),
+  };
 }

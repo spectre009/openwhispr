@@ -360,7 +360,7 @@ test(
       radios.map((radio) => radio.getAttribute("aria-checked")),
       ["true", "false"]
     );
-    assert.match(radios[0].textContent, /agents-shared.*heard 4 · written 10 · Auto-learned/);
+    assert.match(radios[0].textContent, /agents-shared.*used 10 · speech got it 4 · Auto-learned/);
 
     // Esc goes back to the list, and focus to the button.
     await view.key(tidy.querySelector("h2"), "Escape");
@@ -474,7 +474,7 @@ test(
       }
       assert.match(
         view.group(kind).querySelector("[data-tidy-unavailable]").textContent,
-        /Needs this account's local History · Heard and written are counted from local History, which is off\./
+        /Needs this account's local History · Usage is counted from local History, which is off\./
       );
       assert.equal(view.items(kind).length, 0);
     }

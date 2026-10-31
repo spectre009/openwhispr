@@ -36,6 +36,14 @@ const { historyRevision } = require("./dictationFeedback");
 const { STEP_FAILURE_KINDS, STEP_FAILURE_OUTCOMES } = require("./stepFailure.js");
 // ESM, through require(esm): the one identity of a dictionary word.
 const { dictionaryWordKey } = require("../utils/dictionaryWordKey.js");
+// ESM, through require(esm): the row-summary matcher History's dictionary
+// filters and badge share with the Dictionary's counts.
+const {
+  buildUsageIndex,
+  createUsageMatcher,
+  usableExpansions,
+  usageTokens,
+} = require("./dictionaryUsage.js");
 
 // A learned word's evidence (dictionary_word_evidence): how many rows per word
 // and owner, how much of what it replaced, and the window a paste's dictation
@@ -256,6 +264,18 @@ const HISTORY_STEP_FAILED = `EXISTS (
     AND sf.kind IN (${sqlList(STEP_FAILURE_KINDS)})
     AND sf.outcome IN (${sqlList(STEP_FAILURE_OUTCOMES)})
 )`;
+// The owner's steps say the row was the assistant's: its text isn't what was
+// said (the rule the Dictionary's usage rows follow).
+const HISTORY_OWNER_ASSISTANT = `EXISTS (
+  SELECT 1 FROM transcription_steps sa
+  WHERE sa.transcription_id = t.id AND sa.owner = ?
+    AND (sa.route = 'agent' OR sa.context LIKE '%"voiceAgent":true%')
+)`;
+// A row's final text as the Dictionary reads it: the raw transcript when empty.
+const HISTORY_FINAL_TEXT = "COALESCE(NULLIF(t.text, ''), t.raw_text)";
+// History's "Show in History" filter keeps this many words' matchers per generation.
+const HISTORY_DICTIONARY_WORD_MATCHERS = 4;
+const NON_ASCII_TEXT = /[\u0080-\uffff]/;
 
 // A LIKE pattern matching `text` anywhere, its own wildcards taken literally.
 function historyLikePattern(text) {
@@ -1634,6 +1654,18 @@ class DatabaseManager {
           "database"
         );
       }
+      try {
+        this._initDictionaryContentRevision();
+      } catch (error) {
+        // Without it the dictionary generation follows the words and
+        // snippets as read (getDictionaryGeneration's fallback).
+        this.dictionaryContentRevisionReady = false;
+        debugLogger.error(
+          "Dictionary content revision unavailable",
+          { error: error.message },
+          "database"
+        );
+      }
       // Step history's, reviews' and evidence's ON DELETE CASCADE need foreign keys. better-sqlite3
       // turns them on by default and the folders rebuild above restores them,
       // but say so once more after every migration rather than rely on both.
@@ -2919,9 +2951,148 @@ class DatabaseManager {
     this._historyFoldDb = this.db;
   }
 
+  // ─── The dictionary in History ───
+  // The "Dictionary fixed" and "Show in History" filters, and each row's
+  // "📖 n fixed" badge, use the row-summary matcher (dictionaryUsage.js), never
+  // the alignment: two SQL functions over the current dictionary and the
+  // snippets' expansions, built once per dictionary generation and frozen for
+  // it. Each row's answer is remembered for the generation and History's
+  // content revision, so later pages and repeated queries don't tokenize
+  // again. Device-wide, as search is; nothing here is logged.
+
+  _ensureHistoryDictionary() {
+    if (this._historyDictionaryDb === this.db) return;
+    this.db.function("history_dictionary_fixes", { deterministic: false }, (id, raw, final, kind) =>
+      this._historyDictionaryFixes(this._historyDictionaryActive, id, raw, final, kind)
+    );
+    this.db.function("history_dictionary_word", { deterministic: false }, (id, raw, final) =>
+      this._historyDictionaryHasWord(this._historyDictionaryActive, id, raw, final) ? 1 : 0
+    );
+    this._historyDictionaryDb = this.db;
+  }
+
+  /** The matcher state of `generation` (the current one), its row answers reset when History changed. */
+  _historyDictionaryState(generation) {
+    const revision = this.getHistoryContentRevision();
+    let state = this._historyDictionary;
+    if (!state || state.generation !== generation || state.db !== this.db) {
+      const expansions = this._snippetExpansions();
+      state = {
+        db: this.db,
+        generation,
+        revision,
+        expansions,
+        match: createUsageMatcher(buildUsageIndex(this.getDictionary()), {
+          snippetExpansions: expansions,
+        }),
+        fixes: new Map(),
+        words: new Map(),
+      };
+      this._historyDictionary = state;
+    } else if (revision === null || state.revision !== revision) {
+      state.revision = revision;
+      state.fixes.clear();
+      for (const word of state.words.values()) word.hits.clear();
+    }
+    return state;
+  }
+
+  // One word's matcher in a state (the "Show in History" filter), the last few kept.
+  _historyDictionaryWord(state, word) {
+    const key = dictionaryWordKey(word);
+    let entry = state.words.get(key);
+    if (!entry) {
+      const tokens = usageTokens(key);
+      entry = {
+        first: tokens[0] ?? null,
+        match: tokens.length
+          ? createUsageMatcher(buildUsageIndex([word]), { snippetExpansions: state.expansions })
+          : null,
+        hits: new Map(),
+      };
+      state.words.set(key, entry);
+      if (state.words.size > HISTORY_DICTIONARY_WORD_MATCHERS) {
+        state.words.delete(state.words.keys().next().value);
+      }
+    }
+    return entry;
+  }
+
+  // How many dictionary words a row's final text has that its raw transcript
+  // doesn't. None for a row without a raw transcript or a translation (the
+  // final text is another language).
+  _historyDictionaryFixes(state, id, raw, final, routeKind) {
+    if (!state || typeof raw !== "string" || !raw || routeKind === "translation") return 0;
+    const cached = state.fixes.get(id);
+    if (cached !== undefined) return cached;
+    const text = typeof final === "string" && final ? final : raw;
+    // The same text can't have a word in final and not in raw.
+    const fixes = text === raw ? 0 : (state.match({ raw, final: text })?.missed.length ?? 0);
+    state.fixes.set(id, fixes);
+    return fixes;
+  }
+
+  // Whether a row's raw transcript or final text has the active word.
+  _historyDictionaryHasWord(state, id, raw, final) {
+    const entry = state?.activeWord;
+    if (!entry?.match) return false;
+    const cached = entry.hits.get(id);
+    if (cached !== undefined) return cached;
+    const rawText = typeof raw === "string" ? raw : "";
+    const text = typeof final === "string" && final ? final : rawText;
+    let hit = false;
+    // ASCII text without the word's first token anywhere can't have it.
+    const quick =
+      !NON_ASCII_TEXT.test(rawText) &&
+      !NON_ASCII_TEXT.test(text) &&
+      !rawText.toLowerCase().includes(entry.first) &&
+      !text.toLowerCase().includes(entry.first);
+    if (!quick) {
+      const found = entry.match({ raw: rawText, final: text });
+      hit = !!found && (found.heard.length > 0 || found.written.length > 0);
+    }
+    entry.hits.set(id, hit);
+    return hit;
+  }
+
+  /**
+   * Each row's "📖 n fixed" (dictionary words in the final text and not in
+   * the raw transcript), by the current generation's matcher: 0 for a
+   * translation, a row without a raw transcript, or one the owner's steps say
+   * was the assistant's. `{ generation, fixes: Map<id, n> }`.
+   */
+  getHistoryDictionaryFixes(ids, owner = null) {
+    if (!this.db) throw new Error("Database not initialized");
+    const generation = this.getDictionaryGeneration();
+    const fixes = new Map();
+    const list = Array.isArray(ids) ? ids.filter((id) => Number.isInteger(id)) : [];
+    if (list.length === 0) return { generation, fixes };
+    const state = this._historyDictionaryState(generation);
+    const assistant = owner && this.stepHistoryReady;
+    const rows = this.db
+      .prepare(
+        `SELECT t.id, t.raw_text AS raw, ${HISTORY_FINAL_TEXT} AS final, t.route_kind,
+                ${assistant ? HISTORY_OWNER_ASSISTANT : "0"} AS assistant
+         FROM transcriptions t
+         WHERE t.id IN (${list.map(() => "?").join(", ")}) AND t.deleted_at IS NULL`
+      )
+      .all(...(assistant ? [owner] : []), ...list);
+    for (const row of rows) {
+      fixes.set(
+        row.id,
+        row.assistant
+          ? 0
+          : this._historyDictionaryFixes(state, row.id, row.raw, row.final, row.route_kind)
+      );
+    }
+    return { generation, fixes };
+  }
+
   /**
    * One page, newest first: rows before `cursor` ({ timestamp, id }), at most
    * `limit`. Lightweight columns only: the text is cut to a preview here.
+   * `dictionaryFixed` / `dictionaryWord`: History's dictionary filters, by the
+   * row-summary matcher of `dictionaryGeneration` (the current one).
    */
   getHistoryPage({
     owner = null,
@@ -2932,6 +3103,9 @@ class DatabaseManager {
     cleanupChanged = false,
     app = null,
     flagged = false,
+    dictionaryFixed = false,
+    dictionaryWord = null,
+    dictionaryGeneration = null,
   } = {}) {
     if (!this.db) throw new Error("Database not initialized");
     const where = [HISTORY_ROW_FILTER];
@@ -2985,19 +3159,47 @@ class DatabaseManager {
         where.push("0");
       }
     }
+    // The dictionary's filters: the matcher frozen for this generation.
+    let dictionaryState = null;
+    if (dictionaryFixed || dictionaryWord) {
+      this._ensureHistoryDictionary();
+      dictionaryState = this._historyDictionaryState(
+        dictionaryGeneration ?? this.getDictionaryGeneration()
+      );
+      dictionaryState.activeWord = dictionaryWord
+        ? this._historyDictionaryWord(dictionaryState, dictionaryWord)
+        : null;
+    }
+    if (dictionaryFixed) {
+      where.push("t.raw_text IS NOT NULL AND COALESCE(t.route_kind, '') <> 'translation'");
+      if (stepsReadable) {
+        where.push(`NOT ${HISTORY_OWNER_ASSISTANT}`);
+        params.push(owner);
+      }
+      where.push(
+        `history_dictionary_fixes(t.id, t.raw_text, ${HISTORY_FINAL_TEXT}, t.route_kind) > 0`
+      );
+    }
+    if (dictionaryWord) {
+      where.push(`history_dictionary_word(t.id, t.raw_text, ${HISTORY_FINAL_TEXT}) = 1`);
+    }
     const rating = feedbackReadable ? HISTORY_RATING : "NULL";
     params.push(limit);
-    return this.db
-      .prepare(
-        `SELECT t.id, t.timestamp, ${HISTORY_SORT_KEY} AS sort_key, t.status, t.error_code,
-                substr(COALESCE(NULLIF(t.text, ''), t.raw_text), 1, ${HISTORY_PREVIEW_CHARS}) AS preview,
-                t.has_audio, t.audio_duration_ms, t.route_kind, ${rating} AS rating
-         FROM transcriptions t
-         WHERE ${where.join(" AND ")}
-         ORDER BY sort_key DESC, t.id DESC
-         LIMIT ?`
-      )
-      .all(...(feedbackReadable ? [owner] : []), ...params);
+    const statement = this.db.prepare(
+      `SELECT t.id, t.timestamp, ${HISTORY_SORT_KEY} AS sort_key, t.status, t.error_code,
+              substr(COALESCE(NULLIF(t.text, ''), t.raw_text), 1, ${HISTORY_PREVIEW_CHARS}) AS preview,
+              t.has_audio, t.audio_duration_ms, t.route_kind, ${rating} AS rating
+       FROM transcriptions t
+       WHERE ${where.join(" AND ")}
+       ORDER BY sort_key DESC, t.id DESC
+       LIMIT ?`
+    );
+    this._historyDictionaryActive = dictionaryState;
+    try {
+      return statement.all(...(feedbackReadable ? [owner] : []), ...params);
+    } finally {
+      this._historyDictionaryActive = null;
+    }
   }
 
   /**
@@ -3370,6 +3572,86 @@ class DatabaseManager {
     }
   }
 
+  // The dictionary generation: one counter bumped by triggers on every
+  // dictionary word or snippet change (a word added, respelled, removed or
+  // restored; a snippet's expansion added, changed or removed), so History's
+  // dictionary filters know when their matcher is out of date. Sync bookkeeping
+  // (sync_status, cloud ids) doesn't bump it. Means nothing across devices.
+  _initDictionaryContentRevision() {
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS dictionary_content_revision (
+        id INTEGER PRIMARY KEY CHECK (id = 1),
+        revision INTEGER NOT NULL DEFAULT 0
+      );
+      INSERT OR IGNORE INTO dictionary_content_revision (id, revision) VALUES (1, 0);
+      CREATE TRIGGER IF NOT EXISTS custom_dictionary_generation_insert
+      AFTER INSERT ON custom_dictionary
+      BEGIN
+        UPDATE dictionary_content_revision SET revision = revision + 1 WHERE id = 1;
+      END;
+      CREATE TRIGGER IF NOT EXISTS custom_dictionary_generation_update
+      AFTER UPDATE OF word, deleted_at ON custom_dictionary
+      BEGIN
+        UPDATE dictionary_content_revision SET revision = revision + 1 WHERE id = 1;
+      END;
+      CREATE TRIGGER IF NOT EXISTS custom_dictionary_generation_delete
+      AFTER DELETE ON custom_dictionary
+      BEGIN
+        UPDATE dictionary_content_revision SET revision = revision + 1 WHERE id = 1;
+      END;
+      CREATE TRIGGER IF NOT EXISTS snippets_generation_insert
+      AFTER INSERT ON snippets
+      BEGIN
+        UPDATE dictionary_content_revision SET revision = revision + 1 WHERE id = 1;
+      END;
+      CREATE TRIGGER IF NOT EXISTS snippets_generation_update
+      AFTER UPDATE OF replacement, deleted_at ON snippets
+      BEGIN
+        UPDATE dictionary_content_revision SET revision = revision + 1 WHERE id = 1;
+      END;
+      CREATE TRIGGER IF NOT EXISTS snippets_generation_delete
+      AFTER DELETE ON snippets
+      BEGIN
+        UPDATE dictionary_content_revision SET revision = revision + 1 WHERE id = 1;
+      END;
+    `);
+    this.dictionaryContentRevisionReady = true;
+  }
+
+  /**
+   * The dictionary + snippet generation History's dictionary filters freeze
+   * their matcher by. Without its table, a counter in memory bumped whenever
+   * the words or the expansions read differently.
+   */
+  getDictionaryGeneration() {
+    if (!this.db) throw new Error("Database not initialized");
+    if (this.dictionaryContentRevisionReady) {
+      try {
+        const revision = this.db
+          .prepare("SELECT revision FROM dictionary_content_revision WHERE id = 1")
+          .get()?.revision;
+        if (Number.isInteger(revision)) return revision;
+      } catch {
+        // fall through to the content signature
+      }
+    }
+    const signature = JSON.stringify([this.getDictionary(), this._snippetExpansions()]);
+    if (this._dictionaryGenerationSignature !== signature) {
+      this._dictionaryGenerationSignature = signature;
+      this._dictionaryGenerationFallback = (this._dictionaryGenerationFallback ?? 0) + 1;
+    }
+    return this._dictionaryGenerationFallback;
+  }
+
+  // The snippets' expansions, as the row-summary matcher skips them.
+  _snippetExpansions() {
+    try {
+      return usableExpansions(this.getSnippets().map((snippet) => snippet.replacement));
+    } catch {
+      return [];
+    }
+  }
+
   // The keys of the live dictionary words, for the mutations below.
   _liveDictionaryKeys() {
     const keys = new Set();
@@ -3688,6 +3970,20 @@ class DatabaseManager {
    */
   getDictionaryUsageRows({ owner = null, since }) {
     if (!this.db) throw new Error("Database not initialized");
+    return this._dictionaryUsageRows({ owner, since, ordered: false });
+  }
+
+  /**
+   * The same rows as getDictionaryUsageRows, with their id and History's sort
+   * key, in History's order (newest first): the Dictionary's "Where it
+   * appeared" pages them. Text and times only, never logged.
+   */
+  getDictionaryOccurrenceRows({ owner = null, since }) {
+    if (!this.db) throw new Error("Database not initialized");
+    return this._dictionaryUsageRows({ owner, since, ordered: true });
+  }
+
+  _dictionaryUsageRows({ owner, since, ordered }) {
     const assistant =
       owner && this.stepHistoryReady
         ? `AND NOT EXISTS (
@@ -3698,16 +3994,38 @@ class DatabaseManager {
         : "";
     return this.db
       .prepare(
-        `SELECT t.raw_text AS raw, COALESCE(NULLIF(t.text, ''), t.raw_text) AS final,
+        `SELECT ${ordered ? `t.id, ${HISTORY_SORT_KEY} AS sort_key,` : ""}
+                t.raw_text AS raw, COALESCE(NULLIF(t.text, ''), t.raw_text) AS final,
                 t.created_at AS at
          FROM transcriptions t
          WHERE t.deleted_at IS NULL AND t.status = 'completed'
            AND t.created_at >= ?
            AND t.raw_text IS NOT NULL AND t.raw_text <> ''
            AND COALESCE(t.route_kind, '') <> 'translation'
-           ${assistant}`
+           ${assistant}
+         ${ordered ? "ORDER BY sort_key DESC, t.id DESC" : ""}`
       )
       .all(since, ...(assistant ? [owner] : []));
+  }
+
+  /**
+   * A page of "Where it appeared": these rows' texts and times, if they're
+   * still completed and not deleted. Never logged.
+   */
+  getDictionaryOccurrenceTexts(ids) {
+    if (!this.db) throw new Error("Database not initialized");
+    const list = Array.isArray(ids) ? ids.filter((id) => Number.isInteger(id)) : [];
+    if (list.length === 0) return [];
+    return this.db
+      .prepare(
+        `SELECT t.id, t.timestamp, t.raw_text AS raw, ${HISTORY_FINAL_TEXT} AS final,
+                t.created_at AS at
+         FROM transcriptions t
+         WHERE t.id IN (${list.map(() => "?").join(", ")})
+           AND t.deleted_at IS NULL AND t.status = 'completed'
+           AND t.raw_text IS NOT NULL AND t.raw_text <> ''`
+      )
+      .all(...list);
   }
 
   // ─── Glossary rules ────────────────────────────────────────────────────

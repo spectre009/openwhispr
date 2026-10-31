@@ -842,13 +842,20 @@
       "app": "应用",
       "appSelected": "应用：{{app}}",
       "anyApp": "任意应用",
-      "noApps": "尚未记录任何应用"
+      "noApps": "尚未记录任何应用",
+      "dictionaryFixed": "词典修正过",
+      "dictionaryWord": "含“{{word}}”",
+      "clearDictionaryWord": "显示所有听写，而不只是含“{{word}}”的"
     },
     "list": {
       "label": "听写",
       "noText": "无文本",
       "loadingMore": "正在加载更多…",
-      "moreFailed": "无法加载更多。"
+      "moreFailed": "无法加载更多。",
+      "dictionaryFixes_one": "修正 {{count}} 个",
+      "dictionaryFixes_other": "修正 {{count}} 个",
+      "dictionaryFixesHint_one": "有 {{count}} 个词典词在识别后被修正",
+      "dictionaryFixesHint_other": "有 {{count}} 个词典词在识别后被修正"
     },
     "marks": {
       "changed": "{{step}}：修改了文本",
@@ -1053,6 +1060,24 @@
       "cleanup": "清理失败",
       "style": "未应用风格",
       "translation": "翻译失败"
+    },
+    "dictionary": {
+      "title": "此次听写中的词典",
+      "asNow": "按当前词典列出的你的词",
+      "speechWrote": "语音识别写成",
+      "fixedAfterSpeech": "识别后修正",
+      "fixedUnknown": "识别后修正；不清楚语音识别在那里写了什么",
+      "times_one": "{{count}} 次",
+      "times_other": "{{count}} 次",
+      "got": "语音识别写出了它，之后没有改动",
+      "gotAndChanged": "语音识别写出了它；有一处在识别后被更改",
+      "changed": "语音识别写出了它，之后被更改",
+      "openInDictionary": "在词典中打开",
+      "note": "上方文本中的下划线：绿色表示识别正确，琥珀色表示识别后修正。只有此次听写记录的步骤能说明时，才会标出“由术语表”或“由文本整理”。",
+      "tooLong": "此次听写太长，无法逐词比较。",
+      "underlineOk": "词典中的词：识别正确",
+      "underlineFix": "词典中的词：识别后修正",
+      "inserted": "此步骤加入的词典词"
     }
   },
   "reasoning": {
@@ -4657,27 +4682,28 @@
         "learned": "自动学习",
         "pinned": "已固定",
         "notSent": "未发送",
-        "neverHeard": "从未听到",
+        "neverHeard": "从未使用",
         "addedThisWeek": "本周添加",
         "notSentHint": "当前语音识别设置不会发送的词语",
-        "neverHeardHint": "过去 90 天的听写中都没有出现，既没被听到也没被写出"
+        "neverHeardHint": "过去 90 天的听写中都没有出现，识别结果和最终文本里都没有",
+        "speechMisses": "识别常出错",
+        "speechMissesHint": "至少 2 次听写、或用到它的听写中有四分之一在识别后被修正"
       },
       "sorts": {
         "sendOrder": "发送顺序",
         "recent": "最近添加",
         "alpha": "A–Z",
-        "mostHeard": "听到最多",
-        "leastHeard": "听到最少"
+        "mostHeard": "使用最多",
+        "leastHeard": "使用最少"
       },
       "columns": {
         "word": "词语",
         "source": "来源",
-        "heard": "听到 · 90 天",
+        "heard": "使用 · 90 天",
         "added": "添加时间",
         "speech": "语音模型"
       },
-      "heardWritten": "听到 {{heard}} · 写出 {{written}}",
-      "missedHint": "语音识别常漏掉它：写出的次数多于听到的次数",
+      "missedHint": "语音识别常出错：经常在识别后被修正",
       "added": "添加于 {{when}}",
       "noMatches": "没有匹配的词语。",
       "clearFilters": "清除筛选",
@@ -4686,7 +4712,13 @@
         "unread_other": "语音模型读到这里为止 · 下方 {{count}} 个词已发送，但可能不会被读取",
         "notSent_one": "从这里开始不发送 · {{count}} 个词未发送",
         "notSent_other": "从这里开始不发送 · {{count}} 个词未发送"
-      }
+      },
+      "notUsed": "未使用",
+      "usageSpeech": "识别 {{count}}",
+      "usageFixed": "修正 {{count}}",
+      "usageShort": "使用 {{used}} · 识别正确 {{ok}}",
+      "usageTitle_one": "{{count}} 次听写：识别正确 {{ok}}，识别后修正 {{fix}}，识别后更改 {{chg}}",
+      "usageTitle_other": "{{count}} 次听写：识别正确 {{ok}}，识别后修正 {{fix}}，识别后更改 {{chg}}"
     },
     "where": {
       "title": "你的词典会发送到哪里",
@@ -4778,16 +4810,21 @@
       "glossaryRule": "创建术语表规则",
       "glossaryExisting": "已有术语表规则写出这个词，因此打开了该规则。",
       "usage": {
-        "title": "听到",
-        "last90": "过去 90 天",
-        "totals": "听到 {{heard}} · 写出 {{written}}",
-        "chartLabel": "90 天内听到 {{heard}} 次、写出 {{written}} 次，按周统计",
-        "heardLegend": "听到（语音识别）",
-        "writtenLegend": "写出（最终文本）",
+        "title": "最近 90 天的使用",
+        "chartLabel": "90 天内使用 {{used}} 次，按周统计：识别正确 {{ok}}，识别后修正 {{fix}}，识别后更改 {{chg}}",
         "never": "过去 90 天的听写中都没有出现。",
-        "missed_one": "语音识别常漏掉它：有 {{count}} 次听写写出了它，却没有听到。",
-        "missed_other": "语音识别常漏掉它：有 {{count}} 次听写写出了它，却没有听到。",
-        "note": "根据此账户的本地历史记录统计，仅供参考。没听到也没写出表示未知。"
+        "note": "根据此账户的本地历史记录统计，仅供参考。没有使用也没有更改表示未知。",
+        "dictations_one": "{{count}} 次听写",
+        "dictations_other": "{{count}} 次听写",
+        "okCount": "识别正确 {{count}}",
+        "fixCount": "识别后修正 {{count}}",
+        "chgCount": "识别后更改 {{count}}",
+        "weekOf": "{{range}} 这一周",
+        "weekLabel": "{{range}} 这一周：使用 {{used}}，识别正确 {{ok}}，识别后修正 {{fix}}，识别后更改 {{chg}}",
+        "clickToList": "点击列出这些听写",
+        "clickToClear": "再次点击显示所有周",
+        "missed_one": "语音识别常出错：有 {{count}} 次听写在识别后被修正。",
+        "missed_other": "语音识别常出错：有 {{count}} 次听写在识别后被修正。"
       },
       "where": {
         "title": "发送去向",
@@ -4832,7 +4869,7 @@
     },
     "usage": {
       "unavailable": {
-        "historyOff": "听到和写出的次数来自本地历史记录，而它已关闭。",
+        "historyOff": "使用情况来自本地历史记录，而它已关闭。",
         "policyOff": "你的组织关闭了本地历史记录，因此不会统计。",
         "pending": "正在从本地历史记录统计…",
         "other": "暂时无法统计。"
@@ -4870,7 +4907,7 @@
         },
         "typos": {
           "title": "可能的拼写错误",
-          "why": "很少被听到或写出，而且和你常说的某个词只差一两个字母。"
+          "why": "很少出现在听写中，而且和你常说的某个词只差一两个字母。"
         },
         "fragments": {
           "title": "片段",
@@ -4881,13 +4918,11 @@
           "why": "你总是连着说的两个词。合成一个短语只占一个位置，效果也更好。"
         },
         "neverHeard": {
-          "title": "{{days}} 天内从未听到",
+          "title": "{{days}} 天内从未使用",
           "why": "一个多月前自动学习的词，之后没有出现在任何听写中。保留你会用到的。"
         }
       },
       "reasons": {
-        "keepWritten_one": "保留“{{word}}”：写出 {{count}} 次，比其他写法多",
-        "keepWritten_other": "保留“{{word}}”：写出 {{count}} 次，比其他写法多",
         "keepTyped": "保留“{{word}}”：这是你手动输入的",
         "keepNewest": "保留“{{word}}”：最新的写法",
         "keepProtected": "保留“{{word}}”：术语表写法或片段触发词",
@@ -4907,7 +4942,9 @@
         "splitPhrase_one": "在包含“{{word}}”的 {{count}} 次听写中，有 {{together}} 次紧挨着",
         "splitPhrase_other": "在包含“{{word}}”的 {{count}} 次听写中，有 {{together}} 次紧挨着",
         "phraseExists": "“{{phrase}}”已在你的词典中",
-        "neverHeard": "添加于{{when}}，之后没有出现在任何听写中"
+        "neverHeard": "添加于{{when}}，之后没有出现在任何听写中",
+        "keepWritten_one": "保留“{{word}}”：使用 {{count}} 次，比其他写法多",
+        "keepWritten_other": "保留“{{word}}”：使用 {{count}} 次，比其他写法多"
       },
       "actions": {
         "select": "选择 {{word}}",
@@ -4989,6 +5026,63 @@
           "merge": "合并"
         }
       }
+    },
+    "kinds": {
+      "used": "使用",
+      "ok": "识别正确",
+      "fix": "识别后修正",
+      "chg": "识别后更改",
+      "by": {
+        "glossary": "由术语表",
+        "cleanup": "由文本整理",
+        "style": "由风格"
+      }
+    },
+    "explainer": {
+      "open": "这些数字的含义",
+      "title": "“使用”“识别正确”和“修正”的含义",
+      "subtitle": "按次统计此账户本地历史记录中最近 90 天的听写。",
+      "wasWritten": "（原“写出”）",
+      "wasHeard": "（原“听到”）",
+      "used": "最终文本中含有该词的听写：识别正确的，加上识别后修正的。这是你收到的文本，不含你之后的编辑。",
+      "ok": "语音识别自己写出了这个词，最终文本中也仍有它。",
+      "fix": "语音识别写的是别的内容，由术语表、文本整理或风格改成了这个词。最终文本里有它，原始识别结果里没有。",
+      "chg": "语音识别写出了这个词，但文本整理或风格把它改了或删了。",
+      "note": "仅供参考，并非记录：用你现在的词典比较原始识别结果和最终文本。"
+    },
+    "variants": {
+      "title": "语音识别写成",
+      "none": "最近 90 天，语音识别没有把它写成别的样子。",
+      "count_one": "{{count}} 次听写",
+      "count_other": "{{count}} 次听写",
+      "kept_one": "“{{spelling}}”还在 {{count}} 次听写中保持原样",
+      "kept_other": "“{{spelling}}”还在 {{count}} 次听写中保持原样",
+      "neverKept": "从未在你的最终文本中保持原样。",
+      "makeRule": "创建术语表规则",
+      "handled": "术语表已处理",
+      "notice": {
+        "added": "已把“{{spelling}}”加到已经写出这个词的术语表规则中。",
+        "kept_one": "“{{spelling}}”还在你的 {{count}} 次听写中保持原样，所以先只用于你选择的应用中的听写开头。请选择应用，或重新考虑这条规则。",
+        "kept_other": "“{{spelling}}”还在你的 {{count}} 次听写中保持原样，所以先只用于你选择的应用中的听写开头。请选择应用，或重新考虑这条规则。",
+        "common": "“{{spelling}}”由日常用词组成，所以先只用于你选择的应用中的听写开头。请选择应用，或重新考虑这条规则。",
+        "unknown": "没有此账户的本地历史记录，无法检查“{{spelling}}”是否也会保持原样，所以先只用于你选择的应用中的听写开头。",
+        "anywhere": "“{{spelling}}”从未在你的最终文本中保持原样，也不是日常用词，所以这条规则在任何位置都适用。"
+      }
+    },
+    "occurrences": {
+      "title": "出现在哪里",
+      "segmentsLabel": "显示以下听写",
+      "segments": {
+        "all": "全部",
+        "chg": "已更改"
+      },
+      "open": "在历史记录中打开",
+      "none": "这里没有听写。",
+      "more": "加载更多",
+      "clearWeek": "显示所有周",
+      "unaligned_one": "{{count}} 次听写太长，无法逐词比较，所以没有列出。",
+      "unaligned_other": "{{count}} 次听写太长，无法逐词比较，所以没有列出。",
+      "showInHistory": "在历史记录中显示"
     }
   },
   "insights": {

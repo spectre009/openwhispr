@@ -20,18 +20,24 @@ test("a request is trimmed, clamped and whitelisted", () => {
     cleanupChanged: false,
     app: null,
     flagged: false,
+    dictionaryFixed: false,
+    dictionaryWord: null,
+    generation: null,
   });
   assert.deepEqual(
     normalizeListRequest({
       cursor: { timestamp: "2026-10-22 10:00:00", id: 7, extra: true },
       limit: 250.7,
       query: "  100%_sure  ",
+      generation: 4,
       filters: {
         failed: true,
         cleanupChanged: "yes",
         app: "  Code.exe ",
         flagged: true,
         rated: true,
+        dictionaryFixed: true,
+        dictionaryWord: "  Little Buddy ",
       },
     }),
     {
@@ -42,9 +48,19 @@ test("a request is trimmed, clamped and whitelisted", () => {
       cleanupChanged: false,
       app: "Code.exe",
       flagged: true,
+      dictionaryFixed: true,
+      dictionaryWord: "Little Buddy",
+      generation: 4,
     }
   );
   assert.equal(normalizeListRequest({ filters: { flagged: "yes" } }).flagged, false);
+  assert.equal(normalizeListRequest({ filters: { dictionaryFixed: 1 } }).dictionaryFixed, false);
+  assert.equal(normalizeListRequest({ filters: { dictionaryWord: "  " } }).dictionaryWord, null);
+  assert.equal(
+    normalizeListRequest({ filters: { dictionaryWord: "x".repeat(501) } }).dictionaryWord,
+    null
+  );
+  assert.equal(normalizeListRequest({ generation: "4" }).generation, null);
   assert.equal(normalizeListRequest({ limit: -3 }).limit, 1);
   assert.equal(normalizeListRequest({ limit: "20" }).limit, 50);
   assert.equal(normalizeListRequest({ query: 42 }).query, "");

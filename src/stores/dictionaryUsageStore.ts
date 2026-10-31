@@ -4,12 +4,13 @@ import { isSpeechMissed } from "../helpers/dictionaryUsage.js";
 import { dictionaryWordKey } from "../utils/dictionaryWordKey.js";
 import type { DictionaryUsageResult, DictionaryWordUsage } from "../types/electron";
 
-// Heard vs written per dictionary word, counted by main from local History
-// (helpers/dictionaryUsage.js). Mirrored here so cleanup's "words speech
-// misses" set can be chosen synchronously when a dictation's cleanup request
-// is built. Counts only. Refreshed when a window loads, when the dictionary
-// changes, and (debounced) when History does; main caches the counts and
-// recomputes at most every 30 s while dictations keep arriving.
+// Heard vs written per dictionary word ("used", "speech got it", "fixed after
+// speech"), counted by main from local History (helpers/dictionaryUsage.js).
+// Mirrored here so cleanup's "words speech misses" set can be chosen
+// synchronously when a dictation's cleanup request is built. Counts only.
+// Refreshed when a window loads, when the dictionary changes, when the owner
+// or History's policy does, and (debounced) when History does; main caches
+// the counts and recomputes at most every 30 s while dictations keep arriving.
 
 const REFRESH_DEBOUNCE_MS = 5_000;
 
@@ -126,6 +127,8 @@ export function syncDictionaryUsage(): void {
   if (!subscribed && api) {
     subscribed = true;
     api.onDictionaryUpdated?.(() => void refreshDictionaryUsage());
+    // Another owner, or History's policy changed: the counts were someone else's.
+    api.onDictionaryHistoryChanged?.(() => void refreshDictionaryUsage());
     const later = () => scheduleDictionaryUsageRefresh();
     api.onTranscriptionAdded?.(later);
     api.onTranscriptionUpdated?.(later);

@@ -842,13 +842,20 @@
       "app": "App",
       "appSelected": "App: {{app}}",
       "anyApp": "Any app",
-      "noApps": "No apps recorded yet"
+      "noApps": "No apps recorded yet",
+      "dictionaryFixed": "Dictionary fixed",
+      "dictionaryWord": "With “{{word}}”",
+      "clearDictionaryWord": "Show every dictation, not only those with “{{word}}”"
     },
     "list": {
       "label": "Dictations",
       "noText": "No text",
       "loadingMore": "Loading more…",
-      "moreFailed": "Couldn't load more."
+      "moreFailed": "Couldn't load more.",
+      "dictionaryFixes_one": "{{count}} fixed",
+      "dictionaryFixes_other": "{{count}} fixed",
+      "dictionaryFixesHint_one": "{{count}} dictionary word fixed after speech",
+      "dictionaryFixesHint_other": "{{count}} dictionary words fixed after speech"
     },
     "marks": {
       "changed": "{{step}} changed the text",
@@ -1053,6 +1060,24 @@
       "cleanup": "Cleanup failed",
       "style": "Style not applied",
       "translation": "Translation failed"
+    },
+    "dictionary": {
+      "title": "Dictionary in this dictation",
+      "asNow": "Your dictionary words, as the dictionary is now",
+      "speechWrote": "Speech wrote",
+      "fixedAfterSpeech": "fixed after speech",
+      "fixedUnknown": "Fixed after speech; what speech wrote there isn't clear",
+      "times_one": "{{count}} time",
+      "times_other": "{{count}} times",
+      "got": "Speech wrote it; nothing changed it",
+      "gotAndChanged": "Speech wrote it; one place was changed after speech",
+      "changed": "Speech wrote it, then it was changed after speech",
+      "openInDictionary": "Open in Dictionary",
+      "note": "Underlined in the text above: green, speech got it; amber, fixed after speech. “By the glossary” or “by cleanup” is named only when this dictation's recorded steps show which.",
+      "tooLong": "This dictation is too long to compare word by word.",
+      "underlineOk": "Dictionary word: speech got it",
+      "underlineFix": "Dictionary word: fixed after speech",
+      "inserted": "A dictionary word this step put in"
     }
   },
   "reasoning": {
@@ -5009,27 +5034,28 @@
         "learned": "Auto-learned",
         "pinned": "Pinned",
         "notSent": "Not sent",
-        "neverHeard": "Never heard",
+        "neverHeard": "Never used",
         "addedThisWeek": "Added this week",
         "notSentHint": "Words your current speech-to-text setup doesn't send",
-        "neverHeardHint": "In no dictation of the last 90 days, heard or written"
+        "neverHeardHint": "In no dictation of the last 90 days, neither in what speech wrote nor in the final text",
+        "speechMisses": "Speech misses it",
+        "speechMissesHint": "Fixed after speech in at least 2 dictations, or in a quarter of the ones that used it"
       },
       "sorts": {
         "sendOrder": "Send order",
         "recent": "Recently added",
         "alpha": "A–Z",
-        "mostHeard": "Most heard",
-        "leastHeard": "Least heard"
+        "mostHeard": "Most used",
+        "leastHeard": "Least used"
       },
       "columns": {
         "word": "Word",
         "source": "Source",
-        "heard": "Heard · 90 days",
+        "heard": "Used · 90 days",
         "added": "Added",
         "speech": "Speech model"
       },
-      "heardWritten": "heard {{heard}} · written {{written}}",
-      "missedHint": "Speech often misses it: written more often than heard",
+      "missedHint": "Speech often misses it: often fixed after speech",
       "added": "added {{when}}",
       "noMatches": "No words match.",
       "clearFilters": "Clear filters",
@@ -5038,7 +5064,13 @@
         "unread_other": "The speech model stops reading here · {{count}} words below are sent but likely not read",
         "notSent_one": "Not sent beyond here · {{count}} word isn't sent",
         "notSent_other": "Not sent beyond here · {{count}} words aren't sent"
-      }
+      },
+      "notUsed": "not used",
+      "usageSpeech": "speech {{count}}",
+      "usageFixed": "fixed {{count}}",
+      "usageShort": "used {{used}} · speech got it {{ok}}",
+      "usageTitle_one": "{{count}} dictation: speech got it {{ok}}, fixed after speech {{fix}}, changed after speech {{chg}}",
+      "usageTitle_other": "{{count}} dictations: speech got it {{ok}}, fixed after speech {{fix}}, changed after speech {{chg}}"
     },
     "where": {
       "title": "Where your dictionary goes",
@@ -5130,16 +5162,21 @@
       "glossaryRule": "Make a glossary rule",
       "glossaryExisting": "A glossary rule already writes this word, so that rule is open.",
       "usage": {
-        "title": "Heard",
-        "last90": "Last 90 days",
-        "totals": "heard {{heard}} · written {{written}}",
-        "chartLabel": "Heard {{heard}} and written {{written}} times over 90 days, by week",
-        "heardLegend": "Heard (speech-to-text)",
-        "writtenLegend": "Written (final text)",
+        "title": "Used in the last 90 days",
+        "chartLabel": "Used {{used}} times over 90 days, by week: speech got it {{ok}}, fixed after speech {{fix}}, changed after speech {{chg}}",
         "never": "In no dictation of the last 90 days.",
-        "missed_one": "Speech often misses it: {{count}} dictation wrote it without hearing it.",
-        "missed_other": "Speech often misses it: {{count}} dictations wrote it without hearing it.",
-        "note": "Counted from this account's local History, as a guide. Nothing heard and nothing written means unknown."
+        "note": "Counted from this account's local History, as a guide. Nothing used and nothing changed means unknown.",
+        "dictations_one": "{{count}} dictation",
+        "dictations_other": "{{count}} dictations",
+        "okCount": "speech got it {{count}}",
+        "fixCount": "fixed after speech {{count}}",
+        "chgCount": "changed after speech {{count}}",
+        "weekOf": "Week of {{range}}",
+        "weekLabel": "Week of {{range}}: used {{used}}, speech got it {{ok}}, fixed after speech {{fix}}, changed after speech {{chg}}",
+        "clickToList": "Click to list these dictations",
+        "clickToClear": "Click again to show every week",
+        "missed_one": "Speech often misses it: fixed after speech in {{count}} dictation.",
+        "missed_other": "Speech often misses it: fixed after speech in {{count}} dictations."
       },
       "where": {
         "title": "Where it goes",
@@ -5184,7 +5221,7 @@
     },
     "usage": {
       "unavailable": {
-        "historyOff": "Heard and written are counted from local History, which is off.",
+        "historyOff": "Usage is counted from local History, which is off.",
         "policyOff": "Your organization keeps local History off, so nothing is counted.",
         "pending": "Counting from local History…",
         "other": "Counts aren't available right now."
@@ -5222,7 +5259,7 @@
         },
         "typos": {
           "title": "Likely typos",
-          "why": "Rarely heard or written, and a letter or two from a word you say often."
+          "why": "Rarely in a dictation, and a letter or two from a word you say often."
         },
         "fragments": {
           "title": "Fragments",
@@ -5233,13 +5270,11 @@
           "why": "Two words you say together. One phrase takes one slot and biases better."
         },
         "neverHeard": {
-          "title": "Never heard in {{days}} days",
+          "title": "Never used in {{days}} days",
           "why": "Auto-learned over a month ago and in no dictation since. Keep the ones you'll need."
         }
       },
       "reasons": {
-        "keepWritten_one": "Keeps “{{word}}”: written {{count}} time, more than the others",
-        "keepWritten_other": "Keeps “{{word}}”: written {{count}} times, more than the others",
         "keepTyped": "Keeps “{{word}}”: you typed it",
         "keepNewest": "Keeps “{{word}}”: the newest",
         "keepProtected": "Keeps “{{word}}”: a glossary spelling or snippet trigger",
@@ -5259,7 +5294,9 @@
         "splitPhrase_one": "Side by side in {{together}} of the {{count}} dictation with “{{word}}”",
         "splitPhrase_other": "Side by side in {{together}} of the {{count}} dictations with “{{word}}”",
         "phraseExists": "“{{phrase}}” is already in your dictionary",
-        "neverHeard": "Added {{when}}, in no dictation since"
+        "neverHeard": "Added {{when}}, in no dictation since",
+        "keepWritten_one": "Keeps “{{word}}”: used {{count}} time, more than the others",
+        "keepWritten_other": "Keeps “{{word}}”: used {{count}} times, more than the others"
       },
       "actions": {
         "select": "Select {{word}}",
@@ -5341,6 +5378,63 @@
           "merge": "Merge"
         }
       }
+    },
+    "kinds": {
+      "used": "Used",
+      "ok": "Speech got it",
+      "fix": "Fixed after speech",
+      "chg": "Changed after speech",
+      "by": {
+        "glossary": "by the glossary",
+        "cleanup": "by cleanup",
+        "style": "by a style"
+      }
+    },
+    "explainer": {
+      "open": "What these numbers mean",
+      "title": "What “used”, “speech got it” and “fixed” mean",
+      "subtitle": "Counted per dictation over the last 90 days of this account's local History.",
+      "wasWritten": "(was “written”)",
+      "wasHeard": "(was “heard”)",
+      "used": "Dictations whose final text has the word: speech got it, plus fixed after speech. It's the text you received, before anything you edited afterwards.",
+      "ok": "Speech-to-text wrote the word itself, and the final text still has it.",
+      "fix": "Speech wrote something else, and the glossary, cleanup or a style turned it into the word. The final text has it; the raw transcript doesn't.",
+      "chg": "Speech wrote the word, but cleanup or a style changed or dropped it.",
+      "note": "A guide, not a record: the raw transcript is compared with the final text, using your dictionary as it is now."
+    },
+    "variants": {
+      "title": "Speech writes it as",
+      "none": "Speech hasn't written it another way in the last 90 days.",
+      "count_one": "{{count}} dictation",
+      "count_other": "{{count}} dictations",
+      "kept_one": "“{{spelling}}” also stayed as written in {{count}} dictation",
+      "kept_other": "“{{spelling}}” also stayed as written in {{count}} dictations",
+      "neverKept": "Never stayed as written in your final text.",
+      "makeRule": "Make a glossary rule",
+      "handled": "The glossary handles this",
+      "notice": {
+        "added": "“{{spelling}}” was added to the glossary rule that already writes this word.",
+        "kept_one": "“{{spelling}}” also stayed as written in {{count}} of your dictations, so it starts as a start-of-dictation spelling, in apps you pick. Pick the apps, or reconsider the rule.",
+        "kept_other": "“{{spelling}}” also stayed as written in {{count}} of your dictations, so it starts as a start-of-dictation spelling, in apps you pick. Pick the apps, or reconsider the rule.",
+        "common": "“{{spelling}}” is made of everyday words, so it starts as a start-of-dictation spelling, in apps you pick. Pick the apps, or reconsider the rule.",
+        "unknown": "Whether “{{spelling}}” also stays as written can't be checked without this account's local History, so it starts as a start-of-dictation spelling, in apps you pick.",
+        "anywhere": "“{{spelling}}” never stayed as written in your final text and isn't an everyday word, so the rule applies anywhere."
+      }
+    },
+    "occurrences": {
+      "title": "Where it appeared",
+      "segmentsLabel": "Show dictations where",
+      "segments": {
+        "all": "All",
+        "chg": "Changed"
+      },
+      "open": "Open in History",
+      "none": "No dictations here.",
+      "more": "Load more",
+      "clearWeek": "Show every week",
+      "unaligned_one": "{{count}} dictation is too long to compare word by word, so it isn't listed.",
+      "unaligned_other": "{{count}} dictations are too long to compare word by word, so they aren't listed.",
+      "showInHistory": "Show in History"
     }
   },
   "support": {

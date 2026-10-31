@@ -36,7 +36,7 @@ import type { DictionaryListItem } from "../../utils/dictionaryList";
 import type { DictionaryTidyOp } from "../../types/electron";
 import type { DictionaryTidyModel } from "./useDictionaryTidy";
 import DictionaryTidyReview from "./DictionaryTidyReview";
-import { usageUnavailableKey } from "./dictionaryLabels";
+import { usageParts, usageUnavailableKey } from "./dictionaryLabels";
 
 // Tidy up (the Dictionary page, in place of the list): what the checks on
 // this computer found, in groups (dictionaryTidy.ts), each item selectable
@@ -337,9 +337,9 @@ function TidyItemRow({
                   </span>
                   <span className="text-[10.5px] text-muted-foreground">
                     {meta?.usage
-                      ? t("dictionary.list.heardWritten", {
-                          heard: meta.usage.heard,
-                          written: meta.usage.written,
+                      ? t("dictionary.list.usageShort", {
+                          used: usageParts(meta.usage).used,
+                          ok: usageParts(meta.usage).ok,
                         })
                       : null}
                     {meta?.usage ? " · " : ""}

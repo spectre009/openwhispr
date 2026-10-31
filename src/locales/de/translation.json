@@ -842,13 +842,20 @@
       "app": "App",
       "appSelected": "App: {{app}}",
       "anyApp": "Alle Apps",
-      "noApps": "Noch keine Apps erfasst"
+      "noApps": "Noch keine Apps erfasst",
+      "dictionaryFixed": "Wörterbuch korrigiert",
+      "dictionaryWord": "Mit „{{word}}“",
+      "clearDictionaryWord": "Alle Diktate zeigen, nicht nur die mit „{{word}}“"
     },
     "list": {
       "label": "Diktate",
       "noText": "Kein Text",
       "loadingMore": "Mehr wird geladen …",
-      "moreFailed": "Weitere konnten nicht geladen werden."
+      "moreFailed": "Weitere konnten nicht geladen werden.",
+      "dictionaryFixes_one": "{{count}} korrigiert",
+      "dictionaryFixes_other": "{{count}} korrigiert",
+      "dictionaryFixesHint_one": "{{count}} Wörterbuchwort nach der Erkennung korrigiert",
+      "dictionaryFixesHint_other": "{{count}} Wörterbuchwörter nach der Erkennung korrigiert"
     },
     "marks": {
       "changed": "{{step}}: Text geändert",
@@ -1053,6 +1060,24 @@
       "cleanup": "Bereinigung fehlgeschlagen",
       "style": "Stil nicht angewendet",
       "translation": "Übersetzung fehlgeschlagen"
+    },
+    "dictionary": {
+      "title": "Wörterbuch in diesem Diktat",
+      "asNow": "Deine Wörterbuchwörter, wie das Wörterbuch jetzt ist",
+      "speechWrote": "Die Erkennung schrieb",
+      "fixedAfterSpeech": "nach der Erkennung korrigiert",
+      "fixedUnknown": "Nach der Erkennung korrigiert; was die Erkennung dort schrieb, ist unklar",
+      "times_one": "{{count}}-mal",
+      "times_other": "{{count}}-mal",
+      "got": "Die Erkennung schrieb es; nichts hat es geändert",
+      "gotAndChanged": "Die Erkennung schrieb es; eine Stelle wurde danach geändert",
+      "changed": "Die Erkennung schrieb es, dann wurde es geändert",
+      "openInDictionary": "Im Wörterbuch öffnen",
+      "note": "Im Text oben unterstrichen: grün richtig erkannt, bernsteinfarben nach der Erkennung korrigiert. „Durch das Glossar“ oder „durch die Bereinigung“ steht nur da, wenn die aufgezeichneten Schritte dieses Diktats es zeigen.",
+      "tooLong": "Dieses Diktat ist zu lang für einen Wort-für-Wort-Vergleich.",
+      "underlineOk": "Wörterbuchwort: richtig erkannt",
+      "underlineFix": "Wörterbuchwort: nach der Erkennung korrigiert",
+      "inserted": "Ein Wörterbuchwort, das dieser Schritt eingefügt hat"
     }
   },
   "reasoning": {
@@ -5009,27 +5034,28 @@
         "learned": "Automatisch gelernt",
         "pinned": "Angeheftet",
         "notSent": "Nicht gesendet",
-        "neverHeard": "Nie gehört",
+        "neverHeard": "Nie verwendet",
         "addedThisWeek": "Diese Woche hinzugefügt",
         "notSentHint": "Wörter, die deine aktuelle Spracherkennung nicht sendet",
-        "neverHeardHint": "In keinem Diktat der letzten 90 Tage, weder gehört noch geschrieben"
+        "neverHeardHint": "In keinem Diktat der letzten 90 Tage, weder in der Erkennung noch im fertigen Text",
+        "speechMisses": "Erkennung verfehlt es",
+        "speechMissesHint": "In mindestens 2 Diktaten nach der Erkennung korrigiert, oder in einem Viertel der Diktate, die es verwenden"
       },
       "sorts": {
         "sendOrder": "Sendereihenfolge",
         "recent": "Zuletzt hinzugefügt",
         "alpha": "A–Z",
-        "mostHeard": "Am häufigsten gehört",
-        "leastHeard": "Am seltensten gehört"
+        "mostHeard": "Am häufigsten verwendet",
+        "leastHeard": "Am seltensten verwendet"
       },
       "columns": {
         "word": "Wort",
         "source": "Herkunft",
-        "heard": "Gehört · 90 Tage",
+        "heard": "Verwendet · 90 Tage",
         "added": "Hinzugefügt",
         "speech": "Sprachmodell"
       },
-      "heardWritten": "gehört {{heard}} · geschrieben {{written}}",
-      "missedHint": "Die Spracherkennung verfehlt es oft: häufiger geschrieben als gehört",
+      "missedHint": "Die Erkennung verfehlt es oft: häufig nach der Erkennung korrigiert",
       "added": "hinzugefügt {{when}}",
       "noMatches": "Keine passenden Wörter.",
       "clearFilters": "Filter zurücksetzen",
@@ -5038,7 +5064,13 @@
         "unread_other": "Hier hört das Sprachmodell auf zu lesen · {{count}} Wörter darunter werden gesendet, aber wohl nicht gelesen",
         "notSent_one": "Ab hier nicht gesendet · {{count}} Wort wird nicht gesendet",
         "notSent_other": "Ab hier nicht gesendet · {{count}} Wörter werden nicht gesendet"
-      }
+      },
+      "notUsed": "nicht verwendet",
+      "usageSpeech": "erkannt {{count}}",
+      "usageFixed": "korrigiert {{count}}",
+      "usageShort": "verwendet {{used}} · richtig erkannt {{ok}}",
+      "usageTitle_one": "{{count}} Diktat: richtig erkannt {{ok}}, nach der Erkennung korrigiert {{fix}}, nach der Erkennung geändert {{chg}}",
+      "usageTitle_other": "{{count}} Diktate: richtig erkannt {{ok}}, nach der Erkennung korrigiert {{fix}}, nach der Erkennung geändert {{chg}}"
     },
     "where": {
       "title": "Wohin dein Wörterbuch geht",
@@ -5130,16 +5162,21 @@
       "glossaryRule": "Glossarregel erstellen",
       "glossaryExisting": "Eine Glossarregel schreibt dieses Wort schon, darum ist sie geöffnet.",
       "usage": {
-        "title": "Gehört",
-        "last90": "Letzte 90 Tage",
-        "totals": "gehört {{heard}} · geschrieben {{written}}",
-        "chartLabel": "{{heard}}-mal gehört und {{written}}-mal geschrieben in 90 Tagen, nach Woche",
-        "heardLegend": "Gehört (Spracherkennung)",
-        "writtenLegend": "Geschrieben (fertiger Text)",
+        "title": "Verwendet in den letzten 90 Tagen",
+        "chartLabel": "{{used}}-mal verwendet in 90 Tagen, nach Woche: richtig erkannt {{ok}}, nach der Erkennung korrigiert {{fix}}, nach der Erkennung geändert {{chg}}",
         "never": "In keinem Diktat der letzten 90 Tage.",
-        "missed_one": "Die Spracherkennung verfehlt es oft: {{count}} Diktat hat es geschrieben, ohne es zu hören.",
-        "missed_other": "Die Spracherkennung verfehlt es oft: {{count}} Diktate haben es geschrieben, ohne es zu hören.",
-        "note": "Gezählt aus dem lokalen Verlauf dieses Kontos, als Anhaltspunkt. Nichts gehört und nichts geschrieben heißt: unbekannt."
+        "note": "Gezählt aus dem lokalen Verlauf dieses Kontos, als Anhaltspunkt. Nichts verwendet und nichts geändert heißt: unbekannt.",
+        "dictations_one": "{{count}} Diktat",
+        "dictations_other": "{{count}} Diktate",
+        "okCount": "richtig erkannt {{count}}",
+        "fixCount": "nach der Erkennung korrigiert {{count}}",
+        "chgCount": "nach der Erkennung geändert {{count}}",
+        "weekOf": "Woche {{range}}",
+        "weekLabel": "Woche {{range}}: verwendet {{used}}, richtig erkannt {{ok}}, nach der Erkennung korrigiert {{fix}}, nach der Erkennung geändert {{chg}}",
+        "clickToList": "Klicken, um diese Diktate aufzulisten",
+        "clickToClear": "Erneut klicken, um alle Wochen zu zeigen",
+        "missed_one": "Die Erkennung verfehlt es oft: in {{count}} Diktat nach der Erkennung korrigiert.",
+        "missed_other": "Die Erkennung verfehlt es oft: in {{count}} Diktaten nach der Erkennung korrigiert."
       },
       "where": {
         "title": "Wohin es geht",
@@ -5184,7 +5221,7 @@
     },
     "usage": {
       "unavailable": {
-        "historyOff": "Gehört und geschrieben werden aus dem lokalen Verlauf gezählt, der aus ist.",
+        "historyOff": "Die Verwendung wird aus dem lokalen Verlauf gezählt, der aus ist.",
         "policyOff": "Deine Organisation hält den lokalen Verlauf aus, darum wird nichts gezählt.",
         "pending": "Wird aus dem lokalen Verlauf gezählt…",
         "other": "Zählungen sind gerade nicht verfügbar."
@@ -5222,7 +5259,7 @@
         },
         "typos": {
           "title": "Wahrscheinliche Tippfehler",
-          "why": "Selten gehört oder geschrieben und ein, zwei Buchstaben von einem Wort entfernt, das du oft sagst."
+          "why": "Selten in einem Diktat und ein, zwei Buchstaben von einem Wort entfernt, das du oft sagst."
         },
         "fragments": {
           "title": "Bruchstücke",
@@ -5233,13 +5270,11 @@
           "why": "Zwei Wörter, die du zusammen sagst. Eine Wendung belegt einen Platz und wirkt besser."
         },
         "neverHeard": {
-          "title": "In {{days}} Tagen nie gehört",
+          "title": "In {{days}} Tagen nie verwendet",
           "why": "Vor über einem Monat automatisch gelernt und seitdem in keinem Diktat. Behalte die, die du brauchst."
         }
       },
       "reasons": {
-        "keepWritten_one": "Behält „{{word}}“: {{count}}-mal geschrieben, öfter als die anderen",
-        "keepWritten_other": "Behält „{{word}}“: {{count}}-mal geschrieben, öfter als die anderen",
         "keepTyped": "Behält „{{word}}“: von dir eingetippt",
         "keepNewest": "Behält „{{word}}“: die neueste",
         "keepProtected": "Behält „{{word}}“: eine Glossar-Schreibweise oder ein Snippet-Auslöser",
@@ -5259,7 +5294,9 @@
         "splitPhrase_one": "Nebeneinander in {{together}} von {{count}} Diktat mit „{{word}}“",
         "splitPhrase_other": "Nebeneinander in {{together}} von {{count}} Diktaten mit „{{word}}“",
         "phraseExists": "„{{phrase}}“ ist schon in deinem Wörterbuch",
-        "neverHeard": "Hinzugefügt {{when}}, seitdem in keinem Diktat"
+        "neverHeard": "Hinzugefügt {{when}}, seitdem in keinem Diktat",
+        "keepWritten_one": "Behält „{{word}}“: {{count}}-mal verwendet, öfter als die anderen",
+        "keepWritten_other": "Behält „{{word}}“: {{count}}-mal verwendet, öfter als die anderen"
       },
       "actions": {
         "select": "{{word}} auswählen",
@@ -5341,6 +5378,63 @@
           "merge": "Zusammenführen"
         }
       }
+    },
+    "kinds": {
+      "used": "Verwendet",
+      "ok": "Richtig erkannt",
+      "fix": "Nach der Erkennung korrigiert",
+      "chg": "Nach der Erkennung geändert",
+      "by": {
+        "glossary": "durch das Glossar",
+        "cleanup": "durch die Bereinigung",
+        "style": "durch einen Stil"
+      }
+    },
+    "explainer": {
+      "open": "Was diese Zahlen bedeuten",
+      "title": "Was „verwendet“, „richtig erkannt“ und „korrigiert“ bedeuten",
+      "subtitle": "Pro Diktat gezählt, über die letzten 90 Tage des lokalen Verlaufs dieses Kontos.",
+      "wasWritten": "(früher „geschrieben“)",
+      "wasHeard": "(früher „gehört“)",
+      "used": "Diktate, deren fertiger Text das Wort enthält: richtig erkannt plus nach der Erkennung korrigiert. Es ist der Text, den du bekommen hast, vor allem, was du danach bearbeitet hast.",
+      "ok": "Die Spracherkennung hat das Wort selbst geschrieben, und der fertige Text enthält es noch.",
+      "fix": "Die Erkennung schrieb etwas anderes, und Glossar, Bereinigung oder ein Stil machten daraus das Wort. Der fertige Text enthält es, das Rohtranskript nicht.",
+      "chg": "Die Erkennung schrieb das Wort, aber Bereinigung oder ein Stil hat es geändert oder entfernt.",
+      "note": "Ein Anhaltspunkt, kein Protokoll: Das Rohtranskript wird mit dem fertigen Text verglichen, mit deinem Wörterbuch, wie es jetzt ist."
+    },
+    "variants": {
+      "title": "Die Erkennung schreibt es als",
+      "none": "Die Erkennung hat es in den letzten 90 Tagen nicht anders geschrieben.",
+      "count_one": "{{count}} Diktat",
+      "count_other": "{{count}} Diktate",
+      "kept_one": "„{{spelling}}“ blieb in {{count}} Diktat auch so stehen",
+      "kept_other": "„{{spelling}}“ blieb in {{count}} Diktaten auch so stehen",
+      "neverKept": "Blieb nie so in deinem fertigen Text stehen.",
+      "makeRule": "Glossarregel erstellen",
+      "handled": "Das Glossar erledigt das",
+      "notice": {
+        "added": "„{{spelling}}“ wurde zur Glossarregel hinzugefügt, die dieses Wort schon schreibt.",
+        "kept_one": "„{{spelling}}“ blieb auch in {{count}} deiner Diktate so stehen, daher gilt die Schreibweise zunächst nur am Diktatanfang, in Apps, die du wählst. Wähle die Apps oder überdenke die Regel.",
+        "kept_other": "„{{spelling}}“ blieb auch in {{count}} deiner Diktate so stehen, daher gilt die Schreibweise zunächst nur am Diktatanfang, in Apps, die du wählst. Wähle die Apps oder überdenke die Regel.",
+        "common": "„{{spelling}}“ besteht aus Alltagswörtern, daher gilt die Schreibweise zunächst nur am Diktatanfang, in Apps, die du wählst. Wähle die Apps oder überdenke die Regel.",
+        "unknown": "Ob „{{spelling}}“ auch so stehen bleibt, lässt sich ohne den lokalen Verlauf dieses Kontos nicht prüfen, daher gilt die Schreibweise zunächst nur am Diktatanfang, in Apps, die du wählst.",
+        "anywhere": "„{{spelling}}“ blieb nie so in deinem fertigen Text stehen und ist kein Alltagswort, daher gilt die Regel überall."
+      }
+    },
+    "occurrences": {
+      "title": "Wo es vorkam",
+      "segmentsLabel": "Diktate zeigen, in denen",
+      "segments": {
+        "all": "Alle",
+        "chg": "Geändert"
+      },
+      "open": "Im Verlauf öffnen",
+      "none": "Hier keine Diktate.",
+      "more": "Mehr laden",
+      "clearWeek": "Alle Wochen zeigen",
+      "unaligned_one": "{{count}} Diktat ist zu lang für einen Wort-für-Wort-Vergleich und wird nicht aufgeführt.",
+      "unaligned_other": "{{count}} Diktate sind zu lang für einen Wort-für-Wort-Vergleich und werden nicht aufgeführt.",
+      "showInHistory": "Im Verlauf zeigen"
     }
   },
   "support": {

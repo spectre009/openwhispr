@@ -16,10 +16,16 @@ const { createRendererServer, installBrowserGlobals } = require("../lib/renderer
 // failure, a provider error that echoes the request), auto-learn (the paste,
 // the edited field, the learned words) and the text monitor's raw output
 // (plain and base64 lines). Main's real logger writes the file; the renderer's
-// real logger reaches it through the preload's `log`, as in the app.
+// real logger reaches it through the preload's `log`, as in the app. The
+// Dictionary's "Where it appeared", "Speech writes it as" and History's
+// dictionary card and filters run too: no dictionary word, snippet or what
+// speech wrote is ever logged, with the switch on or off.
 
 const MARKER = "zqxcanary7";
 const TEXT = `${MARKER} please send the numbers to Dana by friday`;
+const DICT_WORD_MARKER = "Zqxdictword";
+const SPEECH_MARKER = "zqxspeechwrote";
+const SNIPPET_MARKER = "zqxsnippetctx";
 const EDITED_MULTILINE = `${MARKER} first line\nsecond line`;
 const BASE64 = Buffer.from(EDITED_MULTILINE).toString("base64");
 
@@ -95,6 +101,10 @@ const WhisperServerManager = require("../../src/helpers/whisperServer");
 const { pcm16ToWav } = require("../../src/utils/audioUtils");
 const localBridge = require("../../src/services/localReasoningBridge").default;
 const IPCHandlers = require("../../src/helpers/ipcHandlers");
+const {
+  createDictionaryOccurrencesService,
+} = require("../../src/helpers/dictionaryOccurrences.js");
+const { createHistoryBrowser } = require("../../src/helpers/historyBrowser.js");
 void bridgeModelPath;
 
 function anything() {
@@ -450,7 +460,80 @@ async function driveEverything(t, includeText) {
   await localCleanup();
   await rendererDictation(t, includeText);
   await rendererReasoning(t, includeText);
+  await dictionaryInsight();
 }
+
+// Where a dictionary word appeared, what speech wrote, History's dictionary
+// card, its filters and badges, through main's handlers, over one dictation
+// whose text carries the markers.
+async function dictionaryInsight() {
+  const at = new Date(Date.now() - 60_000).toISOString().slice(0, 19).replace("T", " ");
+  const row = {
+    id: 7,
+    sort_key: at,
+    timestamp: at,
+    at,
+    raw: `${SNIPPET_MARKER} ask ${SPEECH_MARKER} today`,
+    final: `${SNIPPET_MARKER} ask ${DICT_WORD_MARKER} today.`,
+  };
+  const db = {
+    getDictionaryOccurrenceRows: () => [row],
+    getDictionaryOccurrenceTexts: () => [row],
+    getHistoryStepRows: () => [],
+    getHistoryContentRevision: () => 1,
+    getDictionaryGeneration: () => 1,
+    getDictionary: () => [DICT_WORD_MARKER],
+    getSnippets: () => [],
+    getHistoryPage: () => [
+      { id: 7, timestamp: at, sort_key: at, status: "completed", preview: row.final },
+    ],
+    getHistoryDictionaryFixes: (ids) => ({
+      generation: 1,
+      fixes: new Map(ids.map((id) => [id, 1])),
+    }),
+    getHistoryItem: () => ({
+      id: 7,
+      timestamp: at,
+      status: "completed",
+      text: row.final,
+      raw_text: row.raw,
+      has_audio: 0,
+      route_kind: null,
+    }),
+    getHistoryRevision: () => "rev",
+  };
+  target.dictionaryOccurrences = createDictionaryOccurrencesService({
+    db,
+    getOwner: () => "signed-out",
+    getPolicy: () => ({ synced: true, enabled: true, forcedOff: false, resolved: true }),
+    getGeneration: () => 1,
+  });
+  target.historyBrowser = createHistoryBrowser({
+    db,
+    stepHistory: {
+      currentOwner: () => "signed-out",
+      getSteps: () => ({ status: "none", steps: [] }),
+    },
+  });
+  const occurrences = await handlers.get("dictionary-word-occurrences")({}, DICT_WORD_MARKER, {});
+  assert.equal(occurrences.items[0].speechWrote, SPEECH_MARKER, "the renderer gets it");
+  await handlers.get("dictionary-speech-variants")({}, DICT_WORD_MARKER, {
+    spelling: SPEECH_MARKER,
+  });
+  const item = await handlers.get("history-get-item")({}, 7);
+  assert.equal(item.dictionary[0].appearances[0].speechWrote, SPEECH_MARKER);
+  await handlers.get("history-list")({}, { filters: { dictionaryWord: DICT_WORD_MARKER } });
+  await handlers.get("history-dictionary-fixes")({}, [7]);
+  // A failure is logged as its message only.
+  target.dictionaryOccurrences = {
+    getOccurrences: async () => {
+      throw new Error("boom");
+    },
+  };
+  await handlers.get("dictionary-word-occurrences")({}, DICT_WORD_MARKER, {});
+}
+
+const DICTIONARY_MARKERS = [DICT_WORD_MARKER, SPEECH_MARKER, SNIPPET_MARKER];
 
 // Everything written so far, once the stream has caught up.
 async function writtenLogs() {
@@ -503,6 +586,17 @@ test("with Include dictated text off, no written log holds the dictated text", a
   for (const marker of [LEARNED_MARKER, REPLACED_MARKER, APP_MARKER]) {
     assert.equal(written.includes(marker), false, `${marker} never reaches the log`);
   }
+  // The dictionary's insight ran and logged counts only.
+  assert.ok(written.includes("Dictionary occurrences read"), "the occurrences were logged");
+  assert.ok(written.includes("Dictionary speech variants answered"));
+  assert.ok(written.includes("Dictionary occurrences not read"));
+  for (const marker of DICTIONARY_MARKERS) {
+    assert.equal(
+      written.toLowerCase().includes(marker.toLowerCase()),
+      false,
+      `${marker} never logged`
+    );
+  }
 });
 
 test("with Include dictated text on, it appears only as snippets of at most 80 characters", async (t) => {
@@ -544,4 +638,14 @@ test("with Include dictated text on, it appears only as snippets of at most 80 c
     text.split("TRANSCRIPTION_RECEIVED")[1]?.includes(MARKER),
     "the renderer's lines carry snippets"
   );
+  // The dictionary's insight: never a word, a snippet or what speech wrote,
+  // even with the switch on.
+  assert.ok(text.includes("Dictionary occurrences read"));
+  for (const marker of DICTIONARY_MARKERS) {
+    assert.equal(
+      text.toLowerCase().includes(marker.toLowerCase()),
+      false,
+      `${marker} never logged`
+    );
+  }
 });

@@ -225,6 +225,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
   listHistory: (request) => ipcRenderer.invoke("history-list", request),
   getHistoryApps: () => ipcRenderer.invoke("history-apps"),
   getHistoryItem: (id) => ipcRenderer.invoke("history-get-item", id),
+  // Loaded rows' "📖 n fixed" badges again, after a dictionary or snippet change.
+  getHistoryDictionaryFixes: (ids) => ipcRenderer.invoke("history-dictionary-fixes", ids),
   // Reviews of dictations: main owns the owner, the revision and the policy.
   getHistoryFeedback: (id) => ipcRenderer.invoke("history-feedback-get", id),
   saveHistoryFeedback: (input) => ipcRenderer.invoke("history-feedback-save", input),
@@ -331,6 +333,16 @@ contextBridge.exposeInMainWorld("electronAPI", {
   getDictionaryWordUsage: (word) => ipcRenderer.invoke("dictionary-word-usage", word),
   getDictionaryWordEvidence: (word) => ipcRenderer.invoke("dictionary-word-evidence", word),
   getDictionaryCleanupScopeCounts: () => ipcRenderer.invoke("dictionary-cleanup-scope-counts"),
+  // Where a word appeared and what speech wrote instead (History's own text)
+  getDictionaryWordOccurrences: (word, options) =>
+    ipcRenderer.invoke("dictionary-word-occurrences", word, options),
+  getDictionarySpeechVariants: (word, options) =>
+    ipcRenderer.invoke("dictionary-speech-variants", word, options),
+  // The owner or History's policy changed: what was read for the old one goes.
+  onDictionaryHistoryChanged: registerListener(
+    "dictionary-history-changed",
+    (callback) => (_event, change) => callback(change)
+  ),
   // A word's spelling in place, two words folded into one, learned → typed
   renameDictionaryWord: (from, to) => ipcRenderer.invoke("dictionary-rename", from, to),
   mergeDictionaryWords: (from, into) => ipcRenderer.invoke("dictionary-merge", from, into),

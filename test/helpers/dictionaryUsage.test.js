@@ -167,7 +167,9 @@ test("the service caches by words, owner, day and content revision; at most ever
   const first = await service.get();
   assert.equal(first.available, true);
   assert.equal(first.days, 90);
-  assert.deepEqual(first.words, [{ word: "OpenWhispr", heard: 0, written: 1, missedRows: 1 }]);
+  assert.deepEqual(first.words, [
+    { word: "OpenWhispr", heard: 0, written: 1, missedRows: 1, bothRows: 0 },
+  ]);
   await service.get();
   assert.equal(db.reads, 1, "nothing changed: cached");
 
@@ -263,6 +265,61 @@ test("one word per week: 13 weeks ending now, the same matching, rows outside sk
   const shared = countWordUsageByWeek(rows, "agents-shared", { now });
   assert.equal(shared[12].heard, 1);
   assert.equal(countWordUsageByWeek(rows, "", { now }).length, 13);
+});
+
+test("speech got it is rows with the word in both texts; changed after speech is heard − both", () => {
+  const result = countDictionaryUsage(
+    [
+      row("little buddy, hi", "Little Buddy, hi."),
+      row("LittleBuddy, hi", "Little Buddy, hi."),
+      // Mixed: the row summary counts it once, as speech got it.
+      row("little buddy and littbuddy", "Little Buddy and Little Buddy"),
+      row("little buddy said so", "He said so."),
+      row("nothing here"),
+    ],
+    ["Little Buddy"]
+  );
+  const [entry] = result.words;
+  assert.deepEqual(
+    {
+      heard: entry.heard,
+      written: entry.written,
+      missedRows: entry.missedRows,
+      both: entry.bothRows,
+    },
+    { heard: 3, written: 3, missedRows: 1, both: 2 }
+  );
+  assert.equal(entry.heard - entry.bothRows, 1, "changed after speech");
+  assert.equal(entry.bothRows + entry.missedRows, entry.written, "used = got it + fixed");
+});
+
+test("weeks carry [start, end) bounds anchored once, with both and changed", () => {
+  const now = Date.parse("2026-10-30T12:00:00Z");
+  const DAY = 86_400_000;
+  const iso = (ms) => new Date(ms).toISOString().slice(0, 19).replace("T", " ");
+  const weeks = countWordUsageByWeek(
+    [
+      // On the last week's start: in the last week, not the one before.
+      { raw: "kusto here", final: "Kusto here.", at: iso(now - 7 * DAY) },
+      { raw: "kustoe", final: "Kusto.", at: iso(now - 2 * DAY) },
+      { raw: "kusto went", final: "It went.", at: iso(now - 3 * DAY) },
+      // Exactly now: past the last week's end.
+      { raw: "kusto", final: "Kusto", at: iso(now) },
+    ],
+    "Kusto",
+    { now }
+  );
+  for (let k = 0; k + 1 < weeks.length; k += 1) {
+    assert.equal(weeks[k].end, weeks[k + 1].start, "each week ends where the next starts");
+  }
+  assert.equal(weeks[12].end, new Date(now).toISOString(), "the last ends at the anchor");
+  assert.equal(weeks[0].start, new Date(now - 90 * DAY).toISOString());
+  const last = weeks[12];
+  assert.deepEqual(
+    [last.written, last.both, last.missedRows, last.changed, last.heard],
+    [2, 1, 1, 1, 2]
+  );
+  assert.equal(weeks[11].written, 0);
 });
 
 test("dictation pace: a day's average over 30 days, or since History began", () => {
