@@ -235,6 +235,7 @@ test(
       ["preferences.theme", "appearance"],
       ["preferences.uiLanguage", "appearance"],
       ["dictation.language", "recognition"],
+      ["dictation.recognition.dictionaryOrder", "recognition"],
       ["dictation.output.autoPaste", "output"],
       ["dictation.output.autoLearn", "output"],
       ["preferences.sounds.dictation", "audio"],

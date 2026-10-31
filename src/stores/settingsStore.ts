@@ -113,6 +113,10 @@ import {
   type Snippet,
 } from "../utils/snippets";
 import { normalizeAutoLearnMode, migrateAutoLearnMode } from "../utils/autoLearnMode";
+import {
+  normalizeDictionaryHintOrder,
+  type DictionaryHintOrder,
+} from "../utils/dictionaryHintOrder";
 import { syncGlossaryRules } from "./glossaryStore";
 import { refreshDictionarySources, syncDictionarySources } from "./dictionarySourcesStore";
 import { scheduleDictionaryUsageRefresh, syncDictionaryUsage } from "./dictionaryUsageStore";
@@ -1126,6 +1130,8 @@ export interface SettingsState
   autoLearnMode: AutoLearnMode;
   /** Dictionary words in the cleanup prompt (Settings › Dictation › Cleanup). */
   cleanupDictionaryWords: CleanupDictionarySetting;
+  /** The speech-to-text hint list's order for unpinned words (Settings › Dictation › Recognition). */
+  dictionaryHintOrder: DictionaryHintOrder;
   showTranscriptionPreview: boolean;
   autoPasteEnabled: boolean;
   keepTranscriptionInClipboard: boolean;
@@ -1500,6 +1506,7 @@ export interface SettingsState
   setRecordingQuality: (quality: RecordingQuality) => void;
   setAutoLearnMode: (mode: AutoLearnMode) => void;
   setCleanupDictionaryWords: (setting: CleanupDictionarySetting) => void;
+  setDictionaryHintOrder: (order: DictionaryHintOrder) => void;
   setShowTranscriptionPreview: (value: boolean) => void;
   setAutoPasteEnabled: (value: boolean) => void;
   setKeepTranscriptionInClipboard: (value: boolean) => void;
@@ -2086,6 +2093,7 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   cleanupDictionaryWords: normalizeCleanupDictionarySetting(
     readString("cleanupDictionaryWords", "all")
   ),
+  dictionaryHintOrder: normalizeDictionaryHintOrder(readString("dictionaryHintOrder", "evidence")),
   showTranscriptionPreview: readBoolean("showTranscriptionPreview", false),
   autoPasteEnabled: readBoolean("autoPasteEnabled", true),
   keepTranscriptionInClipboard: readBoolean("keepTranscriptionInClipboard", false),
@@ -3102,6 +3110,14 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
     if (get().cleanupDictionaryWords === next) return;
     if (isBrowser) localStorage.setItem("cleanupDictionaryWords", next);
     set({ cleanupDictionaryWords: next });
+  },
+  // Read whenever a speech-to-text request builds its hint list (and by
+  // Re-transcribe and the Dictionary page, which send and show the same).
+  setDictionaryHintOrder: (order: DictionaryHintOrder) => {
+    const next = normalizeDictionaryHintOrder(order);
+    if (get().dictionaryHintOrder === next) return;
+    if (isBrowser) localStorage.setItem("dictionaryHintOrder", next);
+    set({ dictionaryHintOrder: next });
   },
 
   setShowTranscriptionPreview: createBooleanSetter("showTranscriptionPreview"),
@@ -4207,8 +4223,9 @@ export async function initializeSettings(): Promise<void> {
         if (next.customDictionary !== previous.customDictionary) listener();
       });
     });
-    // Heard/written counts (cleanup's "words speech misses"), from main; they
-    // follow the dictionary and History, and the history switch they need.
+    // Heard/written counts (cleanup's "words speech misses", the hint list's
+    // evidence order), from main; they follow the dictionary and History, and
+    // the history switch they need.
     syncDictionaryUsage();
     useSettingsStore.subscribe((next, previous) => {
       if (next.dataRetentionEnabled !== previous.dataRetentionEnabled) {
@@ -4396,6 +4413,8 @@ export async function initializeSettings(): Promise<void> {
       value = normalizeAutoLearnMode(newValue);
     } else if (key === "cleanupDictionaryWords") {
       value = normalizeCleanupDictionarySetting(newValue);
+    } else if (key === "dictionaryHintOrder") {
+      value = normalizeDictionaryHintOrder(newValue);
     } else if (key === "customConnection") {
       value = parseCustomConnection(newValue);
     } else {

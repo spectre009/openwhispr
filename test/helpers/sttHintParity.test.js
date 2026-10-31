@@ -154,18 +154,42 @@ function anything() {
 
 // ── The dictionary: what both sides are given ───────────────────────────────
 
+const {
+  hintScoreTuples,
+  hintScoresForDictionary,
+  normalizeDictionaryHintOrder,
+} = require("../../src/utils/dictionaryHintOrder.ts");
+
 const dictionaryState = {
   words: [],
   learned: [],
   pinned: [],
   glossary: [],
   snippets: [],
+  // The order setting and the usage counts (the usage store's words), or none.
+  hintOrder: undefined,
+  usage: null,
 };
 globalThis.__parity = dictionaryState;
 
-function setDictionary({ words, learned = [], pinned = [], glossary = [], snippets = [] }) {
-  Object.assign(dictionaryState, { words, learned, pinned, glossary, snippets });
+function setDictionary({
+  words,
+  learned = [],
+  pinned = [],
+  glossary = [],
+  snippets = [],
+  hintOrder = undefined,
+}) {
+  Object.assign(dictionaryState, { words, learned, pinned, glossary, snippets, hintOrder });
 }
+
+// What ControlPanel.retryTranscription and the Dictionary page send of the
+// scores: the usage store's, bounded to the dictionary.
+const retryScores = () =>
+  hintScoresForDictionary(
+    dictionaryState.usage ? hintScoreTuples(dictionaryState.usage) : null,
+    dictionaryState.words
+  );
 
 // ── Main ────────────────────────────────────────────────────────────────────
 
@@ -368,6 +392,7 @@ const withDictionary = (settings) => ({
   ...settings,
   customDictionary: dictionaryState.words,
   snippets: dictionaryState.snippets,
+  dictionaryHintOrder: dictionaryState.hintOrder,
 });
 
 // The retry settings ControlPanel.retryTranscription sends.
@@ -384,6 +409,8 @@ function retrySettings(settings, { translation = false, managed } = {}) {
       glossaryTerms: [...dictionaryState.glossary],
       snippets: dictionaryState.snippets.map((snippet) => ({ trigger: snippet.trigger })),
       chineseScriptPreference: settings.chineseScriptPreference ?? null,
+      hintOrder: normalizeDictionaryHintOrder(settings.dictionaryHintOrder),
+      scores: retryScores(),
     },
   };
 }
@@ -450,7 +477,7 @@ async function assertParity(t, name, settings, run, options = {}) {
     if (!options.translation) {
       assertCoverage(retrySide, await dictionaryPageHints(settings, options.managed));
     }
-    if (options.check) options.check(liveSide, retrySide);
+    if (options.check) await options.check(liveSide, retrySide);
   });
 }
 
@@ -478,6 +505,8 @@ async function dictionaryPageHints(settings, managed) {
     snippets: dictionaryState.snippets.map((snippet) => ({ trigger: snippet.trigger })),
     chineseScriptPreference: settings.chineseScriptPreference ?? null,
     speechLanguage: settings.preferredLanguage || "auto",
+    hintOrder: normalizeDictionaryHintOrder(dictionaryState.hintOrder),
+    scores: retryScores(),
   });
 }
 
@@ -937,6 +966,218 @@ test("an echo of what the retry sent writes nothing, as live discards it", async
       (error) => error
     );
   assert.equal(liveEcho?.code, "DICTIONARY_ECHO");
+});
+
+test("pin order and evidence order: live, Re-transcribe and the page agree, head and tail", async (t) => {
+  await liveHarness();
+  const { useDictionaryUsageStore } = await live.vite.ssrLoadModule(
+    "/stores/dictionaryUsageStore.ts"
+  );
+  // The usage counts live dictation ranks by: the store's (live) and what
+  // ControlPanel and the page derive from the same counts (retry, coverage).
+  const setUsage = (words) => {
+    dictionaryState.usage = words;
+    useDictionaryUsageStore.setState(
+      words ? { status: "ready", words } : { status: "idle", words: [] }
+    );
+  };
+  t.after(() => {
+    setUsage(null);
+    dictionaryState.hintOrder = undefined;
+  });
+
+  // Stored oldest first; the pins in an order of their own (one of them learned).
+  const PINS = ["Zeta Pin", "Alpha Pin", "Mid Pin", "Kilo Pin", "Echo Pin"];
+  setDictionary({
+    words: [
+      "Alpha Pin",
+      "Typed Old",
+      "learned old",
+      "Echo Pin",
+      "Typed Missed",
+      "Kilo Pin",
+      "learned missed",
+      "Mid Pin",
+      "Typed Used",
+      "learned unused",
+      "Zeta Pin",
+    ],
+    learned: ["learned old", "learned missed", "learned unused", "kilo pin"],
+    pinned: PINS.map((pin) => pin.toLowerCase()),
+    glossary: ["Kusto"],
+    snippets: [{ trigger: "cal link", replacement: "https://cal.example" }],
+    hintOrder: "evidence",
+  });
+  setUsage([
+    { word: "Typed Missed", heard: 1, written: 9, missedRows: 6 },
+    { word: "Typed Used", heard: 20, written: 20, missedRows: 0 },
+    { word: "learned missed", heard: 0, written: 4, missedRows: 4 },
+    { word: "learned unused", heard: 0, written: 0, missedRows: 0 },
+  ]);
+  // Priority: the pins in pin order; typed by evidence (Typed Old has none);
+  // the glossary; the snippet; learned by evidence.
+  const HEAD = [
+    ...PINS,
+    "Typed Missed",
+    "Typed Used",
+    "Typed Old",
+    "Kusto",
+    "cal link",
+    "learned missed",
+    "learned old",
+    "learned unused",
+  ];
+  // Tail: every tier reversed, and the ranked ones inside too: the top pin last.
+  const TAIL = [
+    "learned unused",
+    "learned old",
+    "learned missed",
+    "cal link",
+    "Kusto",
+    "Typed Old",
+    "Typed Used",
+    "Typed Missed",
+    ...[...PINS].reverse(),
+  ];
+  const fieldsNamed = (side, name) =>
+    side.requests[0].fields.filter(([key]) => key === name).map(([, value]) => value);
+  const words = (terms) => terms.flatMap((term) => term.split(/\s+/));
+
+  await assertParity(t, "whisper-1 (tail prompt)", baseSettings(), runBatch, {
+    check: (side) => assert.equal(fieldsNamed(side, "prompt")[0], TAIL.join(", ")),
+  });
+  await assertParity(
+    t,
+    "gpt-4o-mini-transcribe (head prompt)",
+    baseSettings({ cloudTranscriptionModel: "gpt-4o-mini-transcribe" }),
+    runBatch,
+    { check: (side) => assert.equal(fieldsNamed(side, "prompt")[0], HEAD.join(", ")) }
+  );
+  await assertParity(
+    t,
+    "gpt-transcribe (keywords[])",
+    baseSettings({ cloudTranscriptionModel: "gpt-transcribe" }),
+    runBatch,
+    { check: (side) => assert.deepEqual(fieldsNamed(side, "keywords[]"), HEAD) }
+  );
+  await assertParity(
+    t,
+    "Azure Speech (phrases)",
+    baseSettings({
+      cloudTranscriptionProvider: "azure-speech",
+      cloudTranscriptionModel: "MAI-Transcribe-2",
+    }),
+    runBatch,
+    { check: (side) => assert.deepEqual(side.requests[0].phraseList.phrases, HEAD) }
+  );
+  await assertParity(
+    t,
+    "Mistral (context_bias)",
+    baseSettings({
+      cloudTranscriptionProvider: "mistral",
+      cloudTranscriptionModel: "voxtral-mini-latest",
+    }),
+    runBatch,
+    { check: (side) => assert.deepEqual(fieldsNamed(side, "context_bias"), words(HEAD)) }
+  );
+  const KEYTERMS = HEAD.filter((term) => term !== "cal link");
+  await assertParity(
+    t,
+    "Gemini (keyterms)",
+    baseSettings({
+      cloudTranscriptionProvider: "gemini",
+      cloudTranscriptionModel: "gemini-2.5-flash",
+    }),
+    runBatch,
+    { check: (side) => assert.deepEqual(side.requests[0].gemini, KEYTERMS) }
+  );
+  await assertParity(
+    t,
+    "xAI (keyterm)",
+    baseSettings({ cloudTranscriptionProvider: "xai", cloudTranscriptionModel: "grok-stt" }),
+    runBatch,
+    { check: (side) => assert.deepEqual(fieldsNamed(side, "keyterm"), KEYTERMS) }
+  );
+  const local = baseSettings({ useLocalWhisper: true, transcriptionMode: "local" });
+  await assertParity(
+    t,
+    "local Whisper (tail initialPrompt)",
+    local,
+    () => liveManager().processWithLocalWhisper(blob(), "base", { durationSeconds: 4 }),
+    { check: (side) => assert.equal(side.requests[0].whisper, TAIL.join(", ")) }
+  );
+
+  // "As added": stored order in the typed and learned tiers, emitted as
+  // before; the pins keep their own order.
+  dictionaryState.hintOrder = "added";
+  await assertParity(t, "added: whisper-1", baseSettings(), runBatch, {
+    check: (side) =>
+      assert.equal(
+        fieldsNamed(side, "prompt")[0],
+        [
+          "learned old",
+          "learned missed",
+          "learned unused",
+          "cal link",
+          "Kusto",
+          "Typed Old",
+          "Typed Missed",
+          "Typed Used",
+          ...[...PINS].reverse(),
+        ].join(", ")
+      ),
+  });
+  await assertParity(
+    t,
+    "added: Azure Speech",
+    baseSettings({
+      cloudTranscriptionProvider: "azure-speech",
+      cloudTranscriptionModel: "MAI-Transcribe-2",
+    }),
+    runBatch,
+    {
+      check: (side) =>
+        assert.deepEqual(side.requests[0].phraseList.phrases.slice(0, 8), [
+          ...PINS,
+          "Typed Old",
+          "Typed Missed",
+          "Typed Used",
+        ]),
+    }
+  );
+  dictionaryState.hintOrder = "evidence";
+
+  // More pins than the decoder reads, under Groq's cap: the budget keeps the
+  // top pins, and the tail ends with #1, inside the window.
+  const many = Array.from({ length: 50 }, (_, i) => `PinnedProduct${String(i).padStart(2, "0")}Name`);
+  setDictionary({
+    words: [...many, "Typed Missed"],
+    pinned: many.map((pin) => pin.toLowerCase()),
+    hintOrder: "evidence",
+  });
+  const groq = baseSettings({
+    cloudTranscriptionProvider: "groq",
+    cloudTranscriptionModel: "whisper-large-v3",
+    cloudTranscriptionBaseUrl: "https://api.groq.com/openai/v1",
+  });
+  await assertParity(t, "50 pins on Groq: the top pins sent, #1 read last", groq, runBatch, {
+    check: async (side) => {
+      const prompt = fieldsNamed(side, "prompt")[0];
+      assert.ok(prompt.endsWith(many[0]), "the top pin ends the prompt");
+      assert.ok(prompt.length <= 890);
+      const page = await dictionaryPageHints(groq);
+      const coverage = new Map(page.entries.map((entry) => [entry.term, entry.coverage]));
+      assert.equal(coverage.get(many[0]), "read");
+      assert.equal(coverage.get(many[1]), "read");
+      assert.equal(coverage.get(many[49]), "notSent", "the lowest pins don't fit");
+      assert.equal(coverage.get("Typed Missed"), "notSent");
+      assert.ok(
+        page.entries.slice(0, 50).every((entry, i) => entry.term === many[i]),
+        "ranks in pin order"
+      );
+      assert.ok([...coverage.values()].includes("unread"), "some sent pins are past the window");
+    },
+  });
 });
 
 test("privacy: a retry's logs carry counts, never a dictionary word, with dictated text on", async (t) => {

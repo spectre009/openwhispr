@@ -8,7 +8,8 @@ import type { DictionaryEntry, DictionaryEntrySource } from "../types/electron";
 // (that list syncs to OpenWhispr Cloud); the speech-to-text hint list needs
 // the source to put typed words first and pins before them, cleanup's word
 // set needs both, and the Dictionary page filters and sorts by source and
-// date. Main owns the pins (local only, never synced); this mirrors them.
+// date. Main owns the pins (local only, never synced) and their order; this
+// mirrors them, in pin order.
 
 interface DictionarySourcesState {
   /** Lowercased words whose source is "learned". */
@@ -16,7 +17,7 @@ interface DictionarySourcesState {
   /** Main's rows: each word's source and when it was added, in stored order. */
   entries: readonly DictionaryEntry[];
   loaded: boolean;
-  /** Pinned words' keys (dictionaryWordKey). */
+  /** Pinned words' keys (dictionaryWordKey), in pin order (a Set iterates as inserted). */
   pinned: ReadonlySet<string>;
   pinsLoaded: boolean;
 }
@@ -39,7 +40,10 @@ export function isDictionarySourcesLoaded(): boolean {
   return useDictionarySourcesStore.getState().loaded;
 }
 
-/** The pinned words' keys (dictionaryWordKey); empty until read. */
+/**
+ * The pinned words' keys (dictionaryWordKey) in pin order, the first sent
+ * first: iterate it (or spread it) for the order. Empty until read.
+ */
 export function getPinnedDictionaryKeys(): ReadonlySet<string> {
   return useDictionarySourcesStore.getState().pinned;
 }
@@ -135,6 +139,48 @@ export async function setDictionaryPins(
     if (await setDictionaryPin(word, pinned)) changed += 1;
   }
   return changed;
+}
+
+/**
+ * Puts the pins in a new order (the Dictionary page's "Always sent first":
+ * a drop, Alt+↑/↓, Move to top). Optimistic: the store shows the new order at
+ * once, and main's answer settles it. Main refuses a list that isn't
+ * exactly the current pins (MISMATCH) and answers with its own, which the
+ * store goes back to; a failure restores the old order unless something newer
+ * arrived meanwhile.
+ */
+export async function reorderDictionaryPins(
+  keys: readonly string[]
+): Promise<{ success: boolean; code?: string }> {
+  const api = typeof window !== "undefined" ? window.electronAPI : undefined;
+  if (!api?.reorderDictionaryPins) return { success: false, code: "UNAVAILABLE" };
+  const previous = useDictionarySourcesStore.getState().pinned;
+  const next = new Set<string>();
+  for (const key of keys) {
+    const normalized = dictionaryWordKey(key);
+    if (normalized) next.add(normalized);
+  }
+  useDictionarySourcesStore.setState({ pinned: next });
+  const restore = () => {
+    if (useDictionarySourcesStore.getState().pinned === next) {
+      useDictionarySourcesStore.setState({ pinned: previous });
+    }
+  };
+  try {
+    const result = await api.reorderDictionaryPins([...next]);
+    if (Array.isArray(result?.pins)) {
+      if (useDictionarySourcesStore.getState().pinned === next || result.success) {
+        applyPins(result.pins);
+      }
+    } else if (!result?.success) {
+      restore();
+    }
+    return result?.success ? { success: true } : { success: false, code: result?.code ?? "FAILED" };
+  } catch (error) {
+    logger.warn("Couldn't reorder the pins", { error: (error as Error)?.message }, "settings");
+    restore();
+    return { success: false, code: "FAILED" };
+  }
 }
 
 let subscribed = false;

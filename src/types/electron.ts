@@ -64,8 +64,10 @@ export type AutoLearnMode = "suggest" | "add" | "off";
 
 /**
  * What Re-transcribe sends its speech-to-text hints from: the stored words in
- * stored order, pinned keys, the glossary's canonical forms, snippet triggers
- * and the Chinese script preference. Main reads the learned words itself.
+ * stored order, pinned keys in pin order, the glossary's canonical forms,
+ * snippet triggers, the Chinese script preference, the order of the unpinned
+ * words and their usage scores (`[key, missedRows, written]`, bounded; main
+ * validates them: sttHintFields.js). Main reads the learned words itself.
  */
 export interface RetryHintDictionary {
   words: string[];
@@ -73,6 +75,8 @@ export interface RetryHintDictionary {
   glossaryTerms: string[];
   snippets: Array<{ trigger: string }>;
   chineseScriptPreference: string | null;
+  hintOrder?: "evidence" | "added";
+  scores?: Array<[key: string, missedRows: number, written: number]>;
 }
 
 /** What a suggested word replaced, in which app (exe name), for which dictation. */
@@ -295,6 +299,8 @@ export interface DictionaryRestoreEntry {
   source: DictionaryEntrySource;
   createdAt: string | null;
   pinned: boolean;
+  /** Its place in the pin order when it was pinned (0 first); null when unknown. */
+  pinPosition?: number | null;
 }
 
 /** One step that reverses part of a Tidy up action (database.js undoDictionaryTidy). */
@@ -310,6 +316,8 @@ export type DictionaryTidyUndoStep =
       remove?: string[];
       /** Words to unpin (what a merge pinned). */
       unpin?: string[];
+      /** Pins a merge moved up, back to their own place. */
+      repin?: Array<{ word: string; position: number }>;
     };
 
 export interface DictionaryTidyOpResult {
@@ -2708,6 +2716,10 @@ declare global {
       setDictionaryPin?: (
         word: string,
         pinned: boolean
+      ) => Promise<{ success: boolean; changed?: boolean; pins?: string[]; code?: string }>;
+      /** The pins in a new order: exactly the current keys, else MISMATCH (with the pins as they are). */
+      reorderDictionaryPins?: (
+        keys: string[]
       ) => Promise<{ success: boolean; changed?: boolean; pins?: string[]; code?: string }>;
       onDictionaryPinsUpdated?: (callback: (pins: string[]) => void) => () => void;
       // Auto-learn's suggestions (main-owned, local-only)

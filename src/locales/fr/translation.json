@@ -3733,6 +3733,17 @@
       "sendsAll": "Envoie tous les mots pour l'instant",
       "missedUnavailable": "Les mots que la reconnaissance manque sont comptés à partir de votre historique local. Tant que l'historique est désactivé ou en cours de comptage, la correction reçoit tous les mots, et son étape l'indique.",
       "note": "Les graphies du glossaire et les déclencheurs d'extraits sont toujours inclus. La liste de mots du modèle vocal, le chat et l'assistant vocal gardent le dictionnaire complet."
+    },
+    "dictionaryOrder": {
+      "title": "Ordre du dictionnaire pour la reconnaissance vocale",
+      "description": "Les mots épinglés passent toujours en premier. Ensuite, ce réglage décide quels mots du dictionnaire tiennent quand le modèle vocal n'en accepte qu'un nombre limité.",
+      "options": {
+        "evidence": "D'abord ce que la reconnaissance vocale rate le plus",
+        "evidenceHint": "D'après votre historique local : d'abord les mots les plus souvent corrigés après la reconnaissance vocale, les mots jamais utilisés en dernier",
+        "added": "Dans l'ordre d'ajout",
+        "addedHint": "Les plus anciens d'abord, comme avant"
+      },
+      "unavailable": "Les chiffres d'utilisation viennent de votre historique local. Tant qu'il est désactivé ou encore en cours de calcul, les mots suivent l'ordre d'ajout."
     }
   },
   "models": {
@@ -4980,7 +4991,20 @@
       "pin": "Épingler {{word}}",
       "unpin": "Désépingler {{word}}",
       "pinHint": "Épingler : toujours envoyé en premier à la transcription et toujours gardé pour la correction",
-      "pinnedHint": "Épinglé : toujours envoyé en premier"
+      "pinnedHint": "Épinglé : toujours envoyé en premier",
+      "sectionTitle": "Toujours envoyés en premier",
+      "sectionHint": "Faites glisser pour fixer l'ordre, ou utilisez Alt+↑/↓. Ils partent vers le modèle vocal avant tout le reste.",
+      "empty": "Rien d'épinglé pour l'instant. Épinglez un mot avec ☆ et il partira vers le modèle vocal avant tout le reste, dans l'ordre fixé ici.",
+      "pinAWord": "+ Épingler un mot",
+      "rank": "n° {{rank}}",
+      "dragHint": "Faites glisser, ou Alt+↑/↓",
+      "rowLabel": "{{word}}, épinglé n° {{rank}}, {{source}}, {{coverage}}",
+      "menu": "Plus d'options pour {{word}}",
+      "moveTop": "Placer en tête",
+      "moveUp": "Monter",
+      "moveDown": "Descendre",
+      "moved": "{{word}} déplacé en position {{position}}",
+      "reorderFailed": "Impossible d'enregistrer le nouvel ordre. Les mots épinglés sont revenus comme avant."
     },
     "source": {
       "typed": "Saisi",
@@ -5189,7 +5213,8 @@
         "speechNone": "Non envoyé : cette configuration ne prend pas d'indications",
         "cleanupLabel": "Nettoyage",
         "chatLabel": "Chat, assistant",
-        "chatAlways": "Toujours"
+        "chatAlways": "Toujours",
+        "pinnedRank": "Toujours envoyé en premier · n° {{rank}}"
       },
       "cleanup": {
         "off": "Non : le nettoyage est désactivé",
@@ -5435,6 +5460,19 @@
       "unaligned_one": "{{count}} dictée est trop longue pour être comparée mot à mot, elle n'est donc pas listée.",
       "unaligned_other": "{{count}} dictées sont trop longues pour être comparées mot à mot, elles ne sont donc pas listées.",
       "showInHistory": "Afficher dans l'historique"
+    },
+    "order": {
+      "restTitle": "Tout le reste",
+      "evidence": "Classé automatiquement : d'abord les mots que la reconnaissance vocale rate le plus, les mots jamais utilisés en dernier.",
+      "added": "Dans l'ordre où ils ont été ajoutés.",
+      "evidenceUnavailable": "Les mots que la reconnaissance vocale rate le plus passeront en premier dès que votre historique local aura des chiffres d'utilisation. D'ici là, dans l'ordre où ils ont été ajoutés.",
+      "label": "Ordre :",
+      "options": {
+        "evidence": "selon l'usage",
+        "added": "à l'ajout"
+      },
+      "menuLabel": "Ordre de tout le reste : {{order}}",
+      "menuHint": "Les mots épinglés passent toujours en premier. L'ordre décide quels mots tiennent."
     }
   },
   "support": {

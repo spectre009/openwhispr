@@ -2,8 +2,9 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 
 // The Dictionary page's list rules (dictionaryList.ts), without rendering:
-// what each row knows, the filters and their counts, the five sorts, and
-// where send order's dividers go. Synthetic words only.
+// what each row knows, the filters and their counts, the five sorts, where
+// send order's dividers go, and the pinned words' section and ranks.
+// Synthetic words only.
 
 let list;
 test.before(async () => {
@@ -254,4 +255,80 @@ test("a thousand words filter and sort in a few milliseconds", () => {
   list.dictionaryFilterCounts(rows, NOW);
   const ms = performance.now() - start;
   assert.ok(ms < 200, `${ms.toFixed(1)} ms`);
+});
+
+test("pin ranks: the listed pins in pin order; send order over the whole list puts them first", () => {
+  const rows = list.buildDictionaryListItems({
+    words: ["Alpha", "Bravo", "Charlie", "Delta", "Echo"],
+    // Pin order: Delta, then Alpha, then Echo (the Set's order, as main sends it).
+    pinned: new Set(["delta", "gone", "alpha", "echo"]),
+    coverage: [
+      { term: "Delta", source: "pinned", coverage: "read", rank: 1 },
+      { term: "Alpha", source: "pinned", coverage: "read", rank: 2 },
+      { term: "Echo", source: "pinned", coverage: "unread", rank: 3 },
+      { term: "Bravo", source: "manual", coverage: "unread", rank: 4 },
+      { term: "Charlie", source: "manual", coverage: "notSent", rank: 5 },
+    ],
+  });
+  assert.deepEqual(
+    rows.map((row) => [row.word, row.pinRank]),
+    [
+      ["Alpha", 2],
+      ["Bravo", null],
+      ["Charlie", null],
+      ["Delta", 1],
+      ["Echo", 3],
+    ]
+  );
+  const view = list.viewDictionaryList(rows, { filter: "all", sort: "sendOrder", search: "" });
+  assert.equal(view.pinnedCount, 3);
+  assert.deepEqual(
+    view.items.map((row) => row.word),
+    ["Delta", "Alpha", "Echo", "Bravo", "Charlie"],
+    "the pins in pin order, even one past the window; the rest in send order"
+  );
+  // The lines fall in the rest; the pins above count as what precedes them.
+  assert.deepEqual(view.dividers, [
+    { index: 3, kind: "unread", count: 1 },
+    { index: 4, kind: "notSent", count: 1 },
+  ]);
+  // A filter, a search or another sort: one list, the pins inline.
+  for (const query of [
+    { filter: "typed", sort: "sendOrder", search: "" },
+    { filter: "all", sort: "sendOrder", search: "a" },
+    { filter: "all", sort: "alpha", search: "" },
+  ]) {
+    assert.equal(list.viewDictionaryList(rows, query).pinnedCount, null, JSON.stringify(query));
+  }
+  const searched = list.viewDictionaryList(rows, { filter: "all", sort: "sendOrder", search: "a" });
+  assert.deepEqual(
+    searched.items.map((row) => row.word),
+    ["Delta", "Alpha", "Echo", "Bravo", "Charlie"].filter((word) => /a/i.test(word))
+  );
+});
+
+test("no pins: the section is there and empty, and a line can open the rest", () => {
+  const rows = list.buildDictionaryListItems({
+    words: ["Alpha", "Bravo"],
+    coverage: [
+      { term: "Alpha", source: "manual", coverage: "unread", rank: 1 },
+      { term: "Bravo", source: "manual", coverage: "unread", rank: 2 },
+    ],
+  });
+  const view = list.viewDictionaryList(rows, { filter: "all", sort: "sendOrder", search: "" });
+  assert.equal(view.pinnedCount, 0);
+  assert.deepEqual(view.dividers, [], "nothing precedes it");
+  const pinned = list.buildDictionaryListItems({
+    words: ["Alpha", "Bravo"],
+    pinned: new Set(["bravo"]),
+    coverage: [
+      { term: "Bravo", source: "pinned", coverage: "read", rank: 1 },
+      { term: "Alpha", source: "manual", coverage: "notSent", rank: 2 },
+    ],
+  });
+  assert.deepEqual(
+    list.viewDictionaryList(pinned, { filter: "all", sort: "sendOrder", search: "" }).dividers,
+    [{ index: 1, kind: "notSent", count: 1 }],
+    "right under the pins"
+  );
 });

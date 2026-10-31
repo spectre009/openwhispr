@@ -160,12 +160,18 @@ import {
 } from "../utils/dictionaryKeywords.js";
 import { getDictionaryHintWords, selectCleanupDictionary } from "../utils/snippets";
 import { buildDictionaryHints, resolveHintTarget } from "../utils/dictionaryHints";
+import {
+  hintScoresForDictionary,
+  normalizeDictionaryHintOrder,
+  normalizeHintScores,
+} from "../utils/dictionaryHintOrder";
 import { getGlossaryCanonicalTerms } from "../utils/glossaryTerms";
 import { getGlossarySnapshot } from "../stores/glossaryStore";
 import {
   getLearnedDictionaryWords,
   getPinnedDictionaryKeys,
 } from "../stores/dictionarySourcesStore";
+import { getDictionaryHintScores } from "../stores/dictionaryUsageStore";
 import {
   passthroughStep,
   runPostTranscription,
@@ -901,9 +907,13 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
   }
 
   // The speech-to-text hint list. One builder (utils/dictionaryHints) for the
-  // request, the echo check and the Dictionary page: pinned words, manual
-  // entries, then the glossary's canonical forms, then snippet triggers, then
-  // auto-learned entries, within the request budget and in the order the model reads.
+  // request, the echo check and the Dictionary page: pinned words in pin
+  // order, manual entries, then the glossary's canonical forms, then snippet
+  // triggers, then auto-learned entries, within the request budget and in the
+  // order the model reads. The manual and learned tiers follow the order
+  // setting: by evidence (the usage store's scores, while it has counts;
+  // bounded exactly as Re-transcribe's dictionary block carries them) or as
+  // added.
   getDictionaryHints({
     settings = getSettings(),
     maxChars,
@@ -911,8 +921,10 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     order,
     includeSnippets,
   } = {}) {
+    const dictionary = settings?.customDictionary;
+    const words = Array.isArray(dictionary) ? dictionary : [];
     return buildDictionaryHints({
-      dictionary: settings?.customDictionary,
+      dictionary,
       learnedWords: getLearnedDictionaryWords(),
       pinnedWords: getPinnedDictionaryKeys(),
       glossaryTerms: getGlossaryCanonicalTerms(),
@@ -921,6 +933,11 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       maxChars,
       maxTerms,
       order,
+      rankBy: normalizeDictionaryHintOrder(settings?.dictionaryHintOrder),
+      scores: normalizeHintScores(
+        hintScoresForDictionary(getDictionaryHintScores(), words),
+        words.length
+      ),
     });
   }
 

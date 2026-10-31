@@ -531,6 +531,21 @@ export const SETTINGS_SEARCH_DESCRIPTORS: readonly SettingDescriptor[] = [
     aliases: ["simplified", "traditional", "chinese", "mandarin"],
     available: requires("autoLanguage", "dictation.language", R.autoLanguageOnly),
   }),
+  row("dictation.recognition.dictionaryOrder", RECOGNITION, "settingsPage.dictionaryOrder.title", {
+    descriptionKey: "settingsPage.dictionaryOrder.description",
+    aliases: [
+      "dictionary",
+      "custom words",
+      "vocabulary",
+      "word order",
+      "priority",
+      "phrase list",
+      "evidence",
+      "speech misses",
+      "pinned",
+      "prompt",
+    ],
+  }),
   row("preferences.startup.launchAtLogin", STARTUP, "settingsPage.general.startup.launchAtLogin", {
     descriptionKey: "settingsPage.general.startup.launchAtLoginDescription",
     groupKey: "settingsPage.general.startup.title",

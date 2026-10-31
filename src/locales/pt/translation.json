@@ -3618,6 +3618,17 @@
       "sendsAll": "Por enquanto envia todas as palavras",
       "missedUnavailable": "As palavras que o reconhecimento erra são contadas a partir do seu histórico local. Enquanto o histórico estiver desativado ou ainda em contagem, a limpeza recebe todas as palavras, e a etapa dela informa isso.",
       "note": "As grafias do glossário e os gatilhos de snippets são sempre incluídos. A lista de palavras do modelo de voz, o chat e o assistente de voz mantêm o dicionário completo."
+    },
+    "dictionaryOrder": {
+      "title": "Ordem do dicionário para voz em texto",
+      "description": "Palavras fixadas sempre vão primeiro. Depois delas, isto decide quais palavras do dicionário cabem quando o modelo de voz aceita só um número limitado.",
+      "options": {
+        "evidence": "Primeiro o que a voz mais erra",
+        "evidenceHint": "Pelo seu Histórico local: primeiro as palavras corrigidas com mais frequência depois da voz, por último as nunca usadas",
+        "added": "Na ordem em que foram adicionadas",
+        "addedHint": "As mais antigas primeiro, como antes"
+      },
+      "unavailable": "As contagens de uso vêm do seu Histórico local. Enquanto ele estiver desativado ou ainda contando, as palavras vão na ordem em que foram adicionadas."
     }
   },
   "models": {
@@ -4628,7 +4639,20 @@
       "pin": "Fixar {{word}}",
       "unpin": "Desafixar {{word}}",
       "pinHint": "Fixar: sempre enviada primeiro para a transcrição e sempre mantida na limpeza",
-      "pinnedHint": "Fixada: sempre enviada primeiro"
+      "pinnedHint": "Fixada: sempre enviada primeiro",
+      "sectionTitle": "Sempre enviadas primeiro",
+      "sectionHint": "Arraste para definir a ordem, ou use Alt+↑/↓. Vão para o modelo de voz antes de tudo.",
+      "empty": "Nada fixado ainda. Fixe uma palavra com ☆ e ela vai para o modelo de voz antes de tudo, na ordem que você definir aqui.",
+      "pinAWord": "+ Fixar uma palavra",
+      "rank": "nº {{rank}}",
+      "dragHint": "Arraste, ou Alt+↑/↓",
+      "rowLabel": "{{word}}, fixada nº {{rank}}, {{source}}, {{coverage}}",
+      "menu": "Mais opções para {{word}}",
+      "moveTop": "Mover para o topo",
+      "moveUp": "Mover para cima",
+      "moveDown": "Mover para baixo",
+      "moved": "{{word}} movida para a posição {{position}}",
+      "reorderFailed": "Não foi possível salvar a nova ordem. As palavras fixadas voltaram a ficar como antes."
     },
     "source": {
       "typed": "Digitada",
@@ -4837,7 +4861,8 @@
         "speechNone": "Não enviada: esta configuração não aceita dicas",
         "cleanupLabel": "Limpeza",
         "chatLabel": "Chat, assistente",
-        "chatAlways": "Sempre"
+        "chatAlways": "Sempre",
+        "pinnedRank": "Sempre enviada primeiro · nº {{rank}}"
       },
       "cleanup": {
         "off": "Não: a limpeza está desativada",
@@ -5083,6 +5108,19 @@
       "unaligned_one": "{{count}} ditado é longo demais para comparar palavra por palavra, então não aparece.",
       "unaligned_other": "{{count}} ditados são longos demais para comparar palavra por palavra, então não aparecem.",
       "showInHistory": "Mostrar no histórico"
+    },
+    "order": {
+      "restTitle": "Todo o resto",
+      "evidence": "Ordenado automaticamente: primeiro as palavras que a voz mais erra, por último as nunca usadas.",
+      "added": "Na ordem em que foram adicionadas.",
+      "evidenceUnavailable": "As palavras que a voz mais erra vão primeiro assim que seu Histórico local tiver contagens de uso. Até lá, na ordem em que foram adicionadas.",
+      "label": "Ordem:",
+      "options": {
+        "evidence": "por uso",
+        "added": "como adicionadas"
+      },
+      "menuLabel": "Ordem de todo o resto: {{order}}",
+      "menuHint": "Palavras fixadas sempre vão primeiro. A ordem decide quais palavras cabem."
     }
   },
   "insights": {

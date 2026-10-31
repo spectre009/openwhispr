@@ -3639,6 +3639,17 @@
       "sendsAll": "目前傳送所有字詞",
       "missedUnavailable": "語音辨識常漏掉的字詞會根據你的本機記錄統計。在記錄關閉或仍在統計時，整理會收到所有字詞，其步驟中也會註明。",
       "note": "詞彙表的寫法和片段觸發詞一律包含在內。語音模型的字詞清單、聊天和語音助理仍使用完整字典。"
+    },
+    "dictionaryOrder": {
+      "title": "語音轉文字的字典順序",
+      "description": "釘選的字詞一律排在最前。之後，當語音模型只接受有限數量時，此設定決定哪些字典字詞放得下。",
+      "options": {
+        "evidence": "語音辨識最常漏掉的在前",
+        "evidenceHint": "依據本機記錄：語音辨識後最常被修正的字詞在前，從未用過的在後",
+        "added": "依新增順序",
+        "addedHint": "最早新增的在前，與以前相同"
+      },
+      "unavailable": "使用次數來自本機記錄。記錄關閉或仍在統計時，字詞依新增順序排列。"
     }
   },
   "models": {
@@ -4628,7 +4639,20 @@
       "pin": "釘選 {{word}}",
       "unpin": "取消釘選 {{word}}",
       "pinHint": "釘選：一律最先傳送給語音辨識，整理時也一律保留",
-      "pinnedHint": "已釘選：一律最先傳送"
+      "pinnedHint": "已釘選：一律最先傳送",
+      "sectionTitle": "一律最先傳送",
+      "sectionHint": "拖曳或使用 Alt+↑/↓ 設定順序。這些字詞會先於其他內容傳送給語音模型。",
+      "empty": "尚未釘選任何字詞。用 ☆ 釘選字詞後，它會依你在這裡設定的順序，先於其他內容傳送給語音模型。",
+      "pinAWord": "+ 釘選字詞",
+      "rank": "第 {{rank}} 位",
+      "dragHint": "拖曳，或按 Alt+↑/↓",
+      "rowLabel": "{{word}}，釘選第 {{rank}} 位，{{source}}，{{coverage}}",
+      "menu": "{{word}} 的更多操作",
+      "moveTop": "移到最前",
+      "moveUp": "上移",
+      "moveDown": "下移",
+      "moved": "已將 {{word}} 移到第 {{position}} 位",
+      "reorderFailed": "無法儲存新的順序。釘選的字詞已恢復原狀。"
     },
     "source": {
       "typed": "手動輸入",
@@ -4837,7 +4861,8 @@
         "speechNone": "未傳送：此設定不接受提示",
         "cleanupLabel": "清理",
         "chatLabel": "聊天、助理",
-        "chatAlways": "一律傳送"
+        "chatAlways": "一律傳送",
+        "pinnedRank": "一律最先傳送 · 第 {{rank}} 位"
       },
       "cleanup": {
         "off": "否：清理已關閉",
@@ -5083,6 +5108,19 @@
       "unaligned_one": "{{count}} 次聽寫太長，無法逐詞比較，所以沒有列出。",
       "unaligned_other": "{{count}} 次聽寫太長，無法逐詞比較，所以沒有列出。",
       "showInHistory": "在歷史記錄中顯示"
+    },
+    "order": {
+      "restTitle": "其他所有字詞",
+      "evidence": "自動排序：語音辨識最常漏掉的字詞在前，從未用過的字詞在後。",
+      "added": "依新增順序。",
+      "evidenceUnavailable": "本機記錄有了使用次數後，語音辨識最常漏掉的字詞會排在前面。在此之前依新增順序。",
+      "label": "順序：",
+      "options": {
+        "evidence": "依使用情況",
+        "added": "依新增順序"
+      },
+      "menuLabel": "其他所有字詞的順序：{{order}}",
+      "menuHint": "釘選的字詞一律排在最前。順序決定哪些字詞放得下。"
     }
   },
   "insights": {

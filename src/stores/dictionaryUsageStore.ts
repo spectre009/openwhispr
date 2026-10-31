@@ -2,12 +2,16 @@ import { create } from "zustand";
 import logger from "../utils/logger";
 import { isSpeechMissed } from "../helpers/dictionaryUsage.js";
 import { dictionaryWordKey } from "../utils/dictionaryWordKey.js";
+import { hintScoreTuples, type HintScoreTuple } from "../utils/dictionaryHintOrder";
 import type { DictionaryUsageResult, DictionaryWordUsage } from "../types/electron";
 
 // Heard vs written per dictionary word ("used", "speech got it", "fixed after
 // speech"), counted by main from local History (helpers/dictionaryUsage.js).
 // Mirrored here so cleanup's "words speech misses" set can be chosen
-// synchronously when a dictation's cleanup request is built. Counts only.
+// synchronously when a dictation's cleanup request is built, and so the
+// speech-to-text hint list can rank by evidence (dictionaryHintOrder.ts:
+// live requests, Re-transcribe's dictionary block and the Dictionary page
+// read the same scores). Counts only.
 // Refreshed when a window loads, when the dictionary changes, when the owner
 // or History's policy does, and (debounced) when History does; main caches
 // the counts and recomputes at most every 30 s while dictations keep arriving.
@@ -42,6 +46,27 @@ export const useDictionaryUsageStore = create<DictionaryUsageState>()(() => ({
 /** The keys of the words speech often misses, or null when counts aren't available. */
 export function getMissedDictionaryKeys(): ReadonlySet<string> | null {
   return useDictionaryUsageStore.getState().missed;
+}
+
+let scoresFor: { words: readonly DictionaryWordUsage[]; scores: HintScoreTuple[] } | null = null;
+
+/**
+ * The hint list's usage scores (`[key, missedRows, written]`, best first,
+ * bounded), derived from the counts; null when counts aren't available.
+ */
+export function hintScoresFromUsage(
+  status: DictionaryUsageState["status"],
+  words: readonly DictionaryWordUsage[]
+): readonly HintScoreTuple[] | null {
+  if (status !== "ready") return null;
+  if (scoresFor?.words !== words) scoresFor = { words, scores: hintScoreTuples(words) };
+  return scoresFor.scores;
+}
+
+/** The hint list's usage scores now; null when counts aren't available. */
+export function getDictionaryHintScores(): readonly HintScoreTuple[] | null {
+  const { status, words } = useDictionaryUsageStore.getState();
+  return hintScoresFromUsage(status, words);
 }
 
 function apply(result: DictionaryUsageResult | null | undefined): void {

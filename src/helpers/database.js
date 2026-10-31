@@ -54,6 +54,8 @@ const EVIDENCE_LOOKBACK_MS = 10 * 60 * 1000;
 const EVIDENCE_SAVE_SLACK_MS = 60 * 1000;
 // The longest spelling a rename accepts (what a retry's hint list carries).
 const MAX_DICTIONARY_WORD_CHARS = 500;
+// A pin's place as an Undo may carry it back: an integer from 0.
+const MAX_PIN_POSITION = 1_000_000;
 
 // Server-enforced trigger cap (openwhispr-api); enforced here so one oversized
 // trigger can't 400 the whole sync batch.
@@ -3488,8 +3490,11 @@ class DatabaseManager {
   // Local only, never synced: upstream sync carries a dictionary row's word
   // and source, so nothing else may ride on custom_dictionary. All three are
   // keyed by dictionaryWordKey (trimmed, NFC, lowercased).
-  // - dictionary_pins: words always sent first. A pin follows its word
-  //   through every mutation below (delete, rename, replace, cloud pull).
+  // - dictionary_pins: words always sent first, in the order of `position`
+  //   (the user's ranking: 0 first; gaps are fine, ties fall back to
+  //   pinned_at then word_key). A pin follows its word, its position kept,
+  //   through every mutation below (delete, rename, merge, replace, cloud
+  //   pull, Tidy up and its Undo).
   // - dictionary_suggestions: auto-learn's inbox in Suggest mode. Device-wide
   //   vocabulary state: the word and the user's decision, nothing from History.
   // - dictionary_word_evidence: what a learned word replaced, in which app,
@@ -3500,7 +3505,8 @@ class DatabaseManager {
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS dictionary_pins (
         word_key TEXT PRIMARY KEY,
-        pinned_at TEXT NOT NULL
+        pinned_at TEXT NOT NULL,
+        position INTEGER
       );
       CREATE TABLE IF NOT EXISTS dictionary_suggestions (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -3526,7 +3532,33 @@ class DatabaseManager {
       CREATE INDEX IF NOT EXISTS idx_dictionary_word_evidence_transcription
         ON dictionary_word_evidence(transcription_id);
     `);
+    this._migrateDictionaryPinPositions();
     this.dictionaryStateReady = true;
+  }
+
+  // Pins from before pin order have no position: the column is added, then
+  // every pin without one gets the next positions after any that exist, by
+  // when it was pinned, then key (deterministic). Before this the pinned
+  // words went in stored dictionary order, so a pinned list can come out in
+  // a different order once, by pin date. Idempotent: nothing to do after.
+  _migrateDictionaryPinPositions() {
+    const columns = this.db.prepare("PRAGMA table_info(dictionary_pins)").all();
+    if (!columns.some((column) => column.name === "position")) {
+      this.db.exec("ALTER TABLE dictionary_pins ADD COLUMN position INTEGER");
+    }
+    this.db.transaction(() => {
+      const missing = this.db
+        .prepare(
+          "SELECT word_key FROM dictionary_pins WHERE position IS NULL ORDER BY pinned_at ASC, word_key ASC"
+        )
+        .all();
+      if (missing.length === 0) return;
+      let next = this.db
+        .prepare("SELECT COALESCE(MAX(position) + 1, 0) AS next FROM dictionary_pins")
+        .get().next;
+      const set = this.db.prepare("UPDATE dictionary_pins SET position = ? WHERE word_key = ?");
+      for (const { word_key: key } of missing) set.run(next++, key);
+    })();
   }
 
   // Every write that can change what a transcription's text is (insert, a
@@ -3678,35 +3710,91 @@ class DatabaseManager {
     return removed;
   }
 
-  // A renamed word keeps its pin (inside the rename's transaction).
+  // A renamed word keeps its pin and its place (inside the rename's
+  // transaction). When the new key is pinned already (a cloud pull folding
+  // two spellings together), the higher place, the smaller number, wins.
   _moveDictionaryPin(fromWord, toWord) {
     if (!this.dictionaryStateReady) return;
     const from = dictionaryWordKey(fromWord);
     const to = dictionaryWordKey(toWord);
     if (!from || !to || from === to) return;
-    const pin = this.db
-      .prepare("SELECT pinned_at FROM dictionary_pins WHERE word_key = ?")
-      .get(from);
+    const pin = this._dictionaryPin(from);
     if (!pin) return;
     this.db.prepare("DELETE FROM dictionary_pins WHERE word_key = ?").run(from);
-    this.db
-      .prepare("INSERT OR REPLACE INTO dictionary_pins (word_key, pinned_at) VALUES (?, ?)")
-      .run(to, pin.pinned_at);
+    this._keepDictionaryPin(to, pin);
   }
 
-  /** The pinned words' keys, oldest pin first. */
+  // A pin's row (`pinned_at`, `position`), or null.
+  _dictionaryPin(key) {
+    return (
+      this.db
+        .prepare("SELECT pinned_at, position FROM dictionary_pins WHERE word_key = ?")
+        .get(key) ?? null
+    );
+  }
+
+  // Pins `key` with `pin`'s date and place; when it's pinned already, it
+  // keeps whichever place is higher (a missing position counts as last).
+  _keepDictionaryPin(key, pin) {
+    const existing = this._dictionaryPin(key);
+    if (!existing) {
+      this.db
+        .prepare("INSERT INTO dictionary_pins (word_key, pinned_at, position) VALUES (?, ?, ?)")
+        .run(key, pin.pinned_at, pin.position ?? this._nextDictionaryPinPosition());
+      return;
+    }
+    const higher =
+      Number.isInteger(pin.position) &&
+      (!Number.isInteger(existing.position) || pin.position < existing.position);
+    if (higher) {
+      this.db
+        .prepare("UPDATE dictionary_pins SET position = ? WHERE word_key = ?")
+        .run(pin.position, key);
+    }
+  }
+
+  // The place after the last pin.
+  _nextDictionaryPinPosition() {
+    return this.db
+      .prepare("SELECT COALESCE(MAX(position) + 1, 0) AS next FROM dictionary_pins")
+      .get().next;
+  }
+
+  // Pins `key` at `position` (an Undo putting a pin back where it was): a
+  // place that's free is taken as is; one that's taken pushes that pin and
+  // every one after it down by one. A key pinned already stays where it is.
+  _insertDictionaryPinAt(key, position, pinnedAt) {
+    if (this._dictionaryPin(key)) return false;
+    const place =
+      Number.isInteger(position) && position >= 0 ? position : this._nextDictionaryPinPosition();
+    if (this.db.prepare("SELECT 1 FROM dictionary_pins WHERE position = ?").get(place)) {
+      this.db
+        .prepare("UPDATE dictionary_pins SET position = position + 1 WHERE position >= ?")
+        .run(place);
+    }
+    this.db
+      .prepare("INSERT INTO dictionary_pins (word_key, pinned_at, position) VALUES (?, ?, ?)")
+      .run(key, pinnedAt, place);
+    return true;
+  }
+
+  /** The pinned words' keys in pin order (position; then pin date, then key). */
   getDictionaryPins() {
     if (!this.db) throw new Error("Database not initialized");
     if (!this.dictionaryStateReady) return [];
     return this.db
-      .prepare("SELECT word_key FROM dictionary_pins ORDER BY pinned_at ASC, word_key ASC")
+      .prepare(
+        `SELECT word_key FROM dictionary_pins
+         ORDER BY position IS NULL, position ASC, pinned_at ASC, word_key ASC`
+      )
       .all()
       .map((row) => row.word_key);
   }
 
   /**
    * Pins or unpins one dictionary word. Only a word in the dictionary can be
-   * pinned (NOT_IN_DICTIONARY otherwise); unpinning is always allowed.
+   * pinned (NOT_IN_DICTIONARY otherwise); a new pin goes last. Unpinning is
+   * always allowed and leaves a gap in the places, which reads ignore.
    */
   setDictionaryPin(word, pinned, { now = () => new Date().toISOString() } = {}) {
     if (!this.db) throw new Error("Database not initialized");
@@ -3723,8 +3811,10 @@ class DatabaseManager {
         }
         changed =
           this.db
-            .prepare("INSERT OR IGNORE INTO dictionary_pins (word_key, pinned_at) VALUES (?, ?)")
-            .run(key, now()).changes > 0;
+            .prepare(
+              "INSERT OR IGNORE INTO dictionary_pins (word_key, pinned_at, position) VALUES (?, ?, ?)"
+            )
+            .run(key, now(), this._nextDictionaryPinPosition()).changes > 0;
       } else {
         changed =
           this.db.prepare("DELETE FROM dictionary_pins WHERE word_key = ?").run(key).changes > 0;
@@ -3732,6 +3822,38 @@ class DatabaseManager {
     })();
     if (code) return { success: false, code };
     return { success: true, changed, pins: this.getDictionaryPins() };
+  }
+
+  /**
+   * Puts the pins in the order given (the Dictionary page's "Always sent
+   * first"), places 0 to n−1 in one transaction. The list must be exactly
+   * the current pins, by key: none missing, none repeated, none unknown.
+   * Anything else is refused (MISMATCH) and changes nothing; either way the
+   * answer carries the pins as they are now.
+   */
+  reorderDictionaryPins(keys) {
+    if (!this.db) throw new Error("Database not initialized");
+    if (!this.dictionaryStateReady) return { success: false, code: "UNAVAILABLE" };
+    let result = null;
+    this.db.transaction(() => {
+      const current = this.getDictionaryPins();
+      const list = Array.isArray(keys) ? keys : [];
+      const given = list.map((key) => (typeof key === "string" ? dictionaryWordKey(key) : ""));
+      const pinnedKeys = new Set(current);
+      const valid =
+        given.length === current.length &&
+        new Set(given).size === given.length &&
+        given.every((key) => key && pinnedKeys.has(key));
+      if (!valid) {
+        result = { success: false, code: "MISMATCH", pins: current };
+        return;
+      }
+      const changed = given.some((key, index) => key !== current[index]);
+      const set = this.db.prepare("UPDATE dictionary_pins SET position = ? WHERE word_key = ?");
+      given.forEach((key, index) => set.run(index, key));
+      result = { success: true, changed, pins: this.getDictionaryPins() };
+    })();
+    return result;
   }
 
   /**
@@ -4461,7 +4583,8 @@ class DatabaseManager {
    * Folds one word into another: `from` leaves the dictionary (a synced row
    * as a tombstone the next push sends), `into` stays with its id and date.
    * Typed wins (a learned `into` becomes typed, marked for sync), a pin on
-   * either survives on `into`, and `from`'s evidence moves to `into`'s key.
+   * either survives on `into` (both pinned: the higher place wins), and
+   * `from`'s evidence moves to `into`'s key.
    */
   mergeDictionaryWords(from, into) {
     if (!this.db) throw new Error("Database not initialized");
@@ -4491,14 +4614,10 @@ class DatabaseManager {
       const fromKey = dictionaryWordKey(fromRow.word);
       const intoKey = dictionaryWordKey(intoRow.word);
       if (this.dictionaryStateReady && fromKey !== intoKey) {
-        const pin = this.db
-          .prepare("SELECT pinned_at FROM dictionary_pins WHERE word_key = ?")
-          .get(fromKey);
-        if (pin) {
-          this.db
-            .prepare("INSERT OR IGNORE INTO dictionary_pins (word_key, pinned_at) VALUES (?, ?)")
-            .run(intoKey, pin.pinned_at);
-        }
+        // A pin on either survives on `into`; with both pinned, the higher
+        // place (the smaller number) wins. `from`'s own pin goes with its word.
+        const pin = this._dictionaryPin(fromKey);
+        if (pin) this._keepDictionaryPin(intoKey, pin);
         this._moveDictionaryEvidence(fromKey, intoKey);
       }
       this._deleteDictionaryRow(this._dictionaryWriteStatements(), fromRow);
@@ -4544,16 +4663,16 @@ class DatabaseManager {
   // EXISTS; a phrase added typed through applyDictionaryChanges, then its parts
   // removed. For each choice that applied it returns the steps that reverse it,
   // with the full state they need: a removed word's spelling, source, created
-  // date and pin; the word a merge went into and whether the merge pinned it;
-  // a rename's two spellings. undoDictionaryTidy runs them back, all or
-  // nothing. A word's evidence isn't restored: it comes from History.
+  // date and pin with its place; the word a merge went into, whether the merge
+  // pinned it and where it was pinned before; a rename's two spellings.
+  // undoDictionaryTidy runs them back, all or nothing. A word's evidence
+  // isn't restored: it comes from History.
 
-  // A live row's state, for an Undo to restore it as it was.
+  // A live row's state, for an Undo to restore it as it was: its pin with
+  // its place in the pin order.
   _dictionaryWordState(row) {
     const key = dictionaryWordKey(row.word);
-    const pinned =
-      !!this.dictionaryStateReady &&
-      !!this.db.prepare("SELECT 1 FROM dictionary_pins WHERE word_key = ?").get(key);
+    const pin = this.dictionaryStateReady ? this._dictionaryPin(key) : null;
     const stored = this.db
       .prepare("SELECT created_at FROM custom_dictionary WHERE id = ?")
       .get(row.id);
@@ -4561,7 +4680,8 @@ class DatabaseManager {
       word: row.word,
       source: row.source === "learned" ? "learned" : "manual",
       createdAt: typeof stored?.created_at === "string" ? stored.created_at : null,
-      pinned,
+      pinned: !!pin,
+      pinPosition: pin && Number.isInteger(pin.position) ? pin.position : null,
     };
   }
 
@@ -4582,24 +4702,39 @@ class DatabaseManager {
     return removed;
   }
 
-  // One merge, and how to reverse it: `from` restored as it was, `into` (which
-  // must still be there) unpinned again when only the merge pinned it.
+  // One merge, and how to reverse it: `from` restored as it was (its pin at
+  // its place), `into` (which must still be there) unpinned again when only
+  // the merge pinned it, or put back at its own place when it was pinned too
+  // and the merge moved it up to `from`'s.
   _tidyMerge(from, into, kind = "merge") {
     const live = this._liveDictionaryRows();
     const fromRow = this._findLiveDictionaryRow(live, from);
     const intoRow = fromRow ? this._findLiveDictionaryRow(live, into, fromRow.id) : null;
     if (!fromRow || !intoRow) return { ok: false, kind, code: "NOT_FOUND" };
     const fromState = this._dictionaryWordState(fromRow);
-    const intoPinned = this._dictionaryWordState(intoRow).pinned;
+    const intoState = this._dictionaryWordState(intoRow);
     const merged = this.mergeDictionaryWords(fromRow.word, intoRow.word);
     if (!merged?.success) return { ok: false, kind, code: merged?.code ?? "FAILED" };
     const sameKey = dictionaryWordKey(fromRow.word) === dictionaryWordKey(intoRow.word);
-    const unpin = fromState.pinned && !intoPinned && !sameKey ? [merged.word] : [];
+    const unpin = fromState.pinned && !intoState.pinned && !sameKey ? [merged.word] : [];
+    const after = this.dictionaryStateReady
+      ? this._dictionaryPin(dictionaryWordKey(merged.word))
+      : null;
+    const repin =
+      fromState.pinned &&
+      intoState.pinned &&
+      !sameKey &&
+      Number.isInteger(intoState.pinPosition) &&
+      after?.position !== intoState.pinPosition
+        ? [{ word: merged.word, position: intoState.pinPosition }]
+        : [];
     return {
       ok: true,
       kind,
       merged: 1,
-      undo: [{ restore: [fromState], into: [merged.word], unpin }],
+      undo: [
+        { restore: [fromState], into: [merged.word], unpin, ...(repin.length ? { repin } : {}) },
+      ],
     };
   }
 
@@ -4714,13 +4849,26 @@ class DatabaseManager {
    * - another live word now has a restored word's spelling (EXISTS; the
    *   `into` word of the same key, a case variant it was merged into, doesn't count).
    * `remove` takes words out in the same transaction (a phrase Tidy up
-   * added); `unpin` unpins words (what a merge pinned).
+   * added); `unpin` unpins words (what a merge pinned); `repin` puts a pin
+   * a merge moved up back at its own place (`[{ word, position }]`). A
+   * restored pin goes back to its place (`pinPosition`): a place that's taken
+   * now pushes that pin and the ones after it down; one without a place goes
+   * last.
    */
   restoreDictionaryWords(
     entries,
-    { into = [], expect = [], remove = [], unpin = [], now = () => new Date().toISOString() } = {}
+    {
+      into = [],
+      expect = [],
+      remove = [],
+      unpin = [],
+      repin = [],
+      now = () => new Date().toISOString(),
+    } = {}
   ) {
     if (!this.db) throw new Error("Database not initialized");
+    const place = (value) =>
+      Number.isInteger(value) && value >= 0 && value <= MAX_PIN_POSITION ? value : null;
     const restoreList = [];
     for (const entry of Array.isArray(entries) ? entries : []) {
       const word = typeof entry?.word === "string" ? entry.word.trim() : "";
@@ -4742,6 +4890,7 @@ class DatabaseManager {
         source: entry.source === "learned" ? "learned" : "manual",
         createdAt,
         pinned: entry.pinned === true,
+        pinPosition: place(entry.pinPosition),
       });
     }
     const words = (value) =>
@@ -4752,6 +4901,10 @@ class DatabaseManager {
     const expectWords = words(expect);
     const removeWords = words(remove);
     const unpinWords = words(unpin);
+    const repinList = (Array.isArray(repin) ? repin : [])
+      .filter((item) => typeof item?.word === "string" && item.word.trim())
+      .map((item) => ({ key: dictionaryWordKey(item.word), position: place(item.position) }))
+      .filter((item) => item.key && item.position !== null);
 
     let result = null;
     this.db.transaction(() => {
@@ -4800,11 +4953,6 @@ class DatabaseManager {
         `INSERT INTO custom_dictionary (word, source, client_dict_id, sync_status, created_at, updated_at)
          VALUES (?, ?, ?, 'pending', COALESCE(?, CURRENT_TIMESTAMP), datetime('now'))`
       );
-      const pin = this.dictionaryStateReady
-        ? this.db.prepare(
-            "INSERT OR IGNORE INTO dictionary_pins (word_key, pinned_at) VALUES (?, ?)"
-          )
-        : null;
       const used = new Set();
       for (const entry of restoreList) {
         const tombstone =
@@ -4816,11 +4964,31 @@ class DatabaseManager {
         } else {
           insert.run(entry.word, entry.source, randomUUID(), entry.createdAt);
         }
-        if (entry.pinned && pin) pin.run(entry.key, now());
       }
       if (this.dictionaryStateReady) {
+        // First the pins of the words that stay: what only the merge pinned
+        // goes, and a pin the merge moved up goes back to its own place...
         const unpinStmt = this.db.prepare("DELETE FROM dictionary_pins WHERE word_key = ?");
         for (const word of unpinWords) unpinStmt.run(dictionaryWordKey(word));
+        for (const { key, position } of repinList) {
+          const pin = this._dictionaryPin(key);
+          if (!pin || pin.position === position) continue;
+          unpinStmt.run(key);
+          this._insertDictionaryPinAt(key, position, pin.pinned_at);
+        }
+        // ...then the restored words' pins at their places, the highest
+        // first, so the ones before them are back when they're placed.
+        const pins = restoreList
+          .map((entry, index) => ({ entry, index }))
+          .filter(({ entry }) => entry.pinned)
+          .sort(
+            (a, b) =>
+              (a.entry.pinPosition ?? Infinity) - (b.entry.pinPosition ?? Infinity) ||
+              a.index - b.index
+          );
+        for (const { entry } of pins) {
+          this._insertDictionaryPinAt(entry.key, entry.pinPosition, now());
+        }
       }
       this._pruneDictionaryPins();
       result = { success: true, restored: restoreList.length, removed: removeWords.length };
@@ -4860,6 +5028,7 @@ class DatabaseManager {
               expect: step?.expect,
               remove: step?.remove,
               unpin: step?.unpin,
+              repin: step?.repin,
             });
           }
           if (!result?.success) {

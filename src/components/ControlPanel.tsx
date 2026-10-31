@@ -47,6 +47,11 @@ import {
 } from "../stores/policyRules";
 import { getManagedTranscriptionResolution } from "../services/managedTranscription";
 import { getPinnedDictionaryKeys } from "../stores/dictionarySourcesStore";
+import { getDictionaryHintScores } from "../stores/dictionaryUsageStore";
+import {
+  hintScoresForDictionary,
+  normalizeDictionaryHintOrder,
+} from "../utils/dictionaryHintOrder";
 import { getGlossaryCanonicalTerms } from "../utils/glossaryTerms";
 import { DICTIONARY_ECHO_CODE } from "../utils/dictionaryEchoFilter.js";
 import {
@@ -868,13 +873,17 @@ export default function ControlPanel({ initialSettingsSection }: ControlPanelPro
           preferredLanguage: s.preferredLanguage,
           speechLanguage,
           // What live dictation's hint list is built from; main reads the
-          // learned words itself and builds the provider's fields.
+          // learned words itself and builds the provider's fields. Pins go in
+          // pin order; the scores are the usage store's, bounded as live
+          // dictation bounds them (numbers keyed by word key).
           dictionary: {
             words: [...(s.customDictionary ?? [])],
             pinned: [...getPinnedDictionaryKeys()],
             glossaryTerms: [...getGlossaryCanonicalTerms()],
             snippets: (s.snippets ?? []).map((snippet) => ({ trigger: snippet.trigger })),
             chineseScriptPreference: s.chineseScriptPreference ?? null,
+            hintOrder: normalizeDictionaryHintOrder(s.dictionaryHintOrder),
+            scores: hintScoresForDictionary(getDictionaryHintScores(), s.customDictionary ?? []),
           },
           transcriptionMode: s.transcriptionMode,
           remoteTranscriptionType: s.remoteTranscriptionType,

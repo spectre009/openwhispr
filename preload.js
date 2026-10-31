@@ -303,6 +303,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
   // Pins (main-owned, local-only)
   getDictionaryPins: () => ipcRenderer.invoke("dictionary-pins-get"),
   setDictionaryPin: (word, pinned) => ipcRenderer.invoke("dictionary-pin-set", word, pinned),
+  reorderDictionaryPins: (keys) => ipcRenderer.invoke("dictionary-pins-reorder", keys),
   onDictionaryPinsUpdated: registerListener(
     "dictionary-pins-updated",
     (callback) => (_event, pins) => callback(pins)

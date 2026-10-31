@@ -3639,6 +3639,17 @@
       "sendsAll": "目前发送所有词语",
       "missedUnavailable": "语音识别常漏掉的词语根据你的本地历史记录统计。在历史记录关闭或仍在统计时，整理会收到所有词语，其步骤中也会注明。",
       "note": "术语表的写法和片段触发词始终包含在内。语音模型的词语列表、聊天和语音助手仍使用完整词典。"
+    },
+    "dictionaryOrder": {
+      "title": "语音转文字的词典顺序",
+      "description": "固定的词语始终排在最前。之后，当语音模型只接受有限数量时，此设置决定哪些词典词语能放得下。",
+      "options": {
+        "evidence": "语音识别最常漏掉的在前",
+        "evidenceHint": "根据本地历史记录：语音识别后最常被修正的词语在前，从未用过的在后",
+        "added": "按添加顺序",
+        "addedHint": "最早添加的在前，与以前相同"
+      },
+      "unavailable": "使用次数来自本地历史记录。历史记录关闭或仍在统计时，词语按添加顺序排列。"
     }
   },
   "models": {
@@ -4628,7 +4639,20 @@
       "pin": "固定 {{word}}",
       "unpin": "取消固定 {{word}}",
       "pinHint": "固定：始终最先发送给语音识别，整理时也始终保留",
-      "pinnedHint": "已固定：始终最先发送"
+      "pinnedHint": "已固定：始终最先发送",
+      "sectionTitle": "始终最先发送",
+      "sectionHint": "拖动或使用 Alt+↑/↓ 设置顺序。这些词语会先于其他内容发送给语音模型。",
+      "empty": "还没有固定任何词语。用 ☆ 固定一个词语后，它会按你在这里设置的顺序，先于其他内容发送给语音模型。",
+      "pinAWord": "+ 固定词语",
+      "rank": "第 {{rank}} 位",
+      "dragHint": "拖动，或按 Alt+↑/↓",
+      "rowLabel": "{{word}}，固定第 {{rank}} 位，{{source}}，{{coverage}}",
+      "menu": "{{word}} 的更多操作",
+      "moveTop": "移到最前",
+      "moveUp": "上移",
+      "moveDown": "下移",
+      "moved": "已将 {{word}} 移到第 {{position}} 位",
+      "reorderFailed": "无法保存新的顺序。固定的词语已恢复原样。"
     },
     "source": {
       "typed": "手动输入",
@@ -4837,7 +4861,8 @@
         "speechNone": "未发送：此设置不接受提示",
         "cleanupLabel": "清理",
         "chatLabel": "聊天、助手",
-        "chatAlways": "始终发送"
+        "chatAlways": "始终发送",
+        "pinnedRank": "始终最先发送 · 第 {{rank}} 位"
       },
       "cleanup": {
         "off": "否：清理已关闭",
@@ -5083,6 +5108,19 @@
       "unaligned_one": "{{count}} 次听写太长，无法逐词比较，所以没有列出。",
       "unaligned_other": "{{count}} 次听写太长，无法逐词比较，所以没有列出。",
       "showInHistory": "在历史记录中显示"
+    },
+    "order": {
+      "restTitle": "其他所有词语",
+      "evidence": "自动排序：语音识别最常漏掉的词语在前，从未用过的词语在后。",
+      "added": "按添加顺序。",
+      "evidenceUnavailable": "本地历史记录有了使用次数后，语音识别最常漏掉的词语会排在前面。在此之前按添加顺序。",
+      "label": "顺序：",
+      "options": {
+        "evidence": "按使用情况",
+        "added": "按添加顺序"
+      },
+      "menuLabel": "其他所有词语的顺序：{{order}}",
+      "menuHint": "固定的词语始终排在最前。顺序决定哪些词语能放得下。"
     }
   },
   "insights": {

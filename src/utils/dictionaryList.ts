@@ -64,6 +64,8 @@ export interface DictionaryListItem {
   key: string;
   source: "manual" | "learned";
   pinned: boolean;
+  /** Its place among the listed pinned words, in pin order (1 first); null when not pinned. */
+  pinRank: number | null;
   /** When it was added, as stored; null when unknown. */
   createdAt: string | null;
   /** The same in ms; NaN when unknown. */
@@ -94,6 +96,7 @@ export interface BuildListInput {
   entries?: readonly DictionaryEntry[] | null;
   /** Lowercased learned words, when the entries haven't been read. */
   learned?: ReadonlySet<string> | null;
+  /** Pinned keys, in pin order (a Set iterates as inserted). */
   pinned?: ReadonlySet<string> | null;
   /** buildSttHintFields' entries for the current speech setup. */
   coverage?: readonly CoverageEntry[] | null;
@@ -150,6 +153,7 @@ export function buildDictionaryListItems({
       key,
       source: isLearned ? "learned" : "manual",
       pinned: !!pinned?.has(key),
+      pinRank: null,
       createdAt,
       createdMs,
       coverage: hint?.coverage ?? "notSent",
@@ -168,6 +172,19 @@ export function buildDictionaryListItems({
       order,
     });
   });
+  // Pin ranks: the listed pinned words in pin order (two spellings of one
+  // key in stored order), as "Always sent first" shows them.
+  if (pinned && pinned.size > 0) {
+    const place = new Map<string, number>();
+    let index = 0;
+    for (const key of pinned) place.set(key, index++);
+    items
+      .filter((item) => item.pinned)
+      .sort((a, b) => (place.get(a.key) ?? 0) - (place.get(b.key) ?? 0) || a.order - b.order)
+      .forEach((item, rank) => {
+        item.pinRank = rank + 1;
+      });
+  }
   return items;
 }
 
@@ -292,17 +309,23 @@ export interface DictionaryDivider {
 /**
  * Where the speech model stops, over items in send order: before the first
  * sent-but-unread item ("stops reading here") and before the first unsent
- * one ("not sent beyond here"), only where something precedes it.
+ * one ("not sent beyond here"), only where something precedes it. `from`
+ * starts the search past a leading section (the pinned words): those count
+ * as preceding, and aren't counted below the line.
  */
-export function sendOrderDividers(items: readonly DictionaryListItem[]): DictionaryDivider[] {
+export function sendOrderDividers(
+  items: readonly DictionaryListItem[],
+  from = 0
+): DictionaryDivider[] {
   const dividers: DictionaryDivider[] = [];
+  const rest = items.slice(from);
   for (const kind of ["unread", "notSent"] as const) {
-    const index = items.findIndex((item) => item.coverage === kind);
-    if (index > 0) {
+    const index = rest.findIndex((item) => item.coverage === kind);
+    if (index >= 0 && from + index > 0) {
       dividers.push({
-        index,
+        index: from + index,
         kind,
-        count: items.filter((item) => item.coverage === kind).length,
+        count: rest.filter((item) => item.coverage === kind).length,
       });
     }
   }
@@ -317,11 +340,42 @@ export interface DictionaryListQuery {
   locale?: string;
 }
 
-/** The items shown: filtered, searched and sorted, with the send order's dividers. */
+export interface DictionaryListView {
+  items: DictionaryListItem[];
+  dividers: DictionaryDivider[];
+  /**
+   * Send order over the whole list (no filter, no search): the first
+   * `pinnedCount` items are "Always sent first", in pin order, and the rest
+   * "Everything else", in send order. null otherwise (pins show inline).
+   */
+  pinnedCount: number | null;
+}
+
+/**
+ * The items shown: filtered, searched and sorted, with the send order's
+ * dividers. In send order over the whole list, the pinned words lead in pin
+ * order (their own section), and the dividers fall in the rest.
+ */
 export function viewDictionaryList(
   items: readonly DictionaryListItem[],
   { filter, sort, search, now = Date.now(), locale }: DictionaryListQuery
-): { items: DictionaryListItem[]; dividers: DictionaryDivider[] } {
+): DictionaryListView {
+  if (sort === "sendOrder" && filter === "all" && !dictionaryWordKey(search)) {
+    const pinned = items
+      .filter((item) => item.pinned)
+      .sort((a, b) => (a.pinRank ?? Infinity) - (b.pinRank ?? Infinity) || a.order - b.order);
+    const rest = sortDictionaryItems(
+      items.filter((item) => !item.pinned),
+      sort,
+      locale
+    );
+    const shown = [...pinned, ...rest];
+    return {
+      items: shown,
+      dividers: sendOrderDividers(shown, pinned.length),
+      pinnedCount: pinned.length,
+    };
+  }
   const shown = sortDictionaryItems(
     items.filter(
       (item) => matchesDictionaryFilter(item, filter, now) && matchesDictionarySearch(item, search)
@@ -330,5 +384,9 @@ export function viewDictionaryList(
     locale
   );
   const sendOrder = sort === "sendOrder" || (USAGE_SORTS.has(sort) && !shown.some((i) => i.usage));
-  return { items: shown, dividers: sendOrder ? sendOrderDividers(shown) : [] };
+  return {
+    items: shown,
+    dividers: sendOrder ? sendOrderDividers(shown) : [],
+    pinnedCount: null,
+  };
 }

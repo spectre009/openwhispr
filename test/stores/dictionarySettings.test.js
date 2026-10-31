@@ -6,10 +6,11 @@ const {
   normalizeAutoLearnMode,
 } = require("../../src/utils/autoLearnMode.ts");
 
-// The two Dictionary settings in the shared settings store: "Learn from your
+// The Dictionary settings in the shared settings store: "Learn from your
 // corrections" (migrated once from the on/off switch, synced to main at
-// startup and on change) and "Dictionary words in the cleanup prompt". Both
-// follow other windows through storage events, validated.
+// startup and on change), "Dictionary words in the cleanup prompt" and the
+// speech-to-text order (`dictionaryHintOrder`). All follow other windows
+// through storage events, validated.
 
 function memoryStorage(initial = {}) {
   const values = new Map(Object.entries(initial));
@@ -103,4 +104,27 @@ test("a change syncs main once; another window follows the storage event, valida
   assert.equal(useSettingsStore.getState().cleanupDictionaryWords, "typedPinnedMissed");
   fromOtherWindow("cleanupDictionaryWords", "most");
   assert.equal(useSettingsStore.getState().cleanupDictionaryWords, "all");
+});
+
+test("the speech-to-text order: evidence by default, written once, followed and validated", async (t) => {
+  const storageListeners = [];
+  const { storage, useSettingsStore } = await startWindow(t, { storageListeners });
+  assert.equal(useSettingsStore.getState().dictionaryHintOrder, "evidence", "the default");
+  useSettingsStore.getState().setDictionaryHintOrder("added");
+  assert.equal(storage.getItem("dictionaryHintOrder"), "added");
+  assert.equal(useSettingsStore.getState().dictionaryHintOrder, "added");
+  useSettingsStore.getState().setDictionaryHintOrder("sideways");
+  assert.equal(useSettingsStore.getState().dictionaryHintOrder, "evidence", "unknown: evidence");
+
+  const fromOtherWindow = (key, newValue) =>
+    storageListeners.forEach((listener) => listener({ key, newValue, storageArea: storage }));
+  fromOtherWindow("dictionaryHintOrder", "added");
+  assert.equal(useSettingsStore.getState().dictionaryHintOrder, "added");
+  fromOtherWindow("dictionaryHintOrder", "newest");
+  assert.equal(useSettingsStore.getState().dictionaryHintOrder, "evidence");
+});
+
+test("a stored order opens as stored", async (t) => {
+  const added = await startWindow(t, { initialStorage: { dictionaryHintOrder: "added" } });
+  assert.equal(added.useSettingsStore.getState().dictionaryHintOrder, "added");
 });

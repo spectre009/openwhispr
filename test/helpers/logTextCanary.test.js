@@ -531,6 +531,24 @@ async function dictionaryInsight() {
     },
   };
   await handlers.get("dictionary-word-occurrences")({}, DICT_WORD_MARKER, {});
+  // The pins put in a new order: counts and codes, whether main takes it or not.
+  target.databaseManager.reorderDictionaryPins = (keys) => ({
+    success: true,
+    changed: true,
+    pins: keys,
+  });
+  const reordered = await handlers.get("dictionary-pins-reorder")({}, [
+    DICT_WORD_MARKER.toLowerCase(),
+    "other",
+  ]);
+  assert.equal(reordered.success, true);
+  target.databaseManager.reorderDictionaryPins = (keys) => ({
+    success: false,
+    code: "MISMATCH",
+    pins: keys.slice(1),
+  });
+  await handlers.get("dictionary-pins-reorder")({}, [DICT_WORD_MARKER.toLowerCase(), "other"]);
+  delete target.databaseManager.reorderDictionaryPins;
 }
 
 const DICTIONARY_MARKERS = [DICT_WORD_MARKER, SPEECH_MARKER, SNIPPET_MARKER];
@@ -590,6 +608,7 @@ test("with Include dictated text off, no written log holds the dictated text", a
   assert.ok(written.includes("Dictionary occurrences read"), "the occurrences were logged");
   assert.ok(written.includes("Dictionary speech variants answered"));
   assert.ok(written.includes("Dictionary occurrences not read"));
+  assert.ok(written.includes("Dictionary pins reordered"), "the reorder was logged");
   for (const marker of DICTIONARY_MARKERS) {
     assert.equal(
       written.toLowerCase().includes(marker.toLowerCase()),

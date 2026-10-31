@@ -429,6 +429,11 @@ export default function DictionaryWordDetail({
               />
               {speech}
             </span>
+            {item.pinned && item.pinRank != null && (
+              <span className="mt-0.5 block text-primary" data-dictionary-pin-rank>
+                {t("dictionary.detail.where.pinnedRank", { rank: item.pinRank })}
+              </span>
+            )}
           </Row>
           <Row label={t("dictionary.detail.where.cleanupLabel")}>
             {t(cleanup.key, cleanup.params)}

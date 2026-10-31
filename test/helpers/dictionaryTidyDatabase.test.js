@@ -11,7 +11,7 @@ const {
 
 // Tidy up against a real database: Undo puts a removed word back as it was
 // (a tombstoned row reactivated, a hard-deleted one inserted again with its
-// date, source and pin), a batch applies through the dictionary's own
+// date, source, pin and the pin's place), a batch applies through the dictionary's own
 // operations and returns the steps that reverse it, Undo is refused with the
 // reason when something changed since (an edit, the spelling taken, the word
 // merged into gone) and leaves nothing half done, and History's aggregates
@@ -84,7 +84,13 @@ test("restore: a tombstoned row comes back as it was, the same row", (t) => {
   assert.deepEqual(removed.undo, [
     {
       restore: [
-        { word: "gonestly", source: "learned", createdAt: "2026-08-03 10:00:00", pinned: true },
+        {
+          word: "gonestly",
+          source: "learned",
+          createdAt: "2026-08-03 10:00:00",
+          pinned: true,
+          pinPosition: 0,
+        },
       ],
     },
   ]);

@@ -3639,6 +3639,17 @@
       "sendsAll": "Per ora invia tutte le parole",
       "missedUnavailable": "Le parole che il riconoscimento sbaglia vengono contate dalla tua cronologia locale. Finché la cronologia è disattivata o ancora in conteggio, la correzione riceve tutte le parole, e il suo passaggio lo indica.",
       "note": "Le grafie del glossario e gli attivatori degli snippet sono sempre inclusi. L'elenco di parole del modello vocale, la chat e l'assistente vocale mantengono il dizionario completo."
+    },
+    "dictionaryOrder": {
+      "title": "Ordine del dizionario per il riconoscimento vocale",
+      "description": "Le parole fissate vanno sempre per prime. Dopo di loro, questa impostazione decide quali parole del dizionario ci stanno quando il modello vocale ne accetta solo un numero limitato.",
+      "options": {
+        "evidence": "Prima ciò che il riconoscimento vocale sbaglia di più",
+        "evidenceHint": "Dalla tua cronologia locale: prima le parole corrette più spesso dopo il riconoscimento vocale, per ultime quelle mai usate",
+        "added": "Nell'ordine in cui sono state aggiunte",
+        "addedHint": "Prima le più vecchie, come prima"
+      },
+      "unavailable": "I conteggi d'uso vengono dalla tua cronologia locale. Finché è disattivata o sta ancora contando, le parole vanno nell'ordine in cui sono state aggiunte."
     }
   },
   "models": {
@@ -4628,7 +4639,20 @@
       "pin": "Fissa {{word}}",
       "unpin": "Sblocca {{word}}",
       "pinHint": "Fissa: inviata sempre per prima alla trascrizione e sempre mantenuta per la correzione",
-      "pinnedHint": "Fissata: inviata sempre per prima"
+      "pinnedHint": "Fissata: inviata sempre per prima",
+      "sectionTitle": "Sempre inviate per prime",
+      "sectionHint": "Trascina per impostare l'ordine, oppure usa Alt+↑/↓. Vanno al modello vocale prima di tutto il resto.",
+      "empty": "Ancora niente di fissato. Fissa una parola con ☆ e andrà al modello vocale prima di tutto il resto, nell'ordine che imposti qui.",
+      "pinAWord": "+ Fissa una parola",
+      "rank": "n. {{rank}}",
+      "dragHint": "Trascina, oppure Alt+↑/↓",
+      "rowLabel": "{{word}}, fissata n. {{rank}}, {{source}}, {{coverage}}",
+      "menu": "Altre opzioni per {{word}}",
+      "moveTop": "Sposta in cima",
+      "moveUp": "Sposta su",
+      "moveDown": "Sposta giù",
+      "moved": "{{word}} spostata in posizione {{position}}",
+      "reorderFailed": "Impossibile salvare il nuovo ordine. Le parole fissate sono tornate come prima."
     },
     "source": {
       "typed": "Digitata",
@@ -4837,7 +4861,8 @@
         "speechNone": "Non inviata: questa configurazione non accetta suggerimenti",
         "cleanupLabel": "Pulizia",
         "chatLabel": "Chat, assistente",
-        "chatAlways": "Sempre"
+        "chatAlways": "Sempre",
+        "pinnedRank": "Sempre inviata per prima · n. {{rank}}"
       },
       "cleanup": {
         "off": "No: la pulizia è disattivata",
@@ -5083,6 +5108,19 @@
       "unaligned_one": "{{count}} dettatura è troppo lunga per un confronto parola per parola, quindi non è elencata.",
       "unaligned_other": "{{count}} dettature sono troppo lunghe per un confronto parola per parola, quindi non sono elencate.",
       "showInHistory": "Mostra nella cronologia"
+    },
+    "order": {
+      "restTitle": "Tutto il resto",
+      "evidence": "Ordinate automaticamente: prima le parole che il riconoscimento vocale sbaglia di più, per ultime quelle mai usate.",
+      "added": "Nell'ordine in cui sono state aggiunte.",
+      "evidenceUnavailable": "Le parole che il riconoscimento vocale sbaglia di più andranno per prime quando la tua cronologia locale avrà i conteggi d'uso. Fino ad allora, nell'ordine in cui sono state aggiunte.",
+      "label": "Ordine:",
+      "options": {
+        "evidence": "per uso",
+        "added": "come aggiunte"
+      },
+      "menuLabel": "Ordine di tutto il resto: {{order}}",
+      "menuHint": "Le parole fissate vanno sempre per prime. L'ordine decide quali parole ci stanno."
     }
   },
   "insights": {

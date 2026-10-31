@@ -2790,6 +2790,40 @@ class IPCHandlers {
       }
     });
 
+    // The pins in a new order ("Always sent first"): exactly the current
+    // pins' keys, or refused (MISMATCH) with nothing changed. Logged as
+    // counts and codes only.
+    const MAX_PIN_REORDER = 10_000;
+    ipcMain.handle("dictionary-pins-reorder", async (_event, keys) => {
+      if (
+        !Array.isArray(keys) ||
+        keys.length > MAX_PIN_REORDER ||
+        !keys.every((key) => typeof key === "string" && key.length <= 500)
+      ) {
+        return { success: false, code: "MISMATCH" };
+      }
+      try {
+        const result = this.databaseManager.reorderDictionaryPins(keys);
+        if (result.success && result.changed) {
+          broadcastToWindows("dictionary-pins-updated", result.pins);
+        }
+        debugLogger.debug(
+          "Dictionary pins reordered",
+          {
+            pins: keys.length,
+            success: result.success,
+            changed: result.changed === true,
+            code: result.code ?? null,
+          },
+          "dictionary"
+        );
+        return result;
+      } catch (error) {
+        debugLogger.warn("Dictionary pins not reordered", { error: error.message }, "dictionary");
+        return { success: false, code: "FAILED" };
+      }
+    });
+
     // Suggestions (auto-learn's Suggest mode), with this owner's evidence while
     // local history is durable for it. Never logged: counts and reasons only.
     const suggestionsList = () => {
@@ -3125,6 +3159,8 @@ class IPCHandlers {
       }
     };
     const tidyDate = (value) => (typeof value === "string" && value.length <= 40 ? value : null);
+    const tidyPlace = (value) =>
+      Number.isInteger(value) && value >= 0 && value <= 1_000_000 ? value : null;
     const tidyEntry = (entry) =>
       dictionaryWordArg(entry?.word)
         ? {
@@ -3132,8 +3168,16 @@ class IPCHandlers {
             source: entry.source === "learned" ? "learned" : "manual",
             createdAt: tidyDate(entry.createdAt),
             pinned: entry.pinned === true,
+            pinPosition: tidyPlace(entry.pinPosition),
           }
         : null;
+    const tidyRepin = (value) =>
+      Array.isArray(value)
+        ? value
+            .filter((item) => dictionaryWordArg(item?.word) && tidyPlace(item?.position) !== null)
+            .map((item) => ({ word: item.word, position: item.position }))
+            .slice(0, TIDY_MAX_OPS)
+        : [];
     const tidyStep = (step) => {
       if (step?.rename) {
         return dictionaryWordArg(step.rename.from) && dictionaryWordArg(step.rename.to)
@@ -3148,6 +3192,7 @@ class IPCHandlers {
         expect: tidyWords(step?.expect),
         remove: tidyWords(step?.remove),
         unpin: tidyWords(step?.unpin),
+        repin: tidyRepin(step?.repin),
       };
     };
 
@@ -8042,10 +8087,12 @@ class IPCHandlers {
         const { resolveTranscriptionRoute } = await import("./transcriptionRoute.ts");
         const { convertBufferToWav, isWavFormat } = require("./ffmpegUtils");
         // The dictionary as live dictation sends it for this route
-        // (sttHintFields.js): the renderer's words in stored order, pins, the
-        // glossary's canonical forms, snippet triggers and script preference,
-        // with the learned words read here (the renderer's copy may not have
-        // loaded). No dictionary from an older window: nothing is sent.
+        // (sttHintFields.js): the renderer's words in stored order, pins in
+        // pin order, the glossary's canonical forms, snippet triggers, script
+        // preference, the order setting and its usage scores (validated
+        // there: bounded numbers keyed by word key), with the learned words
+        // read here (the renderer's copy may not have loaded). No dictionary
+        // from an older window: nothing is sent.
         const { buildSttHintFields, isHintEcho } = await import("../utils/sttHintFields.js");
         const hintDictionary =
           settings?.dictionary && typeof settings.dictionary === "object"
@@ -8520,6 +8567,9 @@ class IPCHandlers {
             phrases: sentHints.phrases.length,
             contextBias: sentHints.contextBias.length,
             keyterms: sentHints.keyterms.length,
+            order: sentHints.ranking?.order ?? null,
+            evidence: sentHints.ranking?.evidence === true,
+            scores: sentHints.ranking?.scores ?? 0,
           });
         }
         // As live dictation: a reply that only repeats what this request sent

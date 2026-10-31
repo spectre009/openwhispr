@@ -27,10 +27,19 @@
 //                window (WHISPER_DECODER_PROMPT_CHARS, an estimate), else "read";
 // - budget:      what the route counts against its limit (characters,
 //                keywords, phrases, words or terms), or `unit: null` when it
-//                carries no hints.
+//                carries no hints;
+// - ranking:     how the unpinned words were ordered (`order`, whether
+//                evidence order applied, how many scores came): counts only.
+// Pinned words go in pin order, and a tail-ordered prompt ends with the top
+// pin (dictionaryHints.ts); the entries' ranks stay highest priority first.
 // The words are the user's dictionary: never log them, only counts (`counts`).
 
 import { HINT_SEPARATOR, buildDictionaryHints, resolveHintTarget } from "./dictionaryHints.ts";
+import {
+  MAX_HINT_SCORES,
+  normalizeDictionaryHintOrder,
+  normalizeHintScores,
+} from "./dictionaryHintOrder.ts";
 import {
   WHISPER_DECODER_PROMPT_CHARS,
   dictionaryPromptLimit,
@@ -80,14 +89,20 @@ const stringList = (value, max = MAX_WORDS) =>
 
 /**
  * The dictionary a request is built from, validated: stored words in stored
- * order, learned words (lowercased), pinned keys, the glossary's canonical
- * forms, snippets (their triggers), the Chinese script preference and the
- * effective speech language (a translation recording's source language).
+ * order, learned words (lowercased), pinned keys in pin order, the glossary's
+ * canonical forms, snippets (their triggers), the Chinese script preference,
+ * the effective speech language (a translation recording's source language),
+ * the order of the unpinned words (`hintOrder`, evidence unless "added") and
+ * their usage scores (`scores`, `[[key, missedRows, written], …]`: at most as
+ * many as the words and 2,000, keys of ≤ 100 characters, integers 0 to
+ * 1,000,000; anything else dropped). A window that sends no scores gets
+ * stored order.
  */
 export function normalizeHintDictionary(input) {
   const source = input && typeof input === "object" ? input : {};
+  const words = stringList(source.words);
   return {
-    words: stringList(source.words),
+    words,
     learned: stringList(source.learned).map((word) => word.trim().toLowerCase()),
     pinned: stringList(source.pinned),
     glossaryTerms: stringList(source.glossaryTerms),
@@ -104,6 +119,8 @@ export function normalizeHintDictionary(input) {
       typeof source.speechLanguage === "string" && source.speechLanguage
         ? source.speechLanguage
         : "auto",
+    hintOrder: normalizeDictionaryHintOrder(source.hintOrder),
+    scores: normalizeHintScores(source.scores, Math.min(words.length, MAX_HINT_SCORES)),
   };
 }
 
@@ -114,6 +131,8 @@ function plan(dictionary, options) {
     pinnedWords: dictionary.pinned,
     glossaryTerms: dictionary.glossaryTerms,
     snippets: dictionary.snippets,
+    rankBy: dictionary.hintOrder,
+    scores: dictionary.scores,
     ...options,
   });
 }
@@ -228,7 +247,7 @@ function noneCoverage(hints) {
 
 const NO_BUDGET = Object.freeze({ unit: null, used: 0, limit: null, readChars: null });
 
-function emptyFields(route) {
+function emptyFields(route, dictionary) {
   return {
     route,
     prompt: null,
@@ -241,6 +260,11 @@ function emptyFields(route) {
     entries: [],
     budget: NO_BUDGET,
     counts: { terms: 0, notSent: 0 },
+    ranking: {
+      order: dictionary.hintOrder,
+      evidence: dictionary.hintOrder === "evidence" && dictionary.scores.size > 0,
+      scores: dictionary.scores.size,
+    },
   };
 }
 
@@ -266,7 +290,7 @@ export function buildSttHintFields(
 ) {
   const dictionary = normalizeHintDictionary(dictionaryInput);
   const kind = STT_HINT_ROUTES.includes(route) ? route : "none";
-  const fields = emptyFields(kind);
+  const fields = emptyFields(kind, dictionary);
 
   if (kind === "openai-compatible") {
     const modelName = typeof model === "string" ? model : "";

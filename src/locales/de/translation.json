@@ -3733,6 +3733,17 @@
       "sendsAll": "Sendet vorerst alle Wörter",
       "missedUnavailable": "Welche Wörter die Spracherkennung verfehlt, wird aus deinem lokalen Verlauf gezählt. Solange der Verlauf aus ist oder noch gezählt wird, bekommt die Bereinigung alle Wörter, und ihr Schritt sagt das.",
       "note": "Glossar-Schreibweisen und Snippet-Auslöser sind immer dabei. Die Wortliste des Sprachmodells, der Chat und der Sprachassistent behalten das ganze Wörterbuch."
+    },
+    "dictionaryOrder": {
+      "title": "Wörterbuch-Reihenfolge für die Spracherkennung",
+      "description": "Angeheftete Wörter gehen immer zuerst. Danach entscheidet dies, welche Wörterbuchwörter passen, wenn das Spracherkennungsmodell nur eine begrenzte Anzahl annimmt.",
+      "options": {
+        "evidence": "Was die Spracherkennung am häufigsten verfehlt, zuerst",
+        "evidenceHint": "Aus deinem lokalen Verlauf: am häufigsten nach der Spracherkennung korrigierte Wörter zuerst, nie verwendete zuletzt",
+        "added": "In der Reihenfolge des Hinzufügens",
+        "addedHint": "Älteste zuerst, wie bisher"
+      },
+      "unavailable": "Die Nutzungszahlen stammen aus deinem lokalen Verlauf. Solange er aus ist oder noch zählt, gehen die Wörter in der Reihenfolge, in der sie hinzugefügt wurden."
     }
   },
   "models": {
@@ -4980,7 +4991,20 @@
       "pin": "{{word}} anheften",
       "unpin": "{{word}} lösen",
       "pinHint": "Anheften: wird immer zuerst an die Spracherkennung gesendet und bei der Bereinigung immer behalten",
-      "pinnedHint": "Angeheftet: wird immer zuerst gesendet"
+      "pinnedHint": "Angeheftet: wird immer zuerst gesendet",
+      "sectionTitle": "Immer zuerst gesendet",
+      "sectionHint": "Ziehen, um die Reihenfolge festzulegen, oder Alt+↑/↓ verwenden. Diese gehen vor allem anderen an das Spracherkennungsmodell.",
+      "empty": "Noch nichts angeheftet. Hefte ein Wort mit ☆ an, dann geht es vor allem anderen an das Spracherkennungsmodell, in der Reihenfolge, die du hier festlegst.",
+      "pinAWord": "+ Wort anheften",
+      "rank": "#{{rank}}",
+      "dragHint": "Ziehen, oder Alt+↑/↓",
+      "rowLabel": "{{word}}, angeheftet #{{rank}}, {{source}}, {{coverage}}",
+      "menu": "Mehr zu {{word}}",
+      "moveTop": "Nach ganz oben",
+      "moveUp": "Nach oben",
+      "moveDown": "Nach unten",
+      "moved": "{{word}} auf Position {{position}} verschoben",
+      "reorderFailed": "Die neue Reihenfolge konnte nicht gespeichert werden. Die angehefteten Wörter stehen wieder wie zuvor."
     },
     "source": {
       "typed": "Eingetippt",
@@ -5189,7 +5213,8 @@
         "speechNone": "Nicht gesendet: diese Einrichtung nimmt keine Hinweise",
         "cleanupLabel": "Bereinigung",
         "chatLabel": "Chat, Assistent",
-        "chatAlways": "Immer"
+        "chatAlways": "Immer",
+        "pinnedRank": "Immer zuerst gesendet · #{{rank}}"
       },
       "cleanup": {
         "off": "Nein: die Bereinigung ist aus",
@@ -5435,6 +5460,19 @@
       "unaligned_one": "{{count}} Diktat ist zu lang für einen Wort-für-Wort-Vergleich und wird nicht aufgeführt.",
       "unaligned_other": "{{count}} Diktate sind zu lang für einen Wort-für-Wort-Vergleich und werden nicht aufgeführt.",
       "showInHistory": "Im Verlauf zeigen"
+    },
+    "order": {
+      "restTitle": "Alles andere",
+      "evidence": "Automatisch geordnet: Wörter, die die Spracherkennung am häufigsten verfehlt, zuerst, nie verwendete zuletzt.",
+      "added": "In der Reihenfolge, in der sie hinzugefügt wurden.",
+      "evidenceUnavailable": "Wörter, die die Spracherkennung am häufigsten verfehlt, kommen zuerst, sobald dein lokaler Verlauf Nutzungszahlen hat. Bis dahin in der Reihenfolge, in der sie hinzugefügt wurden.",
+      "label": "Reihenfolge:",
+      "options": {
+        "evidence": "nach Nutzung",
+        "added": "wie hinzugefügt"
+      },
+      "menuLabel": "Reihenfolge für alles andere: {{order}}",
+      "menuHint": "Angeheftete Wörter gehen immer zuerst. Die Reihenfolge entscheidet, welche Wörter passen."
     }
   },
   "support": {

@@ -151,6 +151,7 @@ import BuildInfoPanel from "./settings/BuildInfoPanel";
 import DictationOverview from "./settings/DictationOverview";
 import AutoLearnModeSetting from "./settings/AutoLearnModeSetting";
 import CleanupDictionaryWordsSetting from "./settings/CleanupDictionaryWordsSetting";
+import DictionaryHintOrderSetting from "./settings/DictionaryHintOrderSetting";
 import { HotkeyFeatureLink, HotkeyKbd, HotkeyTable, HotkeyTableRow } from "./settings/HotkeyTable";
 import type { ElsewhereLocation } from "./settings/search/types";
 import {
@@ -4562,6 +4563,11 @@ EOF`,
               toast={toast}
             />
             {renderPreferencesBlocks("recognition")}
+            <SettingsPanel>
+              <SettingsPanelRow data-setting-id="dictation.recognition.dictionaryOrder">
+                <DictionaryHintOrderSetting />
+              </SettingsPanelRow>
+            </SettingsPanel>
             {renderLocalWhisperVad()}
           </div>
         );

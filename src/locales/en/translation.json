@@ -3733,6 +3733,17 @@
       "sendsAll": "Sends all words for now",
       "missedUnavailable": "Which words speech misses is counted from your local History. While History is off or still being counted, cleanup gets all words, and its step says so.",
       "note": "Glossary spellings and snippet triggers are always included. The speech model's word list, chat and the Voice Assistant keep the full dictionary."
+    },
+    "dictionaryOrder": {
+      "title": "Dictionary order for speech-to-text",
+      "description": "Pinned words always go first. After them, this decides which dictionary words fit when the speech model takes only so many.",
+      "options": {
+        "evidence": "Words speech misses most first",
+        "evidenceHint": "From your local History: words fixed after speech most often go first, never-used words last",
+        "added": "In the order they were added",
+        "addedHint": "Oldest first, as before"
+      },
+      "unavailable": "Usage counts come from your local History. While it's off or still counting, words go in the order they were added."
     }
   },
   "models": {
@@ -4980,7 +4991,20 @@
       "pin": "Pin {{word}}",
       "unpin": "Unpin {{word}}",
       "pinHint": "Pin: always sent first to speech-to-text, and always kept for cleanup",
-      "pinnedHint": "Pinned: always sent first"
+      "pinnedHint": "Pinned: always sent first",
+      "sectionTitle": "Always sent first",
+      "sectionHint": "Drag to set the order, or use Alt+↑/↓. These go to the speech model before anything else.",
+      "empty": "Nothing pinned yet. Pin a word with ☆ and it goes to the speech model before anything else, in the order you set here.",
+      "pinAWord": "+ Pin a word",
+      "rank": "#{{rank}}",
+      "dragHint": "Drag, or Alt+↑/↓",
+      "rowLabel": "{{word}}, pinned #{{rank}}, {{source}}, {{coverage}}",
+      "menu": "More for {{word}}",
+      "moveTop": "Move to top",
+      "moveUp": "Move up",
+      "moveDown": "Move down",
+      "moved": "Moved {{word}} to position {{position}}",
+      "reorderFailed": "Couldn't save the new order. The pins are back as they were."
     },
     "source": {
       "typed": "Typed",
@@ -5189,7 +5213,8 @@
         "speechNone": "Not sent: this setup takes no hints",
         "cleanupLabel": "Cleanup",
         "chatLabel": "Chat, assistant",
-        "chatAlways": "Always"
+        "chatAlways": "Always",
+        "pinnedRank": "Always sent first · #{{rank}}"
       },
       "cleanup": {
         "off": "No: cleanup is off",
@@ -5435,6 +5460,19 @@
       "unaligned_one": "{{count}} dictation is too long to compare word by word, so it isn't listed.",
       "unaligned_other": "{{count}} dictations are too long to compare word by word, so they aren't listed.",
       "showInHistory": "Show in History"
+    },
+    "order": {
+      "restTitle": "Everything else",
+      "evidence": "Ordered automatically: words speech misses most first, never-used words last.",
+      "added": "In the order they were added.",
+      "evidenceUnavailable": "Words speech misses most go first once your local History has usage counts. Until then, in the order they were added.",
+      "label": "Order:",
+      "options": {
+        "evidence": "by evidence",
+        "added": "as added"
+      },
+      "menuLabel": "Order of everything else: {{order}}",
+      "menuHint": "Pinned words always go first. Order decides which words fit."
     }
   },
   "support": {

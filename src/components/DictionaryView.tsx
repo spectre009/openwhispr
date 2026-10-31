@@ -47,6 +47,7 @@ import { CLEANUP_SET_KEYS, type CleanupInclusion } from "./dictionary/dictionary
 import { useDictionaryCoverage } from "./dictionary/useDictionaryCoverage";
 import { getSettings, useSettingsStore } from "../stores/settingsStore";
 import {
+  reorderDictionaryPins,
   setDictionaryPin,
   setDictionaryPins,
   useDictionarySourcesStore,
@@ -62,6 +63,7 @@ import { selectCleanupDictionary } from "../utils/snippets";
 import { glossaryOfferFor } from "../utils/dictionaryGlossaryOffer";
 import { clearDictionaryWordRequest, useDictionaryWordRequest } from "../utils/openDictionaryWord";
 import GlossaryOfferNotice from "./dictionary/GlossaryOfferNotice";
+import DictionaryHintOrderMenu from "./dictionary/DictionaryHintOrderMenu";
 import {
   DICTIONARY_FILTERS,
   DICTIONARY_SORTS,
@@ -85,6 +87,11 @@ import type { DictionarySpeechVariant, GlossaryRuleInput } from "../types/electr
 // actually sends (useDictionaryCoverage); heard/written comes from local
 // History (counts only). Tidy up (its toolbar button, with how many
 // suggestions start selected) replaces the list with its checks and Undo.
+// In send order with no filter or search, the list has two sections:
+// "Always sent first" (the pins in pin order, which a drag, Alt+↑/↓ or Move
+// to top reorders through main, optimistically, announced to screen
+// readers) and "Everything else" (ordered by evidence or as added: the
+// order setting, mirrored here).
 
 const WIDE_PX = 900;
 
@@ -147,6 +154,7 @@ export default function DictionaryView() {
   const markDictionaryWordsTyped = useSettingsStore((s) => s.markDictionaryWordsTyped);
   const cleanupSetting = useSettingsStore((s) => s.cleanupDictionaryWords);
   const cleanupOn = useSettingsStore((s) => s.useCleanupModel);
+  const hintOrder = useSettingsStore((s) => s.dictionaryHintOrder);
   const entries = useDictionarySourcesStore((s) => s.entries);
   const learned = useDictionarySourcesStore((s) => s.learned);
   const sourcesLoaded = useDictionarySourcesStore((s) => s.loaded);
@@ -214,6 +222,8 @@ export default function DictionaryView() {
     ]
   );
   const itemsByWord = useMemo(() => new Map(items.map((item) => [item.word, item])), [items]);
+  const itemsByWordRef = useRef(itemsByWord);
+  itemsByWordRef.current = itemsByWord;
   const counts = useMemo(() => dictionaryFilterCounts(items), [items]);
   const learnedWords = useMemo(
     () => items.filter((item) => item.source === "learned").map((item) => item.word),
@@ -447,6 +457,50 @@ export default function DictionaryView() {
 
   const setPinned = useCallback((word: string, next: boolean) => {
     void setDictionaryPin(word, next);
+  }, []);
+
+  // ─── Pin order ("Always sent first") ───
+  // A screen reader hears where a moved word went; the same text twice is
+  // still announced (the counter remounts the line).
+  const [announcement, setAnnouncement] = useState<{ text: string; n: number } | null>(null);
+  const announce = useCallback(
+    (text: string) => setAnnouncement((current) => ({ text, n: (current?.n ?? 0) + 1 })),
+    []
+  );
+  // `index` is the word's new place among the listed pins; the assistant's
+  // hidden name, if pinned, keeps its own place in the order main stores.
+  const movePinned = useCallback(
+    async (word: string, index: number) => {
+      const { items: shown, pinnedCount } = viewRef.current;
+      const section = [...new Set(shown.slice(0, pinnedCount ?? 0).map((item) => item.key))];
+      const key = itemsByWordRef.current.get(word)?.key;
+      const from = key ? section.indexOf(key) : -1;
+      if (!key || from < 0) return;
+      const target = Math.max(0, Math.min(section.length - 1, index));
+      if (target === from) return;
+      section.splice(from, 1);
+      section.splice(target, 0, key);
+      const listed = new Set(section);
+      let next = 0;
+      const order = [...useDictionarySourcesStore.getState().pinned].map((pinnedKey) =>
+        listed.has(pinnedKey) ? section[next++] : pinnedKey
+      );
+      announce(t("dictionary.pins.moved", { word, position: target + 1 }));
+      const result = await reorderDictionaryPins(order);
+      if (!result.success) {
+        announce(t("dictionary.pins.reorderFailed"));
+        toast({ title: t("dictionary.pins.reorderFailed"), variant: "destructive" });
+      }
+    },
+    [announce, t, toast]
+  );
+  // "+ Pin a word": pinning is the row's ☆; this takes the keyboard to the
+  // first word that isn't pinned.
+  const focusUnpinned = useCallback(() => {
+    const { items: shown, pinnedCount } = viewRef.current;
+    const first = shown[pinnedCount ?? 0] ?? shown[0];
+    if (first) setFocusedWord(first.word);
+    requestAnimationFrame(() => listRef.current?.focus({ preventScroll: true }));
   }, []);
 
   const startEdit = useCallback((word: string) => setEditingWord(word), []);
@@ -986,6 +1040,63 @@ export default function DictionaryView() {
     />
   ) : null;
 
+  // Send order over the whole list: "Always sent first", then "Everything else".
+  const sectioned = view.pinnedCount !== null;
+  // How "Everything else" is ordered: as added, by evidence, or by evidence
+  // once there are usage counts (stored order until then).
+  const orderState =
+    hintOrder === "added"
+      ? "added"
+      : coverage.evidence || usageAvailable
+        ? "evidence"
+        : "evidenceUnavailable";
+  const pinnedHeader = sectioned && (
+    <div
+      data-dictionary-pins-header
+      className="flex flex-wrap items-baseline gap-x-2 gap-y-1 border-b border-border/60 px-3 py-2.5 dark:border-white/10"
+    >
+      <h3 className="text-[13px] font-semibold text-foreground">
+        <span aria-hidden="true" className="me-1.5">
+          📌
+        </span>
+        {t("dictionary.pins.sectionTitle")}
+      </h3>
+      <span className="text-[11.5px] text-muted-foreground">
+        {t("dictionary.pins.sectionHint")}
+      </span>
+      <span className="grow" />
+      <button
+        type="button"
+        data-pin-a-word
+        onClick={focusUnpinned}
+        className="rounded text-xs text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+      >
+        {t("dictionary.pins.pinAWord")}
+      </button>
+    </div>
+  );
+  const sections = sectioned
+    ? {
+        pinnedCount: view.pinnedCount ?? 0,
+        emptyPinned: t("dictionary.pins.empty"),
+        restHeader: (
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span className="text-[13px] font-semibold text-foreground">
+              {t("dictionary.order.restTitle")}
+            </span>
+            <span
+              className="text-[11.5px] text-muted-foreground"
+              data-dictionary-order-description={orderState}
+            >
+              {t(`dictionary.order.${orderState}`)}
+            </span>
+            <span className="grow" />
+            <DictionaryHintOrderMenu />
+          </div>
+        ),
+      }
+    : null;
+
   const list = (
     <div className={cn(CARD_SURFACE_CLASS, "overflow-hidden shadow-sm")}>
       {view.items.length === 0 ? (
@@ -1003,29 +1114,37 @@ export default function DictionaryView() {
           </Button>
         </div>
       ) : (
-        <DictionaryWordList
-          ref={listRef}
-          items={view.items}
-          dividers={view.dividers}
-          selected={selected}
-          focusedWord={focusedWord}
-          openWord={detailWord}
-          editingWord={editingWord}
-          label={t("dictionary.list.label", { count: view.items.length })}
-          onFocusWord={focusWord}
-          onToggle={toggle}
-          onSelectAll={selectAll}
-          onClearSelection={clearSelection}
-          onOpen={openWord}
-          onStartEdit={startEdit}
-          onCommitEdit={rename}
-          onCancelEdit={cancelEdit}
-          onEditSubmitted={refocusList}
-          onSetPinned={setPinned}
-          onRemove={askRemove}
-          onEscape={escapeFromList}
-        />
+        <>
+          {pinnedHeader}
+          <DictionaryWordList
+            ref={listRef}
+            items={view.items}
+            dividers={view.dividers}
+            selected={selected}
+            focusedWord={focusedWord}
+            openWord={detailWord}
+            editingWord={editingWord}
+            label={t("dictionary.list.label", { count: view.items.length })}
+            onFocusWord={focusWord}
+            onToggle={toggle}
+            onSelectAll={selectAll}
+            onClearSelection={clearSelection}
+            onOpen={openWord}
+            onStartEdit={startEdit}
+            onCommitEdit={rename}
+            onCancelEdit={cancelEdit}
+            onEditSubmitted={refocusList}
+            onSetPinned={setPinned}
+            onRemove={askRemove}
+            onEscape={escapeFromList}
+            sections={sections}
+            onMovePinned={movePinned}
+          />
+        </>
       )}
+      <div role="status" aria-live="polite" className="sr-only" data-dictionary-pin-announcer>
+        {announcement && <span key={announcement.n}>{announcement.text}</span>}
+      </div>
     </div>
   );
 
