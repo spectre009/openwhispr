@@ -58,6 +58,11 @@ const { createNoteAttendeesLookup, searchContacts } = require("./connectors/cont
 const { registerCopilotIpc } = require("./copilot/copilotIpc");
 const { registerCustomConnectionIpc } = require("./customConnectionIpc");
 const { registerConnectionChecksIpc } = require("./connectionChecksIpc");
+const { registerConnectionOutcomesIpc } = require("./connectionOutcomes");
+const {
+  requestOutcomeOfFailure,
+  transcriptionOutcomeTag,
+} = require("./connectionOutcomeTargets.js");
 const { registerLogIpc } = require("./logIpc");
 const { registerStorageInventoryIpc, defaultStorageResources } = require("./storageInventory");
 const { logText } = require("../utils/logText.js");
@@ -1063,6 +1068,8 @@ class IPCHandlers {
       broadcastToWindows("active-account-scope-changed", null);
       // As set-active-account-scope does: a connect can't outlive its account.
       this.connectorManager?.accountChanged();
+      // AI Connections' "Last recorded use" of Cloud was that session's.
+      this.connectionOutcomes?.noteCloudSignedOut();
     }
     broadcastToWindows("auth-token-state-changed", {
       generation,
@@ -2185,6 +2192,12 @@ class IPCHandlers {
       ipcMain,
       environmentManager: this.environmentManager,
       copilot: this.copilot,
+      logger: debugLogger,
+    });
+    // Its "Last recorded use": real requests' outcomes, by the same descriptor ids.
+    this.connectionOutcomes = registerConnectionOutcomesIpc({
+      ipcMain,
+      getDatabase: () => this.databaseManager,
       logger: debugLogger,
     });
 
@@ -8007,6 +8020,7 @@ class IPCHandlers {
       ipcMain,
       getPool: (partition) => getConnectionPool(partition),
       logger: debugLogger,
+      outcomes: this.connectionOutcomes,
     });
 
     ipcMain.handle("cloud-transcribe", async (event, audioBuffer, opts = {}) => {
@@ -8016,6 +8030,16 @@ class IPCHandlers {
       const controller = this._cloudTranscriptionRequests.begin(senderId, requestId);
       const cancelSenderRequests = () => this._cloudTranscriptionRequests.cancelSender(senderId);
       sender.once("destroyed", cancelSenderRequests);
+      // Live dictation on OpenWhispr Cloud, for AI Connections' "Last recorded use".
+      const requestStartedAt = Date.now();
+      const recordCloudUse = (outcome) =>
+        outcome &&
+        this.connectionOutcomes?.recordConnectionOutcome({
+          descriptorId: "cloud",
+          feature: "recognition",
+          startedAt: requestStartedAt,
+          ...outcome,
+        });
       try {
         const apiUrl = getApiUrl();
         if (!apiUrl) throw new Error("OpenWhispr API URL not configured");
@@ -8056,6 +8080,7 @@ class IPCHandlers {
             signal: controller.signal,
           });
           const sum = (field) => responses.reduce((s, r) => s + (r?.[field] || 0), 0);
+          recordCloudUse({ ok: true, code: "OK" });
           return {
             success: true,
             text,
@@ -8096,6 +8121,7 @@ class IPCHandlers {
         );
 
         const result = interpretTranscribeResponse(data);
+        recordCloudUse({ ok: true, code: "OK" });
         return {
           success: true,
           text: result.text,
@@ -8115,6 +8141,7 @@ class IPCHandlers {
         if (controller.signal.aborted) {
           return { success: false, error: "Cancelled", code: "TRANSCRIPTION_CANCELLED" };
         }
+        recordCloudUse(requestOutcomeOfFailure(error));
         debugLogger.error("Cloud transcription error", { error: error.message }, "cloud-api");
         return toPolicyFailure(error);
       } finally {
@@ -8253,6 +8280,7 @@ class IPCHandlers {
         } catch {
           // Unknown length: the deadline estimates it from the bytes.
         }
+        const retryOutcome = transcriptionOutcomeTag(route, settings || {}, "recognition");
         const sendStoredAudio = ({
           endpoint,
           headers = {},
@@ -8274,6 +8302,9 @@ class IPCHandlers {
             }),
             getPool: (partition) => getConnectionPool(partition),
             logger: debugLogger,
+            // A dictation's Re-transcribe is Recognition's use of its connection.
+            outcomes: this.connectionOutcomes,
+            outcome: retryOutcome,
           });
         // The body is the transcript: a parse failure never quotes it.
         const readJsonAnswer = (answer) => {
@@ -8385,38 +8416,54 @@ class IPCHandlers {
                   appVersion: app.getVersion(),
                   sessionId: this.sessionId,
                 };
-                if (buffer.length > CLOUD_INLINE_LIMIT) {
-                  const { text } = await chunkedCloudTranscribe({
-                    buffer,
-                    apiUrl,
-                    policyHeaders: withPolicyHeaders(authHeader),
-                    multipartFields,
+                // Recognition's use of Cloud, for AI Connections' "Last recorded use".
+                const cloudStartedAt = Date.now();
+                const recordCloudUse = (outcome) =>
+                  outcome &&
+                  this.connectionOutcomes?.recordConnectionOutcome({
+                    descriptorId: "cloud",
+                    feature: "recognition",
+                    startedAt: cloudStartedAt,
+                    ...outcome,
                   });
-                  result = { text, source: "openwhispr", model: "cloud" };
-                } else {
-                  const { body, boundary } = buildMultipartBody(
-                    buffer,
-                    "audio.webm",
-                    "audio/webm",
-                    multipartFields
-                  );
-                  const url = new URL(`${apiUrl}/api/transcribe`);
-                  const data = await postMultipart(
-                    url,
-                    body,
-                    boundary,
-                    withPolicyHeaders(authHeader),
-                    {
-                      signal: AbortSignal.timeout(CLOUD_UPLOAD_TIMEOUT_MS),
-                      session: getInlineCloudUploadSession(),
-                    }
-                  );
-                  const responseData = interpretTranscribeResponse(data);
-                  result = {
-                    text: responseData.text,
-                    source: "openwhispr",
-                    model: "cloud",
-                  };
+                try {
+                  if (buffer.length > CLOUD_INLINE_LIMIT) {
+                    const { text } = await chunkedCloudTranscribe({
+                      buffer,
+                      apiUrl,
+                      policyHeaders: withPolicyHeaders(authHeader),
+                      multipartFields,
+                    });
+                    result = { text, source: "openwhispr", model: "cloud" };
+                  } else {
+                    const { body, boundary } = buildMultipartBody(
+                      buffer,
+                      "audio.webm",
+                      "audio/webm",
+                      multipartFields
+                    );
+                    const url = new URL(`${apiUrl}/api/transcribe`);
+                    const data = await postMultipart(
+                      url,
+                      body,
+                      boundary,
+                      withPolicyHeaders(authHeader),
+                      {
+                        signal: AbortSignal.timeout(CLOUD_UPLOAD_TIMEOUT_MS),
+                        session: getInlineCloudUploadSession(),
+                      }
+                    );
+                    const responseData = interpretTranscribeResponse(data);
+                    result = {
+                      text: responseData.text,
+                      source: "openwhispr",
+                      model: "cloud",
+                    };
+                  }
+                  recordCloudUse({ ok: true, code: "OK" });
+                } catch (error) {
+                  recordCloudUse(requestOutcomeOfFailure(error));
+                  throw error;
                 }
               }
             }
@@ -12198,6 +12245,9 @@ class IPCHandlers {
               }),
               getPool: (partition) => getConnectionPool(partition),
               logger: debugLogger,
+              // File Transcription's use of Azure Speech, for "Last recorded use".
+              outcomes: this.connectionOutcomes,
+              outcome: transcriptionOutcomeTag(route, {}, "fileTranscription"),
             });
             if (!answer.ok) {
               debugLogger.warn("BYOK file transcription failed", {

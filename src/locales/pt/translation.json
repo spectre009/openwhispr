@@ -7151,6 +7151,28 @@
         "description": "Verifica se cada chave e login salvos funcionam: Verificar tudo, e o que cada verificação encontrou.",
         "alias": "verificar conexão"
       }
+    },
+    "lastUse": {
+      "ok": "Último uso registrado: {{feature}}, OK · {{time}}",
+      "failed": "Último uso registrado: {{feature}}, falhou, {{reason}} · {{time}}",
+      "lastFailure": "Última falha: {{feature}}, {{reason}} · {{time}}",
+      "reasons": {
+        "authFailed": "chave rejeitada",
+        "signInRejected": "login não é mais válido",
+        "accessDenied": "acesso negado",
+        "quotaExhausted": "sem crédito",
+        "wordLimit": "limite de palavras atingido",
+        "rateLimited": "limite de solicitações",
+        "modelNotFound": "modelo não disponível",
+        "payloadTooLarge": "grande demais",
+        "badRequest": "solicitação não aceita",
+        "unavailable": "o serviço está com problemas",
+        "timeout": "tempo esgotado",
+        "unreachable": "inacessível",
+        "noResponse": "sem resposta",
+        "endpointNotFound": "endpoint não encontrado",
+        "unknown": "erro inesperado"
+      }
     }
   },
   "modelPicker": {

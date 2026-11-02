@@ -7149,6 +7149,28 @@
         "description": "检查每个已保存的密钥和登录是否有效：全部检查，以及每次检查的结果。",
         "alias": "检查连接"
       }
+    },
+    "lastUse": {
+      "ok": "最近一次记录的使用：{{feature}}，成功 · {{time}}",
+      "failed": "最近一次记录的使用：{{feature}}，失败，{{reason}} · {{time}}",
+      "lastFailure": "最近一次失败：{{feature}}，{{reason}} · {{time}}",
+      "reasons": {
+        "authFailed": "密钥被拒绝",
+        "signInRejected": "登录已失效",
+        "accessDenied": "访问被拒绝",
+        "quotaExhausted": "额度不足",
+        "wordLimit": "已达字数上限",
+        "rateLimited": "已限流",
+        "modelNotFound": "模型不可用",
+        "payloadTooLarge": "过大",
+        "badRequest": "请求未被接受",
+        "unavailable": "服务出现问题",
+        "timeout": "超时",
+        "unreachable": "无法连接",
+        "noResponse": "无响应",
+        "endpointNotFound": "找不到端点",
+        "unknown": "意外错误"
+      }
     }
   },
   "modelPicker": {

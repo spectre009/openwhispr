@@ -44,6 +44,7 @@ export function ConnectionRow({
   body,
   below,
   problem,
+  lastUse,
 }: {
   /** Search anchor and "Manage keys" destination. */
   "data-setting-id": string;
@@ -66,6 +67,8 @@ export function ConnectionRow({
   below?: ReactNode;
   /** What its check found wrong, under the line. */
   problem?: ReactNode;
+  /** Its "Last recorded use" line (ConnectionCheckParts.tsx), under the line. */
+  lastUse?: ReactNode;
 }) {
   const { isCompact } = useSettingsLayout();
   const bodyId = useId();
@@ -126,6 +129,7 @@ export function ConnectionRow({
       </div>
       {below}
       {problem && <div className={cn(!isCompact && "ps-10")}>{problem}</div>}
+      {lastUse && <div className={cn(!isCompact && "ps-10")}>{lastUse}</div>}
       {expandable && open && body && (
         <div id={bodyId} data-connection-row-body="" className={cn(!isCompact && "ps-10")}>
           {body}

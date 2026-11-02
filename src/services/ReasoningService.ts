@@ -65,6 +65,11 @@ import {
   redactProviderBody,
 } from "../helpers/providerHttpErrors.js";
 import { clearTinfoilClientCache } from "./ai/tinfoilClient";
+import {
+  llmOutcomeFeature,
+  recordLlmOutcome,
+  type LlmOutcomeRequest,
+} from "../utils/connectionOutcome";
 import { resolveChatRoute } from "../helpers/chatRouting";
 import { assertAgentAllowedByPolicy, assertReasoningAllowedByPolicy } from "./reasoningPolicy";
 import { COPILOT_PROVIDER_ID, copilotRequestRefusal } from "../config/copilot";
@@ -621,6 +626,8 @@ class ReasoningService extends BaseReasoningService {
       promptInputs,
       cleanupStyle,
       cleanupDictionary,
+      connectionFeature,
+      connectionScope,
       ...configWithoutHook
     } = config;
     config = configWithoutHook;
@@ -743,6 +750,18 @@ class ReasoningService extends BaseReasoningService {
     }
 
     const startTime = Date.now();
+    // Settings › AI Connections' "Last recorded use": what the provider call
+    // did, recorded before any check of its reply (a repeated transcript is
+    // the reply's problem, not the connection's).
+    const outcomeRequest: LlmOutcomeRequest = {
+      provider: providerId,
+      baseUrl: dispatchConfig.baseUrl,
+      lanUrl: providerId === "lan" ? dispatchConfig.lanUrl || settings.cleanupRemoteUrl : undefined,
+      scope: connectionScope ?? dispatchConfig.inferenceScope,
+      feature: llmOutcomeFeature(dispatchConfig.inferenceScope, connectionFeature),
+      startedAt: startTime,
+    };
+    let answered = false;
     try {
       const reply = await handler.call({
         text,
@@ -751,6 +770,8 @@ class ReasoningService extends BaseReasoningService {
         config: dispatchConfig,
         ctx,
       });
+      answered = true;
+      recordLlmOutcome(outcomeRequest, { ok: true });
 
       // The built-in cleanup's reply, checked: a repeated transcript is
       // rejected, and a "Cleaned:"-labelled copy keeps only the cleaned text.
@@ -765,6 +786,7 @@ class ReasoningService extends BaseReasoningService {
 
       return result;
     } catch (error) {
+      if (!answered) recordLlmOutcome(outcomeRequest, { error });
       // A refusal or provider message can quote the reply: a quiet request logs its code only.
       const failure = error as Error & { code?: string; messageKey?: string };
       logger.logReasoning("PROVIDER_ERROR", {

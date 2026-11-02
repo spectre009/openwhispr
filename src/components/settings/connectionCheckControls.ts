@@ -1,7 +1,8 @@
 import { createElement, type ReactNode } from "react";
-import { hasState, useOwnerHealth } from "./connectionCheckContext";
+import { hasState, useOwnerHealth, useOwnerLastUse } from "./connectionCheckContext";
 import {
   HealthNote,
+  LastUseLine,
   OwnerHealthDetails,
   OwnerHealthPill,
   type ProblemActions,
@@ -11,7 +12,8 @@ import type { OwnerHealth } from "./connectionHealth";
 /**
  * A card's or row's connection-check parts, ready to place (the cards and
  * rows on Settings › AI Connections): the pill and Check for its header or
- * line, the problem box, and the note on what a working check proved.
+ * line, the problem box, the note on what a working check proved, and its
+ * "Last recorded use" line.
  */
 export interface HealthControls {
   health: OwnerHealth | null;
@@ -27,6 +29,8 @@ export interface HealthControls {
   showsState: boolean;
   problem: ReactNode;
   note: ReactNode;
+  /** "Last recorded use: <feature>, OK / failed, <reason> · <time>"; null with no record. */
+  lastUse: ReactNode;
   check: () => void;
 }
 
@@ -39,6 +43,8 @@ export function useHealthControls(
   { showSkipped = false, checkButton = true }: { showSkipped?: boolean; checkButton?: boolean } = {}
 ): HealthControls {
   const view = useOwnerHealth(owner, { showSkipped });
+  const recorded = useOwnerLastUse(owner);
+  const lastUse = recorded ? createElement(LastUseLine, { owner, lastUse: recorded }) : null;
   if (!view) {
     return {
       health: null,
@@ -46,6 +52,7 @@ export function useHealthControls(
       showsState: false,
       problem: null,
       note: null,
+      lastUse,
       check: nothing,
     };
   }
@@ -58,5 +65,6 @@ export function useHealthControls(
       ? createElement(OwnerHealthDetails, { view, name, actions, note: false })
       : null,
     note: view.probed ? createElement(HealthNote, { health: view.health }) : null,
+    lastUse,
   };
 }

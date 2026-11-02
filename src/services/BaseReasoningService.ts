@@ -4,7 +4,7 @@ import { resolveCleanupLanguage } from "../utils/chineseScript";
 import { getDictionaryHintWords, type CleanupDictionarySelection } from "../utils/snippets";
 import type { CleanupDictionaryGroup } from "../utils/dictionaryCategories";
 import type { InferenceScope } from "../config/inferenceScopes";
-import type { ScreenContextImage } from "../types/electron";
+import type { ConnectionOutcomeFeature, ScreenContextImage } from "../types/electron";
 
 export interface ReasoningConfig {
   maxTokens?: number;
@@ -85,6 +85,18 @@ export interface ReasoningConfig {
    * it, freeing the model, when one starts; it fails as YIELDED_TO_DICTATION.
    */
   yieldToDictation?: boolean;
+  /**
+   * The feature that sent it, for Settings › AI Connections' "Last recorded
+   * use", when its scope doesn't say (Styles run on Cleanup's). Read by
+   * processText and never forwarded to a provider.
+   */
+  connectionFeature?: ConnectionOutcomeFeature;
+  /**
+   * Whose custom endpoint and key the request reads, when its scope isn't
+   * (the screen context model runs as the assistant's scope). Read by
+   * processText and never forwarded to a provider.
+   */
+  connectionScope?: InferenceScope;
 }
 
 /** A style folded into a cleanup request (ReasoningConfig.cleanupStyle). */

@@ -114,6 +114,8 @@ export function resolveDictationAgentVisionInference(settings, { isSignedIn = fa
       // The vision override is the agent's image lane: policy and managed
       // enforcement must judge it as the agent scope, not dictation cleanup.
       inferenceScope: /** @type {const} */ ("dictationAgent"),
+      // Its custom endpoint and key are its own, though (Last recorded use).
+      connectionScope: /** @type {const} */ ("dictationAgentVision"),
       provider,
       baseUrl: isCustom ? resolved.cloudBaseUrl || undefined : undefined,
       customApiKey: isCustom ? customApiKey || undefined : undefined,

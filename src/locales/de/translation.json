@@ -7149,6 +7149,28 @@
         "description": "Prüft, ob jeder gespeicherte Schlüssel und jede Anmeldung funktioniert: Alle prüfen, und was jede Prüfung ergab.",
         "alias": "Verbindung prüfen"
       }
+    },
+    "lastUse": {
+      "ok": "Zuletzt erfasste Nutzung: {{feature}}, OK · {{time}}",
+      "failed": "Zuletzt erfasste Nutzung: {{feature}}, fehlgeschlagen, {{reason}} · {{time}}",
+      "lastFailure": "Letzter Fehler: {{feature}}, {{reason}} · {{time}}",
+      "reasons": {
+        "authFailed": "Schlüssel abgelehnt",
+        "signInRejected": "Anmeldung nicht mehr gültig",
+        "accessDenied": "Zugriff verweigert",
+        "quotaExhausted": "kein Guthaben",
+        "wordLimit": "Wortlimit erreicht",
+        "rateLimited": "Ratenlimit erreicht",
+        "modelNotFound": "Modell nicht verfügbar",
+        "payloadTooLarge": "zu groß",
+        "badRequest": "Anfrage nicht angenommen",
+        "unavailable": "Dienst hat Probleme",
+        "timeout": "Zeitüberschreitung",
+        "unreachable": "nicht erreichbar",
+        "noResponse": "keine Antwort",
+        "endpointNotFound": "Endpunkt nicht gefunden",
+        "unknown": "unerwarteter Fehler"
+      }
     }
   },
   "modelPicker": {

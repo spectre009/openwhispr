@@ -7149,6 +7149,28 @@
         "description": "保存した各キーとサインインが有効か確認します。すべて確認と、各確認の結果。",
         "alias": "接続を確認"
       }
+    },
+    "lastUse": {
+      "ok": "最後に記録された使用: {{feature}}、成功 · {{time}}",
+      "failed": "最後に記録された使用: {{feature}}、失敗、{{reason}} · {{time}}",
+      "lastFailure": "最後の失敗: {{feature}}、{{reason}} · {{time}}",
+      "reasons": {
+        "authFailed": "キーが拒否されました",
+        "signInRejected": "サインインが無効になりました",
+        "accessDenied": "アクセス拒否",
+        "quotaExhausted": "クレジット不足",
+        "wordLimit": "単語数の上限に達しました",
+        "rateLimited": "レート制限中",
+        "modelNotFound": "モデルを利用できません",
+        "payloadTooLarge": "サイズが大きすぎます",
+        "badRequest": "リクエストが受け付けられませんでした",
+        "unavailable": "サービスに問題が発生しています",
+        "timeout": "タイムアウト",
+        "unreachable": "接続できません",
+        "noResponse": "応答なし",
+        "endpointNotFound": "エンドポイントが見つかりません",
+        "unknown": "予期しないエラー"
+      }
     }
   },
   "modelPicker": {

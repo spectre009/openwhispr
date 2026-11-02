@@ -7151,6 +7151,28 @@
         "description": "Comprueba que cada clave e inicio de sesión guardados funcionan: Comprobar todo y lo que encontró cada comprobación.",
         "alias": "comprobar conexión"
       }
+    },
+    "lastUse": {
+      "ok": "Último uso registrado: {{feature}}, OK · {{time}}",
+      "failed": "Último uso registrado: {{feature}}, falló, {{reason}} · {{time}}",
+      "lastFailure": "Último fallo: {{feature}}, {{reason}} · {{time}}",
+      "reasons": {
+        "authFailed": "clave rechazada",
+        "signInRejected": "el inicio de sesión ya no es válido",
+        "accessDenied": "acceso denegado",
+        "quotaExhausted": "sin crédito",
+        "wordLimit": "límite de palabras alcanzado",
+        "rateLimited": "límite de solicitudes",
+        "modelNotFound": "modelo no disponible",
+        "payloadTooLarge": "demasiado grande",
+        "badRequest": "solicitud no aceptada",
+        "unavailable": "el servicio tiene problemas",
+        "timeout": "tiempo de espera agotado",
+        "unreachable": "sin conexión",
+        "noResponse": "sin respuesta",
+        "endpointNotFound": "endpoint no encontrado",
+        "unknown": "error inesperado"
+      }
     }
   },
   "modelPicker": {

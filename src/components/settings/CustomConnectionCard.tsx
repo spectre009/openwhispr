@@ -557,6 +557,7 @@ function ConnectionPanel({
         <>
           {health.note}
           {health.problem}
+          {health.lastUse}
         </>
       )}
       {error && (
@@ -1104,6 +1105,7 @@ export function CustomConnectionRow({ connection, uses, usages, policy }: Custom
       nameDir="auto"
       health={health.pill}
       problem={health.problem}
+      lastUse={health.lastUse}
       toggleLabel={t("connections.rows.manage")}
       open={open}
       onToggle={() => setOpen((value) => !value)}

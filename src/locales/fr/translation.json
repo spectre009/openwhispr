@@ -7151,6 +7151,28 @@
         "description": "Vérifie que chaque clé et chaque connexion enregistrées fonctionnent : Tout vérifier, et ce que chaque vérification a trouvé.",
         "alias": "vérifier la connexion"
       }
+    },
+    "lastUse": {
+      "ok": "Dernière utilisation enregistrée : {{feature}}, OK · {{time}}",
+      "failed": "Dernière utilisation enregistrée : {{feature}}, échec, {{reason}} · {{time}}",
+      "lastFailure": "Dernier échec : {{feature}}, {{reason}} · {{time}}",
+      "reasons": {
+        "authFailed": "clé refusée",
+        "signInRejected": "connexion plus valide",
+        "accessDenied": "accès refusé",
+        "quotaExhausted": "plus de crédit",
+        "wordLimit": "limite de mots atteinte",
+        "rateLimited": "limite de requêtes atteinte",
+        "modelNotFound": "modèle indisponible",
+        "payloadTooLarge": "trop volumineux",
+        "badRequest": "requête non acceptée",
+        "unavailable": "service en difficulté",
+        "timeout": "délai dépassé",
+        "unreachable": "injoignable",
+        "noResponse": "aucune réponse",
+        "endpointNotFound": "point de terminaison introuvable",
+        "unknown": "erreur inattendue"
+      }
     }
   },
   "modelPicker": {

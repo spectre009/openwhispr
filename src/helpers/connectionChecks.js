@@ -1199,5 +1199,6 @@ module.exports = {
   compareModels,
   createConnectionChecks,
   createSecretReader,
+  sourcesOf,
   validateDescriptor,
 };

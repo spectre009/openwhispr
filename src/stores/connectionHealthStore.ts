@@ -3,6 +3,7 @@ import type {
   ConnectionCheckDescriptor,
   ConnectionCheckEvent,
   ConnectionCheckResult,
+  ConnectionOutcomeEntry,
 } from "../types/electron";
 import { flushPendingSecretSave } from "./settingsStore";
 import type {
@@ -19,6 +20,10 @@ import type {
  * streams answers (`onConnectionCheckResult`), drops late ones and says when
  * a key change invalidated a result. Nothing here is persisted: checks run
  * when the page is looked at, never in the background or at app start.
+ *
+ * "Last recorded use" (`outcomes`) is main's record of real requests
+ * (helpers/connectionOutcomes.js), read when the page shows and followed
+ * while it's open.
  */
 
 interface ConnectionHealthState {
@@ -31,6 +36,8 @@ interface ConnectionHealthState {
   flag: ConnectionsFlag;
   /** Each connection's failing check, for the model pickers' advisory line. */
   pickerHealth: Readonly<Record<string, PickerConnectionHealth>>;
+  /** "Last recorded use" by descriptor id: main's record of real requests. */
+  outcomes: Readonly<Record<string, ConnectionOutcomeEntry>>;
 }
 
 export const useConnectionHealthStore = create<ConnectionHealthState>()(() => ({
@@ -39,9 +46,37 @@ export const useConnectionHealthStore = create<ConnectionHealthState>()(() => ({
   epoch: 0,
   flag: null,
   pickerHealth: {},
+  outcomes: {},
 }));
 
 let subscribed = false;
+let outcomesSubscribed = false;
+
+function applyOutcomes(payload: { outcomes?: unknown } | undefined): void {
+  const outcomes = payload?.outcomes;
+  if (!outcomes || typeof outcomes !== "object") return;
+  useConnectionHealthStore.setState({
+    outcomes: outcomes as Record<string, ConnectionOutcomeEntry>,
+  });
+}
+
+/**
+ * Reads main's "Last recorded use" and follows its changes; once per window.
+ * The page calls it when it shows.
+ */
+export async function loadConnectionOutcomes(): Promise<void> {
+  const api = typeof window !== "undefined" ? window.electronAPI : undefined;
+  if (!api?.connectionOutcomesGet) return;
+  if (!outcomesSubscribed && api.onConnectionOutcomesChanged) {
+    outcomesSubscribed = true;
+    api.onConnectionOutcomesChanged(applyOutcomes);
+  }
+  try {
+    applyOutcomes(await api.connectionOutcomesGet());
+  } catch {
+    // Without them the cards show no line.
+  }
+}
 
 function applyEvent(event: ConnectionCheckEvent): void {
   if (!event || typeof event.id !== "string") return;
@@ -215,11 +250,13 @@ export function publishConnectionHealth({
 /** Tests: a clean slate. */
 export function resetConnectionHealthForTests(): void {
   subscribed = false;
+  outcomesSubscribed = false;
   useConnectionHealthStore.setState({
     results: {},
     pending: {},
     epoch: 0,
     flag: null,
     pickerHealth: {},
+    outcomes: {},
   });
 }

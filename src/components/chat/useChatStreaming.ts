@@ -7,6 +7,7 @@ import { getSettings, useSettingsStore } from "../../stores/settingsStore";
 import { resolveChatStreamingInference } from "../../helpers/dictationAgentInference.js";
 import { isChatUnsupportedProvider, isLocalChatProvider } from "../../helpers/chatRouting";
 import { describeProviderError } from "../../utils/describeProviderError";
+import { recordLlmOutcome, type LlmOutcomeRequest } from "../../utils/connectionOutcome";
 import logger from "../../utils/logger";
 import {
   isAgentAllowed,
@@ -595,6 +596,25 @@ export function useChatStreaming({
         ]);
         setAgentState("streaming");
 
+        // Settings › AI Connections' "Last recorded use": the provider's finish
+        // or error, as the assistant's use when the panel sent it (its vision
+        // override and Chat fallback included), never a delivery's or a cancel.
+        const outcomeRequest: LlmOutcomeRequest = {
+          provider: isCloudAgent
+            ? "openwhispr"
+            : isLanAgent
+              ? "lan"
+              : llmMode === "providers"
+                ? llmConfig.provider
+                : undefined,
+          baseUrl: isCustomAgent ? llmConfig.cloudBaseUrl || undefined : undefined,
+          lanUrl: isLanAgent ? llmConfig.remoteUrl : undefined,
+          scope: llmConfig.scope,
+          feature: inferenceScope === "dictationAgent" ? "assistant" : "chat",
+          startedAt: Date.now(),
+        };
+        let providerSettled = false;
+
         // Chat re-parses the whole answer through react-markdown on every
         // content write, so one write per streamed token made parse cost scale
         // with token count. Buffer and flush at most once per interval.
@@ -789,6 +809,8 @@ export function useChatStreaming({
             return;
           }
 
+          providerSettled = true;
+          recordLlmOutcome(outcomeRequest, { ok: true });
           flushContentNow();
           const hasDeliverableContent = fullContent.trim().length > 0;
           if (!responseAnnounced && !cancelled()) {
@@ -825,6 +847,7 @@ export function useChatStreaming({
               )
             );
           } else {
+            if (!providerSettled) recordLlmOutcome(outcomeRequest, { error });
             cancelContentFlush();
             logger.error(
               "Assistant request failed",

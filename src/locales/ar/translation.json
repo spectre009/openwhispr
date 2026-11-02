@@ -7539,6 +7539,28 @@
         "description": "يتحقق من أن كل مفتاح وتسجيل دخول محفوظ يعمل: تحقّق من الكل، وما وجده كل تحقق.",
         "alias": "التحقق من الاتصال"
       }
+    },
+    "lastUse": {
+      "ok": "آخر استخدام مسجّل: {{feature}}، ناجح · {{time}}",
+      "failed": "آخر استخدام مسجّل: {{feature}}، فشل، {{reason}} · {{time}}",
+      "lastFailure": "آخر إخفاق: {{feature}}، {{reason}} · {{time}}",
+      "reasons": {
+        "authFailed": "رُفض المفتاح",
+        "signInRejected": "لم يعد تسجيل الدخول صالحًا",
+        "accessDenied": "رُفض الوصول",
+        "quotaExhausted": "نفد الرصيد",
+        "wordLimit": "بلغ حد الكلمات",
+        "rateLimited": "تجاوز حد الطلبات",
+        "modelNotFound": "النموذج غير متاح",
+        "payloadTooLarge": "كبير جدًا",
+        "badRequest": "لم يُقبل الطلب",
+        "unavailable": "الخدمة تواجه مشكلات",
+        "timeout": "انتهت المهلة",
+        "unreachable": "تعذّر الوصول",
+        "noResponse": "لا توجد استجابة",
+        "endpointNotFound": "لم يُعثر على النقطة الطرفية",
+        "unknown": "خطأ غير متوقع"
+      }
     }
   },
   "modelPicker": {

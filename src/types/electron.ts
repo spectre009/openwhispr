@@ -123,6 +123,55 @@ export type ConnectionCheckEvent =
   | { id: string; generation: string; dropped: true }
   | { id: string; invalidated: true };
 
+// ── Last recorded use (helpers/connectionOutcomes.js) ──
+
+/** The feature a request came from (the assistant's vision requests are the assistant's). */
+export type ConnectionOutcomeFeature =
+  | "recognition"
+  | "cleanup"
+  | "styles"
+  | "assistant"
+  | "translation"
+  | "chat"
+  | "liveRecording"
+  | "fileTranscription"
+  | "noteFormatting";
+
+/** How one real request ended: codes and a time, never text. */
+export interface ConnectionOutcome {
+  feature: ConnectionOutcomeFeature;
+  ok: boolean;
+  /** "OK", or the failure's providerHttpErrors code (PROVIDER_*, AZURE_SPEECH_ENDPOINT_INVALID). */
+  code: string;
+  /** When it ended (ms). */
+  at: number;
+}
+
+/** A check descriptor's last outcome, and its last failure. */
+export interface ConnectionOutcomeEntry {
+  last: ConnectionOutcome;
+  lastFailure: ConnectionOutcome | null;
+}
+
+/** What a renderer reports (main validates and fences it). */
+export interface ConnectionOutcomeReport {
+  descriptorId: string;
+  /** A feature endpoint's key slot (`endpoint:<hash>`); main knows every other id's. */
+  slot?: string | null;
+  feature: ConnectionOutcomeFeature;
+  ok: boolean;
+  code: string;
+  /** When the request started: an outcome from before a key change is dropped. */
+  startedAt: number;
+}
+
+/** Live dictation's request tag: which descriptor it runs on, names only. */
+export interface ConnectionOutcomeTag {
+  descriptorId: string;
+  slot: string | null;
+  feature: ConnectionOutcomeFeature;
+}
+
 export type DictionaryEntrySource = "manual" | "learned";
 
 export interface DictionaryEntry {
@@ -542,6 +591,8 @@ export interface DictationTranscriptionRequest {
     model: string | null;
     surface: "transcription";
   };
+  /** Settings › AI Connections' "Last recorded use": the descriptor it runs on. */
+  outcome?: ConnectionOutcomeTag | null;
 }
 
 /** Main's answer: the response (`body`, or a streamed `text`), a cancel, or a classified error. */
@@ -3699,6 +3750,14 @@ declare global {
         request: ConnectionChecksRunRequest
       ) => Promise<ConnectionChecksRunResult>;
       onConnectionCheckResult?: (callback: (payload: ConnectionCheckEvent) => void) => () => void;
+      connectionOutcomesGet?: () => Promise<{
+        outcomes: Record<string, ConnectionOutcomeEntry>;
+      }>;
+      /** Fire and forget: main records it, or drops it, and never answers. */
+      recordConnectionOutcome?: (outcome: ConnectionOutcomeReport) => void;
+      onConnectionOutcomesChanged?: (
+        callback: (payload: { outcomes: Record<string, ConnectionOutcomeEntry> }) => void
+      ) => () => void;
 
       // Enterprise provider key persistence
       getBedrockRegion?: () => Promise<string | null>;

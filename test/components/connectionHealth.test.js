@@ -39,7 +39,8 @@ async function load(t) {
   const health = await vite.ssrLoadModule("/components/settings/connectionHealth.ts");
   const options = await vite.ssrLoadModule("/components/settings/modelPicker/options.ts");
   const stt = await vite.ssrLoadModule("/components/settings/modelPicker/sttOptions.ts");
-  return { ...store, ...usage, ...custom, ...health, options, stt };
+  const targets = await vite.ssrLoadModule("/helpers/connectionOutcomeTargets.js");
+  return { ...store, ...usage, ...custom, ...health, options, stt, targets };
 }
 
 function setup(lib, overrides = {}, { policy = UNMANAGED, copilotSignedIn = true } = {}) {
@@ -389,5 +390,60 @@ test("connection checks, the renderer's model", { timeout: 60000 }, async (t) =>
       health
     );
     assert.equal(sttAdvice.reasonKey, "modelPicker.health.rejected");
+  });
+
+  await t.test("last recorded use: requests land on the ids the cards read", () => {
+    const { settings, plan } = setup(lib);
+    const outcome = (feature, ok, code, at) => ({ feature, ok, code, at });
+    // A live dictation on the connection's endpoint records on Recognition's
+    // own endpoint id, which the connection's card reads.
+    const dictation = lib.targets.transcriptionOutcomeTag(
+      { transport: "http-batch", provider: "custom" },
+      settings,
+      "recognition"
+    );
+    assert.equal(dictation.slot, "CUSTOM_TRANSCRIPTION_API_KEY");
+    const [custom] = byOwner(plan, "custom");
+    assert.ok(custom.outcomeIds.includes(dictation.descriptorId), custom.outcomeIds.join());
+    // Note formatting's own endpoint: the request's id is its row's descriptor.
+    const nf = lib.targets.llmOutcomeTarget({
+      provider: "custom",
+      baseUrl: settings.noteFormattingCloudBaseUrl,
+      slot: lib.llmCustomEndpoint("noteFormatting", settings).slot,
+    });
+    assert.equal(nf.id, byOwner(plan, "endpoint:noteFormatting")[0].descriptor.id);
+    // The self-hosted chat server.
+    const chat = lib.targets.llmOutcomeTarget({
+      provider: "lan",
+      lanUrl: settings.chatAgentRemoteUrl,
+    });
+    assert.equal(chat.id, byOwner(plan, "endpoint:chat")[0].descriptor.id);
+
+    const outcomes = {
+      [dictation.descriptorId]: {
+        last: outcome("recognition", true, "OK", 3000),
+        lastFailure: outcome("recognition", false, "PROVIDER_TIMEOUT", 2000),
+      },
+      "corti:llm": { last: outcome("cleanup", true, "OK", 1000), lastFailure: null },
+      "corti:stt": {
+        last: outcome("recognition", false, "PROVIDER_AUTH_FAILED", 1500),
+        lastFailure: outcome("recognition", false, "PROVIDER_AUTH_FAILED", 1500),
+      },
+      "provider:nowhere": { last: outcome("chat", true, "OK", 9000), lastFailure: null },
+    };
+    assert.deepEqual(lib.ownerLastUse("custom", plan, outcomes), outcomes[dictation.descriptorId]);
+    // Corti's card: the newest of its two halves, and the newest failure.
+    assert.deepEqual(lib.ownerLastUse("corti", plan, outcomes), {
+      last: outcomes["corti:stt"].last,
+      lastFailure: outcomes["corti:stt"].lastFailure,
+    });
+    // Nothing recorded: no line.
+    assert.equal(lib.ownerLastUse("groq", plan, outcomes), null);
+    assert.equal(lib.ownerLastUse("gemini", plan, {}), null);
+    // A feature whose slot holds another key isn't the connection's use.
+    const otherKey = setup(lib, { customTranscriptionApiKey: "another-SECRET" });
+    assert.ok(!byOwner(otherKey.plan, "custom")[0].outcomeIds.includes(dictation.descriptorId));
+    assert.equal(lib.ownerLastUse("custom", otherKey.plan, outcomes), null);
+    assert.ok(!JSON.stringify(custom.outcomeIds).includes("azure"), "hashes, never a URL");
   });
 });

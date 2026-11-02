@@ -20,9 +20,10 @@ import {
   type HealthSummary,
   type HealthTone,
   type OwnerHealth,
+  type OwnerLastUse,
 } from "./connectionHealth";
 import { USAGE_FEATURE_TITLE_KEYS } from "./connectionUsage";
-import type { ConnectionCheckResult } from "../../types/electron";
+import type { ConnectionCheckResult, ConnectionOutcome } from "../../types/electron";
 
 /**
  * Connection checks' parts on Settings › AI Connections (connectionHealth.ts
@@ -30,7 +31,8 @@ import type { ConnectionCheckResult } from "../../types/electron";
  * above Connections with Check all, each card's and row's pill with its age
  * and Check button (the previous result stays, with a spinner, while a check
  * runs), a problem box saying what failed, step by step, what it affects and
- * what to do, and the ✓/✕ a model chip gets when its model was compared.
+ * what to do, the ✓/✕ a model chip gets when its model was compared, and the
+ * "Last recorded use" line from real requests.
  */
 
 type Translate = (key: string, options?: Record<string, unknown>) => string;
@@ -545,6 +547,79 @@ export function HealthNote({ health }: { health: OwnerHealth }) {
     <p data-connection-health-note="" className="text-[11px] text-muted-foreground">
       {lines.join(" ")}
     </p>
+  );
+}
+
+// ── Last recorded use ────────────────────────────────────────────────────────
+
+/** A recorded failure's reason, in the words the checks use (providerHttpErrors codes). */
+const REASON_KEYS: Readonly<Record<string, string>> = {
+  PROVIDER_AUTH_FAILED: "authFailed",
+  PROVIDER_ACCESS_DENIED: "accessDenied",
+  PROVIDER_QUOTA_EXHAUSTED: "quotaExhausted",
+  PROVIDER_RATE_LIMITED: "rateLimited",
+  PROVIDER_MODEL_NOT_FOUND: "modelNotFound",
+  PROVIDER_PAYLOAD_TOO_LARGE: "payloadTooLarge",
+  PROVIDER_BAD_REQUEST: "badRequest",
+  PROVIDER_UNAVAILABLE: "unavailable",
+  PROVIDER_TIMEOUT: "timeout",
+  PROVIDER_UNREACHABLE: "unreachable",
+  PROVIDER_NO_RESPONSE: "noResponse",
+  AZURE_SPEECH_ENDPOINT_INVALID: "endpointNotFound",
+};
+
+/** Sign-ins (Copilot, Cloud) aren't keys, and Cloud's credit is its word limit. */
+function lastUseReasonKey(code: string, owner: string): string {
+  if (code === "PROVIDER_AUTH_FAILED" && (owner === "copilot" || owner === "cloud")) {
+    return "signInRejected";
+  }
+  if (code === "PROVIDER_QUOTA_EXHAUSTED" && owner === "cloud") return "wordLimit";
+  return REASON_KEYS[code] ?? "unknown";
+}
+
+/** A local time: the time alone today, with the date before. */
+function lastUseTime(at: number, now: number, language: string | undefined): string {
+  const date = new Date(at);
+  const today = new Date(now).toDateString() === date.toDateString();
+  const options: Intl.DateTimeFormatOptions = today
+    ? { hour: "numeric", minute: "2-digit" }
+    : { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" };
+  try {
+    return new Intl.DateTimeFormat(language || undefined, options).format(date);
+  } catch {
+    return date.toLocaleString();
+  }
+}
+
+/**
+ * "Last recorded use: Cleanup, OK · 10:42" or "…, failed, key rejected ·
+ * 10:42" from real requests (helpers/connectionOutcomes.js), and the last
+ * failure under it while the last use went fine.
+ */
+export function LastUseLine({ owner, lastUse }: { owner: string; lastUse: OwnerLastUse }) {
+  const { t, i18n } = useTranslation();
+  const context = useContext(ConnectionHealthContext);
+  const now = context?.now ?? Date.now();
+  const words = (outcome: ConnectionOutcome) => ({
+    feature: t(USAGE_FEATURE_TITLE_KEYS[outcome.feature]),
+    reason: t(`connections.lastUse.reasons.${lastUseReasonKey(outcome.code, owner)}`),
+    time: lastUseTime(outcome.at, now, i18n.language),
+  });
+  const { last, lastFailure } = lastUse;
+  return (
+    <div
+      data-connection-last-use={last.ok ? "ok" : "failed"}
+      className="space-y-0.5 text-[11px] text-muted-foreground"
+    >
+      <p className={cn(!last.ok && "text-destructive")}>
+        {t(last.ok ? "connections.lastUse.ok" : "connections.lastUse.failed", words(last))}
+      </p>
+      {last.ok && lastFailure && (
+        <p data-connection-last-failure="">
+          {t("connections.lastUse.lastFailure", words(lastFailure))}
+        </p>
+      )}
+    </div>
   );
 }
 

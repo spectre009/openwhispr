@@ -811,6 +811,14 @@ contextBridge.exposeInMainWorld("electronAPI", {
     "connection-check-result",
     (callback) => (_event, payload) => callback(payload)
   ),
+  // Their "Last recorded use": how real requests ended, as codes (never text);
+  // main is the one writer (connectionOutcomes.js).
+  connectionOutcomesGet: () => ipcRenderer.invoke("connection-outcomes-get"),
+  recordConnectionOutcome: (outcome) => ipcRenderer.send("connection-outcome-record", outcome),
+  onConnectionOutcomesChanged: registerListener(
+    "connection-outcomes-changed",
+    (callback) => (_event, payload) => callback(payload)
+  ),
 
   // Enterprise provider key management
   getBedrockRegion: () => ipcRenderer.invoke("get-bedrock-region"),

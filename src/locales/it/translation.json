@@ -7151,6 +7151,28 @@
         "description": "Verifica che ogni chiave e accesso salvati funzionino: Verifica tutto, e cosa ha trovato ogni verifica.",
         "alias": "verifica connessione"
       }
+    },
+    "lastUse": {
+      "ok": "Ultimo uso registrato: {{feature}}, OK · {{time}}",
+      "failed": "Ultimo uso registrato: {{feature}}, non riuscito, {{reason}} · {{time}}",
+      "lastFailure": "Ultimo errore: {{feature}}, {{reason}} · {{time}}",
+      "reasons": {
+        "authFailed": "chiave rifiutata",
+        "signInRejected": "login non più valido",
+        "accessDenied": "accesso negato",
+        "quotaExhausted": "credito esaurito",
+        "wordLimit": "limite di parole raggiunto",
+        "rateLimited": "limite di richieste",
+        "modelNotFound": "modello non disponibile",
+        "payloadTooLarge": "troppo grande",
+        "badRequest": "richiesta non accettata",
+        "unavailable": "il servizio ha problemi",
+        "timeout": "tempo scaduto",
+        "unreachable": "non raggiungibile",
+        "noResponse": "nessuna risposta",
+        "endpointNotFound": "endpoint non trovato",
+        "unknown": "errore imprevisto"
+      }
     }
   },
   "modelPicker": {

@@ -7149,6 +7149,28 @@
         "description": "檢查每個已儲存的金鑰和登入是否有效：全部檢查，以及每次檢查的結果。",
         "alias": "檢查連線"
       }
+    },
+    "lastUse": {
+      "ok": "最近一次記錄的使用：{{feature}}，成功 · {{time}}",
+      "failed": "最近一次記錄的使用：{{feature}}，失敗，{{reason}} · {{time}}",
+      "lastFailure": "最近一次失敗：{{feature}}，{{reason}} · {{time}}",
+      "reasons": {
+        "authFailed": "金鑰遭拒",
+        "signInRejected": "登入已失效",
+        "accessDenied": "存取遭拒",
+        "quotaExhausted": "額度不足",
+        "wordLimit": "已達字數上限",
+        "rateLimited": "已遭限速",
+        "modelNotFound": "模型無法使用",
+        "payloadTooLarge": "過大",
+        "badRequest": "要求未被接受",
+        "unavailable": "服務發生問題",
+        "timeout": "逾時",
+        "unreachable": "無法連線",
+        "noResponse": "沒有回應",
+        "endpointNotFound": "找不到端點",
+        "unknown": "非預期的錯誤"
+      }
     }
   },
   "modelPicker": {

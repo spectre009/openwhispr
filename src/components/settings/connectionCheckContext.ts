@@ -3,11 +3,13 @@ import { useSettingsVisible } from "./useSettingsVisible";
 import { formatAgo } from "./buildInfoFormat";
 import {
   ownerHealth,
+  ownerLastUse,
   type CheckPlan,
   type NotCheckedReason,
   type OwnerHealth,
+  type OwnerLastUse,
 } from "./connectionHealth";
-import type { ConnectionCheckResult } from "../../types/electron";
+import type { ConnectionCheckResult, ConnectionOutcomeEntry } from "../../types/electron";
 
 /**
  * The connection checks' context on Settings › AI Connections: the page
@@ -24,6 +26,8 @@ export interface ConnectionHealthContextValue {
   plan: CheckPlan;
   results: Readonly<Record<string, ConnectionCheckResult>>;
   pending: Readonly<Record<string, string>>;
+  /** "Last recorded use" by descriptor id (main's connectionOutcomes.js). */
+  outcomes?: Readonly<Record<string, ConnectionOutcomeEntry>>;
   now: number;
   /** An explicit, fresh check of one card or row. */
   check: (owner: string) => void;
@@ -73,6 +77,13 @@ export function useOwnerHealth(
  */
 export function hasState(health: Pick<OwnerHealth, "state" | "checking">): boolean {
   return health.state !== "unchecked" || health.checking;
+}
+
+/** A card's or row's "Last recorded use", or null (outside the page, or nothing recorded). */
+export function useOwnerLastUse(owner: string): OwnerLastUse | null {
+  const context = useContext(ConnectionHealthContext);
+  if (!context?.outcomes) return null;
+  return ownerLastUse(owner, context.plan, context.outcomes);
 }
 
 /** Now, re-read every half minute while Settings shows, so ages stay true. */

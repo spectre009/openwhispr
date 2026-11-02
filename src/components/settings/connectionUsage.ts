@@ -251,7 +251,7 @@ export const LLM_KEY_SLOTS: Readonly<Record<InferenceScope, CustomConnectionSlot
  * resolveDictationAgentVisionInference); a scope with no key of its own sends
  * Cleanup's when its URL is Cleanup's (canBorrowCleanupCustomKey).
  */
-function llmCustomEndpoint(scope: InferenceScope, s: SettingsState): CustomEndpointSource {
+export function llmCustomEndpoint(scope: InferenceScope, s: SettingsState): CustomEndpointSource {
   const keys: Partial<Record<string, keyof SettingsState>> = INFERENCE_SCOPES[scope].storeKeys;
   const value = (field: keyof SettingsState | undefined) =>
     field ? String(s[field] ?? "").trim() : "";

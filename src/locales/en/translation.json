@@ -7149,6 +7149,28 @@
         "description": "Checks that each saved key and sign-in works: Check all, and what each check found.",
         "alias": "check connection"
       }
+    },
+    "lastUse": {
+      "ok": "Last recorded use: {{feature}}, OK · {{time}}",
+      "failed": "Last recorded use: {{feature}}, failed, {{reason}} · {{time}}",
+      "lastFailure": "Last failure: {{feature}}, {{reason}} · {{time}}",
+      "reasons": {
+        "authFailed": "key rejected",
+        "signInRejected": "sign-in no longer valid",
+        "accessDenied": "access denied",
+        "quotaExhausted": "out of credit",
+        "wordLimit": "word limit reached",
+        "rateLimited": "rate limited",
+        "modelNotFound": "model not available",
+        "payloadTooLarge": "too large",
+        "badRequest": "request not accepted",
+        "unavailable": "service having problems",
+        "timeout": "timed out",
+        "unreachable": "can't reach",
+        "noResponse": "no response",
+        "endpointNotFound": "endpoint not found",
+        "unknown": "unexpected error"
+      }
     }
   },
   "modelPicker": {

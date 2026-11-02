@@ -298,6 +298,7 @@ class DatabaseManager {
     this.stepHistoryReady = false;
     this.dictationFeedbackReady = false;
     this.promptTestCasesReady = false;
+    this.connectionOutcomesReady = false;
     this.initDatabase();
   }
 
@@ -1674,6 +1675,14 @@ class DatabaseManager {
           { error: error.message },
           "database"
         );
+      }
+      try {
+        this._initConnectionOutcomes();
+      } catch (error) {
+        // "Last recorded use" on AI Connections is an aid: without its table
+        // outcomes are kept for the session only, and the database still opens.
+        this.connectionOutcomesReady = false;
+        debugLogger.error("Connection outcomes unavailable", { error: error.message }, "database");
       }
       // Step history's, reviews' and evidence's ON DELETE CASCADE need foreign keys. better-sqlite3
       // turns them on by default and the folders rebuild above restores them,
@@ -3444,6 +3453,92 @@ class DatabaseManager {
       db.prepare("DELETE FROM prompt_test_cases WHERE owner = ?").run(owner);
     })();
     return rows;
+  }
+
+  // ─── Connection outcomes ───────────────────────────────────────────────
+  // Settings › AI Connections' "Last recorded use" (connectionOutcomes.js):
+  // one row per check descriptor (`provider:groq`, `endpoint:<hash>`, …) with
+  // its last outcome and its last failure, as codes: feature, OK or an error
+  // code, and when. Never a key, URL, prompt or text. Device-wide and local
+  // only: not synced, exported, indexed or counted in History, and it doesn't
+  // depend on History being kept. `slot` names the credential slot it was
+  // recorded under, so a key change clears it.
+  _initConnectionOutcomes() {
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS connection_outcomes (
+        descriptor_id TEXT PRIMARY KEY,
+        slot TEXT,
+        feature TEXT NOT NULL,
+        ok INTEGER NOT NULL,
+        code TEXT NOT NULL,
+        at INTEGER NOT NULL,
+        failure_feature TEXT,
+        failure_code TEXT,
+        failure_at INTEGER
+      )
+    `);
+    this.connectionOutcomesReady = true;
+  }
+
+  _connectionOutcomesDb() {
+    if (!this.db) throw new Error("Database not initialized");
+    if (!this.connectionOutcomesReady) {
+      throw Object.assign(new Error("Connection outcomes unavailable"), {
+        code: "STORAGE_UNAVAILABLE",
+      });
+    }
+    return this.db;
+  }
+
+  /** Every descriptor's outcomes: `{ descriptorId, slot, last, lastFailure }`. */
+  getConnectionOutcomes() {
+    const outcome = (feature, ok, code, at) =>
+      feature && code && Number.isFinite(at) ? { feature, ok: ok === 1, code, at } : null;
+    return this._connectionOutcomesDb()
+      .prepare("SELECT * FROM connection_outcomes ORDER BY at DESC")
+      .all()
+      .map((row) => ({
+        descriptorId: row.descriptor_id,
+        slot: row.slot ?? null,
+        last: outcome(row.feature, row.ok, row.code, row.at),
+        lastFailure: outcome(row.failure_feature, 0, row.failure_code, row.failure_at),
+      }));
+  }
+
+  /** Writes one descriptor's row whole: its last outcome and its last failure. */
+  saveConnectionOutcome({ descriptorId, slot = null, last, lastFailure = null }) {
+    this._connectionOutcomesDb()
+      .prepare(
+        `INSERT OR REPLACE INTO connection_outcomes
+          (descriptor_id, slot, feature, ok, code, at, failure_feature, failure_code, failure_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      )
+      .run(
+        descriptorId,
+        slot,
+        last.feature,
+        last.ok ? 1 : 0,
+        last.code,
+        last.at,
+        lastFailure?.feature ?? null,
+        lastFailure?.code ?? null,
+        lastFailure?.at ?? null
+      );
+  }
+
+  deleteConnectionOutcomes(descriptorIds) {
+    const ids = (Array.isArray(descriptorIds) ? descriptorIds : []).filter(
+      (id) => typeof id === "string"
+    );
+    if (ids.length === 0) return 0;
+    const placeholders = ids.map(() => "?").join(", ");
+    return this._connectionOutcomesDb()
+      .prepare(`DELETE FROM connection_outcomes WHERE descriptor_id IN (${placeholders})`)
+      .run(...ids).changes;
+  }
+
+  clearConnectionOutcomes() {
+    return this._connectionOutcomesDb().prepare("DELETE FROM connection_outcomes").run().changes;
   }
 
   getDictionary() {

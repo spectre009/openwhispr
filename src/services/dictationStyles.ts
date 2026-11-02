@@ -158,6 +158,8 @@ export async function runRestyle(
   const reply = await process(wrapRestyleText(text, style.name), model, options.agentName, {
     ...config,
     ...options.extra,
+    // Recorded as Styles' use of the connection, not Cleanup's.
+    connectionFeature: "styles",
     ...(options.redactLogs ? { redactLogs: true } : {}),
     ...(options.onDispatch ? { onDispatch: options.onDispatch } : {}),
   });
@@ -186,6 +188,7 @@ export async function runOneStepStyle(
       name: style.name,
       block: buildOneStepStyleBlock(style, { voice: options.voice, completionMarker: cloud }),
     },
+    connectionFeature: "styles",
     maxTokens: styleOutputTokens(text),
     requireCompleteOutput: true,
     ...(options.redactLogs ? { redactLogs: true } : {}),

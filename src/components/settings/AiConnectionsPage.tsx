@@ -131,6 +131,7 @@ import {
 } from "./connectionHealth";
 import {
   forgetConnectionResults,
+  loadConnectionOutcomes,
   publishConnectionHealth,
   runConnectionChecks,
   subscribeConnectionChecks,
@@ -316,8 +317,8 @@ function ConnectionCard({
   /** What its check found wrong, at the bottom. */
   problem?: ReactNode;
   /**
-   * Stage B's "Last recorded use: <feature>, OK / failed" line, by the same
-   * descriptor ids as the checks (connectionHealth.ts). Nothing passes it yet.
+   * "Last recorded use: <feature>, OK / failed, <reason>" from real requests,
+   * by the same descriptor ids as the checks (`useHealthControls`' lastUse).
    */
   lastUse?: ReactNode;
   footer?: ReactNode;
@@ -344,7 +345,7 @@ function ConnectionCard({
       {children}
       <UsedBy usages={usages} health={health} />
       {problem}
-      {lastUse && <div data-connection-last-use="">{lastUse}</div>}
+      {lastUse}
       {footer && <div className="flex flex-wrap items-center gap-3">{footer}</div>}
     </div>
   );
@@ -667,6 +668,7 @@ function ProviderKeyCard({
           {health.problem}
         </>
       }
+      lastUse={health.lastUse}
       footer={allowed ? <GetApiKeyLink url={provider.keyUrl} /> : undefined}
     >
       <ProviderCredentials
@@ -731,6 +733,7 @@ function ProviderKeyRow({
     below: own.length > 0 ? <UsedBy usages={own} health={health.health} /> : undefined,
     health: health.health?.notChecked === "managed" ? undefined : health.pill,
     problem: health.problem,
+    lastUse: health.lastUse,
   };
 
   if (opensBody) {
@@ -907,6 +910,7 @@ function CopilotConnection({
             {health.problem}
           </>
         }
+        lastUse={health.lastUse}
       >
         <CopilotBody allowed={allowed} />
       </ConnectionCard>
@@ -920,6 +924,7 @@ function CopilotConnection({
       below={own.length > 0 ? <UsedBy usages={own} health={health.health} /> : undefined}
       health={health.health?.notChecked === "managed" ? undefined : health.pill}
       problem={health.problem}
+      lastUse={health.lastUse}
       toggleLabel={
         allowed ? t(signedIn ? "connections.rows.manage" : "connections.rows.signIn") : undefined
       }
@@ -1018,6 +1023,7 @@ function CloudConnection({
         usages={own}
         health={health.health}
         problem={health.problem}
+        lastUse={health.lastUse}
       >
         {body}
       </ConnectionCard>
@@ -1032,6 +1038,7 @@ function CloudConnection({
       below={own.length > 0 ? <UsedBy usages={own} health={health.health} /> : undefined}
       health={health.health?.notChecked === "managed" ? undefined : health.pill}
       problem={health.problem}
+      lastUse={health.lastUse}
       actions={
         kind === "off" ? (
           <SettingsLink destination="privacyData#privacy.cloud" className="shrink-0">
@@ -1546,6 +1553,7 @@ function EndpointEntry({
           </SettingsLink>
         </div>
         {health.problem}
+        {health.lastUse}
       </div>
     </SettingsPanelRow>
   );
@@ -2091,6 +2099,7 @@ export default function AiConnectionsPage({
   const results = useConnectionHealthStore((state) => state.results);
   const pending = useConnectionHealthStore((state) => state.pending);
   const epoch = useConnectionHealthStore((state) => state.epoch);
+  const outcomes = useConnectionHealthStore((state) => state.outcomes);
   const now = useHealthNow();
   const planRef = useRef<CheckPlan>(plan);
   planRef.current = plan;
@@ -2121,6 +2130,11 @@ export default function AiConnectionsPage({
       maxAgeMs: CONNECTION_CHECK_MAX_AGE_MS,
     });
   }, [visiting, ready, targetsKey, epoch]);
+
+  // "Last recorded use": main's record, read on showing and followed meanwhile.
+  useEffect(() => {
+    if (visiting) void loadConnectionOutcomes();
+  }, [visiting]);
 
   // Right after a key is saved here: that connection, fresh.
   useEffect(() => {
@@ -2171,6 +2185,7 @@ export default function AiConnectionsPage({
     plan,
     results,
     pending,
+    outcomes,
     now,
     check,
     checkAll,

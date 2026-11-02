@@ -98,6 +98,7 @@ import {
 import { transcriptionFailureOutcome } from "./transcriptionFailureOutcome";
 import { keptRecordingFor } from "./failedRecordingRetry";
 import { sendDictationTranscription } from "./dictationTranscriptionClient";
+import { transcriptionOutcomeTag } from "./connectionOutcomeTargets.js";
 import { IPC_ERROR_FIELDS, errorFromIpcResult } from "./ipcErrorFields";
 import {
   PROVIDER_ERROR_CODES,
@@ -4606,6 +4607,8 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
             stream: shouldStream,
             selfHosted: route.provider === "self-hosted",
             errorContext: providerErrorContext,
+            // Main records how it ended (Settings › AI Connections, "Last recorded use").
+            outcome: transcriptionOutcomeTag(route, apiSettings, "recognition"),
           },
           requestController.signal
         );
@@ -4927,6 +4930,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
             stream: false,
             selfHosted: false,
             errorContext,
+            outcome: transcriptionOutcomeTag(route, apiSettings, "recognition"),
           },
           requestController.signal
         );

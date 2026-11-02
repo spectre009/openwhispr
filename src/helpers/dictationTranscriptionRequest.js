@@ -21,6 +21,10 @@
 //   aborts either attempt or the wait between them; a cancelled request never
 //   retries and never reports. Cancel and timeout are told apart by which
 //   signal fired, never by the error's name.
+// - Once it's over, its outcome goes to Settings › AI Connections' "Last
+//   recorded use" (connectionOutcomes.js) under the tag it came with: OK, the
+//   HTTP status's code (also when the IPC answers `success: true` around it)
+//   or the failure's; never on a cancel.
 //
 // Logs carry the endpoint, attempt, deadline, elapsed time and bytes sent:
 // never headers, fields or the answer.
@@ -32,7 +36,8 @@ const {
   transcriptionRequestDeadlineMs,
   transcriptionRequestTimeoutError,
 } = require("./transcriptionRequestDeadline.js");
-const { asProviderError } = require("./providerHttpErrors");
+const { asProviderError, providerHttpError } = require("./providerHttpErrors");
+const { requestOutcomeOfFailure } = require("./connectionOutcomeTargets.js");
 const { ipcErrorFields } = require("./ipcErrorFields");
 const { createTranscriptionEventParser } = require("./transcriptionEventStream");
 const AgentStreamRequestRegistry = require("./agentStreamRequestRegistry");
@@ -420,6 +425,52 @@ async function runTranscriptionRequest({
 }
 
 /**
+ * A request's "Last recorded use" tag (connectionOutcomes.js): which check
+ * descriptor it runs on and which feature sent it, names only. The dictation
+ * window sends its own; main's callers build theirs from the route.
+ */
+function outcomeTagFrom(raw, startedAt) {
+  if (!raw || typeof raw !== "object") return null;
+  const { descriptorId, slot = null, feature } = raw;
+  if (typeof descriptorId !== "string" || typeof feature !== "string") return null;
+  if (slot !== null && typeof slot !== "string") return null;
+  return {
+    descriptorId: descriptorId.slice(0, 160),
+    slot,
+    feature,
+    startedAt: Number.isFinite(raw.startedAt) ? raw.startedAt : startedAt,
+  };
+}
+
+/**
+ * Records how a logical request ended (after its retry): the HTTP answer,
+ * also when the IPC itself succeeds around a failed status, or the classified
+ * failure. A cancel records nothing, and recording never costs the request.
+ */
+function recordTranscriptionOutcome(outcomes, tag, request, { result, error } = {}) {
+  if (!outcomes?.recordConnectionOutcome || !tag) return;
+  try {
+    let outcome;
+    if (error) outcome = requestOutcomeOfFailure(error);
+    else if (!result || result.cancelled) outcome = null;
+    else if (result.ok) outcome = { ok: true, code: "OK" };
+    else {
+      const classified = providerHttpError({
+        ...request.errorContext,
+        status: result.status,
+        body: typeof result.body === "string" ? result.body : "",
+        headers: result.headers,
+      });
+      outcome = { ok: false, code: classified.code };
+    }
+    if (!outcome) return;
+    outcomes.recordConnectionOutcome({ ...tag, ...outcome });
+  } catch {
+    // The transcript matters more than its record.
+  }
+}
+
+/**
  * Whether a request gets the local budget. The test override gives a local
  * server the hosted one, for live checks against a server that never answers.
  */
@@ -434,35 +485,60 @@ function poolFetch(pool) {
 }
 
 /**
- * History's Re-transcribe of stored audio: the same deadline and retry, on its
- * own pool (a live dictation's reset can't cut it). It has no cancel.
+ * History's Re-transcribe of stored audio (and an upload to Azure Speech): the
+ * same deadline and retry, on its own pool (a live dictation's reset can't cut
+ * it). It has no cancel. `outcome` tags it for "Last recorded use".
  */
-function runHistoryTranscriptionRequest({ request, getPool, logger, env = process.env }) {
+async function runHistoryTranscriptionRequest({
+  request,
+  getPool,
+  logger,
+  env = process.env,
+  outcomes = null,
+  outcome = null,
+}) {
+  const tag = outcomeTagFrom(outcome, Date.now());
   const pool = getPool(HISTORY_STT_PARTITION);
-  return runTranscriptionRequest({
-    request,
-    fetch: poolFetch(pool),
-    resetPool: () => pool.closeAllConnections(),
-    local: usesLocalDeadline(request.endpoint, { selfHosted: request.selfHosted, env }),
-    logger,
-  });
+  try {
+    const result = await runTranscriptionRequest({
+      request,
+      fetch: poolFetch(pool),
+      resetPool: () => pool.closeAllConnections(),
+      local: usesLocalDeadline(request.endpoint, { selfHosted: request.selfHosted, env }),
+      logger,
+    });
+    recordTranscriptionOutcome(outcomes, tag, request, { result });
+    return result;
+  } catch (error) {
+    recordTranscriptionOutcome(outcomes, tag, request, { error });
+    throw error;
+  }
 }
 
 /**
  * Main's handlers: `dictation-transcription-request` (the request, with the
- * window's request id) and `dictation-transcription-cancel` (that id).
- * `getPool(partition)` returns an Electron session.
+ * window's request id and its "Last recorded use" tag) and
+ * `dictation-transcription-cancel` (that id). `getPool(partition)` returns an
+ * Electron session; `outcomes` is connectionOutcomes.js's recorder.
  */
-function registerDictationTranscriptionIpc({ ipcMain, getPool, logger, env = process.env }) {
+function registerDictationTranscriptionIpc({
+  ipcMain,
+  getPool,
+  logger,
+  env = process.env,
+  outcomes = null,
+}) {
   const requests = new AgentStreamRequestRegistry();
 
   ipcMain.handle("dictation-transcription-request", async (event, payload) => {
+    const startedAt = Date.now();
     let request;
     try {
       request = transcriptionRequestFrom(payload);
     } catch (error) {
       return { success: false, ...ipcErrorFields(error) };
     }
+    const tag = outcomeTagFrom(payload.outcome, startedAt);
     const sender = event.sender;
     const senderId = sender.id;
     const requestId =
@@ -482,9 +558,12 @@ function registerDictationTranscriptionIpc({ ipcMain, getPool, logger, env = pro
         local: usesLocalDeadline(request.endpoint, { selfHosted: request.selfHosted, env }),
         logger,
       });
+      // A failed status still answers `success: true`: its record is the status's.
+      recordTranscriptionOutcome(outcomes, tag, request, { result });
       if (result.cancelled) return { success: false, cancelled: true };
       return { success: true, ...result };
     } catch (error) {
+      recordTranscriptionOutcome(outcomes, tag, request, { error });
       return { success: false, ...ipcErrorFields(error) };
     } finally {
       sender.removeListener("destroyed", cancelSenderRequests);
@@ -502,6 +581,7 @@ module.exports = {
   HISTORY_STT_PARTITION,
   MAX_ATTEMPTS,
   TEST_HOSTED_DEADLINE_ENV,
+  recordTranscriptionOutcome,
   registerDictationTranscriptionIpc,
   runHistoryTranscriptionRequest,
   runTranscriptionRequest,

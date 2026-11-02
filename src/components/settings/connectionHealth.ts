@@ -9,18 +9,23 @@ import { COPILOT_PROVIDER_ID } from "../../config/copilot";
 import {
   CUSTOM_CONNECTION_SLOTS,
   canonicalEndpoint,
-  isAzureHost,
-  isPrivateHost,
   validateEndpoint,
   type ConnectionUse,
   type CustomConnection,
 } from "../../config/customConnection";
 import { azureSpeechOrigin } from "../../helpers/azureSpeechTranscription.js";
+import {
+  endpointCheckRoute,
+  endpointDescriptorId,
+  shortHash,
+} from "../../helpers/connectionOutcomeTargets.js";
 import type {
   ConnectionCheckDescriptor,
   ConnectionCheckKind,
   ConnectionCheckResult,
   ConnectionModelEvidence,
+  ConnectionOutcome,
+  ConnectionOutcomeEntry,
 } from "../../types/electron";
 import {
   CONNECTION_PROVIDERS,
@@ -55,6 +60,8 @@ import {
  *   combined per card, and the flags elsewhere: the summary, the Settings
  *   menu's dot (only from active usages' own failures) and the model
  *   pickers' advisory metadata (never an availability reason).
+ * - **Last recorded use**: real requests' outcomes (main's
+ *   helpers/connectionOutcomes.js) by the same ids, newest per card.
  */
 
 /** Auto-checks on showing the page reuse results younger than this. */
@@ -89,6 +96,12 @@ export interface CheckTarget {
   uses: CheckUse[];
   /** Store fields holding its credentials: flushed before an explicit check. */
   secretFields: string[];
+  /**
+   * The ids its "Last recorded use" reads (the descriptor's own when absent).
+   * The custom connection's: its features' own endpoints, where their
+   * requests record.
+   */
+  outcomeIds?: string[];
 }
 
 export interface CheckPlan {
@@ -115,15 +128,9 @@ const STT_FEATURES: ReadonlySet<UsageFeature> = new Set([
 
 // ── Descriptors ──────────────────────────────────────────────────────────────
 
-/** FNV-1a, hex: a short, stable id or generation for names that may hold a URL. */
-export function shortHash(text: string): string {
-  let hash = 0x811c9dc5;
-  for (let index = 0; index < text.length; index += 1) {
-    hash ^= text.charCodeAt(index);
-    hash = Math.imul(hash, 0x01000193);
-  }
-  return (hash >>> 0).toString(16).padStart(8, "0");
-}
+// Shared with "Last recorded use" (helpers/connectionOutcomeTargets.js), so a
+// request maps to the same ids.
+export { endpointCheckRoute, shortHash };
 
 function generationOf(parts: {
   kind: HealthKind;
@@ -237,27 +244,6 @@ const SLOT_BY_FIELD: Record<string, string> = {
 };
 
 const filled = (value: unknown) => typeof value === "string" && !!value.trim();
-
-/** An endpoint row's URL as a check route: the custom connection's validator, Azure as its v1 base. */
-export function endpointCheckRoute(raw: unknown, selfHosted: boolean): string | null {
-  let text = typeof raw === "string" ? raw.trim() : "";
-  if (!text) return null;
-  // A self-hosted server typed without a scheme is plain http on the network.
-  if (selfHosted && !text.includes("://")) {
-    const host = text.split("/")[0].replace(/:\d+$/, "");
-    if (isPrivateHost(host)) text = `http://${text}`;
-  }
-  let candidate = text;
-  try {
-    const url = new URL(text.includes("://") ? text : `https://${text}`);
-    // Azure takes its resource origin: operation URLs and api-version queries stay behind.
-    if (isAzureHost(url.hostname)) candidate = url.origin;
-  } catch {
-    return null;
-  }
-  const validated = validateEndpoint(candidate);
-  return validated.ok ? validated.languageBase : null;
-}
 
 /**
  * Every check the page runs, by card or row. Pure: reads presence only, and
@@ -410,6 +396,7 @@ export function buildCheckPlan(input: CheckPlanInput): CheckPlan {
     else if (!validated.ok) skipped.custom = "invalidEndpoint";
     else if (!connectionKey) skipped.custom = "noKey";
     else {
+      const vouched = input.connectionUses.filter(sameKey);
       targets.push(
         target(
           "custom",
@@ -418,7 +405,7 @@ export function buildCheckPlan(input: CheckPlanInput): CheckPlan {
           "llm",
           canonicalEndpoint(validated),
           "CUSTOM_CONNECTION_API_KEY",
-          input.connectionUses.filter(sameKey).map((use) => ({
+          vouched.map((use) => ({
             feature: use.feature,
             model: use.model,
             active: isActiveUsage(use.usage),
@@ -427,7 +414,18 @@ export function buildCheckPlan(input: CheckPlanInput): CheckPlan {
           ["customConnectionApiKey"]
         )
       );
-      targets[targets.length - 1].host = hostOf(validated.origin);
+      const added = targets[targets.length - 1];
+      added.host = hostOf(validated.origin);
+      // Its features record on their own endpoint's id, with their own key slot.
+      added.outcomeIds = [
+        "custom",
+        ...new Set(
+          vouched.flatMap((use) => {
+            const route = endpointCheckRoute(settings[use.urlField as keyof SettingsState], false);
+            return route ? [endpointDescriptorId("endpoint", route, use.slot)] : [];
+          })
+        ),
+      ];
     }
   }
 
@@ -451,7 +449,7 @@ export function buildCheckPlan(input: CheckPlanInput): CheckPlan {
     const kind: ConnectionCheckKind = custom ? "endpoint" : "selfHosted";
     const capability = STT_FEATURES.has(usage.feature) ? "stt" : "llm";
     // Rows on the same server with the same key share one check.
-    const id = `${kind}:${shortHash(`${route}|${slot ?? ""}`)}`;
+    const id = endpointDescriptorId(kind, route, slot);
     const uses = usesOf([usage]).map((use) => ({ ...use, model: "" }));
     targets.push(
       target(
@@ -678,6 +676,42 @@ export function affectedUses(health: OwnerHealth | null): CheckUse[] {
   );
   const seen = new Set<UsageFeature>();
   return uses.filter((use) => (seen.has(use.feature) ? false : (seen.add(use.feature), true)));
+}
+
+// ── Last recorded use ────────────────────────────────────────────────────────
+
+/** A card's or row's "Last recorded use": its newest outcome, and its newest failure. */
+export interface OwnerLastUse {
+  last: ConnectionOutcome;
+  lastFailure: ConnectionOutcome | null;
+}
+
+/**
+ * The newest outcome across a card's or row's descriptors (Corti's two, the
+ * custom connection's features' endpoints), or null when nothing recorded
+ * one: then it shows no line.
+ */
+export function ownerLastUse(
+  owner: HealthOwner,
+  plan: CheckPlan,
+  outcomes: Readonly<Record<string, ConnectionOutcomeEntry>>
+): OwnerLastUse | null {
+  const ids = new Set(
+    plan.targets
+      .filter((item) => item.owner === owner)
+      .flatMap((item) => item.outcomeIds ?? [item.descriptor.id])
+  );
+  let last: ConnectionOutcome | null = null;
+  let lastFailure: ConnectionOutcome | null = null;
+  for (const id of ids) {
+    const entry = outcomes[id];
+    if (!entry?.last) continue;
+    if (!last || entry.last.at > last.at) last = entry.last;
+    if (entry.lastFailure && (!lastFailure || entry.lastFailure.at > lastFailure.at)) {
+      lastFailure = entry.lastFailure;
+    }
+  }
+  return last ? { last, lastFailure } : null;
 }
 
 // ── Flags elsewhere ──────────────────────────────────────────────────────────
