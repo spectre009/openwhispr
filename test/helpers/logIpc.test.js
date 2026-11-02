@@ -231,6 +231,24 @@ test("Clear logs and Open folder go through the logger; the folder exists to ope
   });
 });
 
+test("log-info carries the graphics mode for Diagnostics; a failing reader answers null", async (t) => {
+  const { logger } = setup(t);
+  const { createLogHandlers } = require("../../src/helpers/logIpc");
+  const state = { mode: "software", reason: "fallback", gpuCompositing: "disabled_software" };
+  const withMode = createLogHandlers({ logger, environmentManager: {}, graphics: () => state });
+  assert.deepEqual(withMode.logInfo().graphics, state);
+  assert.equal(createLogHandlers({ logger, environmentManager: {} }).logInfo().graphics, null);
+  const failing = createLogHandlers({
+    logger,
+    environmentManager: {},
+    graphics: () => {
+      throw new Error("not yet");
+    },
+  });
+  assert.equal(failing.logInfo().graphics, null);
+  assert.ok(failing.logInfo().system.platform, "the rest still answers");
+});
+
 test("main.js takes the inherited level before any .env loads; selfhost Dev no longer forces debug", () => {
   const main = fs.readFileSync(path.join(__dirname, "..", "..", "main.js"), "utf8");
   const capture = main.indexOf("captureInheritedEnv(process.env)");

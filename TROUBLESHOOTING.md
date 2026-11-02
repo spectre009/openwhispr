@@ -145,7 +145,7 @@ On GNOME and KDE, the first automatic paste can show a remote-interaction permis
 
 The interface then composites on the CPU, so hover effects and scrolling can feel slower. Delete the line to undo it.
 
-When you report the flicker, add `--log-level=debug` on its own line in the same file, restart, and attach the newest `~/.config/OpenWhispr/logs/debug-*.log`. Its "Linux GPU compositing" line shows which mode OpenWhispr started in.
+When you report the flicker, add `--log-level=debug` on its own line in the same file, restart, and attach the newest `~/.config/OpenWhispr/logs/debug-*.log`. Its "Graphics mode" line shows which mode OpenWhispr started in (`reason: "requested"` with `disabledForNvidia` when the NVIDIA rule chose CPU compositing).
 
 ### Linux System Audio PipeWire Issues
 

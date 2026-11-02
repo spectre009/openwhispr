@@ -617,7 +617,8 @@ export interface DictationTranscriptionReply {
   surface?: string;
 }
 
-// Epoch-ms stamps for one push-to-talk press, set by the main process.
+// Epoch-ms stamps for one dictation press (a hold, or a toggle's start), set by
+// the main process; a toggle's key time is main's own.
 export interface DictationPressTrace {
   pressId: number;
   keyAt: number;
@@ -626,6 +627,14 @@ export interface DictationPressTrace {
   mainAt: number;
   prepareSentAt?: number;
   startSentAt?: number;
+}
+
+/** A dictation start's visual mark from the dictation window (`dictation-start-visual`). */
+export interface DictationStartVisualMark {
+  pressId: number;
+  mark: "pillPainted" | "pillSettled";
+  /** Epoch ms of the frame. */
+  at: number;
 }
 
 export type ChineseScriptPreference = "simplified" | "traditional" | "as-transcribed";
@@ -2058,6 +2067,26 @@ export interface LogInfoResult {
   logsDir: string | null;
   /** The OS, for Copy diagnostics. */
   system?: { platform: string; version: string | null; arch: string };
+  /** What Chromium draws with (`graphics-mode-changed` when it changes); null before main knows. */
+  graphics?: GraphicsModeState | null;
+}
+
+/**
+ * The graphics mode (helpers/graphicsMode.js): the GPU ("hardware") or the CPU
+ * ("software"); software is "requested" by a launch flag or a "fallback" when
+ * Chromium gave up on the GPU. "unknown" until the GPU process has reported.
+ */
+export interface GraphicsModeState {
+  mode: "hardware" | "software" | "unknown";
+  reason: "requested" | "fallback" | null;
+  /** The launch flag that asked for software drawing, e.g. "--disable-gpu". */
+  requestedBy: string | null;
+  /** getGPUFeatureStatus().gpu_compositing and .rasterization. */
+  gpuCompositing: string | null;
+  rasterization: string | null;
+  /** From getGPUInfo("complete").auxAttributes. */
+  glRenderer: string | null;
+  displayType: string | null;
 }
 
 export interface LogSettingsUpdate {
@@ -2508,10 +2537,21 @@ declare global {
       captureDictationTarget?: () => Promise<{ success: boolean; pid: number | null }>;
       /** The starting recording's frozen target app; null when unknown (non-Windows). */
       getDictationTargetApp?: () => Promise<{ exeName: string } | null>;
-      /** `styleId`: a style key's style (Stage 4); absent, the dictation hotkey's. */
-      onToggleDictation: (callback: (payload?: { styleId?: string }) => void) => () => void;
-      onToggleVoiceAgent?: (callback: () => void) => () => void;
-      onToggleTranslation?: (callback: () => void) => () => void;
+      /** `styleId`: a style key's style (Stage 4); absent, the dictation hotkey's. A start press carries its `trace`. */
+      onToggleDictation: (
+        callback: (payload?: { styleId?: string; trace?: DictationPressTrace }) => void
+      ) => () => void;
+      onToggleVoiceAgent?: (
+        callback: (payload?: { trace?: DictationPressTrace }) => void
+      ) => () => void;
+      onToggleTranslation?: (
+        callback: (payload?: { trace?: DictationPressTrace }) => void
+      ) => () => void;
+      /** Main asks for the first frame painted once the pill is on screen for this press. */
+      onDictationStartVisualsProbe?: (
+        callback: (payload: { pressId: number }) => void
+      ) => () => void;
+      reportDictationStartVisual?: (mark: DictationStartVisualMark) => void;
       onOpenAssistantPanel?: (callback: () => void) => () => void;
       onStartDictation?: (
         callback: (payload?: { trace?: DictationPressTrace; styleId?: string }) => void
@@ -3866,6 +3906,7 @@ declare global {
       clearLogs?: () => Promise<ClearLogsResult>;
       getRecentLogProblems?: () => Promise<LogProblem[]>;
       openLogsFolder?: () => Promise<{ success: boolean; error?: string }>;
+      onGraphicsModeChanged?: (callback: (state: GraphicsModeState) => void) => () => void;
 
       // FFmpeg availability
       checkFFmpegAvailability: () => Promise<FFmpegAvailabilityResult>;

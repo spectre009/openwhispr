@@ -3618,9 +3618,16 @@
       "problemsToday_one": "今天 {{count}} 個問題",
       "problemsToday_other": "今天 {{count}} 個問題",
       "manage": "在「儲存空間」中管理",
+      "graphics": {
+        "label": "圖形",
+        "description": "當 OpenWhispr 使用 CPU 而非顯示卡繪製時顯示。",
+        "fallback": "圖形加速已關閉。OpenWhispr 正在使用 CPU 繪製，動畫可能會卡頓。這通常表示其他應用程式用盡了顯示卡；顯示卡空出後請重新啟動 OpenWhispr。",
+        "requested": "使用 CPU 繪製（由啟動參數設定）",
+        "restart": "重新啟動 OpenWhispr"
+      },
       "copy": {
         "label": "複製診斷資訊",
-        "description": "版本、建置、作業系統、記錄檔設定與最近問題的數量，可直接用於回報問題。不含金鑰、語音輸入文字或記錄行。",
+        "description": "版本、建置、作業系統、圖形模式、記錄檔設定與最近問題的數量，可直接用於回報問題。不含金鑰、語音輸入文字或記錄行。",
         "button": "複製…",
         "dialogTitle": "複製診斷資訊",
         "dialogDescription": "以下就是將要複製的內容，為方便回報問題使用英文。路徑中隱去了你的使用者名稱。"

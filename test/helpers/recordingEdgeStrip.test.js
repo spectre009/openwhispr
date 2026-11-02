@@ -68,7 +68,14 @@ function paintedAccent(win) {
 const animations = (win, prefix) =>
   win.webContents.inserted.filter((css) => css.startsWith(`@keyframes ${prefix}`));
 
-function harness({ displays = [PG, G95, M32], pill = G95, autoLoad = true, supported } = {}) {
+function harness({
+  displays = [PG, G95, M32],
+  pill = G95,
+  autoLoad = true,
+  supported,
+  onRecordingShown = null,
+  now,
+} = {}) {
   const env = { displays, pill, windows: [], timers: [], onTop: 0 };
   class FakeWindow {
     constructor(options) {
@@ -155,6 +162,8 @@ function harness({ displays = [PG, G95, M32], pill = G95, autoLoad = true, suppo
     },
     windowType: "normal",
     supported,
+    onRecordingShown,
+    ...(now ? { now } : {}),
     timers: {
       setTimeout: (fn, ms) => {
         const timer = { fn, ms, cleared: false };
@@ -647,4 +656,79 @@ test("a hidden frame is released after the short frame grace", async () => {
   assert.equal(pendingTimers(EDGE_STRIP_IDLE_RELEASE_MS).length, 0);
   runTimers(EDGE_FRAME_IDLE_RELEASE_MS);
   assert.equal(live().length, 0);
+});
+
+// Dictation start visuals (windowManager → dictationStartVisuals.js) learn when
+// a recording's strip or frame is on screen from this callback.
+test("a recording's strip reports once it shows: new after its page loads, reused at once", async () => {
+  let clock = 1000;
+  const reports = [];
+  const { strip, env } = harness({
+    autoLoad: false,
+    onRecordingShown: (details) => reports.push(details),
+    now: () => clock,
+  });
+  strip.configure({ ...ON, strip: "frame" });
+  strip.setRecording(true);
+  await settle();
+  assert.deepEqual(reports, [], "still loading");
+  clock = 1180;
+  env.windows[0].finishLoad();
+  await settle();
+  assert.deepEqual(reports, [{ window: "new", mode: "frame", displays: 1, at: 1180 }]);
+  strip.refresh("drag");
+  strip.pulse();
+  assert.equal(reports.length, 1, "once per start");
+
+  strip.setRecording(false);
+  clock = 5000;
+  strip.setRecording(true, "assistant");
+  assert.deepEqual(reports[1], { window: "reused", mode: "frame", displays: 1, at: 5000 });
+  strip.setRecording(true, "translation");
+  assert.equal(reports.length, 2, "a mode change is not a new start");
+});
+
+test("every targeted display shows before the report; a preview, off or a stopped start never report", async () => {
+  const reports = [];
+  const { strip, env } = harness({
+    autoLoad: false,
+    onRecordingShown: (details) => reports.push(details),
+  });
+  strip.configure({ ...ON, displays: "all" });
+  assert.equal(strip.stripModeForRecording(), "short");
+  strip.setRecording(true);
+  env.windows[0].finishLoad();
+  env.windows[1].finishLoad();
+  await settle();
+  assert.deepEqual(reports, [], "one display still loading");
+  env.windows[2].finishLoad();
+  await settle();
+  assert.deepEqual(
+    reports.map(({ window, mode, displays }) => [window, mode, displays]),
+    [["new", "short", 3]]
+  );
+
+  // Stopped before its new page loaded: nothing to report, and a later start
+  // reports its own show only.
+  strip.setRecording(false);
+  strip.configure({ ...ON, strip: "full" });
+  strip.setRecording(true);
+  strip.setRecording(false);
+  for (const win of env.windows) win.finishLoad();
+  await settle();
+  assert.equal(reports.length, 1);
+
+  strip.preview({ ...ON, strip: "short" });
+  await settle();
+  assert.equal(reports.length, 1, "a preview isn't a recording");
+
+  strip.configure({ ...ON, strip: "off" });
+  assert.equal(strip.stripModeForRecording(), "off");
+  strip.setRecording(true);
+  await settle();
+  assert.equal(reports.length, 1);
+
+  const unsupported = harness({ supported: false }).strip;
+  unsupported.configure(ON);
+  assert.equal(unsupported.stripModeForRecording(), "off");
 });

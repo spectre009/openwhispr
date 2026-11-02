@@ -63,7 +63,8 @@ const NEUTRAL_RESULTS = {
 /**
  * Installs happy-dom as the global window. `api` overrides preload methods by
  * name (functions); every other call resolves to a neutral value, every `on*`
- * subscription returns its cleanup, and each call is recorded in `calls`.
+ * subscription returns its cleanup (or runs `api`'s, to deliver broadcasts),
+ * and each call is recorded in `calls`.
  */
 async function installSettingsDom({ api = {}, storage = {} } = {}) {
   const { Window } = await import("happy-dom");
@@ -84,7 +85,9 @@ async function installSettingsDom({ api = {}, storage = {} } = {}) {
     {
       get: (_target, name) => {
         if (typeof name !== "string") return undefined;
-        if (/^on[A-Z]/.test(name)) return () => () => {};
+        if (/^on[A-Z]/.test(name)) {
+          return typeof api[name] === "function" ? api[name] : () => () => {};
+        }
         return (...args) => {
           calls.push([name, args]);
           if (typeof api[name] === "function") return api[name](...args);

@@ -115,8 +115,14 @@ contextBridge.exposeInMainWorld("electronAPI", {
     "toggle-dictation",
     (callback) => (_event, payload) => callback(payload)
   ),
-  onToggleVoiceAgent: registerListener("toggle-voice-agent", (callback) => () => callback()),
-  onToggleTranslation: registerListener("toggle-translation", (callback) => () => callback()),
+  onToggleVoiceAgent: registerListener(
+    "toggle-voice-agent",
+    (callback) => (_event, payload) => callback(payload)
+  ),
+  onToggleTranslation: registerListener(
+    "toggle-translation",
+    (callback) => (_event, payload) => callback(payload)
+  ),
   onOpenAssistantPanel: registerListener("open-assistant-panel", (callback) => () => callback()),
   onStartDictation: registerListener(
     "start-dictation",
@@ -140,6 +146,13 @@ contextBridge.exposeInMainWorld("electronAPI", {
   dictationLifecycleStateChanged: (state, inputKind, startedAt) =>
     ipcRenderer.send("dictation-lifecycle-state-changed", state, inputKind, startedAt),
   dictationAudioLevelChanged: (level) => ipcRenderer.send("dictation-audio-level-changed", level),
+  // Dictation start visuals: main asks for the first frame painted once the pill is on
+  // screen; the renderer answers with that frame's time, and the entrance's end.
+  onDictationStartVisualsProbe: registerListener(
+    "dictation-start-visuals-probe",
+    (callback) => (_event, payload) => callback(payload)
+  ),
+  reportDictationStartVisual: (mark) => ipcRenderer.send("dictation-start-visual", mark),
   toggleAgentPanelDictation: () => ipcRenderer.invoke("toggle-agent-panel-dictation"),
   cancelAgentPanelDictation: () => ipcRenderer.invoke("cancel-agent-panel-dictation"),
   getAgentDictationPillState: () => ipcRenderer.invoke("get-agent-dictation-pill-state"),
@@ -952,6 +965,10 @@ contextBridge.exposeInMainWorld("electronAPI", {
   clearLogs: () => ipcRenderer.invoke("clear-logs"),
   getRecentLogProblems: () => ipcRenderer.invoke("log-recent-problems"),
   openLogsFolder: () => ipcRenderer.invoke("open-logs-folder"),
+  onGraphicsModeChanged: registerListener(
+    "graphics-mode-changed",
+    (callback) => (_event, state) => callback(state)
+  ),
 
   // System settings helpers for microphone/audio permissions
   requestMicrophoneAccess: () => ipcRenderer.invoke("request-microphone-access"),

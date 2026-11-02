@@ -3618,9 +3618,16 @@
       "problemsToday_one": "今天 {{count}} 个问题",
       "problemsToday_other": "今天 {{count}} 个问题",
       "manage": "在“存储”中管理",
+      "graphics": {
+        "label": "图形",
+        "description": "当 OpenWhispr 使用 CPU 而不是显卡绘制时显示。",
+        "fallback": "图形加速已关闭。OpenWhispr 正在使用 CPU 绘制，动画可能会卡顿。这通常是因为其他应用占满了显卡；显卡空闲后请重启 OpenWhispr。",
+        "requested": "使用 CPU 绘制（由启动参数设置）",
+        "restart": "重启 OpenWhispr"
+      },
       "copy": {
         "label": "复制诊断信息",
-        "description": "版本、构建、操作系统、日志设置和最近问题的数量，可直接用于问题报告。不含密钥、听写文本或日志行。",
+        "description": "版本、构建、操作系统、图形模式、日志设置和最近问题的数量，可直接用于问题报告。不含密钥、听写文本或日志行。",
         "button": "复制…",
         "dialogTitle": "复制诊断信息",
         "dialogDescription": "以下就是将要复制的内容，为便于问题报告使用英文。路径中隐去了你的用户名。"

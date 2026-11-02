@@ -3618,9 +3618,16 @@
       "problemsToday_one": "{{count}} problema oggi",
       "problemsToday_other": "{{count}} problemi oggi",
       "manage": "Gestisci in Archiviazione",
+      "graphics": {
+        "label": "Grafica",
+        "description": "Compare quando OpenWhispr disegna con la CPU invece che con la scheda grafica.",
+        "fallback": "L'accelerazione grafica è disattivata. OpenWhispr sta disegnando con la CPU, quindi le animazioni possono scattare. Di solito significa che un'altra app ha esaurito la scheda grafica; riavvia OpenWhispr quando è di nuovo libera.",
+        "requested": "Disegno con la CPU (impostato da un'opzione di avvio)",
+        "restart": "Riavvia OpenWhispr"
+      },
       "copy": {
         "label": "Copia diagnostica",
-        "description": "Versioni, build, sistema operativo, impostazioni dei log e conteggio dei problemi recenti, pronti per una segnalazione di bug. Niente chiavi, niente testo dettato, niente righe di log.",
+        "description": "Versioni, build, sistema operativo, modalità grafica, impostazioni dei log e conteggio dei problemi recenti, pronti per una segnalazione di bug. Niente chiavi, niente testo dettato, niente righe di log.",
         "button": "Copia…",
         "dialogTitle": "Copia diagnostica",
         "dialogDescription": "Questo è esattamente ciò che verrà copiato, in inglese per una segnalazione di bug. Il nome utente è nascosto nei percorsi."

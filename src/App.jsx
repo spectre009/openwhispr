@@ -13,6 +13,7 @@ import { useLiveTranscriptPanel } from "./hooks/useLiveTranscriptPanel";
 import { useMainWindowSizeOwner } from "./hooks/useMainWindowSizeOwner";
 import { useMainProcessNotifications } from "./hooks/useMainProcessNotifications";
 import { useListeningEntrancePhase } from "./hooks/useListeningEntrancePhase";
+import { useDictationStartVisuals } from "./hooks/useDictationStartVisuals";
 import { useWindowResizeCompensation } from "./hooks/useWindowResizeCompensation";
 import { useRecordingIndicator } from "./hooks/useRecordingIndicator";
 import { useSettingsStore } from "./stores/settingsStore";
@@ -391,6 +392,8 @@ export default function App() {
   const listeningEntrancePhase = useListeningEntrancePhase(voicePillIsRecording, {
     afterAssistantFooterHandoff: assistant.open,
   });
+  // "Dictation start visuals": the pill's first painted frame and its settled entrance.
+  useDictationStartVisuals(listeningEntrancePhase);
   const listeningEntrance = resolveListeningEntrancePresentation({
     isRecording: voicePillIsRecording,
     phase: listeningEntrancePhase,

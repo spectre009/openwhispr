@@ -141,6 +141,8 @@ class RecordingEdgeStrip {
     logger,
     supported = true,
     timers = { setTimeout, clearTimeout },
+    onRecordingShown = null,
+    now = Date.now,
   }) {
     this._BrowserWindow = BrowserWindow;
     this._screen = screen;
@@ -150,11 +152,16 @@ class RecordingEdgeStrip {
     this._logger = logger;
     this._supported = supported;
     this._timers = timers;
+    // Called once per recording start, when the strip shows on every display
+    // it targets: { window: "new" (it waited for a page load) | "reused", mode, displays, at }.
+    this._onRecordingShown = onRecordingShown;
+    this._now = now;
     this._settings = normalizeRecordingIndicatorSettings(null);
     this._recording = false;
     this._inputKind = "dictation";
     // Bumped when a recording starts; each window flashes once per start.
     this._startGeneration = 0;
+    this._startShow = null;
     this._animationSeq = 0;
     this._preview = null;
     this._idleTimer = null;
@@ -177,8 +184,24 @@ class RecordingEdgeStrip {
     const starting = next && !this._recording;
     this._recording = next;
     this._inputKind = kind;
-    if (starting) this._startGeneration += 1;
+    if (starting) {
+      this._startGeneration += 1;
+      this._startShow = {
+        generation: this._startGeneration,
+        waitedForLoad: false,
+        reported: false,
+      };
+    } else if (!next) {
+      this._startShow = null;
+    }
     this._apply(starting ? "recording" : next ? "mode" : "stopped");
+  }
+
+  // What a recording starting now would show: its mode, or "off" when nothing
+  // would (the setting, an unsupported session, a destroyed strip).
+  stripModeForRecording() {
+    if (this._destroyed || !this._supported) return "off";
+    return this._settings.strip;
   }
 
   // "Remind me while recording": a visible recording strip swells once.
@@ -227,12 +250,14 @@ class RecordingEdgeStrip {
     this._clearPreview();
     this._recording = false;
     this._inputKind = "dictation";
+    this._startShow = null;
     this._settings = normalizeRecordingIndicatorSettings(null);
     this._destroyAll();
   }
 
   destroy() {
     this._destroyed = true;
+    this._startShow = null;
     this._clearPreview();
     this._destroyAll();
   }
@@ -298,7 +323,8 @@ class RecordingEdgeStrip {
     for (const display of targets) {
       const id = String(display.id);
       const bounds = resolveEdgeStripBounds(display, mode);
-      const entry = this._windows.get(id) || this._createWindow(id, bounds);
+      const existing = this._windows.get(id);
+      const entry = existing || this._createWindow(id, bounds);
       if (!entry) continue;
       // The page loads once per mode. A page still loading is simply
       // replaced; a loaded one takes a new color as inserted CSS.
@@ -306,6 +332,10 @@ class RecordingEdgeStrip {
         this._load(id, entry, mode, accent);
       } else if (entry.loaded && entry.accent !== accent) {
         this._recolor(id, entry, accent);
+      }
+      // A recording's strip that has to wait for a page shows as a new window.
+      if (active.recording && this._startShow && (!existing || !entry.loaded)) {
+        this._startShow.waitedForLoad = true;
       }
       // The exact box on every show: at fractional scaling each setBounds
       // rounds, so reported bounds are never fed back.
@@ -334,6 +364,30 @@ class RecordingEdgeStrip {
       else if (entry.win.isVisible()) entry.win.hide();
     }
     this._lastShownMode = mode;
+    if (active.recording) this._reportRecordingShown(targets, mode);
+  }
+
+  // Once per recording start, when every targeted display shows its strip.
+  _reportRecordingShown(targets, mode) {
+    const start = this._startShow;
+    if (!this._onRecordingShown || !start || start.reported) return;
+    if (start.generation !== this._startGeneration || targets.length === 0) return;
+    const shown = targets.every((display) => {
+      const entry = this._windows.get(String(display.id));
+      return entry?.loaded && !entry.recoloring && entry.win.isVisible();
+    });
+    if (!shown) return;
+    start.reported = true;
+    try {
+      this._onRecordingShown({
+        window: start.waitedForLoad ? "new" : "reused",
+        mode,
+        displays: targets.length,
+        at: this._now(),
+      });
+    } catch {
+      // a listener failing must not stop the strip
+    }
   }
 
   _load(id, entry, mode, accent) {

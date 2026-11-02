@@ -22,8 +22,9 @@ interface CopyDiagnosticsDialogProps {
 }
 
 /**
- * Copy diagnostics: shows exactly the text that will be copied (build, OS, log
- * settings, the masked folder, sizes and problem counts by area), then copies it.
+ * Copy diagnostics: shows exactly the text that will be copied (build, OS, the
+ * graphics mode, log settings, the masked folder, sizes and problem counts by
+ * area), then copies it.
  */
 export default function CopyDiagnosticsDialog({
   open,

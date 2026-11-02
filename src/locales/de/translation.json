@@ -3712,9 +3712,16 @@
       "problemsToday_one": "{{count}} Problem heute",
       "problemsToday_other": "{{count}} Probleme heute",
       "manage": "Im Speicher verwalten",
+      "graphics": {
+        "label": "Grafik",
+        "description": "Erscheint, wenn OpenWhispr mit der CPU statt mit der Grafikkarte zeichnet.",
+        "fallback": "Die Grafikbeschleunigung ist aus. OpenWhispr zeichnet mit der CPU, daher können Animationen ruckeln. Meist hat eine andere App die Grafikkarte ausgelastet; starte OpenWhispr neu, sobald sie wieder frei ist.",
+        "requested": "Zeichnet mit der CPU (per Startoption festgelegt)",
+        "restart": "OpenWhispr neu starten"
+      },
       "copy": {
         "label": "Diagnose kopieren",
-        "description": "Versionen, Build, Betriebssystem, Protokolleinstellungen und die Anzahl der letzten Probleme, bereit für einen Fehlerbericht. Keine Schlüssel, kein diktierter Text, keine Protokollzeilen.",
+        "description": "Versionen, Build, Betriebssystem, Grafikmodus, Protokolleinstellungen und die Anzahl der letzten Probleme, bereit für einen Fehlerbericht. Keine Schlüssel, kein diktierter Text, keine Protokollzeilen.",
         "button": "Kopieren…",
         "dialogTitle": "Diagnose kopieren",
         "dialogDescription": "Genau dieser Text wird kopiert, auf Englisch für einen Fehlerbericht. Der Benutzername ist in Pfaden ausgeblendet."

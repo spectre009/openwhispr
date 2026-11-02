@@ -1,14 +1,14 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../ui/button";
-import { ChevronRight, Copy } from "../icons";
+import { AlertTriangle, ChevronRight, Copy, RotateCw } from "../icons";
 import { SectionHeader, SettingsPanel, SettingsPanelRow, SettingsRow } from "../ui/SettingsSection";
 import { formatBytes } from "../../utils/formatBytes";
 import { useSettingsVisible } from "./useSettingsVisible";
 import { useOpenSettingsLink } from "./settingsLink";
 import { useLogInfo } from "./useLogInfo";
 import CopyDiagnosticsDialog from "./CopyDiagnosticsDialog";
-import { logLevelLabel, problemsToday } from "./logSettingsFormat";
+import { graphicsNotice, logLevelLabel, problemsToday } from "./logSettingsFormat";
 
 /** Where "Manage in Storage" lands: the Logs section's first row. */
 export const STORAGE_LOGS_DESTINATION = "storage#system.developer.debug";
@@ -16,7 +16,9 @@ export const STORAGE_LOGS_DESTINATION = "storage#system.developer.debug";
 /**
  * System › Diagnostics: a one-line summary of the log (level in force, how long
  * it's kept, its size, problems today) that links to Storage › Logs, and Copy
- * diagnostics.
+ * diagnostics. When Chromium fell back to drawing on the CPU, a warning row
+ * with Restart OpenWhispr comes first; a launch flag's software mode gets a
+ * neutral note instead.
  */
 export default function DiagnosticsSection({ showing }: { showing: boolean }) {
   const { t } = useTranslation();
@@ -24,6 +26,13 @@ export default function DiagnosticsSection({ showing }: { showing: boolean }) {
   const openSettings = useOpenSettingsLink();
   const { info, problems, failed } = useLogInfo(showing && settingsVisible);
   const [copyOpen, setCopyOpen] = useState(false);
+  const [restarting, setRestarting] = useState(false);
+  const graphics = graphicsNotice(info?.graphics);
+
+  const restart = () => {
+    setRestarting(true);
+    Promise.resolve(window.electronAPI?.relaunchApp?.()).catch(() => setRestarting(false));
+  };
 
   let summary: string;
   if (info) {
@@ -43,6 +52,41 @@ export default function DiagnosticsSection({ showing }: { showing: boolean }) {
     <div>
       <SectionHeader title={t("settingsPage.diagnostics.title")} />
       <SettingsPanel data-setting-id="system.diagnostics">
+        {graphics && (
+          <SettingsPanelRow data-setting-id="system.diagnostics.graphics">
+            <SettingsRow
+              label={t("settingsPage.diagnostics.graphics.label")}
+              description={
+                graphics === "fallback" ? (
+                  <span
+                    data-graphics-notice="fallback"
+                    className="flex items-start gap-1.5 text-warning"
+                  >
+                    <AlertTriangle aria-hidden="true" className="mt-0.5 h-3 w-3 shrink-0" />
+                    <span>{t("settingsPage.diagnostics.graphics.fallback")}</span>
+                  </span>
+                ) : (
+                  <span data-graphics-notice="requested">
+                    {t("settingsPage.diagnostics.graphics.requested")}
+                  </span>
+                )
+              }
+            >
+              {graphics === "fallback" ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs"
+                  disabled={restarting}
+                  onClick={restart}
+                >
+                  <RotateCw className="me-1.5 h-3.5 w-3.5" />
+                  {t("settingsPage.diagnostics.graphics.restart")}
+                </Button>
+              ) : null}
+            </SettingsRow>
+          </SettingsPanelRow>
+        )}
         <SettingsPanelRow>
           <SettingsRow label={t("settingsPage.diagnostics.logs")} description={summary}>
             {openSettings && (

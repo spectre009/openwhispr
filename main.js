@@ -3,6 +3,7 @@
 const { XWAYLAND_FLAG, shouldForceXWayland } = require("./src/helpers/xwayland");
 const { createHotkeyRepeatGate } = require("./src/helpers/hotkeyRepeatGate");
 const { shouldDisableGpuCompositing } = require("./src/helpers/linuxGpuCompositing");
+const { createGraphicsModeMonitor } = require("./src/helpers/graphicsMode");
 
 if (shouldForceXWayland(process.argv)) {
   const { spawn } = require("child_process");
@@ -126,6 +127,14 @@ const gpuCompositingDisabledForNvidia = shouldDisableGpuCompositing();
 if (gpuCompositingDisabledForNvidia) {
   app.commandLine.appendSwitch("disable-gpu-compositing");
 }
+
+// What Chromium draws with, GPU or CPU (graphicsMode.js). Watched from before app ready so the
+// GPU process's first report and an early GPU failure aren't missed; logged and announced once
+// the logger is up (initializeCoreManagers).
+const graphicsMode = createGraphicsModeMonitor({
+  app,
+  disabledForNvidia: gpuCompositingDisabledForNvidia,
+});
 
 // Wayland: packaged builds use the wrapper script (scripts/afterPack.js) to
 // force --ozone-platform=x11 before Electron starts. appendSwitch below is a
@@ -476,22 +485,12 @@ function initializeCoreManagers() {
     logger: debugLogger,
     label: "main",
   });
-  if (process.platform === "linux") {
-    // The compositing mode is settled once the GPU process has reported its info; a GPU
-    // process crash can still drop it to software later, logged below.
-    app
-      .getGPUInfo("basic")
-      .catch(() => {})
-      .then(() => {
-        debugLogger.info("Linux GPU compositing", {
-          status: app.getGPUFeatureStatus().gpu_compositing,
-          disabledForNvidia: gpuCompositingDisabledForNvidia,
-        });
-      });
-  }
-  app.on("child-process-gone", (_event, details) => {
-    if (details.type !== "GPU") return;
-    debugLogger.warn("GPU process gone", { reason: details.reason, exitCode: details.exitCode });
+  // "Graphics mode" once the GPU process has reported (a warning for a software fallback), then
+  // "GPU process gone" and any change of mode; System › Diagnostics follows the broadcast.
+  graphicsMode.attach({
+    logger: debugLogger,
+    onChange: (state) =>
+      require("./src/helpers/windowBroadcast").broadcastToWindows("graphics-mode-changed", state),
   });
   // Registration runs before app ready, when the logger cannot write its file yet.
   if (linuxSchemeHandler?.reason) {
@@ -508,6 +507,7 @@ function initializeCoreManagers() {
   debugLogger.refreshLogLevel();
 
   windowManager = new WindowManager();
+  windowManager.graphicsMode = graphicsMode;
   hotkeyManager = windowManager.hotkeyManager;
   databaseManager = new DatabaseManager();
   // Restore the last validated account scope before any window, IPC handler,

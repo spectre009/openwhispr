@@ -1314,6 +1314,7 @@ export const useAudioRecording = (toast, options = {}) => {
       voiceAgentRequested = false,
       translationRequested = false,
       styleId,
+      pressTrace,
     } = {}) => {
       if (!audioManagerRef.current) return;
       const currentState = audioManagerRef.current.getState();
@@ -1324,7 +1325,13 @@ export const useAudioRecording = (toast, options = {}) => {
       if (startLockRef.current || currentState.isRecording) {
         await performStopRecording();
       } else if (canStartDictation(currentState)) {
-        await performStartRecording({ voiceAgentRequested, translationRequested, styleId });
+        // Main stamps a start press like a hold's, so its trace joins the prepare's.
+        await performStartRecording({
+          voiceAgentRequested,
+          translationRequested,
+          styleId,
+          pressTrace,
+        });
       }
     };
 
@@ -1337,17 +1344,17 @@ export const useAudioRecording = (toast, options = {}) => {
     };
 
     const disposeToggle = window.electronAPI.onToggleDictation((payload) => {
-      handleToggle({ styleId: payload?.styleId });
+      handleToggle({ styleId: payload?.styleId, pressTrace: payload?.trace });
       onToggle?.();
     });
 
-    const disposeVoiceAgentToggle = window.electronAPI.onToggleVoiceAgent?.(() => {
-      handleToggle({ voiceAgentRequested: true });
+    const disposeVoiceAgentToggle = window.electronAPI.onToggleVoiceAgent?.((payload) => {
+      handleToggle({ voiceAgentRequested: true, pressTrace: payload?.trace });
       onToggle?.();
     });
 
-    const disposeTranslationToggle = window.electronAPI.onToggleTranslation?.(() => {
-      handleToggle({ translationRequested: true });
+    const disposeTranslationToggle = window.electronAPI.onToggleTranslation?.((payload) => {
+      handleToggle({ translationRequested: true, pressTrace: payload?.trace });
       onToggle?.();
     });
 

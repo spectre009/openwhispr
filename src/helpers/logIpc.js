@@ -1,6 +1,8 @@
 // IPC for the log (Settings › Storage › Logs, and System's Diagnostics row).
 // The renderer names settings, never paths: main owns the logs folder, reads
 // recent problems itself and answers with the folder's user profile masked.
+// `log-info` also carries the graphics mode, which main announces as
+// `graphics-mode-changed` when it changes (main.js).
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
@@ -90,6 +92,7 @@ async function readRecentProblems(
  * @param {{ saveLogSettings: Function }} deps.environmentManager
  * @param {(channel: string, payload: unknown) => void} [deps.broadcast]  to every window
  * @param {(folder: string) => Promise<string>} [deps.openPath]  shell.openPath
+ * @param {() => object | null} [deps.graphics]  the graphics mode (graphicsMode.js), for Diagnostics
  */
 function createLogHandlers({
   logger,
@@ -99,11 +102,24 @@ function createLogHandlers({
   mask = (folder) => maskUserProfile(folder),
   readProblems = readRecentProblems,
   system = systemInfo,
+  graphics = () => null,
 }) {
   const logState = () => ({ level: logger.getLevel(), includeText: logger.includeText === true });
+  const readGraphics = () => {
+    try {
+      return graphics() ?? null;
+    } catch {
+      return null;
+    }
+  };
   const logInfo = () => {
     const info = logger.getLogInfo();
-    return { ...info, logsDir: info.logsDir ? mask(info.logsDir) : null, system: system() };
+    return {
+      ...info,
+      logsDir: info.logsDir ? mask(info.logsDir) : null,
+      system: system(),
+      graphics: readGraphics(),
+    };
   };
 
   return {

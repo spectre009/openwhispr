@@ -3670,9 +3670,16 @@
       "problemsToday_one": "{{count}} problema hoy",
       "problemsToday_other": "{{count}} problemas hoy",
       "manage": "Gestionar en Almacenamiento",
+      "graphics": {
+        "label": "Gráficos",
+        "description": "Aparece cuando OpenWhispr dibuja con la CPU en lugar de con la tarjeta gráfica.",
+        "fallback": "La aceleración gráfica está desactivada. OpenWhispr está dibujando con la CPU, así que las animaciones pueden ir a saltos. Suele significar que otra app ha agotado la tarjeta gráfica; reinicia OpenWhispr cuando quede libre.",
+        "requested": "Dibujando con la CPU (lo fija una opción de inicio)",
+        "restart": "Reiniciar OpenWhispr"
+      },
       "copy": {
         "label": "Copiar diagnóstico",
-        "description": "Versiones, compilación, sistema operativo, ajustes de registro y recuento de problemas recientes, listos para un informe de errores. Sin claves, sin texto dictado, sin líneas de registro.",
+        "description": "Versiones, compilación, sistema operativo, modo gráfico, ajustes de registro y recuento de problemas recientes, listos para un informe de errores. Sin claves, sin texto dictado, sin líneas de registro.",
         "button": "Copiar…",
         "dialogTitle": "Copiar diagnóstico",
         "dialogDescription": "Esto es exactamente lo que se copiará, en inglés para un informe de errores. Tu nombre de usuario no aparece en las rutas."

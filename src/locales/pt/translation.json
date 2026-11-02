@@ -3597,9 +3597,16 @@
       "problemsToday_one": "{{count}} problema hoje",
       "problemsToday_other": "{{count}} problemas hoje",
       "manage": "Gerenciar em Armazenamento",
+      "graphics": {
+        "label": "Gráficos",
+        "description": "Aparece quando o OpenWhispr desenha com a CPU em vez da placa de vídeo.",
+        "fallback": "A aceleração gráfica está desligada. O OpenWhispr está desenhando com a CPU, então as animações podem engasgar. Geralmente isso significa que outro app esgotou a placa de vídeo; reinicie o OpenWhispr quando ela estiver livre.",
+        "requested": "Desenhando com a CPU (definido por uma opção de inicialização)",
+        "restart": "Reiniciar o OpenWhispr"
+      },
       "copy": {
         "label": "Copiar diagnóstico",
-        "description": "Versões, build, sistema operacional, configurações de log e contagem de problemas recentes, prontos para um relatório de erro. Sem chaves, sem texto ditado, sem linhas de log.",
+        "description": "Versões, build, sistema operacional, modo gráfico, configurações de log e contagem de problemas recentes, prontos para um relatório de erro. Sem chaves, sem texto ditado, sem linhas de log.",
         "button": "Copiar…",
         "dialogTitle": "Copiar diagnóstico",
         "dialogDescription": "Isto é exatamente o que será copiado, em inglês para um relatório de erro. Seu nome de usuário fica oculto nos caminhos."

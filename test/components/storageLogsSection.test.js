@@ -9,7 +9,8 @@ const { installSettingsDom, settle } = require("../lib/settingsDomHarness");
 // in for main's log IPC: the three levels and an override's note, retention and
 // dictated text saved as one setting each, recent problems folded, Clear logs
 // asking first and reporting what it kept, Copy diagnostics previewing exactly
-// what it copies, and nothing read while the page is hidden.
+// what it copies, nothing read while the page is hidden, and the graphics row:
+// a warning with Restart for a software fallback, a note for a launch flag's.
 
 const HOUR = 3600 * 1000;
 const NOW = Date.now();
@@ -56,6 +57,8 @@ let info = INFO;
 let problems = PROBLEMS;
 let clearResult = { deleted: 72, failed: [] };
 let rejectSave = false;
+let relaunches = 0;
+const graphicsListeners = new Set();
 const saved = [];
 const clipboard = [];
 let dom;
@@ -80,6 +83,13 @@ test.before(async () => {
       writeClipboard: async (text) => {
         clipboard.push(text);
         return { success: true };
+      },
+      relaunchApp: async () => {
+        relaunches += 1;
+      },
+      onGraphicsModeChanged: (callback) => {
+        graphicsListeners.add(callback);
+        return () => graphicsListeners.delete(callback);
       },
     },
   });
@@ -368,4 +378,110 @@ test("a setting that couldn't be saved says so under its own row", async (t) => 
   const alert = row(host, "storage.logs.retention").querySelector('[role="alert"]');
   assert.equal(alert?.textContent, "Couldn't save the log settings. Try again.");
   assert.equal(row(host, "system.developer.debug").querySelector('[role="alert"]'), null);
+});
+
+const WARP =
+  "ANGLE (Microsoft, Microsoft Basic Render Driver (0x0000008C) Direct3D11 vs_5_0 ps_5_0, D3D11-10.0.26100.9711)";
+const FALLBACK = {
+  mode: "software",
+  reason: "fallback",
+  requestedBy: null,
+  gpuCompositing: "disabled_software",
+  rasterization: "disabled_software",
+  glRenderer: WARP,
+  displayType: "ANGLE_D3D11_WARP",
+};
+const REQUESTED = {
+  ...FALLBACK,
+  reason: "requested",
+  requestedBy: "--disable-gpu",
+  glRenderer: null,
+  displayType: null,
+};
+const HARDWARE = {
+  mode: "hardware",
+  reason: null,
+  requestedBy: null,
+  gpuCompositing: "enabled",
+  rasterization: "enabled",
+  glRenderer:
+    "ANGLE (NVIDIA, NVIDIA GeForce RTX 5090 (0x00002B85) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+  displayType: "ANGLE_D3D11",
+};
+
+test("a software fallback puts a warning with Restart OpenWhispr first in Diagnostics", async (t) => {
+  info = { ...INFO, graphics: FALLBACK };
+  relaunches = 0;
+  const { host, button, click } = await mount(t, "/components/settings/DiagnosticsSection.tsx");
+  const panel = row(host, "system.diagnostics");
+  const graphics = row(host, "system.diagnostics.graphics");
+  assert.ok(graphics, "the graphics row has its own anchor");
+  assert.equal(panel.firstElementChild, graphics, "it comes first");
+  const notice = graphics.querySelector('[data-graphics-notice="fallback"]');
+  assert.equal(
+    notice.textContent,
+    "Graphics acceleration is off. OpenWhispr is drawing on the CPU, so animations can stutter. This usually means another app has used up the graphics card; restart OpenWhispr once it's free."
+  );
+  assert.match(graphics.textContent, /^Graphics/);
+  const restart = button("Restart OpenWhispr", graphics);
+  assert.ok(restart, "Restart OpenWhispr");
+  await click(restart);
+  assert.equal(relaunches, 1, "the existing relaunch-app");
+  assert.equal(restart.disabled, true, "pressed once");
+  info = INFO;
+});
+
+test("a launch flag's software mode gets a neutral note, hardware nothing; the row follows main", async (t) => {
+  info = { ...INFO, graphics: REQUESTED };
+  const requested = await mount(t, "/components/settings/DiagnosticsSection.tsx");
+  const note = row(requested.host, "system.diagnostics.graphics");
+  assert.equal(
+    note.querySelector('[data-graphics-notice="requested"]').textContent,
+    "Drawing on the CPU (set by a launch flag)"
+  );
+  assert.equal(requested.button("Restart OpenWhispr", note), undefined, "nothing to fix");
+  assert.equal(note.querySelector('[data-graphics-notice="fallback"]'), null);
+
+  for (const graphics of [HARDWARE, { ...HARDWARE, mode: "unknown" }, null, undefined]) {
+    info = { ...INFO, graphics };
+    const quiet = await mount(t, "/components/settings/DiagnosticsSection.tsx");
+    assert.equal(row(quiet.host, "system.diagnostics.graphics"), null, String(graphics?.mode));
+  }
+
+  // A fallback mid-session reaches an open page through the broadcast.
+  info = { ...INFO, graphics: HARDWARE };
+  const live = await mount(t, "/components/settings/DiagnosticsSection.tsx");
+  assert.equal(row(live.host, "system.diagnostics.graphics"), null);
+  await live.React.act(async () => {
+    for (const listener of graphicsListeners) listener(FALLBACK);
+    await settle();
+  });
+  assert.ok(live.host.querySelector('[data-graphics-notice="fallback"]'));
+  info = INFO;
+});
+
+test("Copy diagnostics names the graphics mode and its renderer", async (t) => {
+  info = { ...INFO, graphics: FALLBACK };
+  const { host, doc, button, click } = await mount(
+    t,
+    "/components/settings/DiagnosticsSection.tsx"
+  );
+  await click(button("Copy…", row(host, "system.diagnostics")));
+  const lines = doc.querySelector("[data-diagnostics-preview]").textContent.split("\n");
+  const os = lines.indexOf("OS: Windows 10.0.26100 (x64)");
+  assert.deepEqual(lines.slice(os + 1, os + 3), [
+    "Graphics: software (fallback), gpu_compositing disabled_software, rasterization disabled_software",
+    `Graphics renderer: ${WARP} [ANGLE_D3D11_WARP]`,
+  ]);
+
+  const { diagnosticsText } = await vite.ssrLoadModule("/components/settings/logSettingsFormat.ts");
+  const text = (graphics) =>
+    diagnosticsText({ build: null, log: { ...INFO, graphics }, problems: [] });
+  assert.match(
+    text(REQUESTED),
+    /^Graphics: software \(requested by --disable-gpu\), gpu_compositing disabled_software, rasterization disabled_software$/m
+  );
+  assert.doesNotMatch(text(REQUESTED), /Graphics renderer/);
+  assert.match(text(null), /^Graphics: unknown$/m);
+  info = INFO;
 });

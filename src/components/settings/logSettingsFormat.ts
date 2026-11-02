@@ -1,5 +1,6 @@
 import type {
   BuildInfoResult,
+  GraphicsModeState,
   LogInfoResult,
   LogLevel,
   LogProblem,
@@ -87,6 +88,41 @@ const OVERRIDE_TEXT = {
 
 const OS_NAMES: Record<string, string> = { win32: "Windows", darwin: "macOS", linux: "Linux" };
 
+/**
+ * What System › Diagnostics says about the graphics mode: a warning for a
+ * software fallback, a neutral note when a launch flag asked for software
+ * drawing, nothing for hardware or while the mode is unknown.
+ */
+export function graphicsNotice(
+  graphics: GraphicsModeState | null | undefined
+): "fallback" | "requested" | null {
+  if (graphics?.mode !== "software") return null;
+  return graphics.reason === "requested" ? "requested" : "fallback";
+}
+
+/** Copy diagnostics' graphics lines (English). */
+export function graphicsText(graphics: GraphicsModeState | null | undefined): string[] {
+  if (!graphics || graphics.mode === "unknown") return ["Graphics: unknown"];
+  let mode: string = graphics.mode;
+  if (graphics.reason === "requested") {
+    mode += graphics.requestedBy ? ` (requested by ${graphics.requestedBy})` : " (requested)";
+  } else if (graphics.reason) {
+    mode += ` (${graphics.reason})`;
+  }
+  const status = [
+    graphics.gpuCompositing && `gpu_compositing ${graphics.gpuCompositing}`,
+    graphics.rasterization && `rasterization ${graphics.rasterization}`,
+  ].filter(Boolean);
+  const lines = [`Graphics: ${[mode, ...status].join(", ")}`];
+  if (graphics.glRenderer || graphics.displayType) {
+    const renderer = graphics.glRenderer ?? "unknown";
+    lines.push(
+      `Graphics renderer: ${renderer}${graphics.displayType ? ` [${graphics.displayType}]` : ""}`
+    );
+  }
+  return lines;
+}
+
 export interface DiagnosticsInput {
   build: BuildInfoResult | null;
   log: LogInfoResult;
@@ -95,8 +131,9 @@ export interface DiagnosticsInput {
 
 /**
  * Copy diagnostics: plain English lines for a bug report, whatever the UI
- * language. Settings, sizes and counts only: no log lines, keys or dictated
- * text, and main has already masked the user profile in the paths.
+ * language. Settings, sizes, counts and the graphics mode only: no log lines,
+ * keys or dictated text, and main has already masked the user profile in the
+ * paths.
  */
 export function diagnosticsText({ build, log, problems }: DiagnosticsInput): string {
   const lines = ["OpenWhispr diagnostics", ""];
@@ -105,6 +142,7 @@ export function diagnosticsText({ build, log, problems }: DiagnosticsInput): str
     const os = OS_NAMES[log.system.platform] ?? log.system.platform;
     lines.push(`OS: ${os} ${log.system.version ?? "unknown"} (${log.system.arch})`);
   }
+  lines.push(...graphicsText(log.graphics));
   lines.push("");
   const setting = LEVEL_TEXT[log.level];
   if (log.overriddenBy) {

@@ -2764,6 +2764,20 @@ class IPCHandlers {
       this.windowManager.setDictationAudioLevel(level);
     });
 
+    // A dictation start's painted frame (the pill shown, its entrance ended),
+    // for the "Dictation start visuals" line.
+    ipcMain.on("dictation-start-visual", (event, mark) => {
+      const dictationWindow = this.windowManager.mainWindow;
+      if (
+        !dictationWindow ||
+        dictationWindow.isDestroyed() ||
+        event.sender !== dictationWindow.webContents
+      ) {
+        return;
+      }
+      this.windowManager.handleStartVisualMark?.(mark);
+    });
+
     // Dictionary handlers
     // "Learn from your corrections": Suggest, Add directly or Off. Every
     // window syncs it on load (same-value syncs are ignored, #1080); until the
@@ -7267,6 +7281,7 @@ class IPCHandlers {
       environmentManager: this.environmentManager,
       broadcast: broadcastToWindows,
       openPath: (folder) => shell.openPath(folder),
+      graphics: () => this.windowManager?.graphicsMode?.getState?.() ?? null,
     });
 
     // Storage: what's kept where and how big (sizes, Open, Clear by fixed id).

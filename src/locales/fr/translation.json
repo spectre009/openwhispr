@@ -3712,9 +3712,16 @@
       "problemsToday_one": "{{count}} problème aujourd'hui",
       "problemsToday_other": "{{count}} problèmes aujourd'hui",
       "manage": "Gérer dans Stockage",
+      "graphics": {
+        "label": "Graphismes",
+        "description": "S'affiche quand OpenWhispr dessine avec le processeur au lieu de la carte graphique.",
+        "fallback": "L'accélération graphique est désactivée. OpenWhispr dessine avec le processeur, les animations peuvent donc saccader. Cela signifie généralement qu'une autre app a épuisé la carte graphique ; redémarrez OpenWhispr une fois qu'elle est libre.",
+        "requested": "Dessin avec le processeur (défini par une option de lancement)",
+        "restart": "Redémarrer OpenWhispr"
+      },
       "copy": {
         "label": "Copier le diagnostic",
-        "description": "Versions, build, système, réglages des journaux et nombre de problèmes récents, prêts pour un rapport de bug. Aucune clé, aucun texte dicté, aucune ligne de journal.",
+        "description": "Versions, build, système, mode graphique, réglages des journaux et nombre de problèmes récents, prêts pour un rapport de bug. Aucune clé, aucun texte dicté, aucune ligne de journal.",
         "button": "Copier…",
         "dialogTitle": "Copier le diagnostic",
         "dialogDescription": "Voici exactement ce qui sera copié, en anglais pour un rapport de bug. Votre nom d'utilisateur est masqué dans les chemins."

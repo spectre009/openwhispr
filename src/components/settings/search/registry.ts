@@ -1469,6 +1469,24 @@ export const SETTINGS_SEARCH_DESCRIPTORS: readonly SettingDescriptor[] = [
     aliasKeys: ["settingsPage.diagnostics.copy.label", "settingsPage.diagnostics.manage"],
     summary: true,
   }),
+  // Shown only while Chromium draws on the CPU; otherwise search lands on Diagnostics.
+  row("system.diagnostics.graphics", SYSTEM, "settingsPage.diagnostics.graphics.label", {
+    descriptionKey: "settingsPage.diagnostics.graphics.description",
+    groupKey: "settingsPage.diagnostics.title",
+    fallbackAnchor: "system.diagnostics",
+    aliases: [
+      "graphics",
+      "gpu",
+      "graphics card",
+      "hardware acceleration",
+      "software rendering",
+      "stutter",
+      "lag",
+      "choppy animations",
+      "restart",
+    ],
+    aliasKeys: ["settingsPage.diagnostics.graphics.restart"],
+  }),
   row("system.data.reset", SYSTEM, "settingsPage.developer.resetAppData", {
     descriptionKey: "settingsPage.developer.resetAppDataDescription",
     groupKey: "settingsPage.developer.dataManagementTitle",

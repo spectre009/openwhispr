@@ -3712,9 +3712,16 @@
       "problemsToday_one": "{{count}} problem today",
       "problemsToday_other": "{{count}} problems today",
       "manage": "Manage in Storage",
+      "graphics": {
+        "label": "Graphics",
+        "description": "Shown when OpenWhispr draws on the CPU instead of the graphics card.",
+        "fallback": "Graphics acceleration is off. OpenWhispr is drawing on the CPU, so animations can stutter. This usually means another app has used up the graphics card; restart OpenWhispr once it's free.",
+        "requested": "Drawing on the CPU (set by a launch flag)",
+        "restart": "Restart OpenWhispr"
+      },
       "copy": {
         "label": "Copy diagnostics",
-        "description": "Versions, build, OS, log settings and counts of recent problems, ready for a bug report. No keys, no dictated text, no log lines.",
+        "description": "Versions, build, OS, graphics mode, log settings and counts of recent problems, ready for a bug report. No keys, no dictated text, no log lines.",
         "button": "Copy…",
         "dialogTitle": "Copy diagnostics",
         "dialogDescription": "This is exactly what will be copied, in English for a bug report. Your user name is hidden in paths."

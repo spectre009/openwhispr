@@ -114,7 +114,13 @@ test("the dictation hotkey names no style, and its payloads are unchanged", (t) 
 
   sent.length = 0;
   manager.sendToggleDictation();
-  assert.deepEqual(sent.at(-1), ["toggle-dictation"], "a toggle without a style sends no payload");
+  const [channel, payload] = sent.at(-1);
+  assert.equal(channel, "toggle-dictation");
+  assert.deepEqual(
+    Object.keys(payload),
+    ["trace"],
+    "a toggle without a style names none; its start carries only the press trace"
+  );
 });
 
 test("a toggle can name a style, which its prepare carries too", () => {

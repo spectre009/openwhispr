@@ -96,6 +96,7 @@ const { centeredBounds, clampedBounds } = require("./onboardingWindowBounds");
 const { ONBOARDING_DEMO_KINDS, isOnboardingInputAllowed } = require("./onboardingInputPolicy");
 const { createHotkeyRepeatGate } = require("./hotkeyRepeatGate");
 const { RecordingEdgeStrip } = require("./recordingEdgeStrip");
+const { StartVisualsTracker } = require("./dictationStartVisuals");
 const {
   nextRecordingReminderDelay,
   normalizeRecordingIndicatorSettings,
@@ -180,6 +181,15 @@ class WindowManager {
     this._recordingIndicatorSettings = normalizeRecordingIndicatorSettings(null);
     this._recordingStartedAt = null;
     this._recordingReminderTimer = null;
+    // The graphics mode monitor (graphicsMode.js), set by main.js.
+    this.graphicsMode = null;
+    // "Dictation start visuals": one line per press, from the pill's first
+    // painted frame, its entrance and the strip's show (dictationStartVisuals.js).
+    this._startVisuals = new StartVisualsTracker({
+      logger: debugLogger,
+      getGraphics: () => this.graphicsMode?.getState?.() ?? null,
+    });
+    this._startVisualsProbe = null;
     this.recordingEdgeStrip = new RecordingEdgeStrip({
       BrowserWindow,
       screen,
@@ -190,12 +200,14 @@ class WindowManager {
       // Wayland compositors place windows themselves, so nothing can pin the
       // strip to the top edge there.
       supported: !(process.platform === "linux" && getLinuxSessionInfo().isWayland),
+      onRecordingShown: (details) => this._startVisuals.frameShown(details),
     });
 
     app.on("before-quit", () => {
       this.isQuitting = true;
       this.hotkeyManager.unregisterAll();
       this._clearRecordingReminder();
+      this._startVisuals.dispose();
       this.recordingEdgeStrip.destroy();
     });
   }
@@ -1029,8 +1041,12 @@ class WindowManager {
     };
     const pushStyleId = typeof styleId === "string" && styleId ? styleId : undefined;
 
+    const pillWasVisible = this._isPillOnScreen();
     this.showDictationPanel({ reposition: true });
-    this.sendPrepareDictation({ trace, styleId: pushStyleId });
+    if (this.sendPrepareDictation({ trace, styleId: pushStyleId })) {
+      this._beginStartVisuals(trace, { pillWasVisible });
+      this._probeStartVisuals({ ready: true });
+    }
 
     const safetyTimeoutId = setTimeout(() => {
       if (!this.winPushState || this.winPushState.downTime !== downTime) return;
@@ -1083,6 +1099,8 @@ class WindowManager {
     if (wasRecording) {
       this.sendStopDictation();
     } else {
+      // Released before the hold started a recording.
+      this._startVisuals?.cancelled();
       this.sendCancelDictationPreparation();
       this.hideDictationPanel();
     }
@@ -1242,6 +1260,12 @@ class WindowManager {
     }
     if (this.mainWindow && !this.mainWindow.isDestroyed()) {
       const isStarting = !this._isDictatingToggle;
+      // A start press is stamped like a hold's (the key time is main's own),
+      // so the renderer's start trace and the start visuals share its pressId.
+      const pressAt = Date.now();
+      const trace = isStarting
+        ? { pressId: pressAt, keyAt: pressAt, keyTimeSource: "main", mainAt: pressAt }
+        : null;
       // Capture the paste target and any selection on every toggle press,
       // before the overlay steals focus — the paste can't refocus the target
       // otherwise (#668). The renderer owns the real recording state and may
@@ -1255,6 +1279,7 @@ class WindowManager {
       if (!isStarting) {
         this._mainWindowPlacementCoordinator.cancelPending();
       }
+      const pillWasVisible = this._isPillOnScreen();
       this.showDictationPanel({
         reposition: isStarting,
         targetPidPromise,
@@ -1265,10 +1290,15 @@ class WindowManager {
       // toggle's own kind so the pre-warm survives the assistant demo, whose
       // gate rejects "dictation".
       if (isStarting) {
-        this.sendPrepareDictation({ inputKind, styleId: payload?.styleId });
+        this.sendPrepareDictation({ inputKind, styleId: payload?.styleId, trace });
+        this._beginStartVisuals(trace, { pillWasVisible, inputKind });
       }
-      if (payload) this.mainWindow.webContents.send(channel, payload);
+      const message = trace
+        ? { ...(payload || {}), trace: { ...trace, startSentAt: Date.now() } }
+        : payload;
+      if (message) this.mainWindow.webContents.send(channel, message);
       else this.mainWindow.webContents.send(channel);
+      if (isStarting) this._probeStartVisuals({ ready: true });
     }
   }
 
@@ -1288,6 +1318,10 @@ class WindowManager {
     if (!this._isDictatingToggle) this._recordingStartedAt = null;
     else if (!wasRecording)
       this._recordingStartedAt = resolveRecordingStartedAt(startedAt, Date.now());
+    // Before the strip: a strip window it can reuse shows at once.
+    if (this._isDictatingToggle && !wasRecording) this._startVisuals?.recordingStarted();
+    else if (!this._isDictatingToggle && wasRecording) this._startVisuals?.recordingEnded();
+    else if (nextState === DICTATION_LIFECYCLE.IDLE) this._startVisuals?.cancelled();
     this.recordingEdgeStrip.setRecording(this._isDictatingToggle, nextInputKind);
     this._scheduleRecordingReminder();
     this.meetingDetectionEngine?.setUserRecording(this._isDictatingToggle);
@@ -1568,15 +1602,15 @@ class WindowManager {
   }
 
   sendPrepareDictation({ inputKind = "dictation", trace, styleId } = {}) {
-    if (!this._isOnboardingInputAllowed(inputKind)) return;
+    if (!this._isOnboardingInputAllowed(inputKind)) return false;
     if (this._shouldBlockDictationInput(inputKind)) {
-      return;
+      return false;
     }
     if (this.hotkeyManager.isInListeningMode()) {
-      return;
+      return false;
     }
     if (shouldIgnoreDictationHotkey(this._dictationLifecycleState)) {
-      return;
+      return false;
     }
     if (this.mainWindow && !this.mainWindow.isDestroyed()) {
       this.mainWindow.webContents.send("prepare-dictation", {
@@ -1584,7 +1618,9 @@ class WindowManager {
         ...(trace && { trace: { ...trace, prepareSentAt: Date.now() } }),
         ...(typeof styleId === "string" && styleId && { styleId }),
       });
+      return true;
     }
+    return false;
   }
 
   sendCancelDictationPreparation() {
@@ -2311,10 +2347,53 @@ class WindowManager {
       } else {
         this.mainWindow.show();
       }
+      // A pill shown after its press's messages (a locked display moves it first).
+      this._probeStartVisuals();
     }
     if (focus) {
       this.mainWindow.focus();
     }
+  }
+
+  _isPillOnScreen() {
+    const win = this.mainWindow;
+    if (!win || win.isDestroyed?.() || typeof win.isVisible !== "function") return false;
+    return win.isVisible() === true && win.isMinimized?.() !== true;
+  }
+
+  // Dictation start visuals: one line per press, keyed by its trace's pressId
+  // like the renderer's start trace. Not during onboarding, which shows no pill.
+  _beginStartVisuals(trace, { pillWasVisible = false, inputKind = "dictation" } = {}) {
+    if (!this._startVisuals || this._onboardingActive || !trace || !this.mainWindow) return;
+    this._startVisuals.begin({
+      pressId: trace.pressId,
+      keyAt: trace.keyAt,
+      keyTimeSource: trace.keyTimeSource,
+      pillWasVisible,
+      strip: this.recordingEdgeStrip?.stripModeForRecording?.() ?? "off",
+      // Under the open assistant panel only the assistant's own recording runs
+      // the pill's entrance here (App.jsx's voicePillOwnsActivity).
+      expectSettle: !this._assistantPanelOpen || inputKind === DICTATION_INPUT_KIND.ASSISTANT,
+    });
+    this._startVisualsProbe = { pressId: trace.pressId, ready: false };
+  }
+
+  // Asks the dictation window for its first frame painted with the pill on
+  // screen, once the press's messages are sent (`ready`) and the window shows.
+  _probeStartVisuals({ ready = false } = {}) {
+    const probe = this._startVisualsProbe;
+    if (!probe) return;
+    if (ready) probe.ready = true;
+    if (!probe.ready || !this._isPillOnScreen()) return;
+    this._startVisualsProbe = null;
+    if (this._startVisuals?.pendingPressId !== probe.pressId) return;
+    this.mainWindow.webContents.send("dictation-start-visuals-probe", { pressId: probe.pressId });
+  }
+
+  /** The dictation window's painted frame for a start (`dictation-start-visual`). */
+  handleStartVisualMark(mark) {
+    if (!mark || typeof mark !== "object") return;
+    this._startVisuals?.mark(mark.pressId, mark.mark, mark.at);
   }
 
   setOnboardingActive(active) {

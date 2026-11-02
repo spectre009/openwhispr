@@ -6,6 +6,7 @@ import type { LogInfoResult, LogProblem } from "../../types/electron";
  * `log-recent-problems`), read when `active` turns on (the page shows while
  * Settings is visible), when any window changes the settings, and on
  * `refresh()` after an action. Nothing polls: a hidden page reads nothing.
+ * `info.graphics` follows main's `graphics-mode-changed` announcement.
  */
 export function useLogInfo(active: boolean) {
   const [info, setInfo] = useState<LogInfoResult | null>(null);
@@ -51,6 +52,15 @@ export function useLogInfo(active: boolean) {
       if (activeRef.current) void refresh();
     });
   }, [refresh]);
+
+  // The graphics mode arrives with the state itself: no read needed.
+  useEffect(() => {
+    const subscribe = window.electronAPI?.onGraphicsModeChanged;
+    if (typeof subscribe !== "function") return undefined;
+    return subscribe((graphics) => {
+      setInfo((current) => (current ? { ...current, graphics: graphics ?? null } : current));
+    });
+  }, []);
 
   return { info, setInfo, problems, failed, refresh };
 }
