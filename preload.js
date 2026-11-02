@@ -804,6 +804,13 @@ contextBridge.exposeInMainWorld("electronAPI", {
   customConnectionCompare: (args) => ipcRenderer.invoke("custom-connection-compare", args),
   customConnectionDeleteKey: () => ipcRenderer.invoke("custom-connection-delete-key"),
   customConnectionCheck: (args) => ipcRenderer.invoke("custom-connection-check", args),
+  // Settings › AI Connections' connection checks: descriptors in (names, never
+  // keys), evidence out; queued checks answer through onConnectionCheckResult.
+  connectionChecksRun: (request) => ipcRenderer.invoke("connection-checks-run", request),
+  onConnectionCheckResult: registerListener(
+    "connection-check-result",
+    (callback) => (_event, payload) => callback(payload)
+  ),
 
   // Enterprise provider key management
   getBedrockRegion: () => ipcRenderer.invoke("get-bedrock-region"),

@@ -7022,6 +7022,133 @@
       },
       "endpointLabel": "リソースのエンドポイント",
       "help": "Speech リソースの Keys and Endpoint ページにあるエンドポイントとキーを貼り付けてください。Foundry のエンドポイント（.services.ai.azure.com、プロジェクトのものも可）も使えます。同じリソースの .cognitiveservices.azure.com のアドレスとして保存されます。"
+    },
+    "health": {
+      "withAge": "{{state}} · {{ago}}",
+      "check": "確認",
+      "checking": "確認中…",
+      "checkAria": "{{name}} を確認",
+      "states": {
+        "ok": "キーは有効",
+        "signedIn": "サインイン済み",
+        "service": "Copilot 利用可能",
+        "reachable": "接続可能",
+        "notVerifiable": "接続可能 · キーは確認不可",
+        "rejected": "キーが拒否されました",
+        "managementKey": "キーでリクエストできません",
+        "unreachable": "接続できません",
+        "endpointNotFound": "エンドポイントが見つかりません",
+        "modelMissing": "利用できないモデルがあります",
+        "rateLimited": "レート制限中",
+        "limitReached": "利用上限に達しました",
+        "outOfCredit": "クレジット不足",
+        "accessDenied": "アクセス拒否",
+        "unexpected": "予期しない応答",
+        "checking": "確認中…",
+        "unchecked": "未確認"
+      },
+      "notChecked": {
+        "label": "未確認",
+        "managed": "組織が管理 · ここでは確認しません",
+        "noKey": "未確認 · キーが保存されていません",
+        "incomplete": "未確認 · クライアント資格情報が両方必要です",
+        "invalidEndpoint": "未確認 · エンドポイントが無効です",
+        "endpointNeeded": "未確認 · エンドポイントが必要です",
+        "cloudOff": "未確認 · OpenWhispr Cloud がオフです"
+      },
+      "marks": {
+        "offered": "この接続で利用可能",
+        "missing": "この接続では利用不可"
+      },
+      "steps": {
+        "theServer": "サーバー",
+        "noAnswer": "{{host}} から 8 秒以内に応答がありません",
+        "status": "{{host}} の応答: {{status}}",
+        "unreachable": "{{host}} に接続できません",
+        "reachable": "{{host}} に接続可能",
+        "redirected": "{{host}} が別の場所へリダイレクトしたため、キーは転送されませんでした",
+        "signInAccepted": "GitHub がサインインを受け入れました",
+        "keyAccepted": "キーが受け入れられました",
+        "copilotListed": "Copilot がプランのモデルを一覧表示しました",
+        "managementKey": "これは管理キーで、リクエストには使えません",
+        "keyBlocked": "キーがブロックまたは無効化されています",
+        "keyRejected": "キーが拒否されました（{{status}}）",
+        "modelOffered": "{{model}} は利用可能です",
+        "modelMissing": "{{model}} は一覧にありません",
+        "limit": "利用上限: {{amount}} のうち残り {{remaining}}",
+        "languageModels": "言語モデル",
+        "speechToText": "音声認識"
+      },
+      "problems": {
+        "rejected": "{{name}} がこのキーを受け入れませんでした。",
+        "rejectedHint": "{{name}} のサイトで削除または更新された可能性があります。",
+        "managementKey": "このキーはリクエストに使えません。",
+        "managementKeyHint": "OpenRouter の管理キーです。代わりに通常の API キーを作成してください。",
+        "unreachable": "{{host}} から応答がありません。",
+        "unreachableHint": "エンドポイントかネットワークを確認してください。",
+        "endpointNotFound": "{{host}} はこのサービスを提供していません。",
+        "endpointNotFoundHint": "エンドポイント、リージョン、テナントを確認してください。",
+        "modelMissing": "{{feature}} は「{{model}}」を使っていますが、{{name}} の一覧にありません。",
+        "modelMissingHint": "キーは有効です。別のモデルを選ぶか、このモデルを再び利用可能にするまで、{{feature}} は失敗します。",
+        "rateLimited": "{{name}} が「リクエストが多すぎます」と応答しました。",
+        "rateLimitedHint": "キーはおそらく問題ありません。数分後にもう一度お試しください。",
+        "limitReached": "キーは有効ですが、利用上限に達しています。",
+        "limitReachedHint": "OpenRouter でキーの上限を引き上げるまで、リクエストは失敗します。",
+        "outOfCredit": "{{name}} によると、アカウントのクレジットが不足しています。",
+        "outOfCreditHint": "チャージするまでリクエストは失敗します。",
+        "accessDenied": "{{name}} がアクセスを拒否しました（{{status}}）。",
+        "accessDeniedHint": "キーにモデル一覧の権限がない可能性があります。リクエスト自体は動作する場合があります。",
+        "unexpected": "{{name}} から予期しない応答がありました。",
+        "unexpectedHint": "しばらくしてからもう一度確認してください。",
+        "affected": "影響: {{features}}。",
+        "notAffected": "現在これを使っているものはないため、影響を受ける機能はありません。"
+      },
+      "actions": {
+        "replaceKey": "キーを置き換え",
+        "getKey": "キーを取得",
+        "remove": "削除",
+        "chooseModel": "{{feature}} のモデルを選ぶ",
+        "editEndpoint": "エンドポイントを編集",
+        "checkAgain": "もう一度確認",
+        "signIn": "もう一度サインイン"
+      },
+      "notes": {
+        "copilotIdentity": "自動確認ではサインインを確認します。「確認」ではプランのモデルも Copilot に問い合わせます（Copilot のヘルパーが 1 分ほど起動します）。",
+        "tinfoil": "Tinfoil のモデル一覧は公開されているため、接続できるかだけを確認します。キーは使用時に確認されます。",
+        "azureSpeech": "{{model}} 自体は音声入力時に確認されます。"
+      },
+      "summary": {
+        "checking_one": "{{count}} 件の接続を確認中…",
+        "checking_other": "{{count}} 件の接続を確認中…",
+        "allWork_one": "{{count}} 件の接続が有効です",
+        "allWork_other": "{{count}} 件の接続がすべて有効です",
+        "problems_one": "{{count}} 件の接続に問題があります",
+        "problems_other": "{{count}} 件の接続に問題があります",
+        "warnings_one": "{{count}} 件の接続に注意が必要です",
+        "warnings_other": "{{count}} 件の接続に注意が必要です",
+        "notChecked": "未確認",
+        "checkedAgo": "{{ago}}に確認。",
+        "free": "無料の確認です。テキストや音声は送信せず、各キーが受け入れられるか、そのモデルがあるかだけを確認します。",
+        "working_one": "{{count}} 件有効",
+        "working_other": "{{count}} 件有効",
+        "problemCount_one": "{{count}} 件の問題",
+        "problemCount_other": "{{count}} 件の問題",
+        "warningCount_one": "{{count}} 件の警告",
+        "warningCount_other": "{{count}} 件の警告",
+        "notCheckedCount_one": "{{count}} 件未確認",
+        "notCheckedCount_other": "{{count}} 件未確認",
+        "checkAll": "すべて確認",
+        "none": "まだ確認するものがありません。下でキーを追加するかサインインしてください。"
+      },
+      "navFlag": {
+        "danger": "機能が使っている接続に問題があります",
+        "warning": "機能が使っている接続が制限されています"
+      },
+      "search": {
+        "title": "接続の状態",
+        "description": "保存した各キーとサインインが有効か確認します。すべて確認と、各確認の結果。",
+        "alias": "接続を確認"
+      }
     }
   },
   "modelPicker": {
@@ -7171,6 +7298,16 @@
         "localEngine": "{{engine}}（ローカル）",
         "defaultModel": "既定（{{model}}）"
       }
+    },
+    "health": {
+      "rejected": "{{provider}} のキーが拒否されました（{{ago}}に確認）",
+      "unreachable": "{{provider}} に接続できませんでした（{{ago}}に確認）",
+      "modelMissing": "{{provider}} の一覧にこのモデルがありません（{{ago}}に確認）",
+      "rateLimited": "{{provider}} がレート制限中でした（{{ago}}に確認）",
+      "limitReached": "{{provider}} の利用上限に達しています（{{ago}}に確認）",
+      "outOfCredit": "{{provider}} のクレジットが不足しています（{{ago}}に確認）",
+      "accessDenied": "{{provider}} がアクセスを拒否しました（{{ago}}に確認）",
+      "fix": "AI 接続で修正"
     }
   }
 }

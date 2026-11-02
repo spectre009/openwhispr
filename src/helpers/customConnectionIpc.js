@@ -18,6 +18,87 @@ const CHECK_TIMEOUT_MS = 12000;
 const DEPLOYMENTS_API_VERSION = "2022-12-01";
 const MAX_DEPLOYMENTS = 200;
 
+// A response whose body isn't read: released at once, never parsed or kept.
+function discardBody(response) {
+  try {
+    const cancelled = response?.body?.cancel?.();
+    if (cancelled && typeof cancelled.catch === "function") cancelled.catch(() => {});
+  } catch {
+    // Already consumed or not a stream.
+  }
+}
+
+const isAbort = (error) => error?.name === "AbortError" || error?.name === "TimeoutError";
+
+// Optional: Azure lists a resource's deployments here. Anything but a list
+// means "unavailable", never a broken connection. More than MAX_DEPLOYMENTS,
+// or a page link, is `truncated`: what's missing from the list isn't absent.
+async function discoverDeployments(origin, key, request) {
+  try {
+    const response = await request(
+      `${origin}/openai/deployments?api-version=${DEPLOYMENTS_API_VERSION}`,
+      key ? { "api-key": key } : {}
+    );
+    if (!response.ok) {
+      discardBody(response);
+      return { discovery: "unavailable" };
+    }
+    const body = await response.json();
+    if (!Array.isArray(body?.data)) return { discovery: "unavailable" };
+    const named = body.data.filter((entry) => typeof entry?.id === "string" && entry.id.trim());
+    const deployments = named.slice(0, MAX_DEPLOYMENTS).map((entry) => ({
+      id: entry.id.trim(),
+      model: typeof entry.model === "string" ? entry.model.trim() : "",
+    }));
+    const truncated =
+      named.length > MAX_DEPLOYMENTS ||
+      body.has_more === true ||
+      typeof body.next === "string" ||
+      typeof body["@odata.nextLink"] === "string" ||
+      typeof body.nextLink === "string";
+    return { discovery: "listed", deployments, truncated };
+  } catch {
+    return { discovery: "unavailable" };
+  }
+}
+
+/**
+ * The custom connection's check, one operation shared by Check connection
+ * (the dialog) and Settings › AI Connections' connection checks
+ * (connectionChecks.js): `GET {languageBase}/models` with the key as a bearer
+ * token, then on Azure the resource's deployments. It answers what happened,
+ * never a body: a status, the HTTP status, and deployment names.
+ *
+ * @param {object} args
+ * @param {import("../config/customConnection.js").ValidatedEndpoint} args.target  an accepted endpoint
+ * @param {string} args.key  "" sends no Authorization
+ * @param {(url: string, headers: Record<string, string>) => Promise<Response>} args.request
+ */
+async function runCustomEndpointCheck({ target, key, request }) {
+  let response;
+  try {
+    response = await request(
+      `${target.languageBase}/models`,
+      key ? { Authorization: `Bearer ${key}` } : {}
+    );
+  } catch (error) {
+    return {
+      status: "network",
+      discovery: "unavailable",
+      ...(isAbort(error) ? { timedOut: true } : {}),
+    };
+  }
+  discardBody(response);
+  if (response.status === 401 || response.status === 403) {
+    return { status: "auth", httpStatus: response.status, discovery: "unavailable" };
+  }
+  if (!response.ok) {
+    return { status: "network", httpStatus: response.status, discovery: "unavailable" };
+  }
+  if (target.kind !== "azure") return { status: "ok", discovery: "unavailable" };
+  return { status: "ok", ...(await discoverDeployments(target.origin, key, request)) };
+}
+
 // How main reads each slot: the two bespoke accessors, else the manifest's.
 const SLOT_GETTERS = Object.freeze({
   CUSTOM_TRANSCRIPTION_API_KEY: "getCustomTranscriptionKey",
@@ -101,30 +182,6 @@ function createCustomConnectionHandlers({
     }
   }
 
-  // Optional: Azure lists a resource's deployments here. Anything but a list
-  // means "unavailable", never a broken connection.
-  async function discoverDeployments(origin, key) {
-    try {
-      const response = await request(
-        `${origin}/openai/deployments?api-version=${DEPLOYMENTS_API_VERSION}`,
-        key ? { "api-key": key } : {}
-      );
-      if (!response.ok) return { discovery: "unavailable" };
-      const body = await response.json();
-      if (!Array.isArray(body?.data)) return { discovery: "unavailable" };
-      const deployments = body.data
-        .filter((entry) => typeof entry?.id === "string" && entry.id.trim())
-        .slice(0, MAX_DEPLOYMENTS)
-        .map((entry) => ({
-          id: entry.id.trim(),
-          model: typeof entry.model === "string" ? entry.model.trim() : "",
-        }));
-      return { discovery: "listed", deployments };
-    } catch {
-      return { discovery: "unavailable" };
-    }
-  }
-
   // The key a check presents: one typed into the dialog, a feature's (Save as
   // connection, before the copy), or the connection's own.
   async function keyForCheck(args) {
@@ -148,23 +205,18 @@ function createCustomConnectionHandlers({
       throw error;
     }
     const key = await keyForCheck(args);
-    let response;
-    try {
-      response = await request(
-        `${target.languageBase}/models`,
-        key ? { Authorization: `Bearer ${key}` } : {}
-      );
-    } catch {
-      return { status: "network", discovery: "unavailable" };
-    }
-    if (response.status === 401 || response.status === 403) {
-      return { status: "auth", httpStatus: response.status, discovery: "unavailable" };
-    }
-    if (!response.ok) {
-      return { status: "network", httpStatus: response.status, discovery: "unavailable" };
-    }
-    if (target.kind !== "azure") return { status: "ok", discovery: "unavailable" };
-    return { status: "ok", ...(await discoverDeployments(target.origin, key)) };
+    // The dialog's answer keeps its shape: status, HTTP status, deployments.
+    const { status, httpStatus, discovery, deployments } = await runCustomEndpointCheck({
+      target,
+      key,
+      request,
+    });
+    return {
+      status,
+      ...(httpStatus !== undefined ? { httpStatus } : {}),
+      discovery,
+      ...(deployments ? { deployments } : {}),
+    };
   }
 
   return {
@@ -227,4 +279,5 @@ module.exports = {
   SLOT_GETTERS,
   createCustomConnectionHandlers,
   registerCustomConnectionIpc,
+  runCustomEndpointCheck,
 };

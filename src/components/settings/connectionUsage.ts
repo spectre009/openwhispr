@@ -103,6 +103,14 @@ export interface FeatureUsage {
   edit: string;
   /** A custom endpoint: where its request reads the URL and the key. */
   customEndpoint?: CustomEndpointSource;
+  /**
+   * The model id the feature requests on a shared provider or Copilot (custom
+   * and self-hosted connections carry theirs in `connection.model`); what a
+   * connection check compares (connectionHealth.ts).
+   */
+  model?: string;
+  /** A self-hosted server: the store field its URL comes from. Never the URL. */
+  selfHostedEndpoint?: { urlField: keyof SettingsState };
 }
 
 /** Names only: a store field and a key slot, never their values. */
@@ -216,6 +224,8 @@ type Routed = {
   connection: ConnectionRef;
   offReason?: UsageOffReason;
   customEndpoint?: CustomEndpointSource;
+  model?: string;
+  selfHostedEndpoint?: { urlField: keyof SettingsState };
 };
 
 function cloudReason(effective: SettingsState, cloudDisabled: boolean): UsageOffReason | undefined {
@@ -272,6 +282,20 @@ function llmCustomEndpoint(scope: InferenceScope, s: SettingsState): CustomEndpo
   return { urlField, slot: own };
 }
 
+/** The store field an LLM scope's self-hosted URL comes from: its own, else its fallback scope's. */
+function llmRemoteUrlField(
+  scope: InferenceScope,
+  s: SettingsState
+): keyof SettingsState | undefined {
+  const own = (INFERENCE_SCOPES[scope].storeKeys as { remoteUrl?: keyof SettingsState }).remoteUrl;
+  if (own && String(s[own] ?? "").trim()) return own;
+  const fallback = (INFERENCE_SCOPES[scope] as { fallbackScope?: InferenceScope }).fallbackScope;
+  const borrowed = fallback
+    ? (INFERENCE_SCOPES[fallback].storeKeys as { remoteUrl?: keyof SettingsState }).remoteUrl
+    : undefined;
+  return borrowed ?? own;
+}
+
 /** What an LLM scope's resolved config connects to. Null: nothing picked yet. */
 function llmRoute(
   scope: InferenceScope,
@@ -285,8 +309,13 @@ function llmRoute(
       return { connection: { type: "cloud" }, offReason: cloudReason(effective, cloudDisabled) };
     case "local":
       return model ? { connection: { type: "local", engine: "llm", model } } : null;
-    case "self-hosted":
-      return { connection: { type: "selfHosted", host: endpointHost(config.remoteUrl), model } };
+    case "self-hosted": {
+      const urlField = llmRemoteUrlField(scope, effective);
+      return {
+        connection: { type: "selfHosted", host: endpointHost(config.remoteUrl), model },
+        ...(urlField ? { selfHostedEndpoint: { urlField } } : {}),
+      };
+    }
     case "enterprise": {
       const managed = getManagedScopeResolution(scope, effective.enterpriseSetupMode);
       if (managed.kind === "error") {
@@ -319,9 +348,10 @@ function llmRoute(
         return {
           connection: { type: "copilot" },
           offReason: isCopilotScopeSupported(scope) ? undefined : "unsupported",
+          ...(model ? { model } : {}),
         };
       }
-      return { connection: { type: "provider", provider } };
+      return { connection: { type: "provider", provider }, ...(model ? { model } : {}) };
     }
   }
 }
@@ -337,6 +367,8 @@ interface TranscriptionChoice {
   localModel: string;
   remoteUrl: string;
   remoteModel: string;
+  /** The store field `remoteUrl` comes from. */
+  remoteUrlField: keyof SettingsState;
 }
 
 function localTranscriptionModel(
@@ -405,6 +437,7 @@ function transcriptionRoute(
           host: endpointHost(choice.remoteUrl),
           model: choice.remoteModel?.trim() ?? "",
         },
+        selfHostedEndpoint: { urlField: choice.remoteUrlField },
       };
     case "enterprise":
       // Enterprise speech-to-text only runs through a managed deployment.
@@ -427,7 +460,8 @@ function transcriptionRoute(
           customEndpoint: { urlField: choice.baseUrlField, slot: "CUSTOM_TRANSCRIPTION_API_KEY" },
         };
       }
-      return { connection: { type: "provider", provider } };
+      const model = choice.model?.trim() ?? "";
+      return { connection: { type: "provider", provider }, ...(model ? { model } : {}) };
     }
   }
 }
@@ -458,6 +492,8 @@ export function computeConnectionUsage(input: ConnectionUsageInput): FeatureUsag
       ...(offReason ? { offReason } : {}),
       edit: USAGE_EDIT_DESTINATIONS[feature],
       ...(routed.customEndpoint ? { customEndpoint: routed.customEndpoint } : {}),
+      ...(routed.model ? { model: routed.model } : {}),
+      ...(routed.selfHostedEndpoint ? { selfHostedEndpoint: routed.selfHostedEndpoint } : {}),
     });
   };
   const llm = (scope: InferenceScope) => selectResolvedLLMConfig(effective, scope);
@@ -486,6 +522,7 @@ export function computeConnectionUsage(input: ConnectionUsageInput): FeatureUsag
         }),
         remoteUrl: effective.remoteTranscriptionUrl,
         remoteModel: effective.remoteTranscriptionModel,
+        remoteUrlField: "remoteTranscriptionUrl",
       },
       managedTranscription,
       effective,
@@ -515,6 +552,9 @@ export function computeConnectionUsage(input: ConnectionUsageInput): FeatureUsag
     }),
     remoteUrl: meeting.remoteTranscriptionUrl,
     remoteModel: "",
+    remoteUrlField: effective.meetingRemoteTranscriptionUrl
+      ? "meetingRemoteTranscriptionUrl"
+      : "remoteTranscriptionUrl",
   };
   const meetingRoute = transcriptionRoute(meetingChoice, null, effective, cloudDisabled);
   add(
@@ -554,6 +594,7 @@ export function computeConnectionUsage(input: ConnectionUsageInput): FeatureUsag
     }),
     remoteUrl: upload.remoteTranscriptionUrl,
     remoteModel: upload.remoteTranscriptionModel,
+    remoteUrlField: "uploadRemoteTranscriptionUrl",
   };
   const uploadRoute = transcriptionRoute(
     uploadChoice,

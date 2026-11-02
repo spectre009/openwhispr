@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from 
 import { useTranslation } from "react-i18next";
 import { usePolicyStore } from "../stores/policyStore";
 import { isAgentAllowed } from "../stores/policyRules";
+import { useConnectionHealthStore } from "../stores/connectionHealthStore";
 import { ShieldCheck } from "./icons";
 import SettingsLayer, { type SettingsNavGroup } from "./settings/SettingsLayer";
 import SettingsPage, { AccountAvatar } from "./SettingsPage";
@@ -86,6 +87,8 @@ export default function SettingsModal({
   const cloudDisabled = useOpenWhisprCloudDisabled();
   const agentAllowed = usePolicyStore(isAgentAllowed);
   const policyManaged = usePolicyStore((s) => s.managed);
+  // AI Connections' dot: set by its page from its last checks (connectionHealth.ts).
+  const connectionsFlag = useConnectionHealthStore((s) => s.flag);
   // What decides which pages show: account pages need Cloud (Workspace also a
   // sign-in), the voice assistant and chat need the organization's policy.
   const pageCtx: SettingsPageContext = useMemo(
@@ -106,6 +109,14 @@ export default function SettingsModal({
               label: t(page.titleKey),
               icon: settingsIcon(page.icon),
               page: item.page,
+              ...(item.page === "connections" && connectionsFlag
+                ? {
+                    flag: {
+                      tone: connectionsFlag,
+                      label: t(`connections.health.navFlag.${connectionsFlag}`),
+                    },
+                  }
+                : {}),
             };
           }
           if (item.kind === "parent") {
@@ -130,7 +141,7 @@ export default function SettingsModal({
           };
         }),
       })),
-    [t, pageCtx, onOpenElsewhere]
+    [t, pageCtx, onOpenElsewhere, connectionsFlag]
   );
 
   // Settings stays mounted between opens: each named request navigates once,

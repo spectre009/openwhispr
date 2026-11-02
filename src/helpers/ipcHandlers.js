@@ -57,6 +57,7 @@ const {
 const { createNoteAttendeesLookup, searchContacts } = require("./connectors/contactSearch");
 const { registerCopilotIpc } = require("./copilot/copilotIpc");
 const { registerCustomConnectionIpc } = require("./customConnectionIpc");
+const { registerConnectionChecksIpc } = require("./connectionChecksIpc");
 const { registerLogIpc } = require("./logIpc");
 const { registerStorageInventoryIpc, defaultStorageResources } = require("./storageInventory");
 const { logText } = require("../utils/logText.js");
@@ -2177,6 +2178,14 @@ class IPCHandlers {
       ipcMain,
       environmentManager: this.environmentManager,
       onKeysChanged: (storeKeys) => announceKeyChange(storeKeys),
+    });
+
+    // Settings › AI Connections' checks: one free request per saved connection.
+    this.connectionChecks = registerConnectionChecksIpc({
+      ipcMain,
+      environmentManager: this.environmentManager,
+      copilot: this.copilot,
+      logger: debugLogger,
     });
 
     ipcMain.handle("db-save-transcription", async (event, text, rawText, options) => {

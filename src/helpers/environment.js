@@ -86,6 +86,27 @@ const PERSISTED_KEYS = [
 // creates its own EnvironmentManager alongside the main.js singleton.
 let envWriteQueue = Promise.resolve();
 
+// Told the names (never the values) of secrets whose value changed: a save, a
+// copy main made, a removal, a Copilot sign-in or sign-out, Reset app data
+// (`{ all: true }`). Module-level for the same reason as the write queue.
+// Connection checks (connectionChecks.js) fence their results by it.
+const secretListeners = new Set();
+
+function onSecretChanged(listener) {
+  secretListeners.add(listener);
+  return () => secretListeners.delete(listener);
+}
+
+function notifySecretChanged(change) {
+  for (const listener of secretListeners) {
+    try {
+      listener(change);
+    } catch {
+      // A failing listener must not stop a save or the other listeners.
+    }
+  }
+}
+
 class EnvironmentManager {
   constructor() {
     this.loadEnvironmentVariables();
@@ -270,6 +291,16 @@ class EnvironmentManager {
   }
 
   _saveKey(envVarName, key) {
+    const secretChanged =
+      SECRET_KEY_SET.has(envVarName) && (process.env[envVarName] || "") !== (key || "");
+    try {
+      return this._writeKey(envVarName, key);
+    } finally {
+      if (secretChanged) notifySecretChanged({ names: [envVarName] });
+    }
+  }
+
+  _writeKey(envVarName, key) {
     if (SECRET_KEY_SET.has(envVarName) && this._encryptionAvailable()) {
       this._saveSecretKey(envVarName, key).catch((error) => {
         debugLogger.error(
@@ -334,13 +365,18 @@ class EnvironmentManager {
   async persistSecret(envVarName, value) {
     if (!SECRET_KEY_SET.has(envVarName)) throw new Error("Not a secret key");
     const next = typeof value === "string" ? value : "";
+    const changed = (process.env[envVarName] || "") !== next;
     if (envVarName === "CUSTOM_CLEANUP_API_KEY") delete process.env.CUSTOM_REASONING_API_KEY;
-    if (this._encryptionAvailable()) {
-      await this._saveSecretKey(envVarName, next);
-    } else {
-      if (next) process.env[envVarName] = next;
-      else delete process.env[envVarName];
-      await this.saveAllKeysToEnvFile();
+    try {
+      if (this._encryptionAvailable()) {
+        await this._saveSecretKey(envVarName, next);
+      } else {
+        if (next) process.env[envVarName] = next;
+        else delete process.env[envVarName];
+        await this.saveAllKeysToEnvFile();
+      }
+    } finally {
+      if (changed) notifySecretChanged({ names: [envVarName] });
     }
     return { success: true };
   }
@@ -548,6 +584,7 @@ class EnvironmentManager {
   // Awaited, like the cloud switch: a sign-in that reports success must
   // survive a restart. A failure is coded PERSIST_FAILED for copilotAuth.
   async saveGithubCopilotToken(token, login) {
+    const changed = (process.env.GITHUB_COPILOT_TOKEN || "") !== (token || "");
     try {
       if (this._encryptionAvailable()) {
         await this._saveSecretKey("GITHUB_COPILOT_TOKEN", token);
@@ -561,14 +598,21 @@ class EnvironmentManager {
         code: "PERSIST_FAILED",
         cause: error,
       });
+    } finally {
+      if (changed) notifySecretChanged({ names: ["GITHUB_COPILOT_TOKEN"] });
     }
     return { success: true };
   }
 
   async clearGithubCopilotToken() {
-    await this._deleteSecretKey("GITHUB_COPILOT_TOKEN");
-    this._saveKey("GITHUB_COPILOT_LOGIN", "");
-    await this.saveAllKeysToEnvFile();
+    const changed = !!process.env.GITHUB_COPILOT_TOKEN;
+    try {
+      await this._deleteSecretKey("GITHUB_COPILOT_TOKEN");
+      this._saveKey("GITHUB_COPILOT_LOGIN", "");
+      await this.saveAllKeysToEnvFile();
+    } finally {
+      if (changed) notifySecretChanged({ names: ["GITHUB_COPILOT_TOKEN"] });
+    }
     return { success: true };
   }
 
@@ -636,10 +680,14 @@ class EnvironmentManager {
     }
     delete process.env.CUSTOM_REASONING_API_KEY;
 
-    await Promise.all([
-      fsPromises.rm(path.join(app.getPath("userData"), ".env"), { force: true }),
-      fsPromises.rm(this._getSecureKeysDir(), { recursive: true, force: true }),
-    ]);
+    try {
+      await Promise.all([
+        fsPromises.rm(path.join(app.getPath("userData"), ".env"), { force: true }),
+        fsPromises.rm(this._getSecureKeysDir(), { recursive: true, force: true }),
+      ]);
+    } finally {
+      notifySecretChanged({ names: [...SECRET_KEYS], all: true });
+    }
     return { success: true };
   }
 
@@ -682,3 +730,5 @@ for (const k of BYOK_API_KEYS) {
 }
 
 module.exports = EnvironmentManager;
+// Static, so callers that only hold the class (connectionChecksIpc) can listen.
+module.exports.onSecretChanged = onSecretChanged;

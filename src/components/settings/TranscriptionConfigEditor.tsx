@@ -1,4 +1,4 @@
-import { useId, useMemo, useRef, useState } from "react";
+import { useCallback, useId, useMemo, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { useTranslation } from "react-i18next";
 import {
@@ -28,11 +28,13 @@ import WhisperGpuCard from "./WhisperGpuCard";
 import ModelPicker from "./modelPicker/ModelPicker";
 import ConnectionModelField from "./modelPicker/ConnectionModelField";
 import type { PickerLink, PickerText, PickerUnavailable } from "./modelPicker/options";
+import { useConnectionHealthStore } from "../../stores/connectionHealthStore";
 import {
   STT_SURFACE_CONTEXT,
   buildSttPickerOptions,
   describeSttSelection,
   selectedSttOptionId,
+  sttOptionAdvice,
   sttSelectionIssue,
   sttInheritedFields,
   sttSurfaceProviders,
@@ -139,6 +141,13 @@ export default function TranscriptionConfigEditor({
   const groups = useMemo(() => buildSttPickerOptions(surface, context), [surface, context]);
   const summary = useMemo(() => describeSttSelection(surface, context), [surface, context]);
   const issue = useMemo(() => sttSelectionIssue(surface, context), [surface, context]);
+  // AI Connections' last checks, beside the options they're about (advisory only).
+  const pickerHealth = useConnectionHealthStore((state) => state.pickerHealth);
+  const connectionName = context.connection?.name ?? "";
+  const optionAdvice = useCallback(
+    (option: SttPickerOption) => sttOptionAdvice(option, pickerHealth, connectionName),
+    [pickerHealth, connectionName]
+  );
   const commit = useSttSelection(surface, { readContext: picker.readContext, onModeChange });
   const commitConnection = useSttConnectionSelection(surface, {
     readContext: picker.readContext,
@@ -235,6 +244,7 @@ export default function TranscriptionConfigEditor({
       onLink={followLink}
       canFollow={(link) => link.kind === "signIn" || !!openSettings}
       releasesFocus={(option) => option.action === "enterConnectionModel"}
+      advice={optionAdvice}
       label={t("modelPicker.label")}
       open={open}
       onOpenChange={setOpen}

@@ -28,11 +28,13 @@ import { cn } from "../../lib/utils";
 import {
   resolvePickerText,
   unavailableReason,
+  type PickerAdvice,
   type PickerGroup,
   type PickerLink,
   type PickerOptionBase,
   type PickerSelectionSummary,
 } from "./options";
+import { formatAgo } from "../buildInfoFormat";
 
 const resolveText = resolvePickerText;
 
@@ -55,6 +57,20 @@ interface FlatOption<O extends PickerOptionBase> {
   label: string;
   sub: string;
   reason: string;
+  /** Its connection's last check, as an advisory line (never a reason it can't be picked). */
+  advice: PickerAdvice | null;
+  adviceText: string;
+}
+
+type Translate = (key: string, options?: Record<string, unknown>) => string;
+
+/** "Groq's key was rejected (checked 3 minutes ago)". */
+function adviceText(t: Translate, advice: PickerAdvice | null, language?: string): string {
+  if (!advice) return "";
+  return t(advice.reasonKey, {
+    ...advice.params,
+    ago: formatAgo((Date.now() - advice.checkedAt) / 1000, language),
+  });
 }
 
 interface ModelPickerProps<O extends PickerOptionBase> {
@@ -73,6 +89,12 @@ interface ModelPickerProps<O extends PickerOptionBase> {
   releasesFocus?: (option: O) => boolean;
   /** Extra lines under a group's header (a list that's loading or failed). */
   groupNotes?: Readonly<Record<string, ReactNode>>;
+  /**
+   * An option's advisory line from its connection's last check on AI
+   * Connections ("Groq's key was rejected (checked 3 minutes ago)"), with
+   * its link there. Shown beside available options, which stay pickable.
+   */
+  advice?: (option: O) => PickerAdvice | null;
   /** Accessible name of the button and the list. */
   label: string;
   open?: boolean;
@@ -103,13 +125,14 @@ export default function ModelPicker<O extends PickerOptionBase>({
   canFollow = () => true,
   releasesFocus,
   groupNotes,
+  advice,
   label,
   open: controlledOpen,
   onOpenChange,
   renderAnchor,
   className,
 }: ModelPickerProps<O>) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
   const open = controlledOpen ?? uncontrolledOpen;
   const [query, setQuery] = useState("");
@@ -122,15 +145,20 @@ export default function ModelPicker<O extends PickerOptionBase>({
   const flat = useMemo<FlatOption<O>[]>(
     () =>
       groups.flatMap((group) =>
-        group.options.map((option) => ({
-          option,
-          group,
-          label: resolveText(t, option.label),
-          sub: resolveText(t, option.sub),
-          reason: option.available === true ? "" : unavailableReason(t, option.available),
-        }))
+        group.options.map((option) => {
+          const optionAdvice = advice?.(option) ?? null;
+          return {
+            option,
+            group,
+            label: resolveText(t, option.label),
+            sub: resolveText(t, option.sub),
+            reason: option.available === true ? "" : unavailableReason(t, option.available),
+            advice: optionAdvice,
+            adviceText: adviceText(t, optionAdvice, i18n.language),
+          };
+        })
       ),
-    [groups, t]
+    [groups, t, advice, i18n.language]
   );
 
   const visible = useMemo(() => {
@@ -239,7 +267,9 @@ export default function ModelPicker<O extends PickerOptionBase>({
 
   const title = resolveText(t, summary.title);
   const sub = resolveText(t, summary.sub);
-  const warning = resolveText(t, summary.warning);
+  // The pick's own warning first; else what its connection's last check found.
+  const selectedEntry = flat.find((entry) => entry.option.id === selectedId);
+  const warning = resolveText(t, summary.warning) || selectedEntry?.adviceText || "";
 
   let lastGroup: string | null = null;
   const rows: ReactNode[] = [];
@@ -288,6 +318,7 @@ export default function ModelPicker<O extends PickerOptionBase>({
     const isSelected = option.id === selectedId;
     const isActive = entry === active;
     const link = unavailable?.link;
+    const adviceLink = entry.advice?.link;
     rows.push(
       <div
         key={option.id}
@@ -339,6 +370,35 @@ export default function ModelPicker<O extends PickerOptionBase>({
                   <ChevronRight aria-hidden="true" className="h-3 w-3 rtl:rotate-180" />
                 </button>
               )}
+            </span>
+          )}
+          {entry.advice && (
+            <span
+              data-picker-advice={entry.advice.tone}
+              className={cn(
+                "flex items-start gap-1 text-[11px] leading-snug",
+                entry.advice.tone === "danger" ? "text-destructive" : "text-warning"
+              )}
+            >
+              <AlertTriangle aria-hidden="true" className="mt-0.5 h-3 w-3 shrink-0" />
+              <span>
+                {entry.adviceText}
+                {adviceLink && canFollow(adviceLink) && (
+                  <button
+                    type="button"
+                    tabIndex={-1}
+                    data-picker-advice-link=""
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      follow(adviceLink);
+                    }}
+                    className="ms-1 inline-flex items-center gap-0.5 text-link underline decoration-link/30 hover:decoration-link/60"
+                  >
+                    {t(adviceLink.labelKey)}
+                    <ChevronRight aria-hidden="true" className="h-3 w-3 rtl:rotate-180" />
+                  </button>
+                )}
+              </span>
             </span>
           )}
         </span>

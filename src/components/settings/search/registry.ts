@@ -1021,6 +1021,30 @@ export const SETTINGS_SEARCH_DESCRIPTORS: readonly SettingDescriptor[] = [
     descriptionKey: "connections.sections.providers.description",
     aliases: ["api key", "api keys", "keys", "byok", "credentials", "replace key", "remove key"],
   }),
+  // The connection checks' summary line, with Check all.
+  row("connections.status", CONNECTIONS, "connections.health.search.title", {
+    descriptionKey: "connections.health.search.description",
+    groupKey: "connections.sections.providers.title",
+    aliases: [
+      "check connection",
+      "check connections",
+      "check all",
+      "connection status",
+      "connection check",
+      "test connection",
+      "test key",
+      "key rejected",
+      "key works",
+      "invalid key",
+      "rate limited",
+      "is my key working",
+    ],
+    aliasKeys: [
+      "connections.health.summary.checkAll",
+      "connections.health.states.rejected",
+      "connections.health.search.alias",
+    ],
+  }),
   ...CONNECTION_PROVIDERS.map((provider) =>
     row(connectionAnchor(provider.id), CONNECTIONS, `connections.names.${provider.id}`, {
       descriptionKey: "connections.search.providerDescription",

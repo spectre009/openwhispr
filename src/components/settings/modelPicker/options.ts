@@ -118,6 +118,123 @@ export function unavailableReason(t: Translate, reason: PickerUnavailable): stri
 }
 
 /**
+ * A connection's last failing check, as AI Connections publishes it
+ * (connectionHealth.ts's `pickerHealthMap`): by connection id, and by
+ * `<id>:llm` / `<id>:stt` for Corti's halves.
+ */
+export interface PickerHealthEntry {
+  state: string;
+  checkedAt: number;
+  /** Models the check found missing. */
+  missing: readonly string[];
+}
+
+export type PickerHealth = Readonly<Record<string, PickerHealthEntry>>;
+
+/**
+ * Advisory metadata beside an available option: "Groq's key was rejected
+ * (checked 3 minutes ago)" with a link to AI Connections. Never an
+ * availability reason: `pickAvailability` refuses unavailable picks, and a
+ * check is evidence from a moment ago, not a rule, so the option stays
+ * pickable.
+ */
+export interface PickerAdvice {
+  tone: "danger" | "warning";
+  reasonKey: string;
+  params: Record<string, string>;
+  checkedAt: number;
+  link: PickerLink;
+}
+
+const ADVICE_BY_STATE: Readonly<Record<string, { tone: PickerAdvice["tone"]; key: string }>> = {
+  rejected: { tone: "danger", key: "modelPicker.health.rejected" },
+  managementKey: { tone: "danger", key: "modelPicker.health.rejected" },
+  unreachable: { tone: "danger", key: "modelPicker.health.unreachable" },
+  endpointNotFound: { tone: "danger", key: "modelPicker.health.unreachable" },
+  rateLimited: { tone: "warning", key: "modelPicker.health.rateLimited" },
+  limitReached: { tone: "warning", key: "modelPicker.health.limitReached" },
+  outOfCredit: { tone: "warning", key: "modelPicker.health.outOfCredit" },
+  accessDenied: { tone: "warning", key: "modelPicker.health.accessDenied" },
+};
+
+/**
+ * What a connection's last check says about one of its options: the
+ * connection's own failure, or this option's model missing from its list.
+ */
+export function connectionAdvice(
+  health: PickerHealth | undefined,
+  keys: readonly string[],
+  name: string,
+  model: string,
+  destination: string
+): PickerAdvice | null {
+  const entry = keys.map((key) => health?.[key]).find(Boolean);
+  if (!entry) return null;
+  const link: PickerLink = {
+    kind: "settings",
+    destination,
+    labelKey: "modelPicker.health.fix",
+  };
+  if (entry.state === "modelMissing") {
+    if (!model || !entry.missing.includes(model)) return null;
+    return {
+      tone: "danger",
+      reasonKey: "modelPicker.health.modelMissing",
+      params: { provider: name },
+      checkedAt: entry.checkedAt,
+      link,
+    };
+  }
+  const advice = ADVICE_BY_STATE[entry.state];
+  if (!advice) return null;
+  return {
+    tone: advice.tone,
+    reasonKey: advice.key,
+    params: { provider: name },
+    checkedAt: entry.checkedAt,
+    link,
+  };
+}
+
+/** A language-model option's advisory line, if its connection's check found a problem. */
+export function llmOptionAdvice(
+  option: ModelPickerOption,
+  health: PickerHealth | undefined,
+  connectionName = ""
+): PickerAdvice | null {
+  if (!health || option.available !== true) return null;
+  if (option.action === "useConnection") {
+    return connectionAdvice(
+      health,
+      ["custom"],
+      connectionName,
+      option.model,
+      "connections#connections.custom"
+    );
+  }
+  if (option.mode !== "providers" || option.action || !option.provider) return null;
+  if (option.provider === "custom") return null;
+  if (option.provider === COPILOT_PROVIDER_ID) {
+    return connectionAdvice(
+      health,
+      ["copilot"],
+      "GitHub Copilot",
+      option.model,
+      connectionDestination("copilot")
+    );
+  }
+  const provider = findConnectionProvider(option.provider);
+  if (!provider) return null;
+  return connectionAdvice(
+    health,
+    [`${provider.id}:llm`, provider.id],
+    provider.name,
+    option.model,
+    connectionDestination(provider.id)
+  );
+}
+
+/**
  * Entries that do more than select a model: the custom endpoint (opens its
  * fields; commits once a model is picked there, as the Custom tab did),
  * OpenRouter's catalog search, the self-hosted server and enterprise (pick

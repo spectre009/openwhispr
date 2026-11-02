@@ -36,12 +36,14 @@ export function ConnectionRow({
   name,
   nameDir,
   children,
+  health,
   actions,
   toggleLabel,
   open = false,
   onToggle,
   body,
   below,
+  problem,
 }: {
   /** Search anchor and "Manage keys" destination. */
   "data-setting-id": string;
@@ -51,6 +53,8 @@ export function ConnectionRow({
   nameDir?: "auto";
   /** The line's main part: a key field, or a one-line status. */
   children?: ReactNode;
+  /** Its connection check: the pill with its age and Check (ConnectionCheckParts.tsx). */
+  health?: ReactNode;
   /** Small actions at the end of the line (Remove, Get your API key, a link). */
   actions?: ReactNode;
   /** "Manage", "Set up" or "Sign in": opens `body` under the line. */
@@ -60,6 +64,8 @@ export function ConnectionRow({
   body?: ReactNode;
   /** Under the line, e.g. its usages that are off. */
   below?: ReactNode;
+  /** What its check found wrong, under the line. */
+  problem?: ReactNode;
 }) {
   const { isCompact } = useSettingsLayout();
   const bodyId = useId();
@@ -92,6 +98,11 @@ export function ConnectionRow({
         >
           {children}
         </div>
+        {health && (
+          <div className="flex shrink-0 items-center gap-2" data-connection-row-health="">
+            {health}
+          </div>
+        )}
         {actions}
         {expandable && (
           <button
@@ -114,6 +125,7 @@ export function ConnectionRow({
         )}
       </div>
       {below}
+      {problem && <div className={cn(!isCompact && "ps-10")}>{problem}</div>}
       {expandable && open && body && (
         <div id={bodyId} data-connection-row-body="" className={cn(!isCompact && "ps-10")}>
           {body}

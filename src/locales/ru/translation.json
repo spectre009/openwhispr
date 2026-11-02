@@ -7186,6 +7186,149 @@
       },
       "endpointLabel": "Эндпоинт ресурса",
       "help": "Вставьте эндпоинт и ключ со страницы Keys and Endpoint вашего ресурса Speech. Подойдёт и эндпоинт Foundry (.services.ai.azure.com, в том числе эндпоинт проекта): он сохраняется как адрес .cognitiveservices.azure.com того же ресурса."
+    },
+    "health": {
+      "withAge": "{{state}} · {{ago}}",
+      "check": "Проверить",
+      "checking": "Проверка…",
+      "checkAria": "Проверить {{name}}",
+      "states": {
+        "ok": "Ключ работает",
+        "signedIn": "Вход выполнен",
+        "service": "Copilot доступен",
+        "reachable": "Доступен",
+        "notVerifiable": "Доступен · ключ не проверить",
+        "rejected": "Ключ отклонён",
+        "managementKey": "Ключ не может отправлять запросы",
+        "unreachable": "Нет связи",
+        "endpointNotFound": "Эндпоинт не найден",
+        "modelMissing": "Модель недоступна",
+        "rateLimited": "Лимит запросов",
+        "limitReached": "Лимит расходов исчерпан",
+        "outOfCredit": "Нет средств",
+        "accessDenied": "Доступ запрещён",
+        "unexpected": "Неожиданный ответ",
+        "checking": "Проверка…",
+        "unchecked": "Ещё не проверено"
+      },
+      "notChecked": {
+        "label": "Не проверено",
+        "managed": "Управляется вашей организацией · здесь не проверяется",
+        "noKey": "Не проверено · ключ не сохранён",
+        "incomplete": "Не проверено · нужны обе учётные данные клиента",
+        "invalidEndpoint": "Не проверено · эндпоинт недействителен",
+        "endpointNeeded": "Не проверено · нужен эндпоинт",
+        "cloudOff": "Не проверено · OpenWhispr Cloud выключен"
+      },
+      "marks": {
+        "offered": "Доступна в этом подключении",
+        "missing": "Недоступна в этом подключении"
+      },
+      "steps": {
+        "theServer": "сервер",
+        "noAnswer": "{{host}} не ответил за 8 секунд",
+        "status": "{{host}} ответил {{status}}",
+        "unreachable": "Не удалось связаться с {{host}}",
+        "reachable": "{{host}} доступен",
+        "redirected": "{{host}} перенаправил запрос в другое место, поэтому ключ не был передан дальше",
+        "signInAccepted": "GitHub принял вход",
+        "keyAccepted": "Ключ принят",
+        "copilotListed": "Copilot перечислил модели вашего тарифа",
+        "managementKey": "Это ключ управления, он не может отправлять запросы",
+        "keyBlocked": "Ключ заблокирован или отключён",
+        "keyRejected": "Ключ отклонён ({{status}})",
+        "modelOffered": "{{model}} доступна",
+        "modelMissing": "{{model}} нет в списке",
+        "limit": "Лимит расходов: осталось {{remaining}} из {{amount}}",
+        "languageModels": "Языковые модели",
+        "speechToText": "Распознавание речи"
+      },
+      "problems": {
+        "rejected": "{{name}} не принял этот ключ.",
+        "rejectedHint": "Возможно, его удалили или заменили на сайте {{name}}.",
+        "managementKey": "Этот ключ нельзя использовать для запросов.",
+        "managementKeyHint": "Это ключ управления OpenRouter. Создайте обычный API-ключ.",
+        "unreachable": "{{host}} не отвечает.",
+        "unreachableHint": "Проверьте эндпоинт или сеть.",
+        "endpointNotFound": "{{host}} не предоставляет этот сервис.",
+        "endpointNotFoundHint": "Проверьте эндпоинт, регион или тенант.",
+        "modelMissing": "{{feature}} использует «{{model}}», которой нет в списке {{name}}.",
+        "modelMissingHint": "Ключ работает. {{feature}} не будет работать, пока вы не выберете другую модель или снова не сделаете эту доступной.",
+        "rateLimited": "{{name}} ответил «слишком много запросов».",
+        "rateLimitedHint": "Скорее всего, с ключом всё в порядке; повторите через несколько минут.",
+        "limitReached": "Ключ работает, но его лимит расходов исчерпан.",
+        "limitReachedHint": "Запросы не будут выполняться, пока вы не повысите лимит ключа в OpenRouter.",
+        "outOfCredit": "{{name}} сообщает, что на счёте нет средств.",
+        "outOfCreditHint": "Запросы не будут выполняться, пока вы не пополните счёт.",
+        "accessDenied": "{{name}} запретил доступ ({{status}}).",
+        "accessDeniedHint": "Возможно, ключу не разрешено получать список моделей; запросы при этом могут работать.",
+        "unexpected": "{{name}} дал неожиданный ответ.",
+        "unexpectedHint": "Проверьте ещё раз чуть позже.",
+        "affected": "Затронуто: {{features}}.",
+        "notAffected": "Сейчас его ничто не использует, поэтому ни одна функция не затронута."
+      },
+      "actions": {
+        "replaceKey": "Заменить ключ",
+        "getKey": "Получить ключ",
+        "remove": "Удалить",
+        "chooseModel": "Выбрать модель для: {{feature}}",
+        "editEndpoint": "Изменить эндпоинт",
+        "checkAgain": "Проверить снова",
+        "signIn": "Войти снова"
+      },
+      "notes": {
+        "copilotIdentity": "Автоматическая проверка подтверждает вход; кнопка «Проверить» также запрашивает у Copilot модели вашего тарифа (при этом на минуту запускается помощник Copilot).",
+        "tinfoil": "Список моделей Tinfoil публичный, поэтому проверяется только доступность; ключ проверяется при использовании.",
+        "azureSpeech": "Сама модель {{model}} проверяется при диктовке."
+      },
+      "summary": {
+        "checking_one": "Проверка {{count}} подключения…",
+        "checking_few": "Проверка {{count}} подключений…",
+        "checking_many": "Проверка {{count}} подключений…",
+        "checking_other": "Проверка {{count}} подключения…",
+        "allWork_one": "{{count}} подключение работает",
+        "allWork_few": "Все {{count}} подключения работают",
+        "allWork_many": "Все {{count}} подключений работают",
+        "allWork_other": "Все {{count}} подключения работают",
+        "problems_one": "У {{count}} подключения проблема",
+        "problems_few": "У {{count}} подключений проблемы",
+        "problems_many": "У {{count}} подключений проблемы",
+        "problems_other": "У {{count}} подключения проблемы",
+        "warnings_one": "{{count}} подключение требует внимания",
+        "warnings_few": "{{count}} подключения требуют внимания",
+        "warnings_many": "{{count}} подключений требуют внимания",
+        "warnings_other": "{{count}} подключения требуют внимания",
+        "notChecked": "Ещё не проверено",
+        "checkedAgo": "Проверено {{ago}}.",
+        "free": "Бесплатные проверки: текст и аудио не отправляются, проверяется только, принят ли каждый ключ и есть ли его модели.",
+        "working_one": "{{count}} работает",
+        "working_few": "{{count}} работают",
+        "working_many": "{{count}} работают",
+        "working_other": "{{count}} работают",
+        "problemCount_one": "{{count}} проблема",
+        "problemCount_few": "{{count}} проблемы",
+        "problemCount_many": "{{count}} проблем",
+        "problemCount_other": "{{count}} проблемы",
+        "warningCount_one": "{{count}} предупреждение",
+        "warningCount_few": "{{count}} предупреждения",
+        "warningCount_many": "{{count}} предупреждений",
+        "warningCount_other": "{{count}} предупреждения",
+        "notCheckedCount_one": "{{count}} не проверено",
+        "notCheckedCount_few": "{{count}} не проверено",
+        "notCheckedCount_many": "{{count}} не проверено",
+        "notCheckedCount_other": "{{count}} не проверено",
+        "checkAll": "Проверить все",
+        "none": "Пока нечего проверять: добавьте ключ или войдите ниже."
+      },
+      "navFlag": {
+        "danger": "С подключением, которое использует функция, проблема",
+        "warning": "Подключение, которое использует функция, ограничено"
+      },
+      "search": {
+        "title": "Состояние подключений",
+        "description": "Проверяет, работает ли каждый сохранённый ключ и вход: «Проверить все» и что нашла каждая проверка.",
+        "alias": "проверить подключение"
+      }
     }
   },
   "modelPicker": {
@@ -7335,6 +7478,16 @@
         "localEngine": "{{engine}} (локально)",
         "defaultModel": "По умолчанию ({{model}})"
       }
+    },
+    "health": {
+      "rejected": "Ключ {{provider}} отклонён (проверено {{ago}})",
+      "unreachable": "Не удалось связаться с {{provider}} (проверено {{ago}})",
+      "modelMissing": "Этой модели нет в списке {{provider}} (проверено {{ago}})",
+      "rateLimited": "{{provider}} ограничил запросы (проверено {{ago}})",
+      "limitReached": "Лимит расходов {{provider}} исчерпан (проверено {{ago}})",
+      "outOfCredit": "У {{provider}} нет средств (проверено {{ago}})",
+      "accessDenied": "{{provider}} запретил доступ (проверено {{ago}})",
+      "fix": "Исправить в ИИ-подключениях"
     }
   }
 }

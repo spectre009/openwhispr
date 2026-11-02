@@ -65,6 +65,9 @@ import {
   type FeatureUsage,
   type UsageFeature,
 } from "./connectionUsage";
+import { CheckButton, ModelMark } from "./ConnectionCheckParts";
+import { useHealthControls } from "./connectionCheckControls";
+import { modelMark } from "./connectionHealth";
 
 /**
  * The custom connection on Settings › AI Connections (config/customConnection.js):
@@ -249,10 +252,13 @@ function UseChip({
   use,
   mismatch,
   onUpdate,
+  mark = null,
 }: {
   use: ConnectionUse;
   mismatch: boolean;
   onUpdate: () => void;
+  /** The connection check's ✓/✕ for this feature's deployment, when compared. */
+  mark?: "offered" | "missing" | null;
 }) {
   const { t } = useTranslation();
   const openSettings = useOpenSettingsLink();
@@ -262,12 +268,14 @@ function UseChip({
     <span
       data-connection-use={use.feature}
       data-key-mismatch={mismatch ? "" : undefined}
+      data-model-check={mark ?? undefined}
       className={cn(
         "inline-flex max-w-full items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] leading-4",
         off
           ? "border-dashed border-border/60 text-muted-foreground/70"
           : "border-border/70 bg-muted/40 text-foreground/85 dark:border-white/10 dark:bg-surface-1",
-        mismatch && "border-warning/50"
+        mismatch && "border-warning/50",
+        mark === "missing" && "border-destructive/50"
       )}
     >
       <button
@@ -288,6 +296,7 @@ function UseChip({
             · {t(`connections.usedBy.off.${use.usage.offReason ?? "disabled"}`)}
           </span>
         )}
+        <ModelMark mark={mark} />
       </button>
       {mismatch && (
         <>
@@ -339,12 +348,9 @@ function ConnectionPanel({
   const { t } = useTranslation();
   const openSettings = useOpenSettingsLink();
   const key = useSettingsStore((s) => s.customConnectionApiKey);
-  const updateCustomConnection = useSettingsStore((s) => s.updateCustomConnection);
   const removeCustomConnection = useSettingsStore((s) => s.removeCustomConnection);
   const validated = validateEndpoint(connection.endpoint);
   const matches = useKeyMatches(uniqueSlots(uses));
-  const [checking, setChecking] = useState(false);
-  const [result, setResult] = useState<CustomConnectionCheckResult | null>(null);
   const [replaceOpen, setReplaceOpen] = useState(false);
   const [removeState, setRemoveState] = useState<"inUse" | "confirm" | null>(null);
   const [editing, setEditing] = useState<"name" | "endpoint" | null>(null);
@@ -355,24 +361,17 @@ function ConnectionPanel({
     uses.map((use) => ({ name: use.model, capability: use.capability }))
   );
 
-  const check = async () => {
-    setChecking(true);
-    setResult(null);
-    setError("");
-    try {
-      const next = await window.electronAPI?.customConnectionCheck?.({
-        endpoint: connection.endpoint,
-      });
-      setResult(next ?? null);
-      if (next?.status === "ok" && next.deployments?.length) {
-        updateCustomConnection({ models: mergeConnectionModels(connection.models, found(next)) });
-      }
-    } catch {
-      setError(t("connections.custom.actionFailed"));
-    } finally {
-      setChecking(false);
-    }
-  };
+  // The page's connection check (connectionCheckControls.ts): its Check is this card's.
+  const health = useHealthControls(
+    "custom",
+    connection.name,
+    {
+      onReplaceKey: allowed ? () => setReplaceOpen(true) : undefined,
+      onEditEndpoint: allowed ? () => setEditing("endpoint") : undefined,
+    },
+    { showSkipped: true, checkButton: false }
+  );
+  const probed = (health.health?.parts.length ?? 0) > 0;
 
   const update = async (slot: CustomConnectionSlot) => {
     setError("");
@@ -397,19 +396,14 @@ function ConnectionPanel({
 
   const actions = (
     <>
-      {allowed && (
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="h-7 shrink-0 px-2.5 text-xs"
-          disabled={checking || !validated.ok}
-          onClick={() => void check()}
+      {allowed && header === "full" && (
+        <CheckButton
+          onCheck={health.check}
+          checking={!!health.health?.checking}
+          name={connection.name}
+          disabled={!validated.ok || !probed}
           data-custom-connection-check=""
-        >
-          <Zap className="h-3 w-3" />
-          {t(checking ? "connections.custom.actions.checking" : "connections.custom.actions.check")}
-        </Button>
+        />
       )}
       <DropdownMenu modal={false}>
         <DropdownMenuTrigger
@@ -464,6 +458,7 @@ function ConnectionPanel({
               </p>
               <KindBadge kind={validated.kind} />
               {!allowed && <ManagedBadge />}
+              {health.pill}
             </div>
             <p className="mt-0.5 truncate text-xs text-muted-foreground">
               <bdi dir="ltr" className="font-mono">
@@ -518,6 +513,7 @@ function ConnectionPanel({
                   use={use}
                   mismatch={!!key && matches[use.slot] === false}
                   onUpdate={() => void update(use.slot)}
+                  mark={modelMark(health.health, use.feature, use.model)}
                 />
               ))}
             </div>
@@ -557,13 +553,11 @@ function ConnectionPanel({
           {t(`connections.custom.errors.${validated.error}`)}
         </p>
       )}
-      {result && (
-        <CheckResult
-          result={result}
-          name={connection.name}
-          kind={validated.kind}
-          failing={active.map((use) => featureName(t, use.feature)).join(", ")}
-        />
+      {header === "full" && (
+        <>
+          {health.note}
+          {health.problem}
+        </>
       )}
       {error && (
         <p role="alert" className="text-xs text-destructive">
@@ -1095,12 +1089,21 @@ export function CustomConnectionRow({ connection, uses, usages, policy }: Custom
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const allowed = isCustomConnectionAllowed(policy);
+  // Its check on the line; Replace key and Edit endpoint are in the content "Manage" opens.
+  const health = useHealthControls(
+    "custom",
+    connection.name,
+    { onReplaceKey: allowed ? () => setOpen(true) : undefined },
+    { showSkipped: true }
+  );
   return (
     <ConnectionRow
       data-setting-id="connections.custom"
       icon={<Link className="h-4 w-4 text-primary" />}
       name={connection.name}
       nameDir="auto"
+      health={health.pill}
+      problem={health.problem}
       toggleLabel={t("connections.rows.manage")}
       open={open}
       onToggle={() => setOpen((value) => !value)}
@@ -1118,7 +1121,13 @@ export function CustomConnectionRow({ connection, uses, usages, policy }: Custom
           <div className="flex flex-wrap items-center gap-1.5 text-xs" data-connection-used-by="">
             <span className="text-muted-foreground">{t("connections.usedBy.label")}</span>
             {uses.map((use) => (
-              <UseChip key={use.feature} use={use} mismatch={false} onUpdate={() => {}} />
+              <UseChip
+                key={use.feature}
+                use={use}
+                mismatch={false}
+                onUpdate={() => {}}
+                mark={modelMark(health.health, use.feature, use.model)}
+              />
             ))}
           </div>
         ) : undefined

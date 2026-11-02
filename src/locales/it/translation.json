@@ -7024,6 +7024,133 @@
       },
       "endpointLabel": "Endpoint della risorsa",
       "help": "Incolla l’endpoint e una chiave dalla pagina Keys and Endpoint della tua risorsa Speech. Va bene anche un endpoint di Foundry (.services.ai.azure.com, anche quello di un progetto): viene salvato come indirizzo .cognitiveservices.azure.com della stessa risorsa."
+    },
+    "health": {
+      "withAge": "{{state}} · {{ago}}",
+      "check": "Verifica",
+      "checking": "Verifica in corso…",
+      "checkAria": "Verifica {{name}}",
+      "states": {
+        "ok": "La chiave funziona",
+        "signedIn": "Accesso eseguito",
+        "service": "Copilot disponibile",
+        "reachable": "Raggiungibile",
+        "notVerifiable": "Raggiungibile · chiave non verificabile",
+        "rejected": "Chiave rifiutata",
+        "managementKey": "La chiave non può fare richieste",
+        "unreachable": "Non raggiungibile",
+        "endpointNotFound": "Endpoint non trovato",
+        "modelMissing": "Un modello non è disponibile",
+        "rateLimited": "Limite di richieste",
+        "limitReached": "Limite di spesa raggiunto",
+        "outOfCredit": "Credito esaurito",
+        "accessDenied": "Accesso negato",
+        "unexpected": "Risposta inattesa",
+        "checking": "Verifica in corso…",
+        "unchecked": "Non ancora verificato"
+      },
+      "notChecked": {
+        "label": "Non verificato",
+        "managed": "Gestito dalla tua organizzazione · non verificato qui",
+        "noKey": "Non verificato · nessuna chiave salvata",
+        "incomplete": "Non verificato · servono entrambe le credenziali client",
+        "invalidEndpoint": "Non verificato · l'endpoint non è valido",
+        "endpointNeeded": "Non verificato · manca l'endpoint",
+        "cloudOff": "Non verificato · OpenWhispr Cloud è disattivato"
+      },
+      "marks": {
+        "offered": "Disponibile su questa connessione",
+        "missing": "Non disponibile su questa connessione"
+      },
+      "steps": {
+        "theServer": "il server",
+        "noAnswer": "Nessuna risposta da {{host}} entro 8 secondi",
+        "status": "{{host}} ha risposto {{status}}",
+        "unreachable": "Impossibile raggiungere {{host}}",
+        "reachable": "{{host}} raggiungibile",
+        "redirected": "{{host}} ha reindirizzato altrove, quindi la chiave non è stata inoltrata",
+        "signInAccepted": "Accesso accettato da GitHub",
+        "keyAccepted": "Chiave accettata",
+        "copilotListed": "Copilot ha elencato i modelli del tuo piano",
+        "managementKey": "È una chiave di gestione, che non può fare richieste",
+        "keyBlocked": "Chiave bloccata o disattivata",
+        "keyRejected": "Chiave rifiutata ({{status}})",
+        "modelOffered": "{{model}} è disponibile",
+        "modelMissing": "{{model}} non è in elenco",
+        "limit": "Limite di spesa: restano {{remaining}} su {{amount}}",
+        "languageModels": "Modelli linguistici",
+        "speechToText": "Riconoscimento vocale"
+      },
+      "problems": {
+        "rejected": "{{name}} non ha accettato questa chiave.",
+        "rejectedHint": "Potrebbe essere stata eliminata o rinnovata sul sito di {{name}}.",
+        "managementKey": "Questa chiave non si può usare per le richieste.",
+        "managementKeyHint": "È una chiave di gestione OpenRouter. Crea invece una normale chiave API.",
+        "unreachable": "Nessuna risposta da {{host}}.",
+        "unreachableHint": "Controlla l'endpoint o la tua rete.",
+        "endpointNotFound": "{{host}} non offre questo servizio.",
+        "endpointNotFoundHint": "Controlla l'endpoint, la regione o il tenant.",
+        "modelMissing": "{{feature}} usa «{{model}}», che {{name}} non elenca.",
+        "modelMissingHint": "La chiave funziona. {{feature}} non funzionerà finché non scegli un altro modello o rendi di nuovo disponibile questo.",
+        "rateLimited": "{{name}} ha risposto «troppe richieste».",
+        "rateLimitedHint": "La chiave probabilmente va bene; riprova tra qualche minuto.",
+        "limitReached": "La chiave funziona, ma ha raggiunto il suo limite di spesa.",
+        "limitReachedHint": "Le richieste non riusciranno finché non alzi il limite della chiave su OpenRouter.",
+        "outOfCredit": "{{name}} segnala che l'account ha esaurito il credito.",
+        "outOfCreditHint": "Le richieste non riusciranno finché non ricarichi.",
+        "accessDenied": "{{name}} ha negato l'accesso ({{status}}).",
+        "accessDeniedHint": "La chiave potrebbe non poter elencare i modelli; le richieste potrebbero comunque funzionare.",
+        "unexpected": "{{name}} ha dato una risposta inattesa.",
+        "unexpectedHint": "Verifica di nuovo tra poco.",
+        "affected": "Interessati: {{features}}.",
+        "notAffected": "Nulla di ciò che è in uso ora la utilizza, quindi nessuna funzione è interessata."
+      },
+      "actions": {
+        "replaceKey": "Sostituisci chiave",
+        "getKey": "Ottieni una chiave",
+        "remove": "Rimuovi",
+        "chooseModel": "Scegli un modello per {{feature}}",
+        "editEndpoint": "Modifica endpoint",
+        "checkAgain": "Verifica di nuovo",
+        "signIn": "Accedi di nuovo"
+      },
+      "notes": {
+        "copilotIdentity": "La verifica automatica conferma l'accesso; «Verifica» chiede anche a Copilot i modelli del tuo piano (avvia l'assistente di Copilot per un minuto).",
+        "tinfoil": "L'elenco dei modelli di Tinfoil è pubblico, quindi si verifica solo la raggiungibilità; la chiave viene verificata quando la usi.",
+        "azureSpeech": "{{model}} viene verificato quando detti."
+      },
+      "summary": {
+        "checking_one": "Verifica di {{count}} connessione…",
+        "checking_other": "Verifica di {{count}} connessioni…",
+        "allWork_one": "{{count}} connessione funziona",
+        "allWork_other": "Tutte le {{count}} connessioni funzionano",
+        "problems_one": "{{count}} connessione ha un problema",
+        "problems_other": "{{count}} connessioni hanno un problema",
+        "warnings_one": "{{count}} connessione richiede attenzione",
+        "warnings_other": "{{count}} connessioni richiedono attenzione",
+        "notChecked": "Non ancora verificato",
+        "checkedAgo": "Verificato {{ago}}.",
+        "free": "Verifiche gratuite: non viene inviato né testo né audio, solo se ogni chiave è accettata e i suoi modelli ci sono.",
+        "working_one": "{{count}} funziona",
+        "working_other": "{{count}} funzionano",
+        "problemCount_one": "{{count}} problema",
+        "problemCount_other": "{{count}} problemi",
+        "warningCount_one": "{{count}} avviso",
+        "warningCount_other": "{{count}} avvisi",
+        "notCheckedCount_one": "{{count}} non verificata",
+        "notCheckedCount_other": "{{count}} non verificate",
+        "checkAll": "Verifica tutto",
+        "none": "Ancora niente da verificare: aggiungi una chiave o accedi qui sotto."
+      },
+      "navFlag": {
+        "danger": "Una connessione usata da una funzione ha un problema",
+        "warning": "Una connessione usata da una funzione è limitata"
+      },
+      "search": {
+        "title": "Stato delle connessioni",
+        "description": "Verifica che ogni chiave e accesso salvati funzionino: Verifica tutto, e cosa ha trovato ogni verifica.",
+        "alias": "verifica connessione"
+      }
     }
   },
   "modelPicker": {
@@ -7173,6 +7300,16 @@
         "localEngine": "{{engine}} (locale)",
         "defaultModel": "Predefinito ({{model}})"
       }
+    },
+    "health": {
+      "rejected": "La chiave di {{provider}} è stata rifiutata (verificato {{ago}})",
+      "unreachable": "Impossibile raggiungere {{provider}} (verificato {{ago}})",
+      "modelMissing": "{{provider}} non elenca questo modello (verificato {{ago}})",
+      "rateLimited": "{{provider}} ha limitato le richieste (verificato {{ago}})",
+      "limitReached": "Il limite di spesa di {{provider}} è raggiunto (verificato {{ago}})",
+      "outOfCredit": "{{provider}} ha esaurito il credito (verificato {{ago}})",
+      "accessDenied": "{{provider}} ha negato l'accesso (verificato {{ago}})",
+      "fix": "Risolvi in Connessioni IA"
     }
   }
 }

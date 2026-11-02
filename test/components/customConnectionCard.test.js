@@ -10,8 +10,10 @@ const { installSettingsDom, captureConsole, settle } = require("../lib/settingsD
 // (an Azure operation URL says why it can't); saved and in use, its card under
 // In use shows the masked key and "Used by"; a feature holding another key
 // shows "different key · Update"; Remove is refused while a feature uses it;
-// Replace key names and updates every user; Check connection reports a
-// rejected key and remembers deployments; Edit endpoint moves every user
+// Replace key names and updates every user; its Check is the page's
+// connection check (fresh, the custom descriptor), reporting a rejected key
+// with what it affects and marking deployed and missing deployments on the
+// Used by chips; the dialog's own check still remembers deployments; Edit endpoint moves every user
 // along; unused, it's a row whose "Manage" opens the same content, and it's
 // removed; and a policy allowing no custom endpoint leaves only a note.
 
@@ -23,7 +25,7 @@ const STT = "CUSTOM_TRANSCRIPTION_API_KEY";
 const CHAT = "CHAT_AGENT_CUSTOM_API_KEY";
 
 // Main, as far as the card can tell: the slots it holds and what it answered.
-const main = { mismatched: new Set(), check: null, store: null };
+const main = { mismatched: new Set(), check: null, store: null, connectionCheck: null };
 
 let dom;
 test.before(async () => {
@@ -37,8 +39,17 @@ test.before(async () => {
         main.store.setState({ customConnectionApiKey: STT_KEY });
         return { success: true };
       },
-      customConnectionSaveKey: async ({ key }) => {
-        main.store.setState({ customConnectionApiKey: key });
+      customConnectionSaveKey: async ({ key, applyTo = [] }) => {
+        // Main writes the connection's key and the listed slots, then every
+        // window re-reads them (api-key-updated).
+        const slotFields = {
+          CUSTOM_TRANSCRIPTION_API_KEY: "customTranscriptionApiKey",
+          CHAT_AGENT_CUSTOM_API_KEY: "chatAgentCustomApiKey",
+        };
+        main.store.setState({
+          customConnectionApiKey: key,
+          ...Object.fromEntries(applyTo.map((slot) => [slotFields[slot], key])),
+        });
         return { success: true };
       },
       customConnectionApplyKey: async () => ({ success: true }),
@@ -47,6 +58,21 @@ test.before(async () => {
         return { success: true };
       },
       customConnectionCheck: async () => main.check,
+      // The page's connection checks: main answers the custom descriptor at once.
+      connectionChecksRun: async ({ descriptors }) => {
+        const custom = descriptors.find((descriptor) => descriptor.id === "custom");
+        if (!custom || !main.connectionCheck) return { results: {}, pending: [] };
+        return {
+          results: {
+            custom: {
+              ...main.connectionCheck,
+              checkedAt: Date.now(),
+              generation: custom.generation,
+            },
+          },
+          pending: [],
+        };
+      },
     },
   });
 });
@@ -304,27 +330,71 @@ test(
     assert.equal(dialog("[data-custom-connection-replace-dialog]"), null, "closed");
     noRawSecret("after replacing");
 
-    // ── Check connection: a rejected key ─────────────────────────────────────
-    main.check = { status: "auth", httpStatus: 401, discovery: "unavailable" };
-    await act(() => card().querySelector("[data-custom-connection-check]").click());
-    assert.deepEqual(calls("customConnectionCheck").at(-1), [{ endpoint: AZURE }]);
-    const result = card().querySelector('[data-check-status="auth"]');
-    assert.ok(result.textContent.includes("Key rejected (401)"));
-    assert.ok(result.textContent.includes("Recognition"), "names what fails");
-    // Deployments found join the remembered models.
-    main.check = {
-      status: "ok",
-      discovery: "listed",
-      deployments: [{ id: "gpt-4.1-mini", model: "gpt-4.1-mini-2025-04-14" }],
+    // ── Check: the page's connection check, fresh; a rejected key ───────────
+    main.connectionCheck = {
+      reachable: true,
+      credentials: "rejected",
+      models: { "gpt-4o-transcribe": "unknown", "gpt-5-mini": "unknown" },
+      httpStatus: 401,
+      code: "PROVIDER_AUTH_FAILED",
+      proof: "key",
     };
     await act(() => card().querySelector("[data-custom-connection-check]").click());
-    assert.ok(
-      card().querySelector('[data-check-status="ok"]').textContent.includes("gpt-4.1-mini")
+    const run = calls("connectionChecksRun").at(-1)[0];
+    assert.equal(run.fresh, true, "an explicit check is fresh");
+    assert.deepEqual(
+      run.descriptors.map(({ id, kind, route, slot, models }) => ({
+        id,
+        kind,
+        route,
+        slot,
+        models,
+      })),
+      [
+        {
+          id: "custom",
+          kind: "custom",
+          route: AZURE,
+          slot: "CUSTOM_CONNECTION_API_KEY",
+          models: ["gpt-4o-transcribe", "gpt-5-mini"],
+        },
+      ],
+      "names only: the route, the slot and the models in use"
     );
-    assert.deepEqual(useSettingsStore.getState().customConnection.models.language, [
-      "gpt-5-mini",
-      "gpt-4.1-mini",
-    ]);
+    assert.equal(calls("customConnectionCheck").length, 0, "the dialog's check isn't used");
+    assert.ok(card().querySelector('[data-connection-health="rejected"]'));
+    const problem = card().querySelector('[data-connection-problem="rejected"]');
+    assert.ok(problem.textContent.includes("Little Buddy didn't accept this key."));
+    assert.ok(problem.textContent.includes("Key rejected (401)"));
+    assert.ok(problem.textContent.includes("Recognition"), "names what fails");
+    assert.ok(problem.querySelector('[data-problem-action="replaceKey"]'));
+    noRawSecret("with a rejected key");
+    // Deployment ids compared: ✓ on a deployed one, ✕ on a missing one.
+    main.connectionCheck = {
+      reachable: true,
+      credentials: "accepted",
+      models: { "gpt-4o-transcribe": "offered", "gpt-5-mini": "missing" },
+      httpStatus: 200,
+      code: "OK",
+      proof: "key",
+    };
+    await act(() => card().querySelector("[data-custom-connection-check]").click());
+    assert.ok(card().querySelector('[data-connection-health="modelMissing"]'));
+    assert.equal(
+      card().querySelector('[data-connection-use="recognition"]').getAttribute("data-model-check"),
+      "offered"
+    );
+    assert.equal(
+      card().querySelector('[data-connection-use="chat"]').getAttribute("data-model-check"),
+      "missing"
+    );
+    assert.ok(
+      card()
+        .querySelector('[data-connection-problem="modelMissing"]')
+        .querySelector('[data-problem-action="chooseModel"]'),
+      "choose a model for the feature"
+    );
+    main.connectionCheck = null;
 
     // ── Edit endpoint: every feature on it moves along, models and keys kept ─
     await openMenu();

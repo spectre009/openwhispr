@@ -48,6 +48,81 @@ export interface CustomConnectionCheckResult {
   discovery: "listed" | "unavailable";
 }
 
+// ── Connection checks (Settings › AI Connections; helpers/connectionChecks.js) ──
+
+export type ConnectionCheckKind =
+  | "openai"
+  | "anthropic"
+  | "gemini"
+  | "groq"
+  | "openrouter"
+  | "mistral"
+  | "xai"
+  | "deepgram"
+  | "assemblyai"
+  | "azure-speech"
+  | "tinfoil"
+  | "corti-llm"
+  | "corti-stt"
+  | "custom"
+  | "endpoint"
+  | "selfHosted"
+  | "copilot";
+
+/**
+ * One thing to verify, built in the renderer from names only: the slot is a
+ * credential's name, never its value. Main checks the route against the
+ * kind's allowlist and reads the key itself.
+ */
+export interface ConnectionCheckDescriptor {
+  id: string;
+  kind: ConnectionCheckKind;
+  capability: "llm" | "stt" | "identity";
+  /** The resolved base URL (the app's overrides honoured). */
+  route: string;
+  slot: string | null;
+  /** The model ids active features use on it. */
+  models: string[];
+  /** What invalidates a result: route, slot, models, region, tenant. */
+  generation: string;
+}
+
+export type ConnectionModelEvidence = "offered" | "missing" | "unknown";
+
+/** Evidence, not a verdict: what the check could and couldn't prove. */
+export interface ConnectionCheckResult {
+  reachable: boolean;
+  credentials: "accepted" | "rejected" | "unknown";
+  models: Record<string, ConnectionModelEvidence>;
+  /** A key's own spending limit (OpenRouter), only when it has one. */
+  limit?: { amount: number; remaining: number | null; reached: boolean };
+  httpStatus?: number;
+  /** "OK", a providerHttpErrors code (PROVIDER_*, API_KEY_MISSING) or a CHECK_* code. */
+  code: string;
+  /** What an accepted answer proves: the key, a sign-in, a service, or only reachability. */
+  proof: "key" | "identity" | "service" | "reachability" | "session";
+  checkedAt: number;
+  generation: string;
+}
+
+export interface ConnectionChecksRunRequest {
+  descriptors: ConnectionCheckDescriptor[];
+  maxAgeMs: number;
+  fresh: boolean;
+}
+
+export interface ConnectionChecksRunResult {
+  /** Cached results young enough, and refused descriptors' answers. */
+  results: Record<string, ConnectionCheckResult>;
+  /** Queued: their answers arrive as connection-check-result events. */
+  pending: string[];
+}
+
+export type ConnectionCheckEvent =
+  | { id: string; generation: string; result: ConnectionCheckResult }
+  | { id: string; generation: string; dropped: true }
+  | { id: string; invalidated: true };
+
 export type DictionaryEntrySource = "manual" | "learned";
 
 export interface DictionaryEntry {
@@ -3618,6 +3693,12 @@ declare global {
         key?: string;
         fromSlot?: CustomConnectionSlot;
       }) => Promise<CustomConnectionCheckResult>;
+
+      // Settings › AI Connections' connection checks (helpers/connectionChecks.js).
+      connectionChecksRun?: (
+        request: ConnectionChecksRunRequest
+      ) => Promise<ConnectionChecksRunResult>;
+      onConnectionCheckResult?: (callback: (payload: ConnectionCheckEvent) => void) => () => void;
 
       // Enterprise provider key persistence
       getBedrockRegion?: () => Promise<string | null>;

@@ -19,6 +19,8 @@ interface ApiKeyInputProps {
    * never enters it), and an empty draft cancels instead of clearing the key.
    */
   replace?: boolean;
+  /** Each new value opens the editor (a connection check's "Replace key"). */
+  editRequest?: number;
 }
 
 export default function ApiKeyInput({
@@ -31,6 +33,7 @@ export default function ApiKeyInput({
   helpText,
   variant = "default",
   replace = false,
+  editRequest = 0,
 }: ApiKeyInputProps) {
   const { t } = useTranslation();
   const resolvedPlaceholder = placeholder ?? t("apiKeyInput.placeholder");
@@ -55,6 +58,15 @@ export default function ApiKeyInput({
     setDraft(replace ? "" : apiKey);
     setIsEditing(true);
   };
+
+  // Not on mount: only a request made after the field shows opens it.
+  const handledRequest = useRef(editRequest);
+  useEffect(() => {
+    if (editRequest === handledRequest.current) return;
+    handledRequest.current = editRequest;
+    setDraft(replace ? "" : apiKey);
+    setIsEditing(true);
+  }, [editRequest, replace, apiKey]);
 
   const save = useCallback(() => {
     const next = draft.trim();

@@ -49,14 +49,17 @@ import {
   connectionUsedBy,
   type PickerConnection,
 } from "./connectionOptions";
-import type {
-  PickerAvailability,
-  PickerGroup,
-  PickerLink,
-  PickerOptionBase,
-  PickerSelectionSummary,
-  PickerText,
-  PickerUnavailable,
+import {
+  connectionAdvice,
+  type PickerAdvice,
+  type PickerAvailability,
+  type PickerGroup,
+  type PickerHealth,
+  type PickerLink,
+  type PickerOptionBase,
+  type PickerSelectionSummary,
+  type PickerText,
+  type PickerUnavailable,
 } from "./options";
 
 /**
@@ -119,6 +122,39 @@ export interface SttPickerOption extends PickerOptionBase {
 }
 
 export type SttPickerGroup = PickerGroup<SttPickerOption>;
+
+/**
+ * A speech-to-text option's advisory line, if its connection's last check
+ * found a problem (Corti by its client credentials' half). Never an
+ * availability reason: the option stays pickable.
+ */
+export function sttOptionAdvice(
+  option: SttPickerOption,
+  health: PickerHealth | undefined,
+  connectionName = ""
+): PickerAdvice | null {
+  if (!health || option.available !== true) return null;
+  if (option.action === "useConnection") {
+    return connectionAdvice(
+      health,
+      ["custom"],
+      connectionName,
+      option.model,
+      "connections#connections.custom"
+    );
+  }
+  if (option.mode !== "providers" || option.action || !option.provider) return null;
+  if (option.provider === "custom") return null;
+  const provider = findConnectionProvider(option.provider);
+  if (!provider) return null;
+  return connectionAdvice(
+    health,
+    [`${provider.id}:stt`, provider.id],
+    provider.name,
+    option.model,
+    connectionDestination(provider.id)
+  );
+}
 
 /** Speech-to-text providers with a shared key, in the old provider tabs' order. */
 export const STT_PICKER_PROVIDERS = [

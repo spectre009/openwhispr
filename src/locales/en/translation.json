@@ -7022,6 +7022,133 @@
       },
       "endpointLabel": "Resource endpoint",
       "help": "Paste the endpoint and a key from your Speech resource's Keys and Endpoint page. A Foundry endpoint (.services.ai.azure.com, a project's too) works as well: it's saved as the same resource's .cognitiveservices.azure.com address."
+    },
+    "health": {
+      "withAge": "{{state}} · {{ago}}",
+      "check": "Check",
+      "checking": "Checking…",
+      "checkAria": "Check {{name}}",
+      "states": {
+        "ok": "Key works",
+        "signedIn": "Signed in",
+        "service": "Copilot available",
+        "reachable": "Reachable",
+        "notVerifiable": "Reachable · key not verifiable",
+        "rejected": "Key rejected",
+        "managementKey": "Key can't make requests",
+        "unreachable": "Can't reach",
+        "endpointNotFound": "Endpoint not found",
+        "modelMissing": "A model isn't available",
+        "rateLimited": "Rate limited",
+        "limitReached": "Spending limit reached",
+        "outOfCredit": "Out of credit",
+        "accessDenied": "Access denied",
+        "unexpected": "Unexpected answer",
+        "checking": "Checking…",
+        "unchecked": "Not checked yet"
+      },
+      "notChecked": {
+        "label": "Not checked",
+        "managed": "Managed by your organization · not checked here",
+        "noKey": "Not checked · no key saved",
+        "incomplete": "Not checked · needs both client credentials",
+        "invalidEndpoint": "Not checked · the endpoint isn't valid",
+        "endpointNeeded": "Not checked · endpoint needed",
+        "cloudOff": "Not checked · OpenWhispr Cloud is off"
+      },
+      "marks": {
+        "offered": "Available on this connection",
+        "missing": "Not available on this connection"
+      },
+      "steps": {
+        "theServer": "the server",
+        "noAnswer": "No answer from {{host}} within 8 seconds",
+        "status": "{{host}} answered {{status}}",
+        "unreachable": "Couldn't reach {{host}}",
+        "reachable": "{{host}} reachable",
+        "redirected": "{{host}} redirected elsewhere, so the key wasn't sent on",
+        "signInAccepted": "Sign-in accepted by GitHub",
+        "keyAccepted": "Key accepted",
+        "copilotListed": "Copilot listed your plan's models",
+        "managementKey": "This is a management key, which can't make requests",
+        "keyBlocked": "Key blocked or disabled",
+        "keyRejected": "Key rejected ({{status}})",
+        "modelOffered": "{{model}} is available",
+        "modelMissing": "{{model}} isn't listed",
+        "limit": "Spending limit: {{remaining}} of {{amount}} left",
+        "languageModels": "Language models",
+        "speechToText": "Speech-to-text"
+      },
+      "problems": {
+        "rejected": "{{name}} didn't accept this key.",
+        "rejectedHint": "It may have been deleted or rotated on {{name}}'s site.",
+        "managementKey": "This key can't be used for requests.",
+        "managementKeyHint": "It's an OpenRouter management key. Create a regular API key instead.",
+        "unreachable": "No answer from {{host}}.",
+        "unreachableHint": "Check the endpoint, or your network.",
+        "endpointNotFound": "{{host}} doesn't offer this service.",
+        "endpointNotFoundHint": "Check the endpoint, the region or the tenant.",
+        "modelMissing": "{{feature}} uses “{{model}}”, which {{name}} doesn't list.",
+        "modelMissingHint": "The key works. {{feature}} will fail until you pick another model or make this one available again.",
+        "rateLimited": "{{name}} answered “too many requests”.",
+        "rateLimitedHint": "The key is probably fine; try again in a few minutes.",
+        "limitReached": "The key works, but its spending limit is reached.",
+        "limitReachedHint": "Requests will fail until you raise the key's limit on OpenRouter.",
+        "outOfCredit": "{{name}} says the account is out of credit.",
+        "outOfCreditHint": "Requests will fail until you top up.",
+        "accessDenied": "{{name}} refused access ({{status}}).",
+        "accessDeniedHint": "The key may not be allowed to list models; requests may still work.",
+        "unexpected": "{{name}} gave an unexpected answer.",
+        "unexpectedHint": "Check again in a moment.",
+        "affected": "Affected: {{features}}.",
+        "notAffected": "Nothing that runs now uses it, so no feature is affected."
+      },
+      "actions": {
+        "replaceKey": "Replace key",
+        "getKey": "Get a key",
+        "remove": "Remove",
+        "chooseModel": "Choose a model for {{feature}}",
+        "editEndpoint": "Edit endpoint",
+        "checkAgain": "Check again",
+        "signIn": "Sign in again"
+      },
+      "notes": {
+        "copilotIdentity": "The automatic check confirms the sign-in; Check also asks Copilot for your plan's models (it starts Copilot's helper for a minute).",
+        "tinfoil": "Tinfoil's model list is public, so only reachability is checked; the key is checked when you use it.",
+        "azureSpeech": "{{model}} itself is checked when you dictate."
+      },
+      "summary": {
+        "checking_one": "Checking {{count}} connection…",
+        "checking_other": "Checking {{count}} connections…",
+        "allWork_one": "{{count}} connection works",
+        "allWork_other": "All {{count}} connections work",
+        "problems_one": "{{count}} connection has a problem",
+        "problems_other": "{{count}} connections have a problem",
+        "warnings_one": "{{count}} connection needs attention",
+        "warnings_other": "{{count}} connections need attention",
+        "notChecked": "Not checked yet",
+        "checkedAgo": "Checked {{ago}}.",
+        "free": "Free checks: no text or audio is sent, only whether each key is accepted and its models are there.",
+        "working_one": "{{count}} working",
+        "working_other": "{{count}} working",
+        "problemCount_one": "{{count}} problem",
+        "problemCount_other": "{{count}} problems",
+        "warningCount_one": "{{count}} warning",
+        "warningCount_other": "{{count}} warnings",
+        "notCheckedCount_one": "{{count}} not checked",
+        "notCheckedCount_other": "{{count}} not checked",
+        "checkAll": "Check all",
+        "none": "Nothing to check yet: add a key or sign in below."
+      },
+      "navFlag": {
+        "danger": "A connection a feature uses has a problem",
+        "warning": "A connection a feature uses is limited"
+      },
+      "search": {
+        "title": "Connection status",
+        "description": "Checks that each saved key and sign-in works: Check all, and what each check found.",
+        "alias": "check connection"
+      }
     }
   },
   "modelPicker": {
@@ -7171,6 +7298,16 @@
         "localEngine": "{{engine}} (local)",
         "defaultModel": "Default ({{model}})"
       }
+    },
+    "health": {
+      "rejected": "{{provider}}'s key was rejected (checked {{ago}})",
+      "unreachable": "Couldn't reach {{provider}} (checked {{ago}})",
+      "modelMissing": "{{provider}} doesn't list this model (checked {{ago}})",
+      "rateLimited": "{{provider}} was rate limited (checked {{ago}})",
+      "limitReached": "{{provider}}'s spending limit is reached (checked {{ago}})",
+      "outOfCredit": "{{provider}} is out of credit (checked {{ago}})",
+      "accessDenied": "{{provider}} refused access (checked {{ago}})",
+      "fix": "Fix on AI Connections"
     }
   }
 }

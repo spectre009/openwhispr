@@ -53,6 +53,8 @@ export interface SettingsNavItem<T extends string> {
   children?: SettingsNavPageLink<T>[];
   /** Leaves Settings for an app page (Dictionary, Integrations) instead. */
   onSelect?: () => void;
+  /** A dot beside the item (AI Connections: a connection a feature uses has a problem). */
+  flag?: { tone: "danger" | "warning"; label: string };
 }
 
 export interface SettingsNavGroup<T extends string> {
@@ -486,13 +488,31 @@ export default function SettingsLayer<T extends string>({
                                   else if (item.page) onNavigate(item.page);
                                 }}
                                 title={navIconsOnly ? item.label : undefined}
-                                aria-label={navIconsOnly ? item.label : undefined}
+                                aria-label={
+                                  navIconsOnly || item.flag
+                                    ? item.flag
+                                      ? `${item.label}, ${item.flag.label}`
+                                      : item.label
+                                    : undefined
+                                }
                                 className={cn(
                                   navRowClass(isActive),
                                   expanded && "text-foreground dark:text-foreground"
                                 )}
                               >
                                 <Icon className={navIconClass(isActive || expanded)} />
+                                {item.flag && (
+                                  <span
+                                    aria-hidden="true"
+                                    data-settings-nav-flag={item.flag.tone}
+                                    title={item.flag.label}
+                                    className={cn(
+                                      "h-2 w-2 shrink-0 rounded-full",
+                                      item.flag.tone === "danger" ? "bg-destructive" : "bg-warning",
+                                      navIconsOnly ? "absolute end-1 top-1" : "order-last"
+                                    )}
+                                  />
+                                )}
                                 {!navIconsOnly && (
                                   <>
                                     <span

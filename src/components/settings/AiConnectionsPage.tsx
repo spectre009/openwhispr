@@ -1,4 +1,13 @@
-import { Fragment, useCallback, useEffect, useId, useMemo, useState, type ReactNode } from "react";
+import {
+  Fragment,
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { useTranslation } from "react-i18next";
 import { useShallow } from "zustand/react/shallow";
 import {
@@ -104,6 +113,29 @@ import {
   CustomConnectionRow,
   SaveAsConnection,
 } from "./CustomConnectionCard";
+import { ConnectionsHealthSummary, ModelMark } from "./ConnectionCheckParts";
+import {
+  ConnectionHealthContext,
+  useHealthNow,
+  type ConnectionHealthContextValue,
+} from "./connectionCheckContext";
+import { useHealthControls } from "./connectionCheckControls";
+import {
+  CONNECTION_CHECK_MAX_AGE_MS,
+  buildCheckPlan,
+  connectionsFlag,
+  modelMark,
+  pickerHealthMap,
+  type CheckPlan,
+  type OwnerHealth,
+} from "./connectionHealth";
+import {
+  forgetConnectionResults,
+  publishConnectionHealth,
+  runConnectionChecks,
+  subscribeConnectionChecks,
+  useConnectionHealthStore,
+} from "../../stores/connectionHealthStore";
 
 /**
  * Settings › AI Connections & Local Models: every shared credential and
@@ -180,7 +212,13 @@ function usageNote(t: Translate, usage: FeatureUsage): string {
 }
 
 /** A feature using a connection; opens where that feature picks its model. */
-function UsageChip({ usage }: { usage: FeatureUsage }) {
+function UsageChip({
+  usage,
+  mark = null,
+}: {
+  usage: FeatureUsage;
+  mark?: "offered" | "missing" | null;
+}) {
   const { t } = useTranslation();
   const openSettings = useOpenSettingsLink();
   const title = featureTitle(t, usage.feature);
@@ -189,15 +227,26 @@ function UsageChip({ usage }: { usage: FeatureUsage }) {
     "inline-flex max-w-full items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] leading-4",
     usage.kind === "off"
       ? "border-dashed border-border/60 text-muted-foreground/70"
-      : "border-border/70 bg-muted/40 text-foreground/85 dark:border-white/10 dark:bg-surface-1"
+      : "border-border/70 bg-muted/40 text-foreground/85 dark:border-white/10 dark:bg-surface-1",
+    mark === "missing" && "border-destructive/50 text-destructive"
   );
   const content = (
     <>
       <span className="truncate">{title}</span>
+      {mark && usage.model && (
+        <span className="truncate text-muted-foreground">
+          · <bdi dir="ltr">{usage.model}</bdi>
+        </span>
+      )}
       {note && <span className="truncate text-muted-foreground/80">· {note}</span>}
+      <ModelMark mark={mark} />
     </>
   );
-  const data = { "data-usage-feature": usage.feature, "data-usage-kind": usage.kind };
+  const data = {
+    "data-usage-feature": usage.feature,
+    "data-usage-kind": usage.kind,
+    ...(mark ? { "data-model-check": mark } : {}),
+  };
   if (!openSettings) {
     return (
       <span className={className} {...data}>
@@ -218,7 +267,14 @@ function UsageChip({ usage }: { usage: FeatureUsage }) {
   );
 }
 
-function UsedBy({ usages }: { usages: readonly FeatureUsage[] }) {
+function UsedBy({
+  usages,
+  health = null,
+}: {
+  usages: readonly FeatureUsage[];
+  /** The connection's check: chips get ✓/✕ for models it compared. */
+  health?: OwnerHealth | null;
+}) {
   const { t } = useTranslation();
   if (usages.length === 0) {
     return <p className="text-xs text-muted-foreground/70">{t("connections.usedBy.none")}</p>;
@@ -227,7 +283,11 @@ function UsedBy({ usages }: { usages: readonly FeatureUsage[] }) {
     <div className="flex flex-wrap items-center gap-1.5 text-xs" data-connection-used-by="">
       <span className="text-muted-foreground">{t("connections.usedBy.label")}</span>
       {usages.map((usage) => (
-        <UsageChip key={usage.feature} usage={usage} />
+        <UsageChip
+          key={usage.feature}
+          usage={usage}
+          mark={modelMark(health, usage.feature, usage.model)}
+        />
       ))}
     </div>
   );
@@ -239,6 +299,9 @@ function ConnectionCard({
   name,
   pill,
   usages,
+  health = null,
+  problem,
+  lastUse,
   footer,
   children,
 }: {
@@ -248,6 +311,15 @@ function ConnectionCard({
   name: string;
   pill?: ReactNode;
   usages: readonly FeatureUsage[];
+  /** Its check, for the model chips. */
+  health?: OwnerHealth | null;
+  /** What its check found wrong, at the bottom. */
+  problem?: ReactNode;
+  /**
+   * Stage B's "Last recorded use: <feature>, OK / failed" line, by the same
+   * descriptor ids as the checks (connectionHealth.ts). Nothing passes it yet.
+   */
+  lastUse?: ReactNode;
   footer?: ReactNode;
   children?: ReactNode;
 }) {
@@ -255,9 +327,14 @@ function ConnectionCard({
     <div
       data-setting-id={settingId || undefined}
       data-connection-card=""
-      className="flex min-w-0 flex-col gap-3 rounded-lg border border-border/70 bg-card/50 p-3.5 dark:border-border-subtle/70 dark:bg-surface-2/50"
+      data-connection-health-tone={health?.tone}
+      className={cn(
+        "flex min-w-0 flex-col gap-3 rounded-lg border border-border/70 bg-card/50 p-3.5 dark:border-border-subtle/70 dark:bg-surface-2/50",
+        health?.tone === "danger" && "border-destructive/40 dark:border-destructive/40",
+        health?.tone === "warning" && "border-warning/40 dark:border-warning/40"
+      )}
     >
-      <div className="flex min-w-0 items-center gap-2.5">
+      <div className="flex min-w-0 flex-wrap items-center gap-2.5">
         <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-border/60 bg-background dark:border-white/10 dark:bg-surface-1">
           {icon}
         </div>
@@ -265,7 +342,9 @@ function ConnectionCard({
         {pill}
       </div>
       {children}
-      <UsedBy usages={usages} />
+      <UsedBy usages={usages} health={health} />
+      {problem}
+      {lastUse && <div data-connection-last-use="">{lastUse}</div>}
       {footer && <div className="flex flex-wrap items-center gap-3">{footer}</div>}
     </div>
   );
@@ -345,10 +424,13 @@ function ProviderEndpointField({
   provider,
   endpoint,
   allowed,
+  focusRequest = 0,
 }: {
   provider: ConnectionProviderDef;
   endpoint: string;
   allowed: boolean;
+  /** Each new value focuses the field (a check's "Edit endpoint"). */
+  focusRequest?: number;
 }) {
   const { t } = useTranslation();
   const field = provider.endpoint;
@@ -356,6 +438,9 @@ function ProviderEndpointField({
   const inputId = useId();
   const errorId = useId();
   const [editing, setEditing] = useState(false);
+  useEffect(() => {
+    if (focusRequest > 0) document.getElementById(inputId)?.focus();
+  }, [focusRequest, inputId]);
   if (!field || !setEndpoint) return null;
   const reason = endpoint.trim() ? field.validate(endpoint) : null;
   const shownReason = !editing && reason;
@@ -417,7 +502,8 @@ function RemoveKeyButton({ onClick }: { onClick: () => void }) {
  * A provider's credentials, on its card or opened under its row: its
  * endpoint field when it has one, then a replace-only field and Remove for
  * each credential, or (where policy forbids the provider) the masked values
- * with no editor.
+ * with no editor. `editRequest` opens a single key's replace field (a
+ * check's "Replace key"); `endpointFocus` focuses the endpoint field.
  */
 function ProviderCredentials({
   provider,
@@ -426,6 +512,8 @@ function ProviderCredentials({
   endpoint,
   allowed,
   onRemove,
+  editRequest = 0,
+  endpointFocus = 0,
 }: {
   provider: ConnectionProviderDef;
   values: readonly string[];
@@ -433,12 +521,19 @@ function ProviderCredentials({
   endpoint: string;
   allowed: boolean;
   onRemove: (request: RemoveRequest) => void;
+  editRequest?: number;
+  endpointFocus?: number;
 }) {
   const { t } = useTranslation();
   return (
     <div className="space-y-2">
       {provider.endpoint && (
-        <ProviderEndpointField provider={provider} endpoint={endpoint} allowed={allowed} />
+        <ProviderEndpointField
+          provider={provider}
+          endpoint={endpoint}
+          allowed={allowed}
+          focusRequest={endpointFocus}
+        />
       )}
       {provider.credentials.map((credential, index) => {
         const value = values[index];
@@ -460,6 +555,7 @@ function ProviderCredentials({
                   helpText=""
                   ariaLabel={`${provider.name}: ${label ?? t("common.apiKey")}`}
                   replace
+                  editRequest={provider.credentials.length === 1 ? editRequest : 0}
                 />
                 {value && (
                   <RemoveKeyButton
@@ -490,6 +586,42 @@ function ProviderCredentials({
   );
 }
 
+/** A provider's check parts, with the actions its problem box offers. */
+function useProviderHealth(
+  provider: ConnectionProviderDef,
+  {
+    allowed,
+    values,
+    setters,
+    onRemove,
+    replaceKey,
+    editEndpoint,
+  }: {
+    allowed: boolean;
+    values: readonly string[];
+    setters: ReadonlyArray<(value: string) => void>;
+    onRemove: (request: RemoveRequest) => void;
+    replaceKey?: () => void;
+    editEndpoint?: () => void;
+  }
+) {
+  const single = provider.credentials.length === 1;
+  return useHealthControls(provider.id, provider.name, {
+    onReplaceKey: allowed ? replaceKey : undefined,
+    keyUrl: allowed ? provider.keyUrl : undefined,
+    onRemove:
+      allowed && single && values[0]
+        ? () =>
+            onRemove({
+              provider,
+              credential: provider.credentials[0],
+              clear: () => setters[0](""),
+            })
+        : undefined,
+    onEditEndpoint: allowed && provider.endpoint ? editEndpoint : undefined,
+  });
+}
+
 function ProviderKeyCard({
   provider: providerId,
   usages,
@@ -502,14 +634,39 @@ function ProviderKeyCard({
   const { values, setters, endpoint } = useProviderCredentials(provider);
   const allowed = providerAllowed(policy, provider);
   const status = providerStatus(provider, allowed, values, endpoint);
+  const [editRequest, setEditRequest] = useState(0);
+  const [endpointFocus, setEndpointFocus] = useState(0);
+  const health = useProviderHealth(provider, {
+    allowed,
+    values,
+    setters,
+    onRemove,
+    replaceKey:
+      provider.credentials.length === 1 ? () => setEditRequest((value) => value + 1) : undefined,
+    editEndpoint: () => setEndpointFocus((value) => value + 1),
+  });
 
   return (
     <ConnectionCard
       settingId={settingId}
       icon={<ProviderIcon provider={provider.id} className="h-4 w-4" />}
       name={provider.name}
-      pill={<StatusPill tone={STATUS_TONE[status]}>{t(STATUS_LABEL_KEY[status])}</StatusPill>}
+      pill={
+        <>
+          {!health.showsState && (
+            <StatusPill tone={STATUS_TONE[status]}>{t(STATUS_LABEL_KEY[status])}</StatusPill>
+          )}
+          {health.pill}
+        </>
+      }
       usages={usagesOfProvider(usages, provider.id)}
+      health={health.health}
+      problem={
+        <>
+          {health.note}
+          {health.problem}
+        </>
+      }
       footer={allowed ? <GetApiKeyLink url={provider.keyUrl} /> : undefined}
     >
       <ProviderCredentials
@@ -519,6 +676,8 @@ function ProviderKeyCard({
         endpoint={endpoint}
         allowed={allowed}
         onRemove={onRemove}
+        editRequest={editRequest}
+        endpointFocus={endpointFocus}
       />
     </ConnectionCard>
   );
@@ -526,9 +685,9 @@ function ProviderKeyCard({
 
 /**
  * A provider on one line: its key field (masked and "Replace" when saved,
- * "Paste your API key" when not) with Remove or "Get your API key". Corti's
- * three credentials and Azure Speech's endpoint and key open under the line
- * instead.
+ * "Paste your API key" when not) with Remove or "Get your API key", and its
+ * check's pill and Check. Corti's three credentials and Azure Speech's
+ * endpoint and key open under the line instead.
  */
 function ProviderKeyRow({
   provider: providerId,
@@ -541,9 +700,23 @@ function ProviderKeyRow({
   const provider = findConnectionProvider(providerId) as ConnectionProviderDef;
   const { values, setters, endpoint } = useProviderCredentials(provider);
   const [open, setOpen] = useState(false);
+  const [editRequest, setEditRequest] = useState(0);
+  const [endpointFocus, setEndpointFocus] = useState(0);
   const allowed = providerAllowed(policy, provider);
   const saved = values.some((value) => !!value.trim()) || !!endpoint.trim();
   const own = usagesOfProvider(usages, provider.id);
+  const opensBody = provider.credentials.length > 1 || !!provider.endpoint;
+  const health = useProviderHealth(provider, {
+    allowed,
+    values,
+    setters,
+    onRemove,
+    replaceKey: opensBody ? () => setOpen(true) : () => setEditRequest((value) => value + 1),
+    editEndpoint: () => {
+      setOpen(true);
+      setEndpointFocus((value) => value + 1);
+    },
+  });
   const getKey =
     allowed && !saved ? (
       <GetApiKeyLink
@@ -555,10 +728,12 @@ function ProviderKeyRow({
     "data-setting-id": settingId,
     icon: <ProviderIcon provider={provider.id} className="h-4 w-4" />,
     name: provider.name,
-    below: own.length > 0 ? <UsedBy usages={own} /> : undefined,
+    below: own.length > 0 ? <UsedBy usages={own} health={health.health} /> : undefined,
+    health: health.health?.notChecked === "managed" ? undefined : health.pill,
+    problem: health.problem,
   };
 
-  if (provider.credentials.length > 1 || provider.endpoint) {
+  if (opensBody) {
     const status = providerStatus(provider, allowed, values, endpoint);
     return (
       <ConnectionRow
@@ -579,10 +754,15 @@ function ProviderKeyRow({
             endpoint={endpoint}
             allowed={allowed}
             onRemove={onRemove}
+            endpointFocus={endpointFocus}
           />
         }
       >
-        <RowStatus tone={STATUS_TONE[status]}>{t(STATUS_LABEL_KEY[status])}</RowStatus>
+        <RowStatus tone={STATUS_TONE[status]}>
+          {status === "managed" && health.health?.notChecked === "managed"
+            ? t("connections.health.notChecked.managed")
+            : t(STATUS_LABEL_KEY[status])}
+        </RowStatus>
       </ConnectionRow>
     );
   }
@@ -592,7 +772,11 @@ function ProviderKeyRow({
   if (!allowed) {
     return (
       <ConnectionRow {...line}>
-        <RowStatus tone="managed">{t("common.managedByOrg")}</RowStatus>
+        <RowStatus tone="managed">
+          {health.health?.notChecked === "managed"
+            ? t("connections.health.notChecked.managed")
+            : t("common.managedByOrg")}
+        </RowStatus>
         {value && (
           <span dir="ltr" className="truncate font-mono text-xs text-muted-foreground">
             {maskApiKey(value)}
@@ -623,6 +807,7 @@ function ProviderKeyRow({
         helpText=""
         ariaLabel={`${provider.name}: ${t("common.apiKey")}`}
         replace
+        editRequest={editRequest}
       />
     </ConnectionRow>
   );
@@ -696,6 +881,9 @@ function CopilotConnection({
   const own = usagesOfProvider(usages, COPILOT_PROVIDER_ID);
   const icon = <ProviderIcon provider={COPILOT_PROVIDER_ID} className="h-4 w-4" />;
   const name = t("connections.names.copilot");
+  const health = useHealthControls("copilot", name, {
+    onSignIn: view === "row" ? () => setOpen(true) : undefined,
+  });
 
   if (view === "card") {
     return (
@@ -703,8 +891,22 @@ function CopilotConnection({
         settingId={settingId}
         icon={icon}
         name={name}
-        pill={state && <StatusPill tone={state.tone}>{state.label}</StatusPill>}
+        pill={
+          <>
+            {!health.showsState && state && (
+              <StatusPill tone={state.tone}>{state.label}</StatusPill>
+            )}
+            {health.pill}
+          </>
+        }
         usages={own}
+        health={health.health}
+        problem={
+          <>
+            {health.note}
+            {health.problem}
+          </>
+        }
       >
         <CopilotBody allowed={allowed} />
       </ConnectionCard>
@@ -715,7 +917,9 @@ function CopilotConnection({
       data-setting-id={settingId}
       icon={icon}
       name={name}
-      below={own.length > 0 ? <UsedBy usages={own} /> : undefined}
+      below={own.length > 0 ? <UsedBy usages={own} health={health.health} /> : undefined}
+      health={health.health?.notChecked === "managed" ? undefined : health.pill}
+      problem={health.problem}
       toggleLabel={
         allowed ? t(signedIn ? "connections.rows.manage" : "connections.rows.signIn") : undefined
       }
@@ -797,6 +1001,7 @@ function CloudConnection({
   const own = usagesOfProvider(usages, "cloud");
   const icon = <Cloud className="h-4 w-4 text-foreground/80" />;
   const name = t("connections.names.cloud");
+  const health = useHealthControls("cloud", name);
 
   if (view === "card") {
     return (
@@ -804,8 +1009,15 @@ function CloudConnection({
         settingId={settingId}
         icon={icon}
         name={name}
-        pill={<StatusPill tone={state.tone}>{state.label}</StatusPill>}
+        pill={
+          <>
+            {!health.showsState && <StatusPill tone={state.tone}>{state.label}</StatusPill>}
+            {health.pill}
+          </>
+        }
         usages={own}
+        health={health.health}
+        problem={health.problem}
       >
         {body}
       </ConnectionCard>
@@ -817,7 +1029,9 @@ function CloudConnection({
       data-setting-id={settingId}
       icon={icon}
       name={name}
-      below={own.length > 0 ? <UsedBy usages={own} /> : undefined}
+      below={own.length > 0 ? <UsedBy usages={own} health={health.health} /> : undefined}
+      health={health.health?.notChecked === "managed" ? undefined : health.pill}
+      problem={health.problem}
       actions={
         kind === "off" ? (
           <SettingsLink destination="privacyData#privacy.cloud" className="shrink-0">
@@ -1133,6 +1347,7 @@ function ConnectionsSection({
         title={t("connections.sections.providers.title")}
         description={t("connections.sections.providers.description")}
       />
+      <ConnectionsHealthSummary />
       {groups.layout === "grouped" ? (
         <>
           {groups.inUse.length > 0 && (
@@ -1222,84 +1437,117 @@ function EndpointsSection({
         </p>
       ) : (
         <SettingsPanel>
-          {endpoints.map((usage) => {
-            const connection = usage.connection;
-            if (connection.type !== "custom" && connection.type !== "selfHosted") return null;
-            const title = featureTitle(t, usage.feature);
-            const note = usageNote(t, usage);
-            const custom = connection.type === "custom";
-            return (
-              <SettingsPanelRow key={usage.feature}>
-                <div
-                  data-endpoint-feature={usage.feature}
-                  data-endpoint-type={connection.type}
-                  className={cn(
-                    "flex flex-wrap items-start gap-3",
-                    usage.kind === "off" && "opacity-70"
-                  )}
-                >
-                  <div className="mt-0.5 shrink-0 text-muted-foreground">
-                    {custom ? <Wrench className="h-4 w-4" /> : <Network className="h-4 w-4" />}
-                  </div>
-                  <div className="min-w-0 flex-1 space-y-0.5">
-                    <p className="text-xs font-medium text-foreground">
-                      {title}
-                      <span className="font-normal text-muted-foreground">
-                        {" · "}
-                        {t(
-                          custom
-                            ? "connections.endpoints.custom"
-                            : "connections.endpoints.selfHosted"
-                        )}
-                      </span>
-                      {note && (
-                        <span className="font-normal text-muted-foreground/80"> · {note}</span>
-                      )}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {connection.host ? (
-                        <span dir="ltr" className="font-mono">
-                          {connection.host}
-                        </span>
-                      ) : (
-                        t("connections.endpoints.noUrl")
-                      )}
-                      {" · "}
-                      {connection.model ? (
-                        <span dir="ltr" className="font-mono">
-                          {connection.model}
-                        </span>
-                      ) : (
-                        t("connections.endpoints.noModel")
-                      )}
-                    </p>
-                    {custom && (
-                      <p className="text-xs text-muted-foreground/80">
-                        {connection.secret === "speechToText"
-                          ? t(
-                              sttKeySaved
-                                ? "connections.endpoints.sttKeySaved"
-                                : "connections.endpoints.sttNoKey"
-                            )
-                          : t("connections.endpoints.featureKey")}
-                      </p>
-                    )}
-                    {custom && offerSaveAs && (
-                      <div className="pt-1">
-                        <SaveAsConnection usage={usage} usages={usages} />
-                      </div>
-                    )}
-                  </div>
-                  <SettingsLink destination={usage.edit} className="shrink-0">
-                    {t("connections.endpoints.editIn", { feature: title })}
-                  </SettingsLink>
-                </div>
-              </SettingsPanelRow>
-            );
-          })}
+          {endpoints.map((usage) => (
+            <EndpointEntry
+              key={usage.feature}
+              usage={usage}
+              usages={usages}
+              sttKeySaved={sttKeySaved}
+              offerSaveAs={offerSaveAs}
+            />
+          ))}
         </SettingsPanel>
       )}
     </div>
+  );
+}
+
+/**
+ * One feature's custom or self-hosted endpoint: what and where (host and
+ * model, never the URL), Save as connection, Edit in <feature>, and its
+ * check (`endpoint:<feature>`).
+ */
+function EndpointEntry({
+  usage,
+  usages,
+  sttKeySaved,
+  offerSaveAs,
+}: {
+  usage: FeatureUsage;
+  usages: readonly FeatureUsage[];
+  sttKeySaved: boolean;
+  offerSaveAs: boolean;
+}) {
+  const { t } = useTranslation();
+  const connection = usage.connection;
+  const title = featureTitle(t, usage.feature);
+  const health = useHealthControls(
+    `endpoint:${usage.feature}`,
+    connection.type === "custom" || connection.type === "selfHosted"
+      ? connection.host || title
+      : title,
+    { editEndpointDestination: usage.edit },
+    { showSkipped: true }
+  );
+  if (connection.type !== "custom" && connection.type !== "selfHosted") return null;
+  const note = usageNote(t, usage);
+  const custom = connection.type === "custom";
+  return (
+    <SettingsPanelRow>
+      <div className="space-y-2">
+        <div
+          data-endpoint-feature={usage.feature}
+          data-endpoint-type={connection.type}
+          className={cn("flex flex-wrap items-start gap-3", usage.kind === "off" && "opacity-70")}
+        >
+          <div className="mt-0.5 shrink-0 text-muted-foreground">
+            {custom ? <Wrench className="h-4 w-4" /> : <Network className="h-4 w-4" />}
+          </div>
+          <div className="min-w-0 flex-1 space-y-0.5">
+            <p className="text-xs font-medium text-foreground">
+              {title}
+              <span className="font-normal text-muted-foreground">
+                {" · "}
+                {t(custom ? "connections.endpoints.custom" : "connections.endpoints.selfHosted")}
+              </span>
+              {note && <span className="font-normal text-muted-foreground/80"> · {note}</span>}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {connection.host ? (
+                <span dir="ltr" className="font-mono">
+                  {connection.host}
+                </span>
+              ) : (
+                t("connections.endpoints.noUrl")
+              )}
+              {" · "}
+              {connection.model ? (
+                <span dir="ltr" className="font-mono">
+                  {connection.model}
+                </span>
+              ) : (
+                t("connections.endpoints.noModel")
+              )}
+            </p>
+            {custom && (
+              <p className="text-xs text-muted-foreground/80">
+                {connection.secret === "speechToText"
+                  ? t(
+                      sttKeySaved
+                        ? "connections.endpoints.sttKeySaved"
+                        : "connections.endpoints.sttNoKey"
+                    )
+                  : t("connections.endpoints.featureKey")}
+              </p>
+            )}
+            {custom && offerSaveAs && (
+              <div className="pt-1">
+                <SaveAsConnection usage={usage} usages={usages} />
+              </div>
+            )}
+          </div>
+          {health.pill && (
+            <div className="flex shrink-0 items-center gap-2" data-endpoint-health="">
+              {health.pill}
+            </div>
+          )}
+          <SettingsLink destination={usage.edit} className="shrink-0">
+            {t("connections.endpoints.editIn", { feature: title })}
+          </SettingsLink>
+        </div>
+        {health.problem}
+      </div>
+    </SettingsPanelRow>
   );
 }
 
@@ -1751,7 +1999,7 @@ function EnterpriseSection({ usages }: { usages: readonly FeatureUsage[] }) {
                 {t("connections.enterprise.managedDescription")}
               </p>
             </div>
-            <StatusPill tone="managed">{t("common.managedByOrg")}</StatusPill>
+            <StatusPill tone="managed">{t("connections.health.notChecked.managed")}</StatusPill>
           </div>
           <ul className="space-y-1.5 border-t border-border/70 pt-3">
             {[...managed, ...failed].map(({ feature, resolution }) => (
@@ -1824,25 +2072,130 @@ export default function AiConnectionsPage({
   const usages = computeConnectionUsage({ settings, policy, cloudDisabled, stylesInUse });
   const customConnection = settings.customConnection;
   const connectionUses = featuresUsingConnection(usages, customConnection, settings);
+  const copilotLoaded = useCopilotStore((state) => state.loaded);
+  const copilotSignedIn = useCopilotStore(
+    (state) => state.loaded && state.status.state === "signedIn"
+  );
+  const visiting = showing && settingsVisible;
+
+  // ── Connection checks (connectionHealth.ts, helpers/connectionChecks.js) ──
+  const plan = buildCheckPlan({
+    settings,
+    usages,
+    policy,
+    cloudDisabled,
+    copilotSignedIn,
+    connection: customConnection,
+    connectionUses,
+  });
+  const results = useConnectionHealthStore((state) => state.results);
+  const pending = useConnectionHealthStore((state) => state.pending);
+  const epoch = useConnectionHealthStore((state) => state.epoch);
+  const now = useHealthNow();
+  const planRef = useRef<CheckPlan>(plan);
+  planRef.current = plan;
+  // Until secrets and Copilot's status have loaded, descriptors are built from placeholders.
+  const ready = settings.secretsHydrated && copilotLoaded;
+  const targetsKey = plan.targets
+    .map((item) => `${item.descriptor.id}@${item.descriptor.generation}`)
+    .join("|");
+
+  const check = useCallback((owner: string) => {
+    void runConnectionChecks(
+      planRef.current.targets.filter((item) => item.owner === owner),
+      { fresh: true, maxAgeMs: 0 }
+    );
+  }, []);
+  const checkAll = useCallback(() => {
+    void runConnectionChecks(planRef.current.targets, { fresh: true, maxAgeMs: 0 });
+  }, []);
+
+  // Automatic: whenever the page shows while Settings is visible (and when
+  // what it lists changes meanwhile), every saved connection, reusing results
+  // younger than ten minutes. Never in the background or at app start.
+  useEffect(() => {
+    subscribeConnectionChecks();
+    if (!visiting || !ready) return;
+    void runConnectionChecks(planRef.current.targets, {
+      fresh: false,
+      maxAgeMs: CONNECTION_CHECK_MAX_AGE_MS,
+    });
+  }, [visiting, ready, targetsKey, epoch]);
+
+  // Right after a key is saved here: that connection, fresh.
+  useEffect(() => {
+    if (!visiting) return;
+    const timers = new Map<string, ReturnType<typeof setTimeout>>();
+    const unsubscribe = useSettingsStore.subscribe((state, previous) => {
+      const changed = new Set<string>();
+      for (const item of planRef.current.targets) {
+        for (const field of item.secretFields) {
+          const key = field as keyof typeof state;
+          if (state[key] !== previous[key] && state[key]) changed.add(item.owner);
+        }
+      }
+      for (const owner of changed) {
+        clearTimeout(timers.get(owner));
+        // After the store's debounced save; the run flushes it anyway.
+        timers.set(
+          owner,
+          setTimeout(() => {
+            timers.delete(owner);
+            check(owner);
+          }, 400)
+        );
+      }
+    });
+    return () => {
+      unsubscribe();
+      for (const timer of timers.values()) clearTimeout(timer);
+    };
+  }, [visiting, check]);
+
+  // Cloud's result is about the session it saw: a sign-in change or the
+  // Cloud switch makes it stale (its check runs again while the page shows).
+  const cloudSignedIn = !cloudDisabled && !!settings.isSignedIn;
+  useEffect(() => {
+    forgetConnectionResults(["cloud"]);
+  }, [cloudSignedIn]);
+
+  // The Settings menu's dot (active usages' own failures only) and the
+  // model pickers' advisory line, until a newer result.
+  const flag = connectionsFlag(plan, results);
+  const pickerHealthKey = JSON.stringify(pickerHealthMap(plan, results));
+  useEffect(() => {
+    publishConnectionHealth({ flag, pickerHealth: JSON.parse(pickerHealthKey) });
+  }, [flag, pickerHealthKey]);
+
+  const healthContext: ConnectionHealthContextValue = {
+    plan,
+    results,
+    pending,
+    now,
+    check,
+    checkAll,
+  };
 
   return (
-    <div className="space-y-8">
-      <ConnectionsSection
-        usages={usages}
-        policy={policy}
-        cloudDisabled={cloudDisabled}
-        connection={customConnection}
-        connectionUses={connectionUses}
-        visiting={showing && settingsVisible}
-      />
-      <EndpointsSection
-        usages={usages}
-        policy={policy}
-        customConnection={customConnection}
-        connectionUses={connectionUses}
-      />
-      <LocalModelsSection usages={usages} />
-      <EnterpriseSection usages={usages} />
-    </div>
+    <ConnectionHealthContext.Provider value={healthContext}>
+      <div className="space-y-8">
+        <ConnectionsSection
+          usages={usages}
+          policy={policy}
+          cloudDisabled={cloudDisabled}
+          connection={customConnection}
+          connectionUses={connectionUses}
+          visiting={visiting}
+        />
+        <EndpointsSection
+          usages={usages}
+          policy={policy}
+          customConnection={customConnection}
+          connectionUses={connectionUses}
+        />
+        <LocalModelsSection usages={usages} />
+        <EnterpriseSection usages={usages} />
+      </div>
+    </ConnectionHealthContext.Provider>
   );
 }

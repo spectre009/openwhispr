@@ -47,6 +47,15 @@ useOpenWhisprCloudStore.subscribe((state, previous) => {
   if (state.disabled !== previous.disabled) scheduleSessionRefetch();
 });
 
+/**
+ * Runs the app's session check again: OpenWhispr Cloud's Check on Settings ›
+ * AI Connections (connectionHealthStore.ts). The answer lands where every
+ * session check does, in the sign-in state.
+ */
+export function requestSessionCheck(): void {
+  scheduleSessionRefetch();
+}
+
 export type SocialProvider = "google" | "microsoft" | "apple";
 
 const LAST_SIGN_IN_STORAGE_KEY = "openwhispr:lastSignInTime";

@@ -7024,6 +7024,133 @@
       },
       "endpointLabel": "Endpoint del recurso",
       "help": "Pega el endpoint y una clave de la página Keys and Endpoint de tu recurso de Speech. También sirve un endpoint de Foundry (.services.ai.azure.com, también el de un proyecto): se guarda como la dirección .cognitiveservices.azure.com del mismo recurso."
+    },
+    "health": {
+      "withAge": "{{state}} · {{ago}}",
+      "check": "Comprobar",
+      "checking": "Comprobando…",
+      "checkAria": "Comprobar {{name}}",
+      "states": {
+        "ok": "La clave funciona",
+        "signedIn": "Sesión iniciada",
+        "service": "Copilot disponible",
+        "reachable": "Accesible",
+        "notVerifiable": "Accesible · clave no verificable",
+        "rejected": "Clave rechazada",
+        "managementKey": "La clave no puede hacer solicitudes",
+        "unreachable": "Sin conexión",
+        "endpointNotFound": "Endpoint no encontrado",
+        "modelMissing": "Un modelo no está disponible",
+        "rateLimited": "Límite de solicitudes",
+        "limitReached": "Límite de gasto alcanzado",
+        "outOfCredit": "Sin crédito",
+        "accessDenied": "Acceso denegado",
+        "unexpected": "Respuesta inesperada",
+        "checking": "Comprobando…",
+        "unchecked": "Aún sin comprobar"
+      },
+      "notChecked": {
+        "label": "Sin comprobar",
+        "managed": "Gestionado por tu organización · no se comprueba aquí",
+        "noKey": "Sin comprobar · no hay clave guardada",
+        "incomplete": "Sin comprobar · hacen falta ambas credenciales de cliente",
+        "invalidEndpoint": "Sin comprobar · el endpoint no es válido",
+        "endpointNeeded": "Sin comprobar · falta el endpoint",
+        "cloudOff": "Sin comprobar · OpenWhispr Cloud está desactivado"
+      },
+      "marks": {
+        "offered": "Disponible en esta conexión",
+        "missing": "No disponible en esta conexión"
+      },
+      "steps": {
+        "theServer": "el servidor",
+        "noAnswer": "Sin respuesta de {{host}} en 8 segundos",
+        "status": "{{host}} respondió {{status}}",
+        "unreachable": "No se pudo conectar con {{host}}",
+        "reachable": "{{host}} accesible",
+        "redirected": "{{host}} redirigió a otro sitio, así que la clave no se reenvió",
+        "signInAccepted": "GitHub aceptó el inicio de sesión",
+        "keyAccepted": "Clave aceptada",
+        "copilotListed": "Copilot listó los modelos de tu plan",
+        "managementKey": "Es una clave de administración, que no puede hacer solicitudes",
+        "keyBlocked": "Clave bloqueada o desactivada",
+        "keyRejected": "Clave rechazada ({{status}})",
+        "modelOffered": "{{model}} está disponible",
+        "modelMissing": "{{model}} no aparece en la lista",
+        "limit": "Límite de gasto: quedan {{remaining}} de {{amount}}",
+        "languageModels": "Modelos de lenguaje",
+        "speechToText": "Voz a texto"
+      },
+      "problems": {
+        "rejected": "{{name}} no aceptó esta clave.",
+        "rejectedHint": "Puede que se haya eliminado o renovado en el sitio de {{name}}.",
+        "managementKey": "Esta clave no sirve para hacer solicitudes.",
+        "managementKeyHint": "Es una clave de administración de OpenRouter. Crea una clave de API normal.",
+        "unreachable": "Sin respuesta de {{host}}.",
+        "unreachableHint": "Revisa el endpoint o tu red.",
+        "endpointNotFound": "{{host}} no ofrece este servicio.",
+        "endpointNotFoundHint": "Revisa el endpoint, la región o el tenant.",
+        "modelMissing": "{{feature}} usa «{{model}}», que {{name}} no incluye en su lista.",
+        "modelMissingHint": "La clave funciona. {{feature}} fallará hasta que elijas otro modelo o vuelvas a hacer disponible este.",
+        "rateLimited": "{{name}} respondió «demasiadas solicitudes».",
+        "rateLimitedHint": "Probablemente la clave esté bien; vuelve a intentarlo en unos minutos.",
+        "limitReached": "La clave funciona, pero alcanzó su límite de gasto.",
+        "limitReachedHint": "Las solicitudes fallarán hasta que subas el límite de la clave en OpenRouter.",
+        "outOfCredit": "{{name}} indica que la cuenta no tiene crédito.",
+        "outOfCreditHint": "Las solicitudes fallarán hasta que recargues saldo.",
+        "accessDenied": "{{name}} denegó el acceso ({{status}}).",
+        "accessDeniedHint": "Puede que la clave no tenga permiso para listar modelos; las solicitudes podrían funcionar igual.",
+        "unexpected": "{{name}} dio una respuesta inesperada.",
+        "unexpectedHint": "Vuelve a comprobarlo en un momento.",
+        "affected": "Afectado: {{features}}.",
+        "notAffected": "Nada de lo que funciona ahora la usa, así que ninguna función se ve afectada."
+      },
+      "actions": {
+        "replaceKey": "Reemplazar clave",
+        "getKey": "Obtener una clave",
+        "remove": "Eliminar",
+        "chooseModel": "Elegir un modelo para {{feature}}",
+        "editEndpoint": "Editar endpoint",
+        "checkAgain": "Comprobar de nuevo",
+        "signIn": "Volver a iniciar sesión"
+      },
+      "notes": {
+        "copilotIdentity": "La comprobación automática confirma el inicio de sesión; «Comprobar» también pide a Copilot los modelos de tu plan (inicia el asistente de Copilot durante un minuto).",
+        "tinfoil": "La lista de modelos de Tinfoil es pública, así que solo se comprueba que sea accesible; la clave se comprueba al usarla.",
+        "azureSpeech": "{{model}} se comprueba al dictar."
+      },
+      "summary": {
+        "checking_one": "Comprobando {{count}} conexión…",
+        "checking_other": "Comprobando {{count}} conexiones…",
+        "allWork_one": "{{count}} conexión funciona",
+        "allWork_other": "Las {{count}} conexiones funcionan",
+        "problems_one": "{{count}} conexión tiene un problema",
+        "problems_other": "{{count}} conexiones tienen un problema",
+        "warnings_one": "{{count}} conexión requiere atención",
+        "warnings_other": "{{count}} conexiones requieren atención",
+        "notChecked": "Aún sin comprobar",
+        "checkedAgo": "Comprobado {{ago}}.",
+        "free": "Comprobaciones gratuitas: no se envía texto ni audio, solo si cada clave se acepta y sus modelos están disponibles.",
+        "working_one": "{{count}} funciona",
+        "working_other": "{{count}} funcionan",
+        "problemCount_one": "{{count}} problema",
+        "problemCount_other": "{{count}} problemas",
+        "warningCount_one": "{{count}} aviso",
+        "warningCount_other": "{{count}} avisos",
+        "notCheckedCount_one": "{{count}} sin comprobar",
+        "notCheckedCount_other": "{{count}} sin comprobar",
+        "checkAll": "Comprobar todo",
+        "none": "Aún no hay nada que comprobar: añade una clave o inicia sesión abajo."
+      },
+      "navFlag": {
+        "danger": "Una conexión que usa una función tiene un problema",
+        "warning": "Una conexión que usa una función está limitada"
+      },
+      "search": {
+        "title": "Estado de las conexiones",
+        "description": "Comprueba que cada clave e inicio de sesión guardados funcionan: Comprobar todo y lo que encontró cada comprobación.",
+        "alias": "comprobar conexión"
+      }
     }
   },
   "modelPicker": {
@@ -7173,6 +7300,16 @@
         "localEngine": "{{engine}} (local)",
         "defaultModel": "Predeterminado ({{model}})"
       }
+    },
+    "health": {
+      "rejected": "La clave de {{provider}} fue rechazada (comprobado {{ago}})",
+      "unreachable": "No se pudo conectar con {{provider}} (comprobado {{ago}})",
+      "modelMissing": "{{provider}} no incluye este modelo (comprobado {{ago}})",
+      "rateLimited": "{{provider}} limitó las solicitudes (comprobado {{ago}})",
+      "limitReached": "{{provider}} alcanzó su límite de gasto (comprobado {{ago}})",
+      "outOfCredit": "{{provider}} no tiene crédito (comprobado {{ago}})",
+      "accessDenied": "{{provider}} denegó el acceso (comprobado {{ago}})",
+      "fix": "Solucionar en Conexiones de IA"
     }
   }
 }

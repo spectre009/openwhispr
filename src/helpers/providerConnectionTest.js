@@ -332,4 +332,4 @@ async function testProviderConnection(config, fetchImpl = fetch) {
   return { success: false, ...failure };
 }
 
-module.exports = { resolveProviderRequest, testProviderConnection };
+module.exports = { normalizeBaseUrl, resolveProviderRequest, testProviderConnection };

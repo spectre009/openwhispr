@@ -20,7 +20,11 @@ function assertValidTarget(environment, tenant) {
   }
 }
 
-async function getCortiToken({ environment, tenant, clientId, clientSecret }, fetchImpl) {
+async function getCortiToken(
+  { environment, tenant, clientId, clientSecret },
+  fetchImpl,
+  { fresh = false } = {}
+) {
   assertValidTarget(environment, tenant);
 
   // The secret is part of the key (digested, never stored raw) so edited
@@ -32,7 +36,9 @@ async function getCortiToken({ environment, tenant, clientId, clientSecret }, fe
     .slice(0, 16);
   const cacheKey = `${environment}/${tenant}/${clientId}/${secretDigest}`;
   const cached = tokenCache.get(cacheKey);
-  if (cached && Date.now() < cached.expiresAt) {
+  // `fresh` (an explicit connection check) asks Corti again: a cached token
+  // only proves the credentials worked when it was minted.
+  if (!fresh && cached && Date.now() < cached.expiresAt) {
     return cached.value;
   }
 

@@ -7022,6 +7022,133 @@
       },
       "endpointLabel": "资源端点",
       "help": "粘贴 Speech 资源“Keys and Endpoint”页面中的端点和一个密钥。也可以使用 Foundry 端点（.services.ai.azure.com，包括项目端点），它会保存为同一资源的 .cognitiveservices.azure.com 地址。"
+    },
+    "health": {
+      "withAge": "{{state}} · {{ago}}",
+      "check": "检查",
+      "checking": "正在检查…",
+      "checkAria": "检查 {{name}}",
+      "states": {
+        "ok": "密钥有效",
+        "signedIn": "已登录",
+        "service": "Copilot 可用",
+        "reachable": "可访问",
+        "notVerifiable": "可访问 · 无法验证密钥",
+        "rejected": "密钥被拒绝",
+        "managementKey": "密钥无法发送请求",
+        "unreachable": "无法连接",
+        "endpointNotFound": "找不到端点",
+        "modelMissing": "有模型不可用",
+        "rateLimited": "已限流",
+        "limitReached": "已达支出上限",
+        "outOfCredit": "额度不足",
+        "accessDenied": "访问被拒绝",
+        "unexpected": "意外响应",
+        "checking": "正在检查…",
+        "unchecked": "尚未检查"
+      },
+      "notChecked": {
+        "label": "未检查",
+        "managed": "由您的组织管理 · 此处不检查",
+        "noKey": "未检查 · 未保存密钥",
+        "incomplete": "未检查 · 需要两项客户端凭据",
+        "invalidEndpoint": "未检查 · 端点无效",
+        "endpointNeeded": "未检查 · 需要端点",
+        "cloudOff": "未检查 · OpenWhispr Cloud 已关闭"
+      },
+      "marks": {
+        "offered": "此连接可用",
+        "missing": "此连接不可用"
+      },
+      "steps": {
+        "theServer": "服务器",
+        "noAnswer": "{{host}} 在 8 秒内无响应",
+        "status": "{{host}} 返回 {{status}}",
+        "unreachable": "无法连接 {{host}}",
+        "reachable": "{{host}} 可访问",
+        "redirected": "{{host}} 重定向到了别处，因此未转发密钥",
+        "signInAccepted": "GitHub 已接受登录",
+        "keyAccepted": "密钥已接受",
+        "copilotListed": "Copilot 已列出您套餐的模型",
+        "managementKey": "这是管理密钥，无法发送请求",
+        "keyBlocked": "密钥已被封禁或停用",
+        "keyRejected": "密钥被拒绝（{{status}}）",
+        "modelOffered": "{{model}} 可用",
+        "modelMissing": "{{model}} 不在列表中",
+        "limit": "支出上限：{{amount}} 中剩余 {{remaining}}",
+        "languageModels": "语言模型",
+        "speechToText": "语音转文字"
+      },
+      "problems": {
+        "rejected": "{{name}} 不接受此密钥。",
+        "rejectedHint": "它可能已在 {{name}} 网站上被删除或轮换。",
+        "managementKey": "此密钥不能用于请求。",
+        "managementKeyHint": "这是 OpenRouter 管理密钥。请改为创建普通 API 密钥。",
+        "unreachable": "{{host}} 无响应。",
+        "unreachableHint": "请检查端点或您的网络。",
+        "endpointNotFound": "{{host}} 不提供此服务。",
+        "endpointNotFoundHint": "请检查端点、区域或租户。",
+        "modelMissing": "{{feature}} 使用“{{model}}”，但 {{name}} 的列表中没有它。",
+        "modelMissingHint": "密钥有效。在您选择其他模型或让此模型重新可用之前，{{feature}} 会失败。",
+        "rateLimited": "{{name}} 返回“请求过多”。",
+        "rateLimitedHint": "密钥大概没问题；请过几分钟再试。",
+        "limitReached": "密钥有效，但已达到其支出上限。",
+        "limitReachedHint": "在 OpenRouter 上提高密钥上限之前，请求会失败。",
+        "outOfCredit": "{{name}} 表示账户额度不足。",
+        "outOfCreditHint": "充值之前请求会失败。",
+        "accessDenied": "{{name}} 拒绝访问（{{status}}）。",
+        "accessDeniedHint": "密钥可能无权列出模型；请求本身仍可能成功。",
+        "unexpected": "{{name}} 返回了意外响应。",
+        "unexpectedHint": "请稍后再检查。",
+        "affected": "受影响：{{features}}。",
+        "notAffected": "当前没有任何功能在用它，因此没有功能受影响。"
+      },
+      "actions": {
+        "replaceKey": "替换密钥",
+        "getKey": "获取密钥",
+        "remove": "移除",
+        "chooseModel": "为 {{feature}} 选择模型",
+        "editEndpoint": "编辑端点",
+        "checkAgain": "重新检查",
+        "signIn": "重新登录"
+      },
+      "notes": {
+        "copilotIdentity": "自动检查确认登录；“检查”还会向 Copilot 查询您套餐的模型（会启动 Copilot 助手约一分钟）。",
+        "tinfoil": "Tinfoil 的模型列表是公开的，因此只检查是否可访问；密钥在使用时才会检查。",
+        "azureSpeech": "{{model}} 本身会在听写时检查。"
+      },
+      "summary": {
+        "checking_one": "正在检查 {{count}} 个连接…",
+        "checking_other": "正在检查 {{count}} 个连接…",
+        "allWork_one": "{{count}} 个连接正常",
+        "allWork_other": "全部 {{count}} 个连接正常",
+        "problems_one": "{{count}} 个连接有问题",
+        "problems_other": "{{count}} 个连接有问题",
+        "warnings_one": "{{count}} 个连接需要注意",
+        "warnings_other": "{{count}} 个连接需要注意",
+        "notChecked": "尚未检查",
+        "checkedAgo": "检查于{{ago}}。",
+        "free": "免费检查：不发送任何文本或音频，只确认每个密钥是否被接受、其模型是否存在。",
+        "working_one": "{{count}} 个正常",
+        "working_other": "{{count}} 个正常",
+        "problemCount_one": "{{count}} 个问题",
+        "problemCount_other": "{{count}} 个问题",
+        "warningCount_one": "{{count}} 个警告",
+        "warningCount_other": "{{count}} 个警告",
+        "notCheckedCount_one": "{{count}} 个未检查",
+        "notCheckedCount_other": "{{count}} 个未检查",
+        "checkAll": "全部检查",
+        "none": "暂无可检查的内容：请在下方添加密钥或登录。"
+      },
+      "navFlag": {
+        "danger": "某功能使用的连接有问题",
+        "warning": "某功能使用的连接受到限制"
+      },
+      "search": {
+        "title": "连接状态",
+        "description": "检查每个已保存的密钥和登录是否有效：全部检查，以及每次检查的结果。",
+        "alias": "检查连接"
+      }
     }
   },
   "modelPicker": {
@@ -7171,6 +7298,16 @@
         "localEngine": "{{engine}}（本地）",
         "defaultModel": "默认（{{model}}）"
       }
+    },
+    "health": {
+      "rejected": "{{provider}} 的密钥被拒绝（检查于{{ago}}）",
+      "unreachable": "无法连接 {{provider}}（检查于{{ago}}）",
+      "modelMissing": "{{provider}} 的列表中没有此模型（检查于{{ago}}）",
+      "rateLimited": "{{provider}} 已限流（检查于{{ago}}）",
+      "limitReached": "{{provider}} 已达支出上限（检查于{{ago}}）",
+      "outOfCredit": "{{provider}} 额度不足（检查于{{ago}}）",
+      "accessDenied": "{{provider}} 拒绝访问（检查于{{ago}}）",
+      "fix": "在 AI 连接中修复"
     }
   }
 }

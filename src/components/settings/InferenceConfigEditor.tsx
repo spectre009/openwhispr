@@ -40,9 +40,11 @@ import { SETTINGS_PAGES } from "./settingsPages";
 import ModelPicker from "./modelPicker/ModelPicker";
 import ConnectionModelField from "./modelPicker/ConnectionModelField";
 import { CONNECTION_GROUP_ID } from "./modelPicker/connectionOptions";
+import { useConnectionHealthStore } from "../../stores/connectionHealthStore";
 import {
   buildModelPickerOptions,
   describePickerSelection,
+  llmOptionAdvice,
   noteFormattingFields,
   selectedOptionId,
   type ModelPickerOption,
@@ -302,6 +304,13 @@ function LlmModelSettings({
     () => describePickerSelection(scope, picker.context),
     [scope, picker.context]
   );
+  // AI Connections' last checks, beside the options they're about (advisory only).
+  const pickerHealth = useConnectionHealthStore((state) => state.pickerHealth);
+  const connectionName = picker.context.connection?.name ?? "";
+  const optionAdvice = useCallback(
+    (option: ModelPickerOption) => llmOptionAdvice(option, pickerHealth, connectionName),
+    [pickerHealth, connectionName]
+  );
   const commit = useLlmSelection(scope, {
     readContext: picker.readContext,
     managedAvailable: picker.managedAvailable,
@@ -441,6 +450,7 @@ function LlmModelSettings({
       canFollow={(link) => link.kind === "signIn" || !!openSettings}
       releasesFocus={(option) => option.action === "enterConnectionModel"}
       groupNotes={groupNotes}
+      advice={optionAdvice}
       label={t("modelPicker.label")}
       open={open}
       onOpenChange={setOpen}
