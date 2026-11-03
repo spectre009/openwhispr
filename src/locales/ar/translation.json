@@ -6119,9 +6119,17 @@
     "openControlPanel": "فتح لوحة التحكم",
     "hideControlPanel": "إخفاء لوحة التحكم",
     "reviewLastDictation": "تقييم آخر إملاء",
+    "restart": "إعادة تشغيل OpenWhispr",
     "quit": "إنهاء OpenWhispr",
     "tooltip": "OpenWhispr - الإملاء الصوتي",
-    "recordingTooltip": "OpenWhispr · تسجيل {{elapsed}}"
+    "recordingTooltip": "OpenWhispr · تسجيل {{elapsed}}",
+    "graphicsFallbackTooltip": "OpenWhispr · تسريع الرسومات متوقف، وقد تتقطع الحركات. انقر بزر الماوس الأيمن لإعادة التشغيل.",
+    "graphicsFallbackTooltipMac": "OpenWhispr · تسريع الرسومات متوقف، وقد تتقطع الحركات. انقر لإعادة التشغيل.",
+    "graphicsFallback": {
+      "title": "تسريع الرسومات متوقف",
+      "restart": "إعادة التشغيل لاستخدام بطاقة الرسومات",
+      "restartAfterRecording": "إعادة التشغيل بعد هذا التسجيل"
+    }
   },
   "menu": {
     "appLabel": "OpenWhispr",

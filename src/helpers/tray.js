@@ -5,7 +5,20 @@ const debugLogger = require("./debugLogger");
 const { i18nMain } = require("./i18nMain");
 const { drawRecordingBadge, formatRecordingElapsed } = require("./trayRecordingBadge");
 const { resolveRecordingAccent, resolveRecordingModeColor } = require("./recordingIndicator");
+const { graphicsModeLabel, isSoftwareFallback } = require("./graphicsMode");
 const { windowsTrayIdentity } = require("../../package.json");
+
+// The dot on the tray icon while Chromium has fallen back to drawing on the CPU.
+const GRAPHICS_WARNING_ACCENT = "#f5a524";
+// Settings › System › Diagnostics, at its graphics warning.
+const GRAPHICS_SETTINGS_DESTINATION = "system#system.diagnostics.graphics";
+// Badged bitmaps kept, one per size and color: the recording dot and the
+// graphics warning take turns without redrawing.
+const BADGE_CACHE_LIMIT = 4;
+const BADGE_LOG = {
+  recording: { shown: "Tray recording badge shown", removed: "Tray recording badge removed" },
+  graphics: { shown: "Tray graphics warning shown", removed: "Tray graphics warning removed" },
+};
 
 // Permanent identity for signed production Windows builds; keep across releases.
 // Windows binds an unsigned executable's GUID to its path, so only builds from the
@@ -76,13 +89,18 @@ class TrayManager {
     this.controlPanelWindow = null;
     this.windowManager = null;
     this.attachedControlPanels = new WeakSet();
-    // The icon as loaded (a multi-size .ico on Windows), restored after a
-    // recording; the badged copy is a single bitmap.
+    // The icon as loaded (a multi-size .ico on Windows), restored when no dot
+    // shows; a badged copy is a single bitmap.
     this._baseIcon = null;
-    this._badgeCache = null;
-    this._badgeShown = false;
+    this._badgeCache = new Map();
+    // "recording", "graphics" or null: the dot the icon carries.
+    this._badgeKind = null;
     this._recordingStartedAt = null;
     this._tooltipTimer = null;
+    // Set by main.js: the shared restart (appRelaunch.js) and whether a
+    // meeting is being recorded.
+    this._relaunch = null;
+    this._isMeetingRecording = null;
     app.on("before-quit", () => this._stopTooltipTimer());
   }
 
@@ -106,6 +124,11 @@ class TrayManager {
 
   setWindowManager(windowManager) {
     this.windowManager = windowManager;
+  }
+
+  setRestartControls({ relaunch, isMeetingRecording } = {}) {
+    this._relaunch = relaunch ?? null;
+    this._isMeetingRecording = isMeetingRecording ?? null;
   }
 
   setCreateControlPanelCallback(callback) {
@@ -329,8 +352,10 @@ class TrayManager {
   buildContextMenuTemplate() {
     const dictationVisible = this.windowManager?.isDictationPanelVisible?.() ?? false;
     const dictating = this.windowManager?.isDictating?.() ?? false;
+    const restartBlocked = this._restartBlocker() !== null;
 
     return [
+      ...this._graphicsWarningItems(restartBlocked),
       {
         label: dictating
           ? i18nMain.t("app.commandMenu.stopListening")
@@ -376,6 +401,11 @@ class TrayManager {
       this._reviewMenuItem(),
       { type: "separator" },
       {
+        label: i18nMain.t("tray.restart"),
+        enabled: !restartBlocked,
+        click: () => void this._restartFromTray("menu"),
+      },
+      {
         label: i18nMain.t("tray.quit"),
         click: () => {
           debugLogger.info("Quitting app via tray menu", undefined, "tray");
@@ -383,6 +413,71 @@ class TrayManager {
         },
       },
     ];
+  }
+
+  // While Chromium draws on the CPU: the warning, which opens Settings at it,
+  // and a restart to get the graphics card back. Windows menus can't color
+  // text, so the ⚠ and the place at the top are the hint.
+  _graphicsWarningItems(restartBlocked) {
+    if (!this._graphicsFallback()) return [];
+    return [
+      {
+        label: `⚠ ${i18nMain.t("tray.graphicsFallback.title")}`,
+        click: () => void this._openGraphicsSettings(),
+      },
+      {
+        label: restartBlocked
+          ? i18nMain.t("tray.graphicsFallback.restartAfterRecording")
+          : i18nMain.t("tray.graphicsFallback.restart"),
+        enabled: !restartBlocked,
+        click: () => void this._restartFromTray("graphicsWarning"),
+      },
+      { type: "separator" },
+    ];
+  }
+
+  async _openGraphicsSettings() {
+    try {
+      await this.windowManager?.openSettings?.(GRAPHICS_SETTINGS_DESTINATION);
+    } catch (error) {
+      debugLogger.error("Failed to open graphics settings", { error: error?.message }, "tray");
+    }
+  }
+
+  _graphicsState() {
+    return this.windowManager?.graphicsMode?.getState?.() ?? null;
+  }
+
+  _graphicsFallback() {
+    return isSoftwareFallback(this._graphicsState());
+  }
+
+  // What a restart now would cut off: a dictation being recorded, processed
+  // or delivered (pasted and saved), or a meeting recording. Null when none.
+  _restartBlocker() {
+    if (this.windowManager?.isDictationBusy?.()) return "dictation";
+    if (this._isMeetingRecording?.()) return "meeting";
+    return null;
+  }
+
+  // Checked again on click: the menu was built before whatever runs now.
+  async _restartFromTray(item) {
+    const graphics = graphicsModeLabel(this._graphicsState());
+    const busy = this._restartBlocker();
+    if (busy) {
+      debugLogger.info("Tray restart skipped", { item, busy, graphics }, "tray");
+      return;
+    }
+    if (!this._relaunch) {
+      debugLogger.warn("Tray restart unavailable", { item }, "tray");
+      return;
+    }
+    debugLogger.info("Restarting via tray menu", { item, graphics }, "tray");
+    try {
+      await this._relaunch();
+    } catch (error) {
+      debugLogger.error("Tray restart failed", { error: error?.message }, "tray");
+    }
   }
 
   // "Review last dictation", the review hotkey's action, with that hotkey
@@ -434,20 +529,43 @@ class TrayManager {
   _tooltip() {
     const { enabled } = this._recordingIndicatorWanted();
     const startedAt = this._recordingStart();
-    if (!enabled || !startedAt) return i18nMain.t("tray.tooltip");
-    return i18nMain.t("tray.recordingTooltip", {
-      elapsed: formatRecordingElapsed(Date.now() - startedAt),
-    });
+    if (enabled && startedAt) {
+      return i18nMain.t("tray.recordingTooltip", {
+        elapsed: formatRecordingElapsed(Date.now() - startedAt),
+      });
+    }
+    // macOS opens the menu on a click; Windows and Linux on a right-click.
+    if (this._graphicsFallback()) {
+      return i18nMain.t(
+        process.platform === "darwin"
+          ? "tray.graphicsFallbackTooltipMac"
+          : "tray.graphicsFallbackTooltip"
+      );
+    }
+    return i18nMain.t("tray.tooltip");
+  }
+
+  // The dot the icon should carry: the recording dot while it shows (its
+  // setting on), else the graphics warning while Chromium has fallen back to
+  // the CPU, whatever the recording setting says: it's a health warning.
+  _badgeWanted() {
+    const { enabled, color } = this._recordingIndicatorWanted();
+    if (enabled) return { kind: "recording", color };
+    if (this._graphicsFallback()) return { kind: "graphics", color: GRAPHICS_WARNING_ACCENT };
+    return null;
   }
 
   /**
-   * While a dictation records and the setting is on: a dot in the recording
-   * color on the tray icon and the elapsed time in its tooltip. Driven by the
-   * main-process lifecycle and settings, so every way a recording ends
-   * (stop, cancel, a crashed or reloaded renderer) puts the icon back.
+   * The tray icon and tooltip, from the recording and the graphics mode. While
+   * a dictation records and the setting is on: a dot in the recording color
+   * and the elapsed time in the tooltip. Otherwise, while graphics fell back
+   * to the CPU: an amber dot and the warning in the tooltip. Driven by the
+   * main-process lifecycle, settings and graphics mode, so every way a
+   * recording ends (stop, cancel, a crashed or reloaded renderer) puts the
+   * icon back.
    */
-  updateRecordingIndicator() {
-    const { recording, enabled, color } = this._recordingIndicatorWanted();
+  updateTrayIcon() {
+    const { recording, enabled } = this._recordingIndicatorWanted();
     if (!recording) this._recordingStartedAt = null;
     else if (!this._recordingStartedAt) this._recordingStartedAt = Date.now();
 
@@ -455,21 +573,29 @@ class TrayManager {
       this._stopTooltipTimer();
       return;
     }
-    const badge = enabled ? this._badgedIcon(color) : null;
+    const wanted = this._badgeWanted();
+    const badge = wanted ? this._badgedIcon(wanted.color) : null;
+    const kind = badge ? wanted.kind : null;
     if (badge) {
       this.tray.setImage(badge);
-      if (!this._badgeShown) {
-        debugLogger.debug("Tray recording badge shown", { size: badge.getSize?.() }, "tray");
-      }
-      this._badgeShown = true;
-    } else if (this._badgeShown && this._baseIcon) {
+    } else if (this._badgeKind && this._baseIcon) {
       this.tray.setImage(this._baseIcon);
-      this._badgeShown = false;
-      debugLogger.debug("Tray recording badge removed", undefined, "tray");
+    }
+    if (kind !== this._badgeKind) {
+      if (this._badgeKind) debugLogger.debug(BADGE_LOG[this._badgeKind].removed, undefined, "tray");
+      if (kind) debugLogger.debug(BADGE_LOG[kind].shown, { size: badge.getSize?.() }, "tray");
+      this._badgeKind = kind;
     }
     this.tray.setToolTip(this._tooltip());
     if (enabled) this._startTooltipTimer();
     else this._stopTooltipTimer();
+  }
+
+  // The graphics mode changed (main.js): the dot, the tooltip and the menu's
+  // warning follow it.
+  onGraphicsModeChanged() {
+    this.updateTrayMenu();
+    this.updateTrayIcon();
   }
 
   // Only the tooltip ticks; the menu rebuilds on state changes alone.
@@ -493,14 +619,16 @@ class TrayManager {
   // One bitmap at the tray's pixel size: Windows turns a generated image into
   // a single bitmap whatever representations it carries, so this draws at
   // 16 DIP on the primary display (where the taskbar's tray is). macOS keeps
-  // its template icon, which can't carry a color.
+  // its template icon, which can't carry a color. `color` is a recording
+  // color id or "#rrggbb".
   _badgedIcon(color) {
     if (process.platform === "darwin" || !this._baseIcon || this._baseIcon.isEmpty()) return null;
     const accent = resolveRecordingAccent(color);
     const scale = screen.getPrimaryDisplay()?.scaleFactor || 1;
     const size = Math.max(16, Math.round(16 * scale));
     const key = `${size}:${accent}`;
-    if (this._badgeCache?.key === key) return this._badgeCache.image;
+    const cached = this._badgeCache.get(key);
+    if (cached) return cached;
     try {
       const bitmap = this._baseIcon
         .resize({ width: size, height: size, quality: "best" })
@@ -517,10 +645,13 @@ class TrayManager {
         width: size,
         height: size,
       });
-      this._badgeCache = { key, image };
+      if (this._badgeCache.size >= BADGE_CACHE_LIMIT) {
+        this._badgeCache.delete(this._badgeCache.keys().next().value);
+      }
+      this._badgeCache.set(key, image);
       return image;
     } catch (error) {
-      debugLogger.warn("Could not draw the tray recording badge", { error: error.message }, "tray");
+      debugLogger.warn("Could not draw the tray badge", { accent, error: error.message }, "tray");
       return null;
     }
   }

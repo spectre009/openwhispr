@@ -65,9 +65,17 @@
     "openControlPanel": "Открыть панель управления",
     "hideControlPanel": "Скрыть панель управления",
     "reviewLastDictation": "Оценить последнюю диктовку",
+    "restart": "Перезапустить OpenWhispr",
     "quit": "Закрыть OpenWhispr",
     "tooltip": "OpenWhispr — голосовая диктовка",
-    "recordingTooltip": "OpenWhispr · Запись {{elapsed}}"
+    "recordingTooltip": "OpenWhispr · Запись {{elapsed}}",
+    "graphicsFallbackTooltip": "OpenWhispr · Графическое ускорение отключено, анимации могут подтормаживать. Щёлкните правой кнопкой, чтобы перезапустить.",
+    "graphicsFallbackTooltipMac": "OpenWhispr · Графическое ускорение отключено, анимации могут подтормаживать. Щёлкните, чтобы перезапустить.",
+    "graphicsFallback": {
+      "title": "Графическое ускорение отключено",
+      "restart": "Перезапустить, чтобы использовать видеокарту",
+      "restartAfterRecording": "Перезапустить после этой записи"
+    }
   },
   "menu": {
     "appLabel": "OpenWhispr",

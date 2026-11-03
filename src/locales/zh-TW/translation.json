@@ -65,9 +65,17 @@
     "openControlPanel": "開啟控制面板",
     "hideControlPanel": "隱藏控制面板",
     "reviewLastDictation": "評價上一則聽寫",
+    "restart": "重新啟動 OpenWhispr",
     "quit": "結束 OpenWhispr",
     "tooltip": "OpenWhispr - 語音輸入",
-    "recordingTooltip": "OpenWhispr · 正在錄音 {{elapsed}}"
+    "recordingTooltip": "OpenWhispr · 正在錄音 {{elapsed}}",
+    "graphicsFallbackTooltip": "OpenWhispr · 圖形加速已關閉，動畫可能會卡頓。按右鍵即可重新啟動。",
+    "graphicsFallbackTooltipMac": "OpenWhispr · 圖形加速已關閉，動畫可能會卡頓。按一下即可重新啟動。",
+    "graphicsFallback": {
+      "title": "圖形加速已關閉",
+      "restart": "重新啟動以使用顯示卡",
+      "restartAfterRecording": "錄音結束後再重新啟動"
+    }
   },
   "menu": {
     "appLabel": "OpenWhispr",

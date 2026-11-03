@@ -486,11 +486,14 @@ function initializeCoreManagers() {
     label: "main",
   });
   // "Graphics mode" once the GPU process has reported (a warning for a software fallback), then
-  // "GPU process gone" and any change of mode; System › Diagnostics follows the broadcast.
+  // "GPU process gone" and any change of mode; System › Diagnostics follows the broadcast, and
+  // the tray its dot, tooltip and menu (it reads the mode itself once it exists).
   graphicsMode.attach({
     logger: debugLogger,
-    onChange: (state) =>
-      require("./src/helpers/windowBroadcast").broadcastToWindows("graphics-mode-changed", state),
+    onChange: (state) => {
+      require("./src/helpers/windowBroadcast").broadcastToWindows("graphics-mode-changed", state);
+      trayManager?.onGraphicsModeChanged();
+    },
   });
   // Registration runs before app ready, when the logger cannot write its file yet.
   if (linuxSchemeHandler?.reason) {
@@ -1623,18 +1626,26 @@ async function startApp() {
 
   trayManager.setWindows(windowManager.mainWindow, windowManager.controlPanelWindow);
   trayManager.setWindowManager(windowManager);
-  // The tray's listen item is a toggle, so it has to rebuild when dictation
-  // starts or stops; the recording dot and tooltip follow the same state.
+  // Restart is held while a dictation or a meeting recording runs; a meeting's
+  // start and stop rebuild the menu (ipcHandlers' _setMeetingRecording).
+  trayManager.setRestartControls({
+    relaunch: () => ipcHandlers.relaunchApp(),
+    isMeetingRecording: () => ipcHandlers.isMeetingRecording(),
+  });
+  // The tray's listen item is a toggle and its Restart waits for a dictation's
+  // delivery, so it has to rebuild when dictation starts, stops or finishes
+  // delivering; the recording dot and tooltip follow the same state.
   windowManager.onDictationStateChanged = () => {
     trayManager.updateTrayMenu();
-    trayManager.updateRecordingIndicator();
+    trayManager.updateTrayIcon();
   };
-  windowManager.onRecordingIndicatorSettings = () => trayManager.updateRecordingIndicator();
+  windowManager.onRecordingIndicatorSettings = () => trayManager.updateTrayIcon();
   trayManager.setCreateControlPanelCallback(() => windowManager.createControlPanelWindow());
   await trayManager.createTray();
   // The dictation window may have reported its indicator settings, or started
-  // recording, before the tray existed; it reads both from the window manager.
-  trayManager.updateRecordingIndicator();
+  // recording, before the tray existed, and the graphics mode may have settled;
+  // it reads all of them from the window manager.
+  trayManager.updateTrayIcon();
 
   updateManager.checkForUpdatesOnStartup();
 

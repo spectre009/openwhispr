@@ -65,9 +65,17 @@
     "openControlPanel": "Abrir panel de control",
     "hideControlPanel": "Ocultar panel de control",
     "reviewLastDictation": "Valorar el último dictado",
+    "restart": "Reiniciar OpenWhispr",
     "quit": "Salir de OpenWhispr",
     "tooltip": "OpenWhispr - Dictado por voz",
-    "recordingTooltip": "OpenWhispr · Grabando {{elapsed}}"
+    "recordingTooltip": "OpenWhispr · Grabando {{elapsed}}",
+    "graphicsFallbackTooltip": "OpenWhispr · La aceleración gráfica está desactivada; las animaciones pueden ir a saltos. Clic derecho para reiniciar.",
+    "graphicsFallbackTooltipMac": "OpenWhispr · La aceleración gráfica está desactivada; las animaciones pueden ir a saltos. Haz clic para reiniciar.",
+    "graphicsFallback": {
+      "title": "La aceleración gráfica está desactivada",
+      "restart": "Reiniciar para usar la tarjeta gráfica",
+      "restartAfterRecording": "Reiniciar después de esta grabación"
+    }
   },
   "menu": {
     "appLabel": "OpenWhispr",

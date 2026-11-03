@@ -65,9 +65,17 @@
     "openControlPanel": "Open Control Panel",
     "hideControlPanel": "Hide Control Panel",
     "reviewLastDictation": "Review last dictation",
+    "restart": "Restart OpenWhispr",
     "quit": "Quit OpenWhispr",
     "tooltip": "OpenWhispr - Voice Dictation",
-    "recordingTooltip": "OpenWhispr · Recording {{elapsed}}"
+    "recordingTooltip": "OpenWhispr · Recording {{elapsed}}",
+    "graphicsFallbackTooltip": "OpenWhispr · Graphics acceleration is off, animations may stutter. Right-click to restart.",
+    "graphicsFallbackTooltipMac": "OpenWhispr · Graphics acceleration is off, animations may stutter. Click to restart.",
+    "graphicsFallback": {
+      "title": "Graphics acceleration is off",
+      "restart": "Restart to use the graphics card",
+      "restartAfterRecording": "Restart after this recording"
+    }
   },
   "menu": {
     "appLabel": "OpenWhispr",

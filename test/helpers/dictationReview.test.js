@@ -213,6 +213,27 @@ test("the delivery report is forgotten when the dictation window goes away", () 
   assert.equal(manager.isDictationBusy(), false);
 });
 
+// The tray's Restart waits for a delivery as it does for the lifecycle, so a
+// change of either rebuilds its menu.
+test("a change of the delivery report is announced like the lifecycle's", () => {
+  const { manager } = managerFor();
+  let announced = 0;
+  manager.onDictationStateChanged = () => (announced += 1);
+  manager.setDictationDeliveryState(true);
+  manager.setDictationDeliveryState(true);
+  assert.equal(announced, 1, "once per change");
+  manager.setDictationDeliveryState(false);
+  assert.equal(announced, 2);
+
+  // A dictation window gone mid-paste ends the delivery, and says so.
+  const win = fakeWindow();
+  manager._registerDictationLifecycleReset(win);
+  manager.setDictationDeliveryState(true);
+  win.emit("closed");
+  assert.equal(announced, 4);
+  assert.equal(manager.isDictationBusy(), false);
+});
+
 test("pressed during a dictation it says why on the pill and does nothing else", async () => {
   const panel = fakeWindow();
   const { manager, calls, owners } = managerFor({ panel });

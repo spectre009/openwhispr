@@ -65,9 +65,17 @@
     "openControlPanel": "Kontrollzentrum öffnen",
     "hideControlPanel": "Kontrollzentrum ausblenden",
     "reviewLastDictation": "Letztes Diktat bewerten",
+    "restart": "OpenWhispr neu starten",
     "quit": "OpenWhispr beenden",
     "tooltip": "OpenWhispr – Sprachdiktat",
-    "recordingTooltip": "OpenWhispr · Aufnahme {{elapsed}}"
+    "recordingTooltip": "OpenWhispr · Aufnahme {{elapsed}}",
+    "graphicsFallbackTooltip": "OpenWhispr · Die Grafikbeschleunigung ist aus, Animationen können ruckeln. Zum Neustart rechtsklicken.",
+    "graphicsFallbackTooltipMac": "OpenWhispr · Die Grafikbeschleunigung ist aus, Animationen können ruckeln. Zum Neustart klicken.",
+    "graphicsFallback": {
+      "title": "Die Grafikbeschleunigung ist aus",
+      "restart": "Neu starten, um die Grafikkarte zu nutzen",
+      "restartAfterRecording": "Nach dieser Aufnahme neu starten"
+    }
   },
   "menu": {
     "appLabel": "OpenWhispr",

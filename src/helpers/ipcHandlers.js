@@ -122,7 +122,7 @@ const diarizationHost = (endpoint) => {
 };
 const { resolveLocalServerNeeds, shouldStopLocalServer } = require("./localServerPolicy");
 const autoStart = require("./autoStart");
-const { getRelaunchOptions, getRelaunchWaiter } = require("./autoStartPolicy");
+const appRelaunch = require("./appRelaunch");
 const HyprlandShortcutManager = require("./hyprlandShortcut");
 const AssemblyAiStreaming = require("./assemblyAiStreaming");
 const { i18nMain, changeLanguage } = require("./i18nMain");
@@ -758,6 +758,8 @@ class IPCHandlers {
     this._dictationPreviewEnabled = false;
     this._meetingMicStreaming = null;
     this._meetingSystemStreaming = null;
+    // From a meeting transcription's start until its stop has finished.
+    this._meetingRecording = false;
     this._hotkeyCaptureMode = false;
     // "Learn from your corrections" (autoLearnSetting.js): Suggest until a
     // window says otherwise, and nothing is watched until a window has synced it.
@@ -1178,6 +1180,26 @@ class IPCHandlers {
       }
     });
     return backfillPromise;
+  }
+
+  // Settings' Restart buttons (relaunch-app) and the tray's Restart items.
+  relaunchApp() {
+    return appRelaunch.relaunchApp({
+      app,
+      updateManager: this.updateManager,
+      protocol: this.oauthProtocol,
+    });
+  }
+
+  /** A meeting is being recorded: the tray's Restart waits for it. */
+  isMeetingRecording() {
+    return this._meetingRecording === true;
+  }
+
+  _setMeetingRecording(active) {
+    if (this._meetingRecording === active) return;
+    this._meetingRecording = active;
+    this.getTrayManager?.()?.updateTrayMenu?.();
   }
 
   // The dictation slot reports its own changes from the renderer. Slots
@@ -5497,38 +5519,7 @@ class IPCHandlers {
       return this.diarizationManager.cancelDownload();
     });
 
-    // Under `npm run dev` the Vite server dies with Electron, so a relaunched dev
-    // instance would have no renderer: just quit there.
-    ipcMain.handle("relaunch-app", async () => {
-      if (process.env.NODE_ENV === "development") return app.quit();
-      // Once Squirrel.Mac holds a downloaded update it installs it on this quit regardless
-      // of any flag, so the updater owns that restart instead of racing app.relaunch().
-      if (this.updateManager.hasStagedUpdate()) {
-        const { success } = await this.updateManager
-          .installUpdate()
-          .catch(() => ({ success: false }));
-        if (success) return;
-      }
-      this.updateManager.deferInstallOnQuit();
-      const { launcherPath, args } = getRelaunchOptions({
-        argv: process.argv,
-        protocol: this.oauthProtocol,
-        appImagePath: process.env.APPIMAGE,
-      });
-      if (launcherPath) {
-        const waiter = getRelaunchWaiter({ launcherPath, args, pid: process.pid });
-        require("child_process")
-          .spawn(waiter.file, waiter.args, {
-            detached: true,
-            stdio: "ignore",
-            cwd: path.dirname(launcherPath), // never inside the directory being removed
-          })
-          .unref();
-      } else {
-        app.relaunch({ args });
-      }
-      app.quit();
-    });
+    ipcMain.handle("relaunch-app", () => this.relaunchApp());
 
     ipcMain.handle("cleanup-app", async (event) => {
       const fs = require("fs");
@@ -10448,6 +10439,7 @@ class IPCHandlers {
       resetMeetingLocalState();
       await disconnectMeetingStreaming().catch(() => {});
       this.activeMeetingSpeakerConfig = null;
+      this._setMeetingRecording(false);
     };
 
     const setupDictationCallbacks = (streaming, event) => {
@@ -10701,6 +10693,7 @@ class IPCHandlers {
       // scoped stop/auto-end matching.
       const recordingSessionId = options.sessionId;
       meetingStartedAt = Date.now();
+      this._setMeetingRecording(true);
       meetingConnectionOptions = options;
       meetingConnectionWin = BrowserWindow.fromWebContents(event.sender);
       meetingReconnectCount = 0;
@@ -11206,6 +11199,8 @@ class IPCHandlers {
       } catch (error) {
         debugLogger.error("Meeting transcription stop error", { error: error.message });
         return { success: false, error: error.message };
+      } finally {
+        this._setMeetingRecording(false);
       }
     };
 

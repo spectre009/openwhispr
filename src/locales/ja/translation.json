@@ -65,9 +65,17 @@
     "openControlPanel": "コントロールパネルを開く",
     "hideControlPanel": "コントロールパネルを非表示",
     "reviewLastDictation": "最後のディクテーションを評価",
+    "restart": "OpenWhispr を再起動",
     "quit": "OpenWhispr を終了",
     "tooltip": "OpenWhispr - 音声ディクテーション",
-    "recordingTooltip": "OpenWhispr · 録音中 {{elapsed}}"
+    "recordingTooltip": "OpenWhispr · 録音中 {{elapsed}}",
+    "graphicsFallbackTooltip": "OpenWhispr · グラフィックアクセラレーションがオフのため、アニメーションがカクつくことがあります。右クリックで再起動できます。",
+    "graphicsFallbackTooltipMac": "OpenWhispr · グラフィックアクセラレーションがオフのため、アニメーションがカクつくことがあります。クリックで再起動できます。",
+    "graphicsFallback": {
+      "title": "グラフィックアクセラレーションがオフです",
+      "restart": "再起動してグラフィックカードを使う",
+      "restartAfterRecording": "この録音の後で再起動"
+    }
   },
   "menu": {
     "appLabel": "OpenWhispr",

@@ -120,7 +120,8 @@ class WindowManager {
     // Set by IPCHandlers so its demo session dies with the demo kind on every
     // teardown path (id-matched end, onboarding exit, control panel closed).
     this.onOnboardingDemoTeardown = null;
-    // Set by main.js so the tray's listen item rebuilds with dictation state.
+    // Set by main.js so the tray's listen and Restart items rebuild with the
+    // dictation's lifecycle and delivery.
     this.onDictationStateChanged = null;
     this.notificationWindow = null;
     this._meetingNotificationOwner = null;
@@ -1342,8 +1343,12 @@ class WindowManager {
 
   // The lifecycle goes idle before the paste and the save that follow it, so
   // the dictation window reports those separately (dictation-delivery-state).
+  // Announced like the lifecycle: the tray's Restart waits for the delivery.
   setDictationDeliveryState(delivering) {
-    this._dictationDelivering = delivering === true;
+    const next = delivering === true;
+    if (next === this._dictationDelivering) return;
+    this._dictationDelivering = next;
+    this.onDictationStateChanged?.();
   }
 
   /** A dictation is being made or still delivered: the review action waits for it. */
@@ -1446,7 +1451,7 @@ class WindowManager {
 
   _resetDictationLifecycle(reason, detail) {
     // A renderer that went away mid-paste can't report the end of it either.
-    this._dictationDelivering = false;
+    this.setDictationDeliveryState(false);
     if (this._dictationLifecycleState === DICTATION_LIFECYCLE.IDLE) return;
     debugLogger.info(
       "[WindowManager] Dictation renderer went away; resetting its lifecycle",
