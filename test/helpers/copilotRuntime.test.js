@@ -2,150 +2,13 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 
 const {
-  createCopilotRuntime,
   buildRuntimeEnv,
   normalizeModels,
   lowestEffort,
   redactTokens,
 } = require("../../src/helpers/copilot/copilotRuntime");
 const { createMemorySessionFs } = require("../../src/helpers/copilot/memorySessionFs");
-
-const MODELS = [
-  { id: "auto", name: "Auto", capabilities: { supports: {} } },
-  {
-    id: "claude-haiku-5.5",
-    name: "Claude Haiku 5.5",
-    capabilities: { supports: { vision: true } },
-    supportedReasoningEfforts: ["low", "medium", "high"],
-    policy: { state: "enabled" },
-    billing: { tokenPrices: { inputPrice: 10, outputPrice: 50 } },
-  },
-  {
-    id: "gpt-6-luna",
-    name: "GPT-6 Luna",
-    capabilities: { supports: { reasoning_effort: ["none", "low", "high"] } },
-    policy: { state: "enabled" },
-  },
-  { id: "blocked-model", name: "Blocked", capabilities: {}, policy: { state: "disabled" } },
-];
-
-function createFakeSdk(behavior = {}) {
-  const clients = [];
-  let sessionCount = 0;
-
-  class FakeSession {
-    constructor(client, config) {
-      this.client = client;
-      this.config = config;
-      this.sessionId = `session-${++sessionCount}`;
-      this.handlers = new Set();
-      this.aborted = false;
-      this.disconnected = false;
-    }
-    on(handler) {
-      this.handlers.add(handler);
-      return () => this.handlers.delete(handler);
-    }
-    emit(type, data) {
-      for (const handler of [...this.handlers]) handler({ type, data });
-    }
-    async sendAndWait({ prompt }) {
-      this.prompt = prompt;
-      if (behavior.send) return behavior.send(this, prompt);
-      this.emit("assistant.usage", { model: this.config.model, finishReason: "stop" });
-      return { data: { content: `clean: ${prompt}` } };
-    }
-    async abort() {
-      this.aborted = true;
-    }
-    async disconnect() {
-      this.disconnected = true;
-      if (behavior.disconnectThrows) throw new Error("disconnect failed");
-    }
-  }
-
-  class CopilotClient {
-    constructor(options) {
-      this.options = options;
-      this.sessions = [];
-      this.deleted = [];
-      this.stopped = false;
-      this.forceStopped = false;
-      clients.push(this);
-    }
-    async start() {
-      if (behavior.startError) throw behavior.startError;
-      this.started = true;
-    }
-    async stop() {
-      if (behavior.stopHangs) return new Promise(() => {});
-      this.stopped = true;
-      return [];
-    }
-    async forceStop() {
-      this.forceStopped = true;
-    }
-    get rpc() {
-      return {
-        models: {
-          list: async () => {
-            if (behavior.listError) throw behavior.listError;
-            return { models: behavior.models ?? MODELS };
-          },
-        },
-      };
-    }
-    async createSession(config) {
-      if (behavior.createError) throw behavior.createError;
-      const session = new FakeSession(this, config);
-      this.sessions.push(session);
-      return session;
-    }
-    async deleteSession(id) {
-      this.deleted.push(id);
-    }
-  }
-
-  return {
-    sdk: { CopilotClient, RuntimeConnection: { forStdio: (opts) => ({ kind: "stdio", ...opts }) } },
-    clients,
-  };
-}
-
-function manualTimers() {
-  const timers = new Map();
-  let next = 1;
-  return {
-    setTimer: (fn, ms) => {
-      const id = next++;
-      timers.set(id, { fn, ms });
-      return id;
-    },
-    clearTimer: (id) => timers.delete(id),
-    fire(ms) {
-      for (const [id, timer] of [...timers]) {
-        if (timer.ms === ms) {
-          timers.delete(id);
-          timer.fn();
-        }
-      }
-    },
-    pending: (ms) => [...timers.values()].filter((timer) => timer.ms === ms).length,
-  };
-}
-
-function runtimeWith(behavior, options = {}) {
-  const fake = createFakeSdk(behavior);
-  const directories = [];
-  const runtime = createCopilotRuntime({
-    loadSdk: () => fake.sdk,
-    baseDirectory: "C:\\fake\\copilot-runtime",
-    ensureDirectory: (dir) => directories.push({ dir, clientsBefore: fake.clients.length }),
-    env: { PATH: "C:\\Windows", OPENAI_API_KEY: "sk-secret", GH_TOKEN: "gho_ambient123456" },
-    ...options,
-  });
-  return { runtime, fake, directories };
-}
+const { MODELS, manualTimers, runtimeWith } = require("./harness/copilotSdk");
 
 test("the runtime's working directory is created before each client starts", async () => {
   const { runtime, fake, directories } = runtimeWith();
@@ -185,6 +48,8 @@ test("a request runs as a one-shot session: Copilot's prompt replaced, no tools,
   });
   assert.deepEqual(session.config.availableTools, []);
   assert.deepEqual(session.config.infiniteSessions, { enabled: false });
+  assert.deepEqual(session.config.allowedModels, ["claude-haiku-5.5"]);
+  assert.equal(typeof session.config.onEvent, "function");
   assert.equal(session.config.reasoningEffort, "low");
   assert.equal(typeof session.config.createSessionFsProvider, "function");
   const transformed = session.config.hooks.onUserPromptTransformed({

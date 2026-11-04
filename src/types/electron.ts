@@ -3477,6 +3477,7 @@ declare global {
       listCopilotModels?: (options?: {
         refresh?: boolean;
       }) => Promise<{ success: boolean; models?: CopilotModel[] } & Partial<IpcErrorFields>>;
+      prewarmCopilot?: () => Promise<void>;
       onCopilotAuthChanged?: (callback: (status: CopilotAuthStatus) => void) => () => void;
 
       // Enterprise reasoning (Bedrock, Azure, Vertex)

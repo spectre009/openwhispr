@@ -1,5 +1,6 @@
 // IPC for the GitHub Copilot provider. The renderer starts and cancels sign-in,
-// lists models and sends text-only requests; the token never crosses.
+// lists models, prewarms the runtime and sends text-only requests; the token
+// never crosses.
 const { ipcErrorFields } = require("../ipcErrorFields");
 const { copilotRequestRefusal } = require("../../config/copilot");
 const { copilotProviderError } = require("./copilotErrors");
@@ -7,6 +8,8 @@ const { copilotProviderError } = require("./copilotErrors");
 const DEFAULT_DEADLINE_MS = 60000;
 const MIN_DEADLINE_MS = 5000;
 const MAX_DEADLINE_MS = 10 * 60 * 1000;
+// A request this slow also warns, so it shows under "Problems only".
+const SLOW_REQUEST_MS = 6000;
 const EMPTY_REPLY_MESSAGE_KEY = "hooks.audioRecording.errorDescriptions.cleanupEmptyReply";
 
 function deadlineFrom(config) {
@@ -15,11 +18,12 @@ function deadlineFrom(config) {
   return Math.min(MAX_DEADLINE_MS, Math.max(MIN_DEADLINE_MS, requested));
 }
 
-function createCopilotReasoningHandler({ runtime, auth, logger = null }) {
+// Logs carry the request's step timings and usage numbers, never its text.
+function createCopilotReasoningHandler({ runtime, auth, logger = null, now = Date.now }) {
   const log = (level, message, meta) => logger?.[level]?.(message, meta, "copilot");
 
   return async function processCopilotReasoning(_event, text, model, _agentName, config) {
-    const startedAt = Date.now();
+    const startedAt = now();
     try {
       const refusal = copilotRequestRefusal({
         scope: config?.inferenceScope,
@@ -44,15 +48,21 @@ function createCopilotReasoningHandler({ runtime, auth, logger = null }) {
       if (!result.text.trim()) {
         throw Object.assign(new Error("GitHub Copilot returned an empty reply"), {
           messageKey: EMPTY_REPLY_MESSAGE_KEY,
+          copilotTimings: result.timings,
         });
       }
-      log("debug", "Copilot request finished", {
+      const ms = now() - startedAt;
+      const fields = {
         model,
         scope: config?.inferenceScope,
         effort: result.reasoningEffort,
         finishReason: result.finishReason,
-        ms: Date.now() - startedAt,
-      });
+        ms,
+        steps: result.timings,
+        usage: result.usage,
+      };
+      log("debug", "Copilot request finished", fields);
+      if (ms >= SLOW_REQUEST_MS) log("warn", "Slow Copilot request", fields);
       return { success: true, text: result.text };
     } catch (error) {
       const classified = error?.messageKey ? error : copilotProviderError(error, { model });
@@ -64,7 +74,8 @@ function createCopilotReasoningHandler({ runtime, auth, logger = null }) {
         source: error?.code,
         errorType: error?.errorType,
         statusCode: error?.statusCode,
-        ms: Date.now() - startedAt,
+        ms: now() - startedAt,
+        steps: error?.copilotTimings,
       });
       return { success: false, ...ipcErrorFields(classified) };
     }
@@ -89,6 +100,13 @@ function registerCopilotIpc({ ipcMain, copilot, logger = null }) {
       if (classified?.code === "PROVIDER_AUTH_FAILED") auth.reportTokenRejected();
       return { success: false, ...ipcErrorFields(classified) };
     }
+  });
+
+  // Sent at a recording's start; the reply doesn't wait for the prewarm.
+  ipcMain.handle("copilot-prewarm", () => {
+    Promise.resolve()
+      .then(() => runtime.prewarm())
+      .catch(() => {});
   });
 
   ipcMain.handle(

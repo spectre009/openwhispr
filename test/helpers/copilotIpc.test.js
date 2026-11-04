@@ -3,9 +3,11 @@ const assert = require("node:assert/strict");
 
 const {
   createCopilotReasoningHandler,
+  registerCopilotIpc,
   deadlineFrom,
 } = require("../../src/helpers/copilot/copilotIpc");
 const { copilotProviderError } = require("../../src/helpers/copilot/copilotErrors");
+const { captureLogger, flush } = require("./harness/copilotSdk");
 
 function handlerWith(complete) {
   const calls = [];
@@ -147,4 +149,150 @@ test("the request deadline is bounded", () => {
   assert.equal(deadlineFrom({ timeoutMs: 10 }), 5000);
   assert.equal(deadlineFrom({ timeoutMs: 45000 }), 45000);
   assert.equal(deadlineFrom({ timeoutMs: 99999999 }), 600000);
+});
+
+const STEPS = Object.freeze({
+  coldStart: false,
+  acquireMs: 0,
+  catalog: "fresh",
+  catalogMs: 0,
+  sessionMs: 120,
+  sendMs: 900,
+  closeMs: 12,
+});
+const USAGE = Object.freeze({ modelMs: 850, ttftMs: 410, inputTokens: 1200, outputTokens: 40 });
+
+// A handler whose clock moves by `durationMs` while the runtime works.
+function timedHandler(durationMs, complete) {
+  let clock = 1000;
+  const { logger, lines, named } = captureLogger();
+  let rejected = 0;
+  const handler = createCopilotReasoningHandler({
+    runtime: {
+      complete: async (args) => {
+        clock += durationMs;
+        return complete(args);
+      },
+    },
+    auth: { reportTokenRejected: () => (rejected += 1) },
+    logger,
+    now: () => clock,
+  });
+  return { handler, lines, named };
+}
+
+const timedOk = async () => ({
+  text: "Clean text.",
+  finishReason: "stop",
+  reasoningEffort: "low",
+  timings: { ...STEPS },
+  usage: { ...USAGE },
+});
+
+test("copilot-prewarm asks the runtime to prewarm and replies without waiting for it", async () => {
+  const handlers = new Map();
+  const ipcMain = { handle: (channel, fn) => handlers.set(channel, fn) };
+  let prewarms = 0;
+  const runtime = {
+    prewarm: () => {
+      prewarms += 1;
+      return new Promise(() => {});
+    },
+  };
+  registerCopilotIpc({ ipcMain, copilot: { runtime, auth: {} } });
+  assert.equal(handlers.get("copilot-prewarm")({}), undefined);
+  await flush();
+  assert.equal(prewarms, 1);
+
+  // A failing prewarm stays quiet.
+  runtime.prewarm = () => Promise.reject(new Error("boom"));
+  assert.equal(handlers.get("copilot-prewarm")({}), undefined);
+  await flush();
+});
+
+test("a finished request logs its steps and usage", async () => {
+  const { handler, named } = timedHandler(1200, timedOk);
+  const result = await handler({}, "um text", "claude-haiku-5.5", null, {
+    inferenceScope: "dictationCleanup",
+  });
+  assert.deepEqual(result, { success: true, text: "Clean text." });
+  const [finished] = named("Copilot request finished");
+  assert.equal(finished.level, "debug");
+  assert.equal(finished.scope, "copilot");
+  assert.deepEqual(finished.meta, {
+    model: "claude-haiku-5.5",
+    scope: "dictationCleanup",
+    effort: "low",
+    finishReason: "stop",
+    ms: 1200,
+    steps: STEPS,
+    usage: USAGE,
+  });
+  assert.equal(named("Slow Copilot request").length, 0);
+});
+
+test("a request of 6000 ms or more also warns as slow, with the same fields", async () => {
+  for (const [ms, slow] of [
+    [5999, false],
+    [6000, true],
+    [10800, true],
+  ]) {
+    const { handler, named } = timedHandler(ms, timedOk);
+    await handler({}, "text", "claude-haiku-5.5", null, { inferenceScope: "dictationCleanup" });
+    const warnings = named("Slow Copilot request");
+    assert.equal(warnings.length, slow ? 1 : 0, String(ms));
+    if (slow) {
+      assert.equal(warnings[0].level, "warn");
+      assert.deepEqual(warnings[0].meta, named("Copilot request finished")[0].meta);
+      assert.equal(warnings[0].meta.model, "claude-haiku-5.5");
+      assert.equal(warnings[0].meta.scope, "dictationCleanup");
+      assert.equal(warnings[0].meta.ms, ms);
+    }
+  }
+});
+
+test("a failed request logs the steps it got through, and nothing new crosses IPC", async () => {
+  const partial = { coldStart: true, acquireMs: 3000, catalog: "fetched", catalogMs: 2000 };
+  const { handler, named } = timedHandler(7000, async () => {
+    throw Object.assign(new Error("Copilot took longer than 60000 ms"), {
+      code: "COPILOT_TIMEOUT",
+      copilotTimings: partial,
+    });
+  });
+  const result = await handler({}, "text", "claude-haiku-5.5", null, {});
+  assert.equal(result.success, false);
+  assert.equal(result.code, "PROVIDER_TIMEOUT");
+  assert.equal(JSON.stringify(result).includes("acquireMs"), false);
+  const [failed] = named("Copilot request failed");
+  assert.equal(failed.level, "warn");
+  assert.deepEqual(failed.meta.steps, partial);
+  assert.equal(failed.meta.ms, 7000);
+  assert.equal(named("Slow Copilot request").length, 0);
+
+  // An empty reply fails after the runtime finished: its steps still log.
+  const empty = timedHandler(800, async () => ({ ...(await timedOk()), text: " " }));
+  const emptyResult = await empty.handler({}, "text", "claude-haiku-5.5", null, {});
+  assert.equal(emptyResult.success, false);
+  assert.equal(JSON.stringify(emptyResult).includes("sessionMs"), false);
+  assert.deepEqual(empty.named("Copilot request failed")[0].meta.steps, STEPS);
+});
+
+test("no prompt or reply text reaches any Copilot log line", async () => {
+  const config = { inferenceScope: "dictationCleanup", systemPrompt: "SYSTEM-CANARY-4471" };
+  const reply = timedHandler(7000, async () => ({
+    ...(await timedOk()),
+    text: "REPLY-CANARY-4471",
+  }));
+  await reply.handler({}, "USER-CANARY-4471", "claude-haiku-5.5", null, config);
+  const failure = timedHandler(7000, async () => {
+    throw Object.assign(new Error("echo USER-CANARY-4471"), {
+      code: "COPILOT_SDK_ERROR",
+      copilotTimings: { ...STEPS },
+    });
+  });
+  await failure.handler({}, "USER-CANARY-4471", "claude-haiku-5.5", null, config);
+  const logged = JSON.stringify([...reply.lines, ...failure.lines]);
+  assert.equal(reply.lines.length, 2);
+  assert.equal(failure.lines.length, 1);
+  assert.doesNotMatch(logged, /CANARY/);
 });

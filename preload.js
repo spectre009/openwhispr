@@ -895,6 +895,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
   retryCopilotSignIn: (flowId) => ipcRenderer.invoke("copilot-auth-retry", flowId),
   signOutOfCopilot: () => ipcRenderer.invoke("copilot-sign-out"),
   listCopilotModels: (options) => ipcRenderer.invoke("copilot-list-models", options),
+  // Fire and forget at a recording's start; resolves with nothing.
+  prewarmCopilot: () => ipcRenderer.invoke("copilot-prewarm"),
   onCopilotAuthChanged: registerListener(
     "copilot-auth-changed",
     (callback) => (_event, status) => callback(status)

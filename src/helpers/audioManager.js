@@ -188,6 +188,7 @@ import {
 } from "./postTranscription";
 import { isStyleReachable, runStyledDictation } from "../services/dictationStyles";
 import { styleRouteKind } from "../config/styles/library";
+import { COPILOT_PROVIDER_ID } from "../config/copilot";
 import { normalizeAgentSelectionContext } from "../utils/agentSelectionContext";
 import { getAgentName } from "../utils/agentName";
 import { shouldDisplayDictationPreview } from "../utils/transcriptionPreview";
@@ -362,6 +363,40 @@ function translationChainReachable(settings) {
   return resolveDictationTranslationInference(settings, {
     isCloudTranslation: isCloudTranslationMode(),
   }).reachable;
+}
+
+// A scope sends to Copilot only in providers mode (the model slot is shared
+// with local mode) and with a model picked.
+function sendsToCopilot(config) {
+  return (
+    config?.mode === "providers" &&
+    config.provider === COPILOT_PROVIDER_ID &&
+    !!config.model?.trim()
+  );
+}
+
+// Whether a dictation starting now can make a request to GitHub Copilot, read
+// with the resolvers the pipeline routes with. A guess: the wake word can
+// still route a dictation to the assistant, and a wrong guess only keeps the
+// runtime up for its idle time. Never the voice assistant, which Copilot
+// refuses.
+function copilotPrewarmWanted(
+  settings,
+  { voiceAgentRequested = false, translationRequested = false, style = null } = {}
+) {
+  if (voiceAgentRequested) return false;
+  const cleanupOnCopilot = sendsToCopilot(selectResolvedLLMConfig(settings, "dictationCleanup"));
+  if (translationRequested) {
+    const translation = resolveDictationTranslationInference(settings, {
+      isCloudTranslation: isCloudTranslationMode(),
+    });
+    if (translation.reachable && translation.config?.provider === COPILOT_PROVIDER_ID) return true;
+    // The chain's cleanup step.
+    return !!settings.useCleanupModel && cleanupOnCopilot;
+  }
+  if (!cleanupOnCopilot) return false;
+  // A style runs on cleanup's model even with cleanup off.
+  return !!settings.useCleanupModel || (!!style && isStyleReachable(settings));
 }
 
 function resolveReasoningRoute(
@@ -1173,6 +1208,22 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
   // requestStepHistoryRun). Never awaited at start; postTranscribe reads it.
   beginStepHistoryRun() {
     this.stepHistoryRunPromise = requestStepHistoryRun();
+  }
+
+  // Starts the GitHub Copilot runtime and its model list while the user
+  // speaks, when this dictation's cleanup or translation can run on Copilot
+  // (copilotPrewarmWanted). Fire and forget: never awaited, never throws, and
+  // logs nothing. Returns whether it asked main to prewarm.
+  beginCopilotPrewarm(options = {}) {
+    try {
+      if (!copilotPrewarmWanted(getSettings(), options)) return false;
+      const request = window.electronAPI?.prewarmCopilot?.();
+      if (!request) return false;
+      Promise.resolve(request).catch(() => {});
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   // Asks main for the target app it froze when this recording started (see
@@ -7368,5 +7419,5 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
   }
 }
 
-export { resolveReasoningRoute };
+export { resolveReasoningRoute, copilotPrewarmWanted };
 export default AudioManager;

@@ -1,6 +1,8 @@
 // Owns the GitHub Copilot SDK runtime (copilot-runtime.exe) for the language-
-// model provider. One CopilotClient per sign-in, started on first use and
-// stopped after IDLE_STOP_MS without a request, on sign-out and on quit.
+// model provider. One CopilotClient per sign-in, started on first use (or by a
+// prewarm at a recording's start) and stopped after IDLE_STOP_MS without a
+// request, on sign-out and on quit. The model catalog is kept per sign-in
+// across those idle restarts.
 //
 // Every request is a one-shot session with Copilot's own prompt replaced, no
 // tools and an in-memory session filesystem, so the transcript the runtime
@@ -13,6 +15,11 @@ const IDLE_STOP_MS = 10 * 60 * 1000;
 // Fits inside sidecarRegistry's 8 s quit deadline, leaving room to force-stop.
 const STOP_GRACE_MS = 4000;
 const MODELS_TTL_MS = 10 * 60 * 1000;
+// A catalog fetch is shared by everyone waiting on it and holds the runtime
+// up, so it has its own bound: callers' deadlines only stop their waiting.
+const CATALOG_TIMEOUT_MS = 15000;
+// A prewarm (start plus catalog) stops waiting after this long.
+const PREWARM_TIMEOUT_MS = 30000;
 const SEND_WAIT_SLACK_MS = 5000;
 const PID_FILE_NAME = "copilot";
 
@@ -20,6 +27,27 @@ const EFFORT_ORDER = ["none", "low", "medium", "high", "xhigh", "max"];
 const TRUNCATED_FINISH_REASONS = new Set(["length", "max_tokens", "max_output_tokens"]);
 // Messages the SDK uses when the runtime process or its pipe has gone away.
 const CONNECTION_LOST = /connection|disposed|closed|not connected|EPIPE|ECONNRESET|exited|stopped/i;
+// Events that mean the model has started answering.
+const OUTPUT_EVENTS = new Set([
+  "assistant.message_start",
+  "assistant.message",
+  "assistant.message_delta",
+  "assistant.streaming_delta",
+  "assistant.reasoning",
+  "assistant.reasoning_delta",
+  "assistant.tool_call_delta",
+  "assistant.usage",
+]);
+const JSON_RPC_INVALID_PARAMS = -32602;
+// What a request logs of the SDK's assistant.usage event: [field, source, round].
+const USAGE_FIELDS = [
+  ["modelMs", "duration", false],
+  ["ttftMs", "timeToFirstTokenMs", true],
+  ["inputTokens", "inputTokens", false],
+  ["outputTokens", "outputTokens", false],
+  ["cacheReadTokens", "cacheReadTokens", false],
+  ["cacheWriteTokens", "cacheWriteTokens", false],
+];
 
 const SESSION_FS_CONFIG = Object.freeze({
   initialCwd: "/work",
@@ -180,6 +208,64 @@ function race(work, ...guards) {
   return Promise.race([work, ...guards.filter(Boolean)]);
 }
 
+function abortQuietly(session) {
+  return Promise.resolve()
+    .then(() => session.abort())
+    .catch(() => {});
+}
+
+// A failing disconnect never skips the delete.
+async function closeSession(client, session) {
+  const sessionId = session.sessionId;
+  await Promise.resolve()
+    .then(() => session.disconnect())
+    .catch(() => {});
+  await Promise.resolve()
+    .then(() => client.deleteSession(sessionId))
+    .catch(() => {});
+}
+
+function modelUnavailable(model) {
+  return codedError("COPILOT_MODEL_UNAVAILABLE", `Copilot model "${model}" isn't available`, {
+    model,
+  });
+}
+
+// The usage numbers a request logs; anything that isn't a finite number is left out.
+function usageNumbers(data) {
+  const numbers = {};
+  for (const [name, field, round] of USAGE_FIELDS) {
+    const value = data?.[field];
+    if (typeof value === "number" && Number.isFinite(value)) {
+      numbers[name] = round ? Math.round(value) : value;
+    }
+  }
+  return numbers;
+}
+
+// A failed request's error carries the steps it got through, for the log. A
+// start failure is shared by every request waiting on that start, so each
+// request throws its own copy.
+function withTimings(error, timings) {
+  const source = error instanceof Error ? error : new Error(String(error));
+  const copy = Object.assign(new Error(source.message), source, {
+    copilotTimings: { ...timings },
+  });
+  copy.stack = source.stack;
+  return copy;
+}
+
+// Whether a refused session or send could be about its reasoning effort: a
+// JSON-RPC invalid-params reply, a 400/422, or a message naming the effort.
+function mayBeEffortRefusal(error, eventData) {
+  if (error?.code === JSON_RPC_INVALID_PARAMS) return true;
+  if (eventData?.statusCode === 400 || eventData?.statusCode === 422) return true;
+  const text = [eventData?.providerErrorParam, eventData?.message, error?.message]
+    .filter((part) => typeof part === "string")
+    .join(" ");
+  return /effort/i.test(text);
+}
+
 function createCopilotRuntime({
   loadSdk = () => require("@github/copilot-sdk"),
   baseDirectory,
@@ -195,6 +281,8 @@ function createCopilotRuntime({
   idleStopMs = IDLE_STOP_MS,
   stopGraceMs = STOP_GRACE_MS,
   modelsTtlMs = MODELS_TTL_MS,
+  catalogTimeoutMs = CATALOG_TIMEOUT_MS,
+  prewarmTimeoutMs = PREWARM_TIMEOUT_MS,
   now = Date.now,
   setTimer = setTimeout,
   clearTimer = clearTimeout,
@@ -203,6 +291,9 @@ function createCopilotRuntime({
   let token = "";
   let generation = 0;
   let current = null;
+  // The last catalog of this sign-in ({ generation, at, list }). It outlives
+  // the runtime's idle restarts; a token change drops it.
+  let lastCatalog = null;
   const retiring = new Set();
   const log = (level, message, meta) => logger?.[level]?.(message, meta, "copilot");
 
@@ -214,7 +305,8 @@ function createCopilotRuntime({
       starting: null,
       active: 0,
       idleTimer: null,
-      models: null,
+      // The catalog fetch in flight on this runtime, shared by its callers.
+      flight: null,
       pid: null,
       stopping: null,
       broken: false,
@@ -290,6 +382,8 @@ function createCopilotRuntime({
       retiring.delete(entry);
       log("info", "Copilot runtime stopped", { generation: entry.generation });
     })();
+    // Nothing joins or stores a stopping runtime's catalog fetch.
+    if (entry.flight) endFlight(entry, entry.flight);
     return entry.stopping;
   }
 
@@ -342,7 +436,15 @@ function createCopilotRuntime({
     entry.idleTimer?.unref?.();
   }
 
-  async function acquire() {
+  // A lease keeps the runtime up: its idle stop waits until every lease ends.
+  function lease(entry) {
+    entry.active += 1;
+    if (entry.idleTimer) clearTimer(entry.idleTimer);
+    entry.idleTimer = null;
+  }
+
+  // `stats.coldStart` says whether this call started the runtime.
+  async function acquire(stats = null) {
     if (!token) throw codedError("COPILOT_NOT_SIGNED_IN", "Not signed in to GitHub Copilot");
     if (current?.broken) {
       const broken = current;
@@ -351,9 +453,8 @@ function createCopilotRuntime({
     }
     if (!current) current = newEntry();
     const entry = current;
-    entry.active += 1;
-    if (entry.idleTimer) clearTimer(entry.idleTimer);
-    entry.idleTimer = null;
+    lease(entry);
+    if (stats) stats.coldStart = !entry.client && !entry.starting;
     try {
       const client = await ensureStarted(entry);
       return { entry, client };
@@ -379,38 +480,217 @@ function createCopilotRuntime({
     return normalizeModels(result?.models);
   }
 
+  function markIfLost(entry, error) {
+    if (error?.connectionLost && !entry.broken) {
+      entry.broken = true;
+      // Nothing joins or stores a lost runtime's catalog fetch.
+      if (entry.flight) endFlight(entry, entry.flight);
+    }
+    return error;
+  }
+
+  const catalogOf = (entry) => (lastCatalog?.generation === entry.generation ? lastCatalog : null);
+  const isFresh = (catalog) => now() - catalog.at < modelsTtlMs;
+
+  // One catalog fetch at a time per runtime: a prewarm, requests and the model
+  // list share the one in flight. It holds its own lease, so the idle stop
+  // waits for it, and gives up after catalogTimeoutMs; a caller's deadline or
+  // cancel only ends that caller's wait. It stores its list only while it is
+  // still its runtime's flight and that runtime serves the current sign-in.
+  // `settled` resolves to { list } or { error } and never rejects.
+  function catalogFlight(entry, client) {
+    if (entry.flight) return { settled: entry.flight.settled, shared: true };
+    const flight = { settled: null, leased: true };
+    entry.flight = flight;
+    lease(entry);
+    const bound = createDeadline(catalogTimeoutMs, setTimer, clearTimer);
+    flight.settled = race(fetchModels(client), bound.promise)
+      .then(
+        (list) => {
+          if (entry.flight === flight && entry.generation === generation) {
+            lastCatalog = { generation: entry.generation, at: now(), list };
+          }
+          return { list };
+        },
+        (error) => ({
+          error: isOwnError(error) ? error : markIfLost(entry, copilotSdkError(null, error)),
+        })
+      )
+      .finally(() => {
+        bound.clear();
+        endFlight(entry, flight);
+      });
+    return { settled: flight.settled, shared: false };
+  }
+
+  function endFlight(entry, flight) {
+    if (entry.flight === flight) entry.flight = null;
+    if (!flight.leased) return;
+    flight.leased = false;
+    release(entry);
+  }
+
   async function listModels({ refresh = false } = {}) {
     const { entry, client } = await acquire();
     try {
-      if (!refresh && entry.models && now() - entry.models.at < modelsTtlMs) {
-        return entry.models.list;
-      }
-      const list = await fetchModels(client);
-      entry.models = { at: now(), list };
+      const catalog = catalogOf(entry);
+      if (!refresh && catalog && isFresh(catalog)) return catalog.list;
+      const { list, error } = await catalogFlight(entry, client).settled;
+      if (error) throw error;
       return list;
-    } catch (error) {
-      if (isOwnError(error)) throw error;
-      throw markIfLost(entry, copilotSdkError(null, error));
     } finally {
       release(entry);
     }
   }
 
-  function markIfLost(entry, error) {
-    if (error?.connectionLost) entry.broken = true;
-    return error;
+  async function timed(timings, step, work) {
+    const startedAt = now();
+    try {
+      return await work();
+    } finally {
+      timings[step] = (timings[step] || 0) + (now() - startedAt);
+    }
   }
 
-  async function catalogFor(entry, client) {
+  // The catalog a request checks its model against and picks its effort from
+  // (`list`, or null to go ahead unchecked), and how it got it:
+  // - fresh: the sign-in's catalog, younger than modelsTtlMs;
+  // - stale: older, but it lists the model, so the request goes ahead at once
+  //   and the catalog is refreshed after it;
+  // - fetched / shared (none known) or refreshed (stale, without the model):
+  //   waited for a fetch, its own or one in flight, raced with the request's
+  //   deadline and cancel;
+  // - failed: that fetch failed, so the request goes ahead unchecked, as it
+  //   always has. A stale list is never evidence against a model.
+  async function catalogForRequest(entry, client, model, timings, guards) {
+    const startedAt = now();
     try {
-      if (!entry.models || now() - entry.models.at >= modelsTtlMs) {
-        entry.models = { at: now(), list: await fetchModels(client) };
+      const catalog = catalogOf(entry);
+      if (catalog && isFresh(catalog)) {
+        timings.catalog = "fresh";
+        return { how: "fresh", list: catalog.list };
       }
-      return entry.models.list;
-    } catch {
-      // The catalog only guards the model id and picks an effort; the request
-      // itself can still be tried.
-      return null;
+      if (catalog?.list.some((candidate) => candidate.id === model)) {
+        timings.catalog = "stale";
+        return { how: "stale", list: catalog.list };
+      }
+      const flight = catalogFlight(entry, client);
+      const { list, error } = await race(flight.settled, ...guards);
+      const how = error ? "failed" : catalog ? "refreshed" : flight.shared ? "shared" : "fetched";
+      timings.catalog = how;
+      return { how, list: error ? null : list };
+    } finally {
+      timings.catalogMs = now() - startedAt;
+    }
+  }
+
+  // One session: created with the guard already listening, sent the prompt,
+  // then closed. With `mayRetryEffort`, a refusal before any output that may
+  // be about the effort comes back as { effortRefused } instead of a throw.
+  async function openAndSend({
+    entry,
+    client,
+    model,
+    reasoningEffort,
+    system,
+    user,
+    maxTokens,
+    deadlineMs,
+    guards,
+    timings,
+    mayRetryEffort = false,
+  }) {
+    let session = null;
+    let listening = true;
+    let usage = null;
+    let sessionError = null;
+    let modelSwitch = null;
+    let answered = false;
+    // Registered before session.create, so a model swap while the session is
+    // created is caught as well as one during the send.
+    const onEvent = (event) => {
+      if (!listening || event?.agentId) return;
+      if (OUTPUT_EVENTS.has(event?.type)) answered = true;
+      if (event?.type === "assistant.usage") usage = event.data;
+      else if (event?.type === "session.error") sessionError = event.data;
+      else if (
+        event?.type === "session.model_change" &&
+        (event.data?.source === "automatic" || event.data?.cause === "model_unavailable")
+      ) {
+        // The runtime swaps an unavailable model for another, possibly far
+        // pricier, one without failing. Stop instead of paying for it.
+        modelSwitch = event.data;
+        if (session) abortQuietly(session);
+      }
+    };
+    try {
+      try {
+        session = await timed(timings, "sessionMs", () =>
+          race(
+            client.createSession({
+              model,
+              // The runtime may not move this session to any other model.
+              allowedModels: [model],
+              ...(reasoningEffort ? { reasoningEffort } : {}),
+              systemMessage: { mode: "replace", content: system || "" },
+              availableTools: [],
+              infiniteSessions: { enabled: false },
+              ...(maxTokens
+                ? { modelCapabilities: { limits: { max_output_tokens: maxTokens } } }
+                : {}),
+              createSessionFsProvider: () => createMemorySessionFs(),
+              onEvent,
+              // The runtime prefixes every prompt with a <current_datetime> tag,
+              // which a cleanup model can copy into the text it returns.
+              hooks: {
+                onUserPromptTransformed: (input) => ({ modifiedTransformedPrompt: input.prompt }),
+              },
+            }),
+            ...guards
+          )
+        );
+      } catch (error) {
+        if (isOwnError(error)) throw error;
+        if (modelSwitch) throw modelUnavailable(model);
+        const failure = copilotSdkError(sessionError, error);
+        if (mayRetryEffort && !failure.connectionLost && mayBeEffortRefusal(error, sessionError)) {
+          return { effortRefused: failure };
+        }
+        throw markIfLost(entry, failure);
+      }
+      // Swapped while the session was created: nothing has been sent yet.
+      if (modelSwitch) throw modelUnavailable(model);
+
+      let message;
+      try {
+        message = await timed(timings, "sendMs", () =>
+          race(session.sendAndWait({ prompt: user }, deadlineMs + SEND_WAIT_SLACK_MS), ...guards)
+        );
+      } catch (error) {
+        if (modelSwitch) throw modelUnavailable(model);
+        if (error?.code === "COPILOT_TIMEOUT" || error?.code === "COPILOT_CANCELLED") {
+          await abortQuietly(session);
+          throw error;
+        }
+        const failure = copilotSdkError(sessionError, error);
+        if (
+          mayRetryEffort &&
+          !answered &&
+          !failure.connectionLost &&
+          mayBeEffortRefusal(error, sessionError)
+        ) {
+          return { effortRefused: failure };
+        }
+        throw markIfLost(entry, failure);
+      }
+      if (modelSwitch) throw modelUnavailable(model);
+      return { message, usage };
+    } finally {
+      listening = false;
+      if (session) {
+        const opened = session;
+        await timed(timings, "closeMs", () => closeSession(client, opened));
+      }
     }
   }
 
@@ -425,103 +705,80 @@ function createCopilotRuntime({
     signal,
   }) {
     if (!model) throw codedError("COPILOT_NO_MODEL", "No Copilot model selected");
+    const startedAt = now();
     const deadline = createDeadline(deadlineMs, setTimer, clearTimer);
-    const cancelled = abortPromise(signal);
+    const guards = [deadline.promise, abortPromise(signal)];
+    // Step timings: numbers and step names only. A failure carries what it
+    // gathered as error.copilotTimings.
+    const timings = { coldStart: false, acquireMs: 0 };
+    const stats = {};
     // The deadline covers a cold runtime start too. A start that finishes
     // after the deadline still hands its slot back.
-    const acquiring = acquire();
+    const acquiring = acquire(stats);
     let entry;
     let client;
     try {
-      ({ entry, client } = await race(acquiring, deadline.promise, cancelled));
+      ({ entry, client } = await race(acquiring, ...guards));
     } catch (error) {
       deadline.clear();
       acquiring.then(
         (late) => release(late.entry),
         () => {}
       );
-      throw error;
+      timings.coldStart = stats.coldStart === true;
+      timings.acquireMs = now() - startedAt;
+      throw withTimings(error, timings);
     }
-    let session = null;
+    timings.coldStart = stats.coldStart === true;
+    timings.acquireMs = now() - startedAt;
+    let refreshAfter = false;
     try {
-      const catalog = await race(catalogFor(entry, client), deadline.promise, cancelled);
-      const listed = catalog?.find((candidate) => candidate.id === model);
-      if (catalog && !listed) {
-        throw codedError("COPILOT_MODEL_UNAVAILABLE", `Copilot model "${model}" isn't available`, {
-          model,
-        });
-      }
-      const reasoningEffort = disableThinking ? lowestEffort(listed) : undefined;
-      session = await race(
-        client.createSession({
-          model,
-          ...(reasoningEffort ? { reasoningEffort } : {}),
-          systemMessage: { mode: "replace", content: system || "" },
-          availableTools: [],
-          infiniteSessions: { enabled: false },
-          ...(maxTokens ? { modelCapabilities: { limits: { max_output_tokens: maxTokens } } } : {}),
-          createSessionFsProvider: () => createMemorySessionFs(),
-          // The runtime prefixes every prompt with a <current_datetime> tag,
-          // which a cleanup model can copy into the text it returns.
-          hooks: {
-            onUserPromptTransformed: (input) => ({ modifiedTransformedPrompt: input.prompt }),
-          },
-        }),
-        deadline.promise,
-        cancelled
-      );
-
-      let usage = null;
-      let sessionError = null;
-      let modelSwitch = null;
-      const unsubscribe = session.on((event) => {
-        if (event?.agentId) return;
-        if (event?.type === "assistant.usage") usage = event.data;
-        else if (event?.type === "session.error") sessionError = event.data;
-        else if (
-          event?.type === "session.model_change" &&
-          (event.data?.source === "automatic" || event.data?.cause === "model_unavailable")
-        ) {
-          // The runtime swaps an unavailable model for another, possibly far
-          // pricier, one without failing. Stop instead of paying for it.
-          modelSwitch = event.data;
-          Promise.resolve()
-            .then(() => session.abort())
-            .catch(() => {});
-        }
+      const catalog = await catalogForRequest(entry, client, model, timings, guards);
+      refreshAfter = catalog.how === "stale";
+      let listed = catalog.list?.find((candidate) => candidate.id === model);
+      if (catalog.list && !listed) throw modelUnavailable(model);
+      // The lowest effort from a stale catalog is best-effort: a refusal is
+      // checked against a fresh catalog below.
+      let reasoningEffort = disableThinking ? lowestEffort(listed) : undefined;
+      const request = {
+        entry,
+        client,
+        model,
+        system,
+        user,
+        maxTokens,
+        deadlineMs,
+        guards,
+        timings,
+      };
+      let outcome = await openAndSend({
+        ...request,
+        reasoningEffort,
+        mayRetryEffort: refreshAfter && !!reasoningEffort,
       });
-      let message;
-      try {
-        message = await race(
-          session.sendAndWait({ prompt: user }, deadlineMs + SEND_WAIT_SLACK_MS),
-          deadline.promise,
-          cancelled
-        );
-      } catch (error) {
-        if (modelSwitch) {
-          throw codedError(
-            "COPILOT_MODEL_UNAVAILABLE",
-            `Copilot model "${model}" isn't available`,
-            {
-              model,
-            }
-          );
+      if (outcome.effortRefused) {
+        // Refused before any output with an effort from the stale catalog:
+        // read a fresh one and try once more with its effort, within the same
+        // deadline. The effort is never dropped, which could let a higher
+        // default apply.
+        refreshAfter = false;
+        const refreshStartedAt = now();
+        let fresh = null;
+        try {
+          ({ list: fresh = null } = await race(catalogFlight(entry, client).settled, ...guards));
+        } finally {
+          timings.catalogMs += now() - refreshStartedAt;
         }
-        if (error?.code === "COPILOT_TIMEOUT" || error?.code === "COPILOT_CANCELLED") {
-          await Promise.resolve()
-            .then(() => session.abort())
-            .catch(() => {});
-          throw error;
-        }
-        throw markIfLost(entry, copilotSdkError(sessionError, error));
-      } finally {
-        unsubscribe?.();
+        if (fresh) timings.catalog = "refreshed";
+        listed = fresh?.find((candidate) => candidate.id === model);
+        if (fresh && !listed) throw modelUnavailable(model);
+        const freshEffort = lowestEffort(listed);
+        if (!freshEffort || freshEffort === reasoningEffort) throw outcome.effortRefused;
+        reasoningEffort = freshEffort;
+        timings.effortRetried = true;
+        outcome = await openAndSend({ ...request, reasoningEffort });
       }
-      if (modelSwitch) {
-        throw codedError("COPILOT_MODEL_UNAVAILABLE", `Copilot model "${model}" isn't available`, {
-          model,
-        });
-      }
+      const { message, usage } = outcome;
 
       const finishReason = usage?.finishReason || null;
       if (requireCompleteOutput && finishReason && TRUNCATED_FINISH_REASONS.has(finishReason)) {
@@ -532,21 +789,72 @@ function createCopilotRuntime({
         finishReason,
         model: usage?.model || model,
         reasoningEffort: reasoningEffort || null,
+        timings: { ...timings },
+        usage: usageNumbers(usage),
       };
     } catch (error) {
-      if (isOwnError(error)) throw error;
-      throw markIfLost(entry, copilotSdkError(null, error));
+      const failure = isOwnError(error) ? error : markIfLost(entry, copilotSdkError(null, error));
+      throw withTimings(failure, timings);
     } finally {
       deadline.clear();
-      if (session) {
-        const sessionId = session.sessionId;
-        await Promise.resolve()
-          .then(() => session.disconnect())
-          .catch(() => {});
-        await Promise.resolve()
-          .then(() => client.deleteSession(sessionId))
-          .catch(() => {});
+      // A stale catalog served this request; refresh it for the next one.
+      if (refreshAfter && !entry.broken && !entry.stopping && entry.generation === generation) {
+        catalogFlight(entry, client);
       }
+      release(entry);
+    }
+  }
+
+  // Starts the runtime and fetches the catalog ahead of a dictation that will
+  // need them, then lets the idle timer run as after a request. Bounded by
+  // prewarmTimeoutMs, logs one line, never throws; signed out it does nothing.
+  async function prewarm() {
+    if (!token) return;
+    const startedAt = now();
+    const bound = createDeadline(prewarmTimeoutMs, setTimer, clearTimer);
+    const stats = {};
+    const acquiring = acquire(stats);
+    let entry;
+    let client;
+    try {
+      ({ entry, client } = await race(acquiring, bound.promise));
+    } catch (error) {
+      bound.clear();
+      acquiring.then(
+        (late) => release(late.entry),
+        () => {}
+      );
+      log("debug", "Copilot runtime prewarm failed", {
+        code: error?.code,
+        coldStart: stats.coldStart === true,
+        startMs: now() - startedAt,
+      });
+      return;
+    }
+    const startMs = now() - startedAt;
+    try {
+      // Signed out or signed in again while it started: nothing to warm.
+      if (entry.generation !== generation) return;
+      let catalog = "fresh";
+      let catalogMs = 0;
+      const known = catalogOf(entry);
+      if (!known || !isFresh(known)) {
+        const catalogStartedAt = now();
+        const flight = catalogFlight(entry, client);
+        const { error } = await race(flight.settled, bound.promise).catch((timeout) => ({
+          error: timeout,
+        }));
+        catalog = error ? "failed" : flight.shared ? "shared" : "fetched";
+        catalogMs = now() - catalogStartedAt;
+      }
+      log("debug", "Copilot runtime prewarmed", {
+        coldStart: stats.coldStart === true,
+        startMs,
+        catalog,
+        catalogMs,
+      });
+    } finally {
+      bound.clear();
       release(entry);
     }
   }
@@ -578,6 +886,8 @@ function createCopilotRuntime({
     if (value === token) return;
     token = value;
     generation += 1;
+    // A catalog belongs to the sign-in it was fetched with.
+    lastCatalog = null;
     const previous = current;
     current = null;
     if (!previous) return;
@@ -604,7 +914,7 @@ function createCopilotRuntime({
     };
   }
 
-  return { complete, listModels, validateToken, setToken, stop, getStatus };
+  return { complete, prewarm, listModels, validateToken, setToken, stop, getStatus };
 }
 
 module.exports = {
@@ -615,6 +925,8 @@ module.exports = {
   redactTokens,
   IDLE_STOP_MS,
   STOP_GRACE_MS,
+  CATALOG_TIMEOUT_MS,
+  PREWARM_TIMEOUT_MS,
   PID_FILE_NAME,
   SESSION_FS_CONFIG,
 };

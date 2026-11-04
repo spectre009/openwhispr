@@ -292,6 +292,13 @@ export const useAudioRecording = (toast, options = {}) => {
         if (targetFrozen) audioManagerRef.current.beginRecordingTargetCapture?.();
         // Step history: main captures who owns this dictation's steps now.
         audioManagerRef.current.beginStepHistoryRun?.();
+        // Starts the Copilot runtime while the user speaks when this
+        // dictation's cleanup or translation runs on it. Never awaited.
+        audioManagerRef.current.beginCopilotPrewarm?.({
+          voiceAgentRequested,
+          translationRequested,
+          style: recordingStyle,
+        });
         // Covers the toggle path with freshly-set flags; the signature dedup
         // makes this a no-op when the prepare handler already reported the
         // same kind ahead of the flags being set.
