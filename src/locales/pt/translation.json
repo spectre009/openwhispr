@@ -3659,6 +3659,12 @@
         "addedHint": "As mais antigas primeiro, como antes"
       },
       "unavailable": "As contagens de uso vêm do seu Histórico local. Enquanto ele estiver desativado ou ainda contando, as palavras vão na ordem em que foram adicionadas."
+    },
+    "quietEmptyDictation": {
+      "title": "Encerrar ditados vazios sem aviso",
+      "description": "Quando um ditado tão curto volta sem texto, ele simplesmente termina: sem erro e sem salvar nada. Ditados vazios mais longos continuam mostrando “Não conseguimos entender”, porque isso costuma indicar o microfone.",
+      "off": "Desativado",
+      "shorterThan": "Menos de {{seconds}} s"
     }
   },
   "models": {

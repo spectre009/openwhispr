@@ -153,6 +153,7 @@ import AutoLearnModeSetting from "./settings/AutoLearnModeSetting";
 import CleanupDictionaryWordsSetting from "./settings/CleanupDictionaryWordsSetting";
 import CleanupDictionaryGroupingSetting from "./settings/CleanupDictionaryGroupingSetting";
 import DictionaryHintOrderSetting from "./settings/DictionaryHintOrderSetting";
+import QuietEmptyDictationSetting from "./settings/QuietEmptyDictationSetting";
 import { HotkeyFeatureLink, HotkeyKbd, HotkeyTable, HotkeyTableRow } from "./settings/HotkeyTable";
 import type { ElsewhereLocation } from "./settings/search/types";
 import {
@@ -3036,6 +3037,15 @@ export default function SettingsPage({
                   )}
                 </SettingsPanel>
               </div>
+            )}
+
+            {/* How a short dictation that comes back with no text ends */}
+            {show("quietEmptyDictation") && (
+              <SettingsPanel>
+                <SettingsPanelRow data-setting-id="dictation.recognition.quietEmpty">
+                  <QuietEmptyDictationSetting />
+                </SettingsPanelRow>
+              </SettingsPanel>
             )}
 
             {/* Startup */}

@@ -13,6 +13,7 @@ import { useLiveTranscriptPanel } from "./hooks/useLiveTranscriptPanel";
 import { useMainWindowSizeOwner } from "./hooks/useMainWindowSizeOwner";
 import { useMainProcessNotifications } from "./hooks/useMainProcessNotifications";
 import { useListeningEntrancePhase } from "./hooks/useListeningEntrancePhase";
+import { useNothingHeardPill } from "./hooks/useNothingHeardPill";
 import { useDictationStartVisuals } from "./hooks/useDictationStartVisuals";
 import { useWindowResizeCompensation } from "./hooks/useWindowResizeCompensation";
 import { useRecordingIndicator } from "./hooks/useRecordingIndicator";
@@ -276,6 +277,16 @@ export default function App() {
     [noteDictationError]
   );
 
+  // A voice command that heard nothing ends quietly, with no card to end the
+  // panel's thinking flourish.
+  const { endVoiceThinking } = assistant;
+  const handleQuietEmptyDictation = React.useCallback(
+    ({ recoverAssistant } = {}) => {
+      if (recoverAssistant) endVoiceThinking();
+    },
+    [endVoiceThinking]
+  );
+
   const handleDictationToggle = React.useCallback(() => {
     setIsCommandMenuOpen(false);
     if (!assistantOpenRef.current && !liveTranscriptApiRef.current?.openRef.current) {
@@ -298,6 +309,7 @@ export default function App() {
     recordingStartedAt,
     dictationStyle,
     slowProcessingHint,
+    nothingHeardSeq,
   } = useAudioRecording(toast, {
     onToggle: handleDictationToggle,
     onDemoEvent: publishOnboardingDemoEvent,
@@ -305,6 +317,7 @@ export default function App() {
     onOnboardingAssistantCommand: runOnboardingAssistantDemo,
     dismissDictationError,
     onDictationError: handleDictationError,
+    onQuietEmptyDictation: handleQuietEmptyDictation,
     getAssistantSelectionContext: assistant.getSelectionContext,
     onShowTranscript: (text) => {
       // While the Agent panel is open the main window's transcript is suppressed
@@ -422,6 +435,25 @@ export default function App() {
     liveTranscriptOpenRef: liveTranscript.openRef,
   });
 
+  // "Hide floating icon when idle" would hide the window now, but for a
+  // dictation in progress.
+  const autoHideWhenIdle =
+    floatingIconAutoHide &&
+    !placementPreviewActive &&
+    toastCount === 0 &&
+    !dictationErrorPillHandoffActive &&
+    !assistant.mounted &&
+    !liveTranscript.mounted;
+  // A short empty dictation's quiet end: the red spin-down, cut short by the
+  // next dictation. Inside an open panel the pill just returns to idle.
+  const nothingHeardPhase = useNothingHeardPill({
+    seq: nothingHeardSeq,
+    interrupted: isRecording || isVisuallyProcessing,
+    autoHide: autoHideWhenIdle,
+  });
+  const pillNothingHeard =
+    nothingHeardPhase !== null && !assistant.mounted && !liveTranscript.mounted;
+
   useEffect(() => {
     if (isCommandMenuOpen || toastCount > 0 || assistant.mounted || liveTranscript.mounted) {
       setWindowInteractivity(true);
@@ -508,20 +540,18 @@ export default function App() {
   useEffect(() => {
     let hideTimeout;
 
-    if (
-      floatingIconAutoHide &&
-      !placementPreviewActive &&
-      !isRecording &&
-      !isVisuallyProcessing &&
-      toastCount === 0 &&
-      !dictationErrorPillHandoffActive &&
-      !assistant.mounted &&
-      !liveTranscript.mounted
-    ) {
-      // Delay briefly so processing can start after recording stops without a flash
-      hideTimeout = setTimeout(() => {
-        window.electronAPI?.hideWindow?.();
-      }, 500);
+    if (autoHideWhenIdle && !isRecording && !isVisuallyProcessing) {
+      // A quiet empty dictation's spin-down plays out first; the pill has
+      // faded with it, so the window then hides at once. Otherwise wait
+      // briefly so processing can start after recording stops without a flash.
+      if (nothingHeardPhase !== "playing") {
+        hideTimeout = setTimeout(
+          () => {
+            window.electronAPI?.hideWindow?.();
+          },
+          nothingHeardPhase === "faded" ? 0 : 500
+        );
+      }
     } else if (!floatingIconAutoHide && prevAutoHideRef.current) {
       window.electronAPI?.showDictationPanel?.();
     }
@@ -532,11 +562,8 @@ export default function App() {
     isRecording,
     isVisuallyProcessing,
     floatingIconAutoHide,
-    placementPreviewActive,
-    toastCount,
-    dictationErrorPillHandoffActive,
-    assistant.mounted,
-    liveTranscript.mounted,
+    autoHideWhenIdle,
+    nothingHeardPhase,
   ]);
 
   const handleClose = () => {
@@ -580,6 +607,7 @@ export default function App() {
       return "unavailable";
     if (isRecording) return "recording";
     if (isVisuallyProcessing) return "processing";
+    if (pillNothingHeard) return "nothing-heard";
     if (isHovered && !isRecording && !isVisuallyProcessing) return "hover";
     return "idle";
   };
@@ -624,6 +652,7 @@ export default function App() {
     isRecording,
     isProcessing: isVisuallyProcessing,
     assistantPanelMounted: assistant.mounted,
+    nothingHeard: pillNothingHeard,
   });
   const assistantFooter = resolveAssistantFooterPresentation(assistant.footerPhase);
   const voicePillInteraction = resolveVoicePillInteraction({
@@ -810,6 +839,7 @@ export default function App() {
               recordingLayout={recordingLayout}
               recordingStartedAt={recordingStartedAt}
               reminderPulseKey={reminderPulseKey}
+              nothingHeardExit={autoHideWhenIdle ? "fade" : "settle"}
               role={pillIsInteractive ? "button" : "status"}
               tabIndex={pillIsInteractive ? 0 : undefined}
               aria-label={

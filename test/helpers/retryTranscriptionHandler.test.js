@@ -978,6 +978,20 @@ test("retry: Azure Speech converts the stored WebM and sends main's key to the r
   ]);
 });
 
+// Live dictation's empty answer is EMPTY_TRANSCRIPT (silence); Re-transcribe's
+// is main's own path and keeps what it showed: no code, nothing written.
+test("retry: an empty Azure Speech answer still reads as no transcript, uncoded", async () => {
+  fetches.length = 0;
+  fakeThis.databaseManager.writes.length = 0;
+  const result = await withFetchResponse(
+    azureAnswer(JSON.stringify({ durationMilliseconds: 1500, combinedPhrases: [] })),
+    () => invoke(AZURE_SETTINGS)
+  );
+  assert.equal(fetches.length, 1);
+  assert.deepEqual(result, { success: false, error: "No transcription engine available" });
+  assert.deepEqual(fakeThis.databaseManager.writes, []);
+});
+
 test("retry: Azure Speech fails closed without a valid endpoint, sending nothing", async () => {
   for (const azureSpeechEndpoint of [
     "",

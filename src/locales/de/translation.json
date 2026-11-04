@@ -3774,6 +3774,12 @@
         "addedHint": "Älteste zuerst, wie bisher"
       },
       "unavailable": "Die Nutzungszahlen stammen aus deinem lokalen Verlauf. Solange er aus ist oder noch zählt, gehen die Wörter in der Reihenfolge, in der sie hinzugefügt wurden."
+    },
+    "quietEmptyDictation": {
+      "title": "Leere Diktate still beenden",
+      "description": "Kommt ein so kurzes Diktat ohne Text zurück, endet es einfach: kein Fehler, nichts wird gespeichert. Längere leere Diktate melden weiterhin „Das haben wir nicht verstanden“, weil das meist am Mikrofon liegt.",
+      "off": "Aus",
+      "shorterThan": "Kürzer als {{seconds}} s"
     }
   },
   "models": {

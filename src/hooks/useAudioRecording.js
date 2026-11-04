@@ -90,6 +90,9 @@ export const useAudioRecording = (toast, options = {}) => {
   const [partialTranscript, setPartialTranscript] = useState("");
   // Processing has run long and Esc now cancels it: the pill says so.
   const [slowProcessingHint, setSlowProcessingHint] = useState(false);
+  // Bumped each time a short dictation comes back empty and ends quietly
+  // (emptyDictation.js): the pill plays its spin-down, nothing else shows.
+  const [nothingHeardSeq, setNothingHeardSeq] = useState(0);
   const audioManagerRef = useRef(null);
   // The one owner of the global Esc: while recording, and once processing has
   // run long (dictationCancelHotkey.js). Created once, never per render.
@@ -133,6 +136,7 @@ export const useAudioRecording = (toast, options = {}) => {
     onOnboardingAssistantCommand,
     dismissDictationError,
     onDictationError,
+    onQuietEmptyDictation,
     getAssistantSelectionContext,
     onShowTranscript,
     onDemoEvent,
@@ -165,6 +169,10 @@ export const useAudioRecording = (toast, options = {}) => {
   const onShowTranscriptRef = useRef(onShowTranscript);
   useEffect(() => {
     onShowTranscriptRef.current = onShowTranscript;
+  });
+  const onQuietEmptyDictationRef = useRef(onQuietEmptyDictation);
+  useEffect(() => {
+    onQuietEmptyDictationRef.current = onQuietEmptyDictation;
   });
   const getAssistantSelectionContextRef = useRef(getAssistantSelectionContext);
   useEffect(() => {
@@ -766,6 +774,26 @@ export const useAudioRecording = (toast, options = {}) => {
       }
     };
 
+    // A dictation that ended with no text, with how the audio manager says it
+    // ends (emptyDictation.js): a short one ends quietly, with the pill's
+    // spin-down and nothing else; a longer one (or one of unknown length)
+    // says "We didn't catch that" for a moment.
+    const endEmptyDictation = (emptyDictation) => {
+      window.electronAPI?.hideDictationPreview?.();
+      if (emptyDictation?.outcome === "quiet") {
+        setNothingHeardSeq((seq) => seq + 1);
+        onQuietEmptyDictationRef.current?.({
+          recoverAssistant: Boolean(audioManagerRef.current?.voiceAgentRequested),
+        });
+        return;
+      }
+      showDictationError({
+        title: t("hooks.audioRecording.noAudio.title"),
+        description: t("hooks.audioRecording.noAudio.description"),
+        transient: true,
+      });
+    };
+
     audioManagerRef.current.setCallbacks({
       onStateChange: ({ isRecording, isProcessing, isStreaming, micCaptureStatus }) => {
         reportLifecycle(isRecording ? "recording" : isProcessing ? "processing" : "idle");
@@ -831,7 +859,7 @@ export const useAudioRecording = (toast, options = {}) => {
         }
       },
       onError: handleError,
-      onNoAudio: () => {
+      onNoAudio: (emptyDictation) => {
         setIsPreparing(false);
         setIsStopping(false);
         onDemoEventRef.current?.({
@@ -839,15 +867,10 @@ export const useAudioRecording = (toast, options = {}) => {
           status: "error",
           message: t("hooks.audioRecording.noAudio.title"),
         });
-        window.electronAPI?.hideDictationPreview?.();
         if (getSettings().pauseMediaOnDictation) {
           window.electronAPI?.resumeMediaPlayback?.();
         }
-        showDictationError({
-          title: t("hooks.audioRecording.noAudio.title"),
-          description: t("hooks.audioRecording.noAudio.description"),
-          transient: true,
-        });
+        endEmptyDictation(emptyDictation);
       },
       onPartialTranscript: (text) => {
         onDemoEventRef.current?.({ kind: demoKindRef.current, status: "partial", text });
@@ -879,12 +902,7 @@ export const useAudioRecording = (toast, options = {}) => {
           const transcribedText = result.text?.trim();
 
           if (!transcribedText) {
-            window.electronAPI?.hideDictationPreview?.();
-            showDictationError({
-              title: t("hooks.audioRecording.noAudio.title"),
-              description: t("hooks.audioRecording.noAudio.description"),
-              transient: true,
-            });
+            endEmptyDictation(result.emptyDictation);
             return;
           }
 
@@ -1539,5 +1557,7 @@ export const useAudioRecording = (toast, options = {}) => {
     getAudioLevel,
     // Processing has run long and Esc now cancels it (shown on the pill).
     slowProcessingHint: slowProcessingHint && isProcessing && !isRecording,
+    // Bumped when a short empty dictation ends quietly: the pill's spin-down.
+    nothingHeardSeq,
   };
 };

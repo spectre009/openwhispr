@@ -26,6 +26,7 @@ import type {
   SelfHostedType,
 } from "../types/electron";
 import { normalizeRecordingQuality } from "../utils/recordingQuality.js";
+import { normalizeQuietEmptyDictationSeconds } from "../utils/emptyDictation.js";
 import {
   normalizeFloatingIconDisplay,
   normalizePanelPosition,
@@ -1136,6 +1137,8 @@ export interface SettingsState
   cleanupDictionaryGrouping: boolean;
   /** The speech-to-text hint list's order for unpinned words (Settings › Dictation › Recognition). */
   dictionaryHintOrder: DictionaryHintOrder;
+  /** "End empty dictations quietly" (Settings › Dictation › Recognition): seconds, 0 = Off. */
+  quietEmptyDictationSeconds: number;
   showTranscriptionPreview: boolean;
   autoPasteEnabled: boolean;
   keepTranscriptionInClipboard: boolean;
@@ -1512,6 +1515,7 @@ export interface SettingsState
   setCleanupDictionaryWords: (setting: CleanupDictionarySetting) => void;
   setCleanupDictionaryGrouping: (value: boolean) => void;
   setDictionaryHintOrder: (order: DictionaryHintOrder) => void;
+  setQuietEmptyDictationSeconds: (seconds: number) => void;
   setShowTranscriptionPreview: (value: boolean) => void;
   setAutoPasteEnabled: (value: boolean) => void;
   setKeepTranscriptionInClipboard: (value: boolean) => void;
@@ -2100,6 +2104,9 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   ),
   cleanupDictionaryGrouping: readBoolean("cleanupDictionaryGrouping", false),
   dictionaryHintOrder: normalizeDictionaryHintOrder(readString("dictionaryHintOrder", "evidence")),
+  quietEmptyDictationSeconds: normalizeQuietEmptyDictationSeconds(
+    readString("quietEmptyDictationSeconds", "3")
+  ),
   showTranscriptionPreview: readBoolean("showTranscriptionPreview", false),
   autoPasteEnabled: readBoolean("autoPasteEnabled", true),
   keepTranscriptionInClipboard: readBoolean("keepTranscriptionInClipboard", false),
@@ -3127,6 +3134,13 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
     if (get().dictionaryHintOrder === next) return;
     if (isBrowser) localStorage.setItem("dictionaryHintOrder", next);
     set({ dictionaryHintOrder: next });
+  },
+  // Read by the audio manager when a dictation ends with no text (emptyDictation.js).
+  setQuietEmptyDictationSeconds: (seconds: number) => {
+    const next = normalizeQuietEmptyDictationSeconds(seconds);
+    if (get().quietEmptyDictationSeconds === next) return;
+    if (isBrowser) localStorage.setItem("quietEmptyDictationSeconds", String(next));
+    set({ quietEmptyDictationSeconds: next });
   },
 
   setShowTranscriptionPreview: createBooleanSetter("showTranscriptionPreview"),
@@ -4435,6 +4449,8 @@ export async function initializeSettings(): Promise<void> {
       value = normalizeCleanupDictionarySetting(newValue);
     } else if (key === "dictionaryHintOrder") {
       value = normalizeDictionaryHintOrder(newValue);
+    } else if (key === "quietEmptyDictationSeconds") {
+      value = normalizeQuietEmptyDictationSeconds(newValue);
     } else if (key === "customConnection") {
       value = parseCustomConnection(newValue);
     } else {

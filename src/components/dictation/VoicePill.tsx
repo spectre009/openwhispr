@@ -1,10 +1,11 @@
-import { forwardRef, useEffect, useState, type HTMLAttributes } from "react";
+import { forwardRef, useEffect, useState, type CSSProperties, type HTMLAttributes } from "react";
 import { ChevronUp } from "../icons";
 import { cn } from "../lib/utils";
 import { PillWaveform } from "./PillWaveform";
 import { VoiceIdentityIcon } from "./VoiceIdentityIcon";
 import { RESTING_WAVE_SILHOUETTE, WAVEFORM_BAR_COUNT } from "./waveformMath";
 import {
+  NOTHING_HEARD_TIMING,
   VOICE_PILL_ELAPSED_SLOT,
   VOICE_PILL_FOOTPRINT,
   VOICE_PILL_GROW_TRANSITION,
@@ -15,7 +16,7 @@ import { formatPillElapsed, resolveRecordingChromeStyle } from "../../helpers/re
 import type { RecordingIndicatorStyle } from "../../types/electron";
 
 export type VoicePillState =
-  "idle" | "hover" | "recording" | "processing" | "thinking" | "unavailable";
+  "idle" | "hover" | "recording" | "processing" | "thinking" | "unavailable" | "nothing-heard";
 
 export type VoicePillRecordingLayout = "rec" | "elapsed" | null;
 
@@ -44,6 +45,9 @@ interface VoicePillProps extends Omit<HTMLAttributes<HTMLDivElement>, "children"
   recordingStartedAt?: number | null;
   /** Bumped by the "still recording" reminder; each change pulses the pill. */
   reminderPulseKey?: number;
+  /** How the "nothing-heard" spin-down ends: the pill fades out with it
+   *  (auto-hide), or settles to idle. */
+  nothingHeardExit?: "fade" | "settle";
 }
 
 // Ticks once a second from the recording's own start time, so a slow render
@@ -93,7 +97,18 @@ const STATE_APPEARANCE: Record<VoicePillState, string> = {
   processing: "border-border/60 bg-surface-1 text-foreground/70",
   thinking: "border-border/60 bg-surface-1 text-foreground",
   unavailable: "border-border/60 bg-surface-1 text-muted-foreground",
+  // Thinking's look while its ring spins down, so only the ring changes.
+  "nothing-heard": "border-border/60 bg-surface-1 text-foreground",
 };
+
+// The spin-down's timeline, read by dictation-panel.css.
+const NOTHING_HEARD_STYLE = {
+  "--nothing-heard-red-duration": `${NOTHING_HEARD_TIMING.toRedMs}ms`,
+  "--nothing-heard-spin-down-delay": `${NOTHING_HEARD_TIMING.spinDownDelayMs}ms`,
+  "--nothing-heard-spin-down-duration": `${NOTHING_HEARD_TIMING.spinDownMs}ms`,
+  "--nothing-heard-fade-delay": `${NOTHING_HEARD_TIMING.pillFadeDelayMs}ms`,
+  "--nothing-heard-fade-duration": `${NOTHING_HEARD_TIMING.pillFadeMs}ms`,
+} as CSSProperties;
 
 /** One persistent control that resizes between the floating and panel layouts. */
 export const VoicePill = forwardRef<HTMLDivElement, VoicePillProps>(function VoicePill(
@@ -115,6 +130,7 @@ export const VoicePill = forwardRef<HTMLDivElement, VoicePillProps>(function Voi
     recordingLayout = null,
     recordingStartedAt = null,
     reminderPulseKey = 0,
+    nothingHeardExit = "settle",
     className,
     style,
     ...props
@@ -125,6 +141,7 @@ export const VoicePill = forwardRef<HTMLDivElement, VoicePillProps>(function Voi
   const isProcessing = state === "processing";
   const isThinking = state === "thinking";
   const isUnavailable = state === "unavailable";
+  const isNothingHeard = state === "nothing-heard";
   // Only a pill that owns its chrome takes the style: inside Live Transcript
   // and under the fused cancel skin it stays headless (the skin carries it).
   const recordingChromeStyle = resolveRecordingChromeStyle({
@@ -140,10 +157,11 @@ export const VoicePill = forwardRef<HTMLDivElement, VoicePillProps>(function Voi
   // One Signal glow (comet orbit over a breathing halo) serves both
   // identities; only the palette differs. It lights for the real thinking
   // state alone — glowing during the entrance or while listening would read
-  // as work already in flight before any transcript exists.
-  const showSignalGlow = !isUnavailable && isThinking;
+  // as work already in flight before any transcript exists — and stays lit
+  // through a quiet empty dictation's spin-down, which turns it red.
+  const showSignalGlow = !isUnavailable && (isThinking || isNothingHeard);
   const isPanel = variant === "panel";
-  const collapseToIdentity = collapseToLogo || isThinking;
+  const collapseToIdentity = collapseToLogo || isThinking || isNothingHeard;
   const showCompactPill =
     !collapseToIdentity && (isRecording || expanded || (isPanel && !waveformOnlyWhileRecording));
   const showDivider = showCompactPill && waveformVisible && !isRecording;
@@ -314,12 +332,17 @@ export const VoicePill = forwardRef<HTMLDivElement, VoicePillProps>(function Voi
   );
 
   return (
-    <span className="voice-pill-glow-anchor">
+    <span
+      className="voice-pill-glow-anchor"
+      data-nothing-heard={isNothingHeard ? nothingHeardExit : undefined}
+      style={isNothingHeard ? NOTHING_HEARD_STYLE : undefined}
+    >
       <span
         aria-hidden="true"
         className="processing-signal-glow"
         data-active={showSignalGlow ? "true" : undefined}
         data-agent={agentMode || undefined}
+        data-nothing-heard={isNothingHeard || undefined}
       >
         <span className="processing-signal-ring" />
       </span>

@@ -17,6 +17,7 @@ import {
   validateEndpoint,
 } from "../config/customConnection.js";
 import { PROVIDER_ERROR_CODES as C, asProviderError } from "./providerHttpErrors.js";
+import { EMPTY_TRANSCRIPT_CODE } from "../utils/emptyDictation.js";
 
 /** FNV-1a, hex: a short, stable id or generation for names that may hold a URL. */
 export function shortHash(text) {
@@ -326,12 +327,13 @@ export function connectionFailureCode(error) {
     : null;
 }
 
-// Failures that are the service's answer about the content: the connection worked.
-const ANSWERED_CODES = new Set(["NO_SPEECH_DETECTED"]);
+// Failures that are the service's answer about the content: the connection
+// worked (no speech in the audio, or an answer with no text).
+const ANSWERED_CODES = new Set(["NO_SPEECH_DETECTED", EMPTY_TRANSCRIPT_CODE]);
 
 /**
  * What a failed request records: `{ ok: false, code }`, `{ ok: true }` when
- * the service answered (no speech in the audio), or null for nothing.
+ * the service answered (no speech in the audio, or no text), or null for nothing.
  *
  * @param {unknown} error
  * @returns {{ ok: boolean, code: string } | null}

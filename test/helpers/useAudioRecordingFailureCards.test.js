@@ -42,7 +42,7 @@ const cleanupFailure = Object.freeze({
   settingsTarget: "llms",
 });
 
-async function mount(t) {
+async function mount(t, extraOptions = {}) {
   let root;
   t.after(async () => {
     if (root) await React.act(async () => root.unmount());
@@ -52,6 +52,7 @@ async function mount(t) {
   const dismissed = [];
   const opened = [];
   const settings = [];
+  const previewHides = [];
   const noopDispose = () => () => {};
   installBrowserGlobals(t, {
     window: {
@@ -61,7 +62,9 @@ async function mount(t) {
         onToggleTranslation: noopDispose,
         onStartDictation: noopDispose,
         onStopDictation: noopDispose,
-        hideDictationPreview: async () => {},
+        hideDictationPreview: async () => {
+          previewHides.push(true);
+        },
         completeDictationPreview: async () => {},
         dictationLifecycleStateChanged: () => {},
         dictationDeliveryStateChanged: () => {},
@@ -118,7 +121,7 @@ async function mount(t) {
   useCleanupFailureStore.setState({ pending: 0, lastMessage: "", lastFailure: null });
   let recording;
   const toast = (value) => toasts.push(value);
-  const options = { dismissDictationError: () => dismissed.push(true) };
+  const options = { dismissDictationError: () => dismissed.push(true), ...extraOptions };
   function Harness() {
     recording = useAudioRecording(toast, options);
     return null;
@@ -131,6 +134,7 @@ async function mount(t) {
     dismissed,
     opened,
     settings,
+    previewHides,
     manager,
     useCleanupFailureStore,
     recording: () => recording,
@@ -208,6 +212,84 @@ test("no audio stays a short notice", async (t) => {
   const card = h.toasts.at(-1);
   assert.equal(card.duration, undefined);
   assert.equal(card.dismissible, undefined);
+});
+
+// "End empty dictations quietly": the audio manager says how an empty
+// dictation ends (emptyDictation.js); the window shows it.
+async function mountEmpty(t) {
+  const quiet = [];
+  const demo = [];
+  const h = await mount(t, {
+    onQuietEmptyDictation: (detail) => quiet.push(detail),
+    onDemoEvent: (event) => demo.push(event),
+  });
+  return { ...h, quiet, demo };
+}
+
+test("a short empty dictation ends quietly: no card, the pill's spin-down", async (t) => {
+  const h = await mountEmpty(t);
+  assert.equal(h.recording().nothingHeardSeq, 0);
+  await React.act(async () =>
+    h.manager.callbacks.onNoAudio({ durationMs: 1538, outcome: "quiet" })
+  );
+  assert.deepEqual(h.toasts, [], "no card, no toast");
+  assert.equal(h.recording().nothingHeardSeq, 1, "the pill plays its spin-down");
+  assert.deepEqual(h.quiet, [{ recoverAssistant: false }]);
+  assert.equal(h.previewHides.length, 1, "the preview hides");
+  assert.deepEqual(
+    h.demo.filter((event) => event.status === "error").map((event) => event.message),
+    ["We didn’t catch that"],
+    "the onboarding demo hears it as before"
+  );
+});
+
+test("a longer empty dictation says \u201cWe didn\u2019t catch that\u201d for a moment", async (t) => {
+  const h = await mountEmpty(t);
+  await React.act(async () =>
+    h.manager.callbacks.onNoAudio({ durationMs: 4600, outcome: "notice" })
+  );
+  const card = h.toasts.at(-1);
+  assert.equal(card.title, "We didn’t catch that");
+  assert.equal(card.description, "Check your microphone and try again.");
+  assert.equal(card.presentation, "dictation-error");
+  assert.equal(card.duration, undefined, "transient, never the persistent card");
+  assert.equal(card.dismissible, undefined);
+  assert.equal(h.recording().nothingHeardSeq, 0);
+  assert.deepEqual(h.quiet, []);
+  assert.equal(h.demo.filter((event) => event.status === "error").length, 1);
+});
+
+test("an empty result ends the same way, by what the audio manager decided", async (t) => {
+  const h = await mountEmpty(t);
+  await h.complete({
+    text: "",
+    rawText: "",
+    emptyDictation: { durationMs: 1200, outcome: "quiet" },
+  });
+  assert.deepEqual(h.toasts, []);
+  assert.equal(h.recording().nothingHeardSeq, 1);
+  assert.equal(h.previewHides.length, 1);
+
+  await h.complete({
+    text: " ",
+    rawText: "",
+    emptyDictation: { durationMs: 6000, outcome: "notice" },
+  });
+  assert.equal(h.toasts.length, 1);
+  assert.equal(h.toasts[0].title, "We didn’t catch that");
+  assert.equal(h.recording().nothingHeardSeq, 1);
+
+  // Without the manager's say (an unknown length), the notice.
+  await h.complete({ text: "", rawText: "" });
+  assert.equal(h.toasts.length, 2);
+});
+
+test("a quiet voice command tells the assistant panel its thinking is over", async (t) => {
+  const h = await mountEmpty(t);
+  h.manager.voiceAgentRequested = true;
+  await React.act(async () => h.manager.callbacks.onNoAudio({ durationMs: 900, outcome: "quiet" }));
+  assert.deepEqual(h.quiet, [{ recoverAssistant: true }]);
+  assert.deepEqual(h.toasts, []);
 });
 
 test("a cleanup failure rides on its dictation's paste-failure card, so both show", async (t) => {

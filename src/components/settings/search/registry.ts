@@ -550,6 +550,19 @@ export const SETTINGS_SEARCH_DESCRIPTORS: readonly SettingDescriptor[] = [
       "prompt",
     ],
   }),
+  row("dictation.recognition.quietEmpty", RECOGNITION, "settingsPage.quietEmptyDictation.title", {
+    descriptionKey: "settingsPage.quietEmptyDictation.description",
+    aliases: [
+      "empty dictation",
+      "no text",
+      "nothing heard",
+      "silence",
+      "no audio",
+      "didn't catch that",
+      "error card",
+      "short dictation",
+    ],
+  }),
   row("preferences.startup.launchAtLogin", STARTUP, "settingsPage.general.startup.launchAtLogin", {
     descriptionKey: "settingsPage.general.startup.launchAtLoginDescription",
     groupKey: "settingsPage.general.startup.title",

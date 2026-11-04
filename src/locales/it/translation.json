@@ -3680,6 +3680,12 @@
         "addedHint": "Prima le più vecchie, come prima"
       },
       "unavailable": "I conteggi d'uso vengono dalla tua cronologia locale. Finché è disattivata o sta ancora contando, le parole vanno nell'ordine in cui sono state aggiunte."
+    },
+    "quietEmptyDictation": {
+      "title": "Termina in silenzio le dettature vuote",
+      "description": "Quando una dettatura così breve torna senza testo, finisce e basta: nessun errore, non viene salvato nulla. Le dettature vuote più lunghe mostrano ancora «Non abbiamo capito», perché di solito dipende dal microfono.",
+      "off": "Disattivato",
+      "shorterThan": "Meno di {{seconds}} s"
     }
   },
   "models": {

@@ -92,6 +92,7 @@ export type PreferencesBlockId =
   | "floatingIcon"
   | "language.ui"
   | "language.transcription"
+  | "quietEmptyDictation"
   | "startup"
   | "microphone"
   | "autoLearn"
@@ -151,7 +152,7 @@ export const SETTINGS_PAGES: Readonly<Record<SettingsPageId, SettingsPageDef>> =
   recognition: {
     ...pageKeys("recognition"),
     icon: "AudioLines",
-    blocks: ["language.transcription"],
+    blocks: ["language.transcription", "quietEmptyDictation"],
   },
   cleanup: {
     titleKey: "settingsNav.pages.cleanup.title",

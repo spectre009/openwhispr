@@ -181,6 +181,8 @@ test("an empty answer (silence) takes the same path as any provider's", async (t
   captureRequests(t, () => ({ durationMilliseconds: 3000, combinedPhrases: [] }));
   const error = await rejection(manager.processWithOpenAIAPI(recording()));
   assert.match(error.message, /^No text transcribed/);
+  // Classified as silence (transcriptionFailureOutcome), never a failure card.
+  assert.equal(error.code, "EMPTY_TRANSCRIPT");
 });
 
 test("a recording that can't be converted fails, never uploading WebM", async (t) => {

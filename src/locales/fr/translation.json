@@ -3774,6 +3774,12 @@
         "addedHint": "Les plus anciens d'abord, comme avant"
       },
       "unavailable": "Les chiffres d'utilisation viennent de votre historique local. Tant qu'il est désactivé ou encore en cours de calcul, les mots suivent l'ordre d'ajout."
+    },
+    "quietEmptyDictation": {
+      "title": "Terminer les dictées vides en silence",
+      "description": "Quand une dictée aussi courte revient sans texte, elle s'arrête simplement : pas d'erreur, rien n'est enregistré. Les dictées vides plus longues affichent toujours « Nous n’avons pas compris », car c'est en général le micro.",
+      "off": "Désactivé",
+      "shorterThan": "Moins de {{seconds}} s"
     }
   },
   "models": {

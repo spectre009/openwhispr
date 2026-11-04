@@ -295,16 +295,38 @@ export function resolveVoiceActivityPresentation({
 
 /**
  * Keep Agent identity for the complete request/panel lifecycle, but do not let
- * the audio manager's last routing flag brand a later idle dictation pill.
+ * the audio manager's last routing flag brand a later idle dictation pill. An
+ * assistant recording that heard nothing keeps it through its spin-down, so
+ * the purple ring turns red instead of flashing blue first.
  */
 export function resolveAgentModeActive({
   isAssistantVoice,
   isRecording,
   isProcessing,
   assistantPanelMounted,
+  nothingHeard = false,
 }) {
-  return Boolean((isAssistantVoice && (isRecording || isProcessing)) || assistantPanelMounted);
+  return Boolean(
+    (isAssistantVoice && (isRecording || isProcessing || nothingHeard)) || assistantPanelMounted
+  );
 }
+
+// The pill's quiet end of a short empty dictation (animation A, "red
+// spin-down"): the thinking ring turns red, keeps spinning as it slows, and
+// fades; with auto-hide the pill fades out with it, else it settles to idle.
+// VoicePill hands these to dictation-panel.css as custom properties.
+export const NOTHING_HEARD_TIMING = Object.freeze({
+  toRedMs: 250,
+  spinDownDelayMs: 100,
+  spinDownMs: 1000,
+  pillFadeDelayMs: 1050,
+  pillFadeMs: 350,
+  // The whole beat, after which the pill does what it does after any dictation.
+  totalMs: 1400,
+  // A faded pill waits this long at most for its window to hide before it
+  // shows as idle again (the hide is immediate; this only bounds a lost one).
+  fadedHoldMs: 2000,
+});
 
 /**
  * Select the content hosted by the persistent expanded voice surface. An open

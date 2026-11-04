@@ -235,6 +235,7 @@ test(
       ["preferences.theme", "appearance"],
       ["preferences.uiLanguage", "appearance"],
       ["dictation.language", "recognition"],
+      ["dictation.recognition.quietEmpty", "recognition"],
       ["dictation.recognition.dictionaryOrder", "recognition"],
       ["dictation.cleanup.dictionaryWords", "cleanup"],
       ["dictation.cleanup.dictionaryGrouping", "cleanup"],

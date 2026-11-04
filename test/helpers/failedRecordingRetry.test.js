@@ -37,6 +37,7 @@ test("Retry re-sends after any failure that kept the recording, auth and quota i
     "TRANSCRIPTION_CANCELLED",
     "REASON_CANCELLED",
     "NO_SPEECH_DETECTED",
+    "EMPTY_TRANSCRIPT",
     "DICTIONARY_ECHO",
     "PASTE_FAILED",
     "ACCESSIBILITY_PERMISSION_REQUIRED",

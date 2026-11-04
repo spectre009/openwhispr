@@ -28,3 +28,23 @@ test("an unclassified failure keeps today's description", async () => {
   assert.equal(report.description, "Transcription failed: boom");
   assert.equal(report.title, "Transcription Error");
 });
+
+test("a provider's answer with no text reads as silence and keeps its recording", async () => {
+  const { transcriptionFailureOutcome } = await load();
+  const { emptyTranscriptError } = await import("../../src/utils/emptyDictation.js");
+  const error = emptyTranscriptError(
+    "No text transcribed - audio may be too short, silent, or in an unsupported format"
+  );
+  assert.deepEqual(transcriptionFailureOutcome(error), {
+    noAudio: true,
+    keepAudio: true,
+    report: null,
+  });
+});
+
+test("the same message without the code is still a failure", async () => {
+  const { transcriptionFailureOutcome } = await load();
+  const outcome = transcriptionFailureOutcome(new Error("No text transcribed"));
+  assert.equal(outcome.noAudio, false);
+  assert.equal(outcome.report.title, "Transcription Error");
+});

@@ -1,13 +1,20 @@
 import { DICTIONARY_ECHO_CODE } from "../utils/dictionaryEchoFilter.js";
+import { EMPTY_TRANSCRIPT_CODE } from "../utils/emptyDictation.js";
 import { IPC_ERROR_FIELDS } from "./ipcErrorFields.js";
 
 // How a transcription failure ends, for batch recordings and re-uploaded
 // streaming ones alike. Silence is not reported. A transcript discarded as an
-// echo of the dictionary prompt, or audio Cloud found no speech in, reads as
-// silence, but its recording is kept for a manual retry like any real
-// failure's, or the utterance vanishes (#1547).
+// echo of the dictionary prompt, audio Cloud found no speech in, or a
+// provider's answer with no text reads as silence, but its recording is kept
+// for a manual retry like any real failure's, or the utterance vanishes
+// (#1547). How a silent dictation then ends (quietly or with "We didn't catch
+// that") is emptyDictation.js's rule, by its length.
 export const transcriptionFailureOutcome = (error) => {
-  if (error.code === DICTIONARY_ECHO_CODE || error.code === "NO_SPEECH_DETECTED") {
+  if (
+    error.code === DICTIONARY_ECHO_CODE ||
+    error.code === "NO_SPEECH_DETECTED" ||
+    error.code === EMPTY_TRANSCRIPT_CODE
+  ) {
     return { noAudio: true, keepAudio: true, report: null };
   }
   if (error.message === "No audio detected") {

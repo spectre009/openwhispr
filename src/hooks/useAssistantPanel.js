@@ -301,6 +301,10 @@ export function useAssistantPanel({
     }
   }, []);
 
+  // A voice command that heard nothing and ended quietly (no card): only its
+  // thinking flourish ends; the panel and its conversation stay as they were.
+  const endVoiceThinking = useCallback(() => setThinking(false), []);
+
   useEffect(
     () => () => {
       clearTimeout(closeTimerRef.current);
@@ -336,5 +340,6 @@ export function useAssistantPanel({
     handleClose,
     completeContentFade,
     noteDictationError,
+    endVoiceThinking,
   };
 }

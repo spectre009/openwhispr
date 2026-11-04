@@ -581,7 +581,15 @@ test("a no-final stream whose Cloud upload finds no speech keeps the recording q
 
   assert.deepEqual(saved, [{ message: "No speech detected in audio", code: "NO_SPEECH_DETECTED" }]);
   assert.deepEqual(errors, []);
-  assert.deepEqual(completions, [{ success: true, text: "" }]);
+  // Five seconds: longer than "End empty dictations quietly", so the notice.
+  assert.deepEqual(
+    completions.map(({ success, text, emptyDictation }) => ({
+      success,
+      text,
+      outcome: emptyDictation?.outcome,
+    })),
+    [{ success: true, text: "", outcome: "notice" }]
+  );
 });
 
 test("Orukeet uses the acknowledged final even if the transcript event is delayed", async (t) => {
@@ -1184,6 +1192,11 @@ test("cancelling a failed-over upload does not keep it as a failed transcription
 test("a failed-over upload that echoes the dictionary reads as silence and keeps the audio", async (t) => {
   const AudioManager = await loadManagerClass(t);
   useManagedOrukeetSettings();
+  // Off: every empty dictation keeps its recording, however short.
+  globalThis.__streamingFinalizationSettings = {
+    ...globalThis.__streamingFinalizationSettings,
+    quietEmptyDictationSeconds: 0,
+  };
   installCapture(t);
   const { manager, errors, completions } = createStartingManager(AudioManager, {
     providerName: "orukeet",
@@ -1200,7 +1213,33 @@ test("a failed-over upload that echoes the dictionary reads as silence and keeps
 
   assert.deepEqual(saved, [["No audio detected", "DICTIONARY_ECHO"]]);
   assert.deepEqual(errors, []);
-  assert.deepEqual(completions, [{ success: true, text: "" }]);
+  assert.equal(completions.length, 1);
+  assert.equal(completions[0].text, "");
+  assert.equal(completions[0].emptyDictation.outcome, "notice");
+});
+
+test("a short failed-over recording that heard nothing ends quietly, with no row", async (t) => {
+  const AudioManager = await loadManagerClass(t);
+  useManagedOrukeetSettings();
+  installCapture(t);
+  const { manager, errors, completions } = createStartingManager(AudioManager, {
+    providerName: "orukeet",
+    provider: refusedStartProvider(),
+  });
+  const saved = [];
+  manager.saveFailedTranscription = async (message, code) => saved.push([message, code]);
+  manager.processWithOpenWhisprCloud = async () => {
+    throw Object.assign(new Error("No speech detected in audio"), { code: "NO_SPEECH_DETECTED" });
+  };
+
+  await manager.startStreamingRecording();
+  await manager.stopStreamingRecording();
+
+  assert.deepEqual(saved, [], "no failed row");
+  assert.deepEqual(errors, []);
+  assert.equal(completions.length, 1);
+  assert.equal(completions[0].text, "");
+  assert.equal(completions[0].emptyDictation.outcome, "quiet");
 });
 
 test("a start refused as disabled keeps its tag after the cached config is dropped", async (t) => {
@@ -1293,7 +1332,10 @@ test("a silent failed-over tap is not uploaded", async (t) => {
 
   assert.deepEqual(uploads, []);
   assert.deepEqual(errors, []);
-  assert.deepEqual(completions, [{ success: true, text: "" }]);
+  assert.equal(completions.length, 1);
+  assert.equal(completions[0].text, "");
+  // The gate's skip goes through "End empty dictations quietly" too.
+  assert.equal(completions[0].emptyDictation.outcome, "quiet");
 });
 
 test("a failed-over selection edit that fails is reported as a selection edit failure", async (t) => {
@@ -1586,7 +1628,9 @@ test("a re-transcription that returns no text ends empty and keeps the recording
     upload: async () => ({ text: "" }),
     overrides: { saveFailedTranscription: (...args) => saved.push(args) },
   });
-  assert.deepEqual(published, [{ success: true, text: "" }]);
+  assert.deepEqual(published, [
+    { success: true, text: "", emptyDictation: { durationMs: 8000, outcome: "notice" } },
+  ]);
   assert.deepEqual(
     saved.map(([, code]) => code),
     ["NO_SPEECH_DETECTED"]
@@ -1612,7 +1656,11 @@ test("Cloud finding no speech ends the dictation empty and keeps the recording",
       overrides: { saveFailedTranscription: (...args) => saved.push(args) },
     });
     assert.equal(uploads.length, 1, error.code);
-    assert.deepEqual(published, [{ success: true, text: "" }], error.code);
+    assert.deepEqual(
+      published,
+      [{ success: true, text: "", emptyDictation: { durationMs: 8000, outcome: "notice" } }],
+      error.code
+    );
     // Neither Orukeet's text nor a second metering (an echo was already metered).
     assert.deepEqual(reasonCalls, [], error.code);
     assert.deepEqual(usage, [], error.code);

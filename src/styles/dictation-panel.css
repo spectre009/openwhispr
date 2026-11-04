@@ -569,6 +569,40 @@
   inherits: true;
 }
 
+/* Held back against the orbit, it slows the spin without restarting it: a
+   quiet empty dictation's ring spins down (see the nothing-heard rules). */
+@property --signal-drag {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: true;
+}
+
+/* Registered so the palette can tween (blue or purple to red) instead of
+   flipping at the animation's midpoint. */
+@property --signal-bright {
+  syntax: "<color>";
+  initial-value: #38bdf8;
+  inherits: true;
+}
+
+@property --signal-core {
+  syntax: "<color>";
+  initial-value: #2563eb;
+  inherits: true;
+}
+
+@property --signal-deep {
+  syntax: "<color>";
+  initial-value: #6366f1;
+  inherits: true;
+}
+
+@property --signal-head {
+  syntax: "<color>";
+  initial-value: #eaf6ff;
+  inherits: true;
+}
+
 .processing-signal-glow {
   --signal-bright: #38bdf8;
   --signal-core: #2563eb;
@@ -626,7 +660,7 @@
   inset: -4px;
   border-radius: 9999px;
   background: conic-gradient(
-    from var(--signal-angle),
+    from calc(var(--signal-angle) + var(--signal-drag)),
     transparent 0 55%,
     color-mix(in srgb, var(--signal-core) 70%, transparent) 82%,
     var(--signal-bright) 100%
@@ -643,7 +677,7 @@
   border-radius: 9999px;
   padding: 2.5px;
   background: conic-gradient(
-    from var(--signal-angle),
+    from calc(var(--signal-angle) + var(--signal-drag)),
     color-mix(in srgb, var(--signal-core) 25%, transparent) 0%,
     color-mix(in srgb, var(--signal-deep) 55%, transparent) 45%,
     var(--signal-core) 75%,
@@ -685,6 +719,71 @@
   50% {
     opacity: var(--signal-halo-opacity);
     transform: scale(1.05);
+  }
+}
+
+/* A short dictation that came back empty ends quietly (animation A, the red
+   spin-down): the thinking ring turns the theme's destructive red, keeps
+   spinning as it slows, and fades. The orbit keeps running by name, so it
+   never restarts; the drag takes its speed back. Timings come from
+   NOTHING_HEARD_TIMING (voicePillPresentation.js) through VoicePill. */
+.processing-signal-glow[data-active="true"][data-nothing-heard="true"] {
+  animation:
+    processing-signal-spin 1.6s linear infinite,
+    processing-signal-to-red var(--nothing-heard-red-duration, 250ms) ease-out forwards,
+    processing-signal-spin-down var(--nothing-heard-spin-down-duration, 1000ms)
+      cubic-bezier(0.55, 0.085, 0.68, 0.53) var(--nothing-heard-spin-down-delay, 100ms) forwards,
+    processing-signal-fade var(--nothing-heard-spin-down-duration, 1000ms)
+      cubic-bezier(0.2, 0.7, 0.3, 1) var(--nothing-heard-spin-down-delay, 100ms) forwards;
+}
+
+@keyframes processing-signal-to-red {
+  to {
+    --signal-bright: color-mix(in oklab, var(--color-destructive) 70%, white);
+    --signal-core: var(--color-destructive);
+    --signal-deep: color-mix(in oklab, var(--color-destructive) 75%, black);
+    --signal-head: color-mix(in oklab, var(--color-destructive) 20%, white);
+  }
+}
+
+/* The orbit turns 225°/s (360° per 1.6s). Eased in (quadratic) over the
+   spin-down, -112.5° of drag takes that speed back at a steady rate, so the
+   ring comes to rest as it fades out. */
+@keyframes processing-signal-spin-down {
+  to {
+    --signal-drag: -112.5deg;
+  }
+}
+
+@keyframes processing-signal-fade {
+  from {
+    opacity: 1;
+  }
+  70% {
+    opacity: 0.9;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+/* With "Hide floating icon when idle" the pill leaves with its ring, and its
+   window hides once it has; otherwise it settles to its resting look. */
+.voice-pill-glow-anchor[data-nothing-heard="fade"] {
+  animation: voice-pill-nothing-heard-out var(--nothing-heard-fade-duration, 350ms) ease-in
+    var(--nothing-heard-fade-delay, 1050ms) forwards;
+}
+
+@keyframes voice-pill-nothing-heard-out {
+  to {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+}
+
+@keyframes voice-pill-nothing-heard-fade {
+  to {
+    opacity: 0;
   }
 }
 
@@ -945,6 +1044,18 @@
   .processing-signal-glow[data-active="true"],
   .processing-signal-glow[data-active="true"]::before {
     animation: none;
+  }
+
+  /* The spin-down as a plain fade: the ring turns red where it stands. */
+  .processing-signal-glow[data-active="true"][data-nothing-heard="true"] {
+    animation:
+      processing-signal-to-red var(--nothing-heard-red-duration, 250ms) ease-out forwards,
+      processing-signal-fade var(--nothing-heard-spin-down-duration, 1000ms) ease-out
+        var(--nothing-heard-spin-down-delay, 100ms) forwards;
+  }
+
+  .voice-pill-glow-anchor[data-nothing-heard="fade"] {
+    animation-name: voice-pill-nothing-heard-fade;
   }
 
   .inline-response-shimmer {

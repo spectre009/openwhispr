@@ -3774,6 +3774,12 @@
         "addedHint": "Oldest first, as before"
       },
       "unavailable": "Usage counts come from your local History. While it's off or still counting, words go in the order they were added."
+    },
+    "quietEmptyDictation": {
+      "title": "End empty dictations quietly",
+      "description": "When a dictation this short comes back with no text, it just ends: no error, nothing saved. Longer empty dictations still say “We didn’t catch that”, since that usually means the microphone.",
+      "off": "Off",
+      "shorterThan": "Shorter than {{seconds}} s"
     }
   },
   "models": {

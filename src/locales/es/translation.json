@@ -3732,6 +3732,12 @@
         "addedHint": "Las más antiguas primero, como antes"
       },
       "unavailable": "Los recuentos de uso vienen de tu Historial local. Mientras esté desactivado o aún contando, las palabras van en el orden en que se añadieron."
+    },
+    "quietEmptyDictation": {
+      "title": "Terminar los dictados vacíos sin aviso",
+      "description": "Cuando un dictado así de corto vuelve sin texto, simplemente termina: sin error y sin guardar nada. Los dictados vacíos más largos siguen mostrando «No hemos entendido eso», porque eso suele deberse al micrófono.",
+      "off": "Desactivado",
+      "shorterThan": "Menos de {{seconds}} s"
     }
   },
   "models": {

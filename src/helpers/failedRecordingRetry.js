@@ -9,6 +9,7 @@
 // the rule is testable without the audio stack.
 
 import { DICTIONARY_ECHO_CODE } from "../utils/dictionaryEchoFilter.js";
+import { EMPTY_TRANSCRIPT_CODE } from "../utils/emptyDictation.js";
 
 export const NOT_RESENDABLE_ERROR_CODES = Object.freeze([
   // A cancel is the user's choice.
@@ -16,6 +17,7 @@ export const NOT_RESENDABLE_ERROR_CODES = Object.freeze([
   "REASON_CANCELLED",
   // Silence: the card says no audio; recording again is the fix.
   "NO_SPEECH_DETECTED",
+  EMPTY_TRANSCRIPT_CODE,
   DICTIONARY_ECHO_CODE,
   // Delivery only: the text was transcribed, the paste didn't land.
   "PASTE_FAILED",

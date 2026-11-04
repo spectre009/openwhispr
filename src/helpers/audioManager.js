@@ -96,6 +96,12 @@ import {
   resolveStreamingStartFallback,
 } from "./transcriptionFallback";
 import { transcriptionFailureOutcome } from "./transcriptionFailureOutcome";
+import {
+  EMPTY_TRANSCRIPT_CODE,
+  emptyDictationOutcome,
+  emptyTranscriptError,
+  normalizeQuietEmptyDictationSeconds,
+} from "../utils/emptyDictation.js";
 import { keptRecordingFor } from "./failedRecordingRetry";
 import { sendDictationTranscription } from "./dictationTranscriptionClient";
 import { transcriptionOutcomeTag } from "./connectionOutcomeTargets.js";
@@ -282,6 +288,24 @@ const cloudSignInRequiredError = () => {
 
 const micDeviceKey = (settings) =>
   `${settings.microphoneSelectionMode}|${settings.selectedMicDeviceId}`;
+
+// A recording's length in ms from its metadata, or null when unknown.
+const durationMsOf = (metadata) =>
+  Number.isFinite(metadata?.durationSeconds) ? Math.round(metadata.durationSeconds * 1000) : null;
+
+const round4 = (value) => (Number.isFinite(value) ? Math.round(value * 10000) / 10000 : null);
+
+// What the speech gate measured of an empty dictation, when it measured it.
+function speechGateMetrics(decision) {
+  if (!Number.isFinite(decision?.peakRms)) return {};
+  return {
+    gateReason: decision.reason,
+    peakRms: round4(decision.peakRms),
+    peakAmplitude: round4(decision.peakAmplitude),
+    speechWindowCount: decision.speechWindowCount,
+    maxConsecutiveSpeechWindows: decision.maxConsecutiveSpeechWindows,
+  };
+}
 
 function getEffectiveRetentionPreferences() {
   const settings = getSettings();
@@ -2039,8 +2063,15 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
         "audio"
       );
       if (!this._settleProcessingPipeline(processingPipeline)) return;
+      const gate = getLocalSpeechGateDecision(this._localSpeechGateState);
       this._localSpeechGateState = null;
-      this.onTranscriptionComplete?.({ success: true, text: "" });
+      // Nothing usable to keep, even as a discarded dictation.
+      const emptyDictation = this._endEmptyDictation({
+        durationMs: Number.isFinite(durationSeconds) ? durationSeconds * 1000 : null,
+        source: "result",
+        gate,
+      });
+      this.onTranscriptionComplete?.({ success: true, text: "", emptyDictation });
       return;
     }
     // Non-commit sessions stop concurrently with the decode below.
@@ -2390,14 +2421,60 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     return true;
   }
 
+  // Every dictation that ends with no text comes through here once, with its
+  // length: one "Empty dictation" line and how it ends (emptyDictation.js),
+  // "quiet" when it's shorter than "End empty dictations quietly", else the
+  // "We didn't catch that" notice. `source`: the provider answered with no
+  // text ("provider"), the speech gate skipped the request ("gate"), or an
+  // empty result ("result"). The gate's measurements help tune the threshold;
+  // never any text. Returns what the dictation window hears.
+  _endEmptyDictation({ durationMs, source, code = null, gate = null }) {
+    const thresholdSeconds = normalizeQuietEmptyDictationSeconds(
+      getSettings()?.quietEmptyDictationSeconds
+    );
+    const knownDurationMs = Number.isFinite(durationMs) ? Math.round(durationMs) : null;
+    const outcome = emptyDictationOutcome({ durationMs: knownDurationMs, thresholdSeconds });
+    logger.info(
+      "Empty dictation",
+      {
+        durationMs: knownDurationMs,
+        thresholdSeconds,
+        outcome,
+        source,
+        code: code ?? null,
+        ...speechGateMetrics(gate),
+      },
+      "audio"
+    );
+    return { durationMs: knownDurationMs, outcome };
+  }
+
+  // A quiet empty dictation leaves no row in History, failed or otherwise:
+  // only what "Save discarded dictations" keeps of a cancelled recording.
+  _saveQuietEmptyDictation(blob, { durationSeconds = null, analyticsOccurredAt = null } = {}) {
+    this.lastAudioBlob = null;
+    this.lastAudioMetadata = null;
+    if (!(blob?.size > 0)) return null;
+    if (!shouldSaveDiscardedRecording(getSettings(), durationSeconds, usePolicyStore.getState())) {
+      return null;
+    }
+    return this.saveDiscardedTranscription(blob, durationSeconds, analyticsOccurredAt);
+  }
+
   // A streaming recording that ended without a transcript (its batch fallback
   // or its language re-transcription failed) ends as a batch recording's
   // failure would: its row is saved and its recording kept for the card's
   // Retry, which re-sends it through the batch pipeline with the settings in
-  // force then. Returns the card's report, or null for silence;
-  // `delivery.resultHandled` waits on the save.
-  _failStreamingRecording(error, { blob, metadata, delivery }) {
+  // force then. Silence keeps its recording too, unless the dictation was
+  // short enough to end quietly (`emptyDictation`, from _endEmptyDictation).
+  // Returns the card's report, or null for silence; `delivery.resultHandled`
+  // waits on the save.
+  _failStreamingRecording(error, { blob, metadata, delivery, emptyDictation = null }) {
     const outcome = transcriptionFailureOutcome(error);
+    if (outcome.noAudio && emptyDictation?.outcome === "quiet") {
+      delivery.resultHandled = this._saveQuietEmptyDictation(blob, metadata);
+      return null;
+    }
     let resolveRowId = null;
     const rowId = outcome.keepAudio
       ? new Promise((resolve) => {
@@ -2437,6 +2514,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     const pipelineStart = performance.now();
     const settings = getSettings();
     let noAudioDetected = false;
+    let emptyDictation = null;
     const speechGateDecision = getLocalSpeechGateDecision(this._localSpeechGateState);
     this._localSpeechGateState = null;
 
@@ -2460,7 +2538,15 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
         "audio"
       );
       if (!this._settleProcessingPipeline(pipeline)) return;
-      this.onTranscriptionComplete?.({ success: true, text: "" });
+      emptyDictation = this._endEmptyDictation({
+        durationMs: durationMsOf(metadata),
+        source: "gate",
+        gate: speechGateDecision,
+      });
+      if (emptyDictation.outcome === "quiet") {
+        pipeline.resultHandled = this._saveQuietEmptyDictation(audioBlob, metadata);
+      }
+      this.onTranscriptionComplete?.({ success: true, text: "", emptyDictation });
       return;
     }
 
@@ -2546,10 +2632,25 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
           ? { replacesTranscriptionId: pipeline.resend.rowId }
           : {}),
       };
+      // A provider that answered with nothing to paste ends as any empty
+      // dictation does.
+      let quietSave = null;
+      if (result.success && !hasTextContent(result.text)) {
+        emptyDictation = this._endEmptyDictation({
+          durationMs: durationMsOf(metadata),
+          source: "result",
+          gate: speechGateDecision,
+        });
+        result = { ...result, emptyDictation };
+        if (emptyDictation.outcome === "quiet" && !Number.isInteger(pipeline.resend?.rowId)) {
+          quietSave = this._saveQuietEmptyDictation(audioBlob, metadata);
+        }
+      }
       // Settles once the result is delivered and saved; the recording's spool
       // waits for it, so a main process that hangs on the paste or the save
       // can't take the audio with it.
-      pipeline.resultHandled = this.onTranscriptionComplete?.(result);
+      const delivered = this.onTranscriptionComplete?.(result);
+      pipeline.resultHandled = quietSave ? Promise.all([delivered, quietSave]) : delivered;
 
       if (result?.source === "openwhispr") {
         window.dispatchEvent(new Event("usage-changed"));
@@ -2587,21 +2688,35 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
         return;
       }
 
-      logger.error(
+      const outcome = transcriptionFailureOutcome(error);
+      // Nothing heard isn't a problem: its "Empty dictation" line says how it
+      // ended, so only real failures reach Problems only.
+      logger[outcome.noAudio ? "debug" : "error"](
         "Pipeline failed",
         {
           errorAtMs,
           error: error.message,
+          ...(outcome.noAudio ? { code: error.code ?? null } : {}),
         },
         "performance"
       );
 
-      const outcome = transcriptionFailureOutcome(error);
       noAudioDetected = outcome.noAudio;
       // Any failure that kept its recording can be re-sent from the card's
       // Retry (failedRecordingRetry.js). A re-send that fails again keeps its row.
       const completesRow = Number.isInteger(pipeline.resend?.rowId);
-      const savesRow = outcome.keepAudio && Boolean(this.lastAudioBlob) && !completesRow;
+      if (outcome.noAudio) {
+        emptyDictation = this._endEmptyDictation({
+          durationMs: durationMsOf(metadata),
+          source: "provider",
+          code: error.code,
+          gate: speechGateDecision,
+        });
+      }
+      // A short one ends quietly: no failed row, only a discarded one if the
+      // user keeps those.
+      const quiet = emptyDictation?.outcome === "quiet";
+      const savesRow = outcome.keepAudio && Boolean(this.lastAudioBlob) && !completesRow && !quiet;
       let resolveRowId = null;
       // The failed History row, for the card's Retry and its Open in History.
       const rowId = completesRow
@@ -2637,6 +2752,8 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
           metadata,
           { onRowSaved: resolveRowId }
         );
+      } else if (quiet && !completesRow) {
+        pipeline.resultHandled = this._saveQuietEmptyDictation(audioBlob, metadata);
       }
     } finally {
       const shouldNotifyNoAudio =
@@ -2645,7 +2762,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       // Every provider reports genuine silence through this one post-processing
       // outcome. The pill can now leave thinking before the error surface takes
       // ownership, instead of receiving an IPC event mid-pipeline.
-      if (shouldNotifyNoAudio) this.onNoAudio?.();
+      if (shouldNotifyNoAudio) this.onNoAudio?.(emptyDictation);
     }
   }
 
@@ -2809,7 +2926,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
             ...(metadata.rawWav ? { decodedRawWav: true } : {}),
           };
         } else {
-          throw new Error("No text transcribed");
+          throw emptyTranscriptError("No text transcribed");
         }
       } else if (result.success === false && result.message === "No audio detected") {
         throw new Error("No audio detected");
@@ -2820,7 +2937,8 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       if (error.selectionEditFatal) {
         throw error;
       }
-      if (error.message === "No audio detected") {
+      // Nothing heard is not a failure: no fallback, and its code survives.
+      if (error.message === "No audio detected" || error.code === EMPTY_TRANSCRIPT_CODE) {
         throw error;
       }
 
@@ -2926,7 +3044,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
             ...(metadata.rawWav ? { decodedRawWav: true } : {}),
           };
         } else {
-          throw new Error("No text transcribed");
+          throw emptyTranscriptError("No text transcribed");
         }
       } else if (result.success === false && result.message === "No audio detected") {
         throw new Error("No audio detected");
@@ -2937,7 +3055,8 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       if (error.selectionEditFatal) {
         throw error;
       }
-      if (error.message === "No audio detected") {
+      // Nothing heard is not a failure: no fallback, and its code survives.
+      if (error.message === "No audio detected" || error.code === EMPTY_TRANSCRIPT_CODE) {
         throw error;
       }
 
@@ -4367,7 +4486,9 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
         }
         const proxyText = result?.text;
         if (!proxyText?.trim()) {
-          throw new Error(`No text transcribed - ${proxySpec.displayName} response was empty`);
+          throw emptyTranscriptError(
+            `No text transcribed - ${proxySpec.displayName} response was empty`
+          );
         }
         // Echoes are measured against the bias this payload actually carried
         // (Mistral's capped contextBias, the capped keyterms, or the prompt):
@@ -4743,14 +4864,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
           },
           "transcription"
         );
-        logger.error(
-          "No text in transcription result",
-          {
-            resultKeys: Object.keys(result),
-          },
-          "transcription"
-        );
-        throw new Error(
+        throw emptyTranscriptError(
           "No text transcribed - audio may be too short, silent, or in an unsupported format"
         );
       }
@@ -4759,7 +4873,9 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       if (error.selectionEditFatal) {
         throw error;
       }
-      if (error.message === "No audio detected") {
+      // Nothing heard is not a failure: no local fallback (Whisper invents
+      // words in silence), and its code survives.
+      if (error.message === "No audio detected" || error.code === EMPTY_TRANSCRIPT_CODE) {
         throw error;
       }
 
@@ -4989,7 +5105,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
           },
           "transcription"
         );
-        throw new Error(
+        throw emptyTranscriptError(
           "No text transcribed - audio may be too short, silent, or in an unsupported format"
         );
       }
@@ -6557,6 +6673,31 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     const detectedLanguageFields = isOrukeetStream
       ? orukeetDetectedLanguageFields(orukeetFinal)
       : {};
+    const recordingMetadata = {
+      durationSeconds,
+      analyticsOccurredAt: analyticsOccurredAt.toISOString(),
+    };
+    // How this recording ends if it ends with no text, decided once: when a
+    // re-transcription heard nothing, or at the end.
+    let emptyDictation = null;
+    const endEmptyDictation = (source, code = null) => {
+      emptyDictation ??= this._endEmptyDictation({
+        durationMs: Number.isFinite(durationSeconds) ? durationSeconds * 1000 : null,
+        source,
+        code,
+        gate: getLocalSpeechGateDecision(this._streamingSpeechGateState),
+      });
+      return emptyDictation;
+    };
+    const failStreamingRecording = (error) =>
+      this._failStreamingRecording(error, {
+        blob: fallbackBlob,
+        metadata: recordingMetadata,
+        delivery,
+        emptyDictation: transcriptionFailureOutcome(error).noAudio
+          ? endEmptyDictation("provider", error.code)
+          : null,
+      });
 
     // Orukeet renders speech outside its 25 languages as confident nonsense.
     // With a confident final estimate, send the kept recording through Cloud
@@ -6582,14 +6723,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
           "streaming"
         );
         finalText = "";
-        failureReport = this._failStreamingRecording(error, {
-          blob: fallbackBlob,
-          metadata: {
-            durationSeconds,
-            analyticsOccurredAt: analyticsOccurredAt.toISOString(),
-          },
-          delivery,
-        });
+        failureReport = failStreamingRecording(error);
       };
       try {
         const batchResult = await this.processWithOpenWhisprCloud(
@@ -6873,14 +7007,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     // as batch does.
     const failBatchFallback = (error) => {
       if (!failoverReason && transcriptionFailureOutcome(error).report) return;
-      failureReport = this._failStreamingRecording(error, {
-        blob: fallbackBlob,
-        metadata: {
-          durationSeconds,
-          analyticsOccurredAt: analyticsOccurredAt.toISOString(),
-        },
-        delivery,
-      });
+      failureReport = failStreamingRecording(error);
     };
     if (
       !finalText &&
@@ -7057,7 +7184,12 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     } else if (!finalText) {
       // Match the batch pipeline: settle processing first, then publish the
       // empty outcome so the warning cannot interrupt the thinking transition.
-      this.onTranscriptionComplete?.({ success: true, text: "" });
+      const ended = emptyDictation ?? endEmptyDictation(failoverSilent ? "gate" : "result");
+      // A failed re-transcription that heard nothing already saved what it keeps.
+      if (ended.outcome === "quiet" && !delivery.resultHandled) {
+        delivery.resultHandled = this._saveQuietEmptyDictation(fallbackBlob, recordingMetadata);
+      }
+      this.onTranscriptionComplete?.({ success: true, text: "", emptyDictation: ended });
     }
 
     if (this.shouldUseStreaming()) {

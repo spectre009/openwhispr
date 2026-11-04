@@ -309,3 +309,94 @@ test("the voice identity performs an actual SVG geometry morph", async () => {
   assert.equal(agent.agentOpacity, 1);
   assert.equal(agent.constructionOpacity, 0);
 });
+
+// A short empty dictation's quiet end (animation A, the red spin-down): the
+// thinking glow stays lit on the same persistent roots and turns red, the
+// pill keeps thinking's identity circle, and with auto-hide it fades out.
+test("the nothing-heard spin-down keeps the thinking glow and circle, and says how it ends", async () => {
+  const footprint = await pillFootprints();
+  const { NOTHING_HEARD_TIMING } = await import("../../src/helpers/voicePillPresentation.js");
+  const settle = await renderPill("nothing-heard", false);
+  const fade = await renderPill("nothing-heard", false, "right", { nothingHeardExit: "fade" });
+  const agent = await renderPill("nothing-heard", false, "right", { agentMode: true });
+  const idle = await renderPill("idle", false, "right", { nothingHeardExit: "fade" });
+
+  for (const markup of [settle, fade, agent]) {
+    assert.match(markup, /^<span class="voice-pill-glow-anchor"/);
+    assert.match(
+      markup,
+      /class="processing-signal-glow" data-active="true"( data-agent="true")? data-nothing-heard="true"/
+    );
+    assert.match(markup, footprint.idle);
+    assert.match(markup, /--nothing-heard-red-duration:250ms/);
+    assert.match(
+      markup,
+      new RegExp(`--nothing-heard-fade-delay:${NOTHING_HEARD_TIMING.pillFadeDelayMs}ms`)
+    );
+  }
+  assert.match(settle, /voice-pill-glow-anchor" data-nothing-heard="settle"/);
+  assert.match(fade, /voice-pill-glow-anchor" data-nothing-heard="fade"/);
+  assert.match(agent, /data-agent="true" data-nothing-heard="true"/);
+  assert.doesNotMatch(idle, /data-nothing-heard|data-active/);
+  // Thinking's look, so only the ring changes; and the pill can be pressed.
+  assert.match(settle, /border-border\/60 bg-surface-1 text-foreground/);
+  assert.match(settle, /cursor:pointer/);
+});
+
+test("the spin-down's CSS: red over a quarter second, a slowing spin, a fade; reduced motion fades only", async () => {
+  const styles = readDictationStyles();
+  const { NOTHING_HEARD_TIMING } = await import("../../src/helpers/voicePillPresentation.js");
+  const total = NOTHING_HEARD_TIMING.pillFadeDelayMs + NOTHING_HEARD_TIMING.pillFadeMs;
+  assert.equal(total, NOTHING_HEARD_TIMING.totalMs);
+  assert.ok(total >= 1200 && total <= 1400, `${total} ms`);
+  assert.equal(
+    NOTHING_HEARD_TIMING.spinDownDelayMs + NOTHING_HEARD_TIMING.spinDownMs,
+    1100,
+    "the ring is gone before the pill finishes fading"
+  );
+
+  // The palette tweens: registered colors, red from the theme.
+  for (const name of ["--signal-bright", "--signal-core", "--signal-deep", "--signal-head"]) {
+    assert.match(styles, new RegExp(`@property ${name} \\{\\s*syntax: "<color>"`));
+  }
+  assert.match(
+    styles,
+    /@keyframes processing-signal-to-red \{[^}]*--signal-core: var\(--color-destructive\)/
+  );
+  // The orbit keeps running (by name) while the drag takes its speed back.
+  assert.match(styles, /from calc\(var\(--signal-angle\) \+ var\(--signal-drag\)\)/);
+  const rule = styles.match(
+    /\.processing-signal-glow\[data-active="true"\]\[data-nothing-heard="true"\] \{([^}]*)\}/
+  );
+  assert.ok(rule, "the spin-down rule");
+  assert.match(rule[1], /processing-signal-spin 1\.6s linear infinite/);
+  assert.match(rule[1], /processing-signal-to-red/);
+  assert.match(rule[1], /processing-signal-spin-down/);
+  assert.match(rule[1], /processing-signal-fade/);
+  assert.match(
+    styles,
+    /\.voice-pill-glow-anchor\[data-nothing-heard="fade"\] \{[^}]*voice-pill-nothing-heard-out/
+  );
+
+  // Reduced motion: no spin, no drag, no scale; a plain fade.
+  const reduced = [
+    ...styles.matchAll(/@media \(prefers-reduced-motion: reduce\) \{([\s\S]*?)\n\}/g),
+  ]
+    .map((match) => match[1])
+    .find((block) => block.includes("data-nothing-heard"));
+  assert.ok(reduced, "a reduced-motion rule for the spin-down");
+  const reducedRule = reduced.match(
+    /\.processing-signal-glow\[data-active="true"\]\[data-nothing-heard="true"\] \{([^}]*)\}/
+  );
+  assert.ok(reducedRule);
+  assert.doesNotMatch(reducedRule[1], /processing-signal-spin/);
+  assert.match(reducedRule[1], /processing-signal-fade/);
+  assert.match(
+    reduced,
+    /\[data-nothing-heard="fade"\] \{\s*animation-name: voice-pill-nothing-heard-fade;/
+  );
+  assert.match(
+    styles,
+    /@keyframes voice-pill-nothing-heard-fade \{\s*to \{\s*opacity: 0;\s*\}\s*\}/
+  );
+});

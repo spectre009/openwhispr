@@ -223,6 +223,11 @@ test("only the connection's own failures are recorded", () => {
     ok: true,
     code: "OK",
   });
+  // An answer with no text is an answer too.
+  assert.deepEqual(requestOutcomeOfFailure({ code: "EMPTY_TRANSCRIPT" }), {
+    ok: true,
+    code: "OK",
+  });
   assert.deepEqual(requestOutcomeOfFailure({ code: "PROVIDER_UNAVAILABLE" }), {
     ok: false,
     code: "PROVIDER_UNAVAILABLE",
