@@ -39,6 +39,10 @@ const OUTPUT_EVENTS = new Set([
   "assistant.usage",
 ]);
 const JSON_RPC_INVALID_PARAMS = -32602;
+// MCP servers the runtime starts in every session on its own. Sessions get no
+// tools, so connecting them only costs a network round trip per request
+// (0.6–10 s measured with GitHub's).
+const BUILTIN_MCP_SERVERS = Object.freeze(["github-mcp-server"]);
 // What a request logs of the SDK's assistant.usage event: [field, source, round].
 const USAGE_FIELDS = [
   ["modelMs", "duration", false],
@@ -611,6 +615,13 @@ function createCopilotRuntime({
     const onEvent = (event) => {
       if (!listening || event?.agentId) return;
       if (OUTPUT_EVENTS.has(event?.type)) answered = true;
+      if (
+        event?.type === "session.mcp_server_status_changed" &&
+        event.data?.status === "connected"
+      ) {
+        // Shows in the log if the runtime starts a server we don't disable.
+        timings.mcpConnected = (timings.mcpConnected || 0) + 1;
+      }
       if (event?.type === "assistant.usage") usage = event.data;
       else if (event?.type === "session.error") sessionError = event.data;
       else if (
@@ -631,6 +642,7 @@ function createCopilotRuntime({
               model,
               // The runtime may not move this session to any other model.
               allowedModels: [model],
+              disabledMcpServers: [...BUILTIN_MCP_SERVERS],
               ...(reasoningEffort ? { reasoningEffort } : {}),
               systemMessage: { mode: "replace", content: system || "" },
               availableTools: [],
@@ -929,4 +941,5 @@ module.exports = {
   PREWARM_TIMEOUT_MS,
   PID_FILE_NAME,
   SESSION_FS_CONFIG,
+  BUILTIN_MCP_SERVERS,
 };

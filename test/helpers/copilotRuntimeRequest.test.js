@@ -151,6 +151,25 @@ test("a model swap while the session is created is refused before anything is se
   assert.deepEqual(fake.clients[0].deleted, [session.sessionId]);
 });
 
+test("sessions disable the runtime's built-in MCP servers, and a connected one shows in the timings", async () => {
+  const { runtime, fake } = runtimeWith();
+  runtime.setToken("gho_token123456");
+  const quiet = await ask(runtime);
+  const [first] = fake.clients[0].sessions;
+  assert.deepEqual(first.config.disabledMcpServers, ["github-mcp-server"]);
+  assert.equal(quiet.timings.mcpConnected, undefined);
+
+  // A server the runtime starts anyway (say, one renamed) is counted.
+  const create = (session) => {
+    session.emit("session.mcp_server_status_changed", { serverName: "x", status: "pending" });
+    session.emit("session.mcp_server_status_changed", { serverName: "x", status: "connected" });
+  };
+  const other = runtimeWith({ create });
+  other.runtime.setToken("gho_token123456");
+  const result = await ask(other.runtime);
+  assert.equal(result.timings.mcpConnected, 1);
+});
+
 test("a sub-agent's model change during creation is not the request's", async () => {
   const create = (session) => {
     for (const handler of session.handlers) {
