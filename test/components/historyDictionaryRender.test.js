@@ -192,17 +192,19 @@ test.before(async () => {
       },
     }
   );
+  // A 900 px view: the list beside the detail, too narrow for the wide layout
+  // even with the list folded, so the stacked layout is what's tested here.
   const proto = dom.window.HTMLElement.prototype;
   Object.defineProperty(proto, "offsetHeight", { configurable: true, get: () => 800 });
-  Object.defineProperty(proto, "offsetWidth", { configurable: true, get: () => 1200 });
+  Object.defineProperty(proto, "offsetWidth", { configurable: true, get: () => 900 });
   proto.getBoundingClientRect = () => ({
     x: 0,
     y: 0,
     top: 0,
     left: 0,
-    right: 1200,
+    right: 900,
     bottom: 800,
-    width: 1200,
+    width: 900,
     height: 800,
     toJSON() {},
   });
@@ -360,23 +362,60 @@ test(
       );
     }
 
-    // The card.
+    // The card: one row of chips, a summary, and one word's details at a time.
     const card = doc.querySelector("[data-history-dictionary]");
     assert.match(card.textContent, /Dictionary in this dictation/);
     assert.match(card.textContent, /Your dictionary words, as the dictionary is now/);
-    const word = (text) => card.querySelector(`[data-history-dictionary-word="${text}"]`);
     assert.match(
-      word("Little Buddy").textContent,
+      card.querySelector("[data-history-dictionary-summary]").textContent,
+      /3 dictionary words · 2 fixed after speech/
+    );
+    const wordChip = (text) => card.querySelector(`[data-history-dictionary-chip="${text}"]`);
+    assert.deepEqual(
+      [...card.querySelectorAll("[data-history-dictionary-chip]")].map((node) => [
+        node.getAttribute("aria-label"),
+        node.getAttribute("aria-expanded"),
+      ]),
+      [
+        ["Little Buddy: Fixed after speech", "false"],
+        ["Aishwaria: Fixed after speech", "false"],
+        ["Kusto: Speech got it", "false"],
+      ]
+    );
+    assert.match(wordChip("Kusto").textContent, /✓/);
+    assert.match(wordChip("Aishwaria").textContent, /↺/);
+    assert.equal(card.querySelector("[data-history-dictionary-word]"), null, "nothing open yet");
+    const word = async (text) => {
+      if (wordChip(text).getAttribute("aria-expanded") !== "true") await v.click(wordChip(text));
+      const details = card.querySelector(`[data-history-dictionary-word="${text}"]`);
+      assert.ok(details, `${text}'s details show`);
+      assert.equal(wordChip(text).getAttribute("aria-controls"), details.id);
+      assert.equal(
+        card.querySelectorAll("[data-history-dictionary-word]").length,
+        1,
+        "one at a time"
+      );
+      return details;
+    };
+    assert.match(
+      (await word("Little Buddy")).textContent,
       /Speech wrote littlebuddy, fixed after speech by the glossary/
     );
-    assert.match(word("Little Buddy").textContent, /The glossary handles this/);
+    assert.match((await word("Little Buddy")).textContent, /The glossary handles this/);
     assert.match(
-      word("Aishwaria").textContent,
+      (await word("Aishwaria")).textContent,
       /Speech wrote ash varia, fixed after speech by cleanup · 3 times/
     );
-    assert.match(word("Kusto").textContent, /Speech got it/);
-    assert.match(word("Kusto").textContent, /Speech wrote it; nothing changed it/);
-    assert.equal(word("Kusto").querySelector("button")?.textContent.includes("glossary"), false);
+    assert.equal(wordChip("Little Buddy").getAttribute("aria-expanded"), "false");
+    assert.match((await word("Kusto")).textContent, /Speech got it/);
+    assert.match((await word("Kusto")).textContent, /Speech wrote it; nothing changed it/);
+    assert.equal(
+      (await word("Kusto")).querySelector("button")?.textContent.includes("glossary"),
+      false
+    );
+    // Again: closed.
+    await v.click(wordChip("Kusto"));
+    assert.equal(card.querySelector("[data-history-dictionary-word]"), null);
     assert.match(card.textContent, /named only when this dictation's recorded steps show which/);
 
     // The glossary rule from what speech wrote, with its evidence.
@@ -385,7 +424,7 @@ test(
     assert.ok(
       calls().some(([w, options]) => w === "Aishwaria" && options.spelling === "ash varia")
     );
-    await v.click(v.buttonIn(word("Aishwaria"), "Make a glossary rule"));
+    await v.click(v.buttonIn(await word("Aishwaria"), "Make a glossary rule"));
     const dialog = doc.querySelector('[role="dialog"]');
     assert.equal(dialog.querySelector("#glossary-canonical").value, "Aishwaria");
     assert.equal(dialog.querySelector('input[aria-label="Spelling"]').value, "ash varia");
@@ -398,7 +437,7 @@ test(
     await v.click(v.buttonIn(dialog, "Cancel"));
 
     // Open in Dictionary.
-    await v.click(v.buttonIn(word("Kusto"), "Open in Dictionary"));
+    await v.click(v.buttonIn(await word("Kusto"), "Open in Dictionary"));
     assert.deepEqual(v.openedWords, ["Kusto"]);
 
     // The cleanup step's changes mark the dictionary word it put in.

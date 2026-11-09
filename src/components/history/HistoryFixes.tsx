@@ -45,7 +45,14 @@ const ACTION_CLASS = "h-7 px-2.5 text-xs";
 /** Keeps the selection while a fix button is pressed. */
 const keepSelection = (event: { preventDefault: () => void }) => event.preventDefault();
 
-export function FixSuggestion({ fixes }: { fixes: HistoryFixesController }) {
+export function FixSuggestion({
+  fixes,
+  compact = false,
+}: {
+  fixes: HistoryFixesController;
+  /** The wide layout's end pane: one line where it fits; selections are made in "What speech heard". */
+  compact?: boolean;
+}) {
   const { t } = useTranslation();
   const { kind } = fixes;
   if (!kind) return null;
@@ -60,17 +67,33 @@ export function FixSuggestion({ fixes }: { fixes: HistoryFixesController }) {
     const anyFired = fixes.firedRules.length > 0;
     if (kind === "recognition") {
       title = t("historyView.fixes.recognition.title");
-      description = t("historyView.fixes.recognition.description");
+      description = t(
+        compact
+          ? "historyView.fixes.recognition.compact"
+          : "historyView.fixes.recognition.description"
+      );
     } else {
       title = t(
         anyFired ? "historyView.fixes.glossary.title" : "historyView.fixes.glossary.titleNoRules"
       );
       description = t(
-        anyFired ? "historyView.fixes.glossary.description" : "historyView.fixes.glossary.noRules"
+        compact
+          ? anyFired
+            ? "historyView.fixes.glossary.compact"
+            : "historyView.fixes.glossary.noRulesCompact"
+          : anyFired
+            ? "historyView.fixes.glossary.description"
+            : "historyView.fixes.glossary.noRules"
       );
     }
     const picked = fixes.selection;
-    const hint = picked ? undefined : t("historyView.fixes.actions.selectFirst");
+    const hint = picked
+      ? undefined
+      : t(
+          compact
+            ? "historyView.fixes.actions.selectFirstHeard"
+            : "historyView.fixes.actions.selectFirst"
+        );
     actions = (
       <>
         <Button
@@ -100,9 +123,9 @@ export function FixSuggestion({ fixes }: { fixes: HistoryFixesController }) {
     );
     if (anyFired) {
       fired = (
-        <div className="mt-2">
+        <div className={compact ? "flex flex-wrap items-center gap-1.5" : "mt-2"}>
           <p className="text-[11.5px] text-muted-foreground">{t("historyView.fixes.fired")}</p>
-          <ul className="mt-1 flex flex-col gap-1">
+          <ul className={cn("flex gap-1", compact ? "flex-wrap items-center" : "mt-1 flex-col")}>
             {fixes.firedRules.map((fix) => (
               <li key={fix.ruleId} className="flex flex-wrap items-center gap-2">
                 <span className="inline-flex items-center gap-1 rounded-md border border-border/70 bg-muted/50 px-2 py-0.5 text-[11.5px] dark:border-white/10">
@@ -133,8 +156,8 @@ export function FixSuggestion({ fixes }: { fixes: HistoryFixesController }) {
     }
   } else if (kind === "cleanup" || kind === "style") {
     title = t(`historyView.fixes.${kind}.title`);
-    description = t(`historyView.fixes.${kind}.description`);
-    literal = true;
+    description = t(`historyView.fixes.${kind}.${compact ? "compact" : "description"}`);
+    literal = !compact;
     actions = (
       <>
         {fixes.canPin && (
@@ -176,6 +199,25 @@ export function FixSuggestion({ fixes }: { fixes: HistoryFixesController }) {
         {t("historyView.fixes.actions.copyAgain")}
       </Button>
     ) : null;
+  }
+
+  if (compact) {
+    return (
+      <div
+        data-fix-suggestion={kind}
+        className="flex shrink-0 flex-col gap-1.5 rounded-lg border border-dashed border-primary/50 bg-primary/5 px-3 py-2"
+      >
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
+          <p className="min-w-[12rem] flex-[1_1_16rem] text-[12px] leading-snug text-foreground">
+            <span className="font-semibold text-primary">{title}</span>
+            <span aria-hidden="true"> · </span>
+            <span className="text-foreground/90">{description}</span>
+          </p>
+          {actions && <div className="flex flex-wrap gap-1.5">{actions}</div>}
+        </div>
+        {fired}
+      </div>
+    );
   }
 
   return (

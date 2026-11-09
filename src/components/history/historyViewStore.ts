@@ -5,8 +5,65 @@ import type { HistoryReviewRequest, HistoryReviewStage } from "../../types/elect
 // switching to another view and back, and so "Open in History" can select a
 // dictation before the view mounts. Review drafts live here too: nothing is
 // written to main before Save, and a draft survives switching rows and views.
+// Only the view preferences (the panes' split, playback speed, "back 2 s on
+// resume" and the list's folded state) are kept in localStorage.
 
 export type HistoryKindFilter = "all" | "failed" | "cleanupChanged" | "flagged" | "dictionaryFixed";
+
+/** The wide layout's reference pane. */
+export type HistoryReferenceTab = "heard" | "steps" | "dictionary";
+/** What "What speech heard" compares the heard text with. */
+export type HistoryHeardView = "heard" | "afterSpeech" | "correction";
+/** The user's own choice for the list beside a wide detail; null: it folds while reviewing. */
+export type HistoryListChoice = "collapsed" | "expanded" | null;
+
+export const PLAYBACK_RATES = [0.75, 1, 1.25, 1.5] as const;
+export const SPLIT_MIN = 0.3;
+export const SPLIT_MAX = 0.7;
+
+const PREF_KEYS = {
+  split: "historyView.split",
+  rate: "historyView.playbackRate",
+  backOnResume: "historyView.backOnResume",
+  listChoice: "historyView.listChoice",
+} as const;
+
+function readPref(key: string): string | null {
+  try {
+    return typeof localStorage === "undefined" ? null : localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function writePref(key: string, value: string | null) {
+  try {
+    if (typeof localStorage === "undefined") return;
+    if (value === null) localStorage.removeItem(key);
+    else localStorage.setItem(key, value);
+  } catch {
+    // Not kept: the preference lasts until the window closes.
+  }
+}
+
+export const clampSplit = (ratio: number) =>
+  Number.isFinite(ratio) ? Math.min(SPLIT_MAX, Math.max(SPLIT_MIN, ratio)) : 0.5;
+
+function storedSplit(): number {
+  const raw = readPref(PREF_KEYS.split);
+  const value = raw === null ? Number.NaN : Number(raw);
+  return Number.isFinite(value) ? clampSplit(value) : 0.5;
+}
+
+function storedRate(): number {
+  const value = Number(readPref(PREF_KEYS.rate));
+  return (PLAYBACK_RATES as readonly number[]).includes(value) ? value : 1;
+}
+
+function storedListChoice(): HistoryListChoice {
+  const value = readPref(PREF_KEYS.listChoice);
+  return value === "collapsed" || value === "expanded" ? value : null;
+}
 
 /** A 👎 review being written: the form's fields, until it's saved or cancelled. */
 export interface ReviewDraft {
@@ -49,6 +106,16 @@ interface HistoryViewState {
   notice: "lastNotFound" | null;
   /** The view shows no dictation until one is picked (the hotkey found none). */
   holdSelection: boolean;
+  referenceTab: HistoryReferenceTab;
+  heardView: HistoryHeardView;
+  /** The start pane's share of the wide layout's two panes (kept). */
+  splitRatio: number;
+  /** The player's speed (kept). */
+  playbackRate: number;
+  /** Resuming after a pause starts 2 s earlier (kept). */
+  backOnResume: boolean;
+  /** The list's folded state the user chose (kept). */
+  listChoice: HistoryListChoice;
 }
 
 export const useHistoryViewStore = create<HistoryViewState>()(() => ({
@@ -65,10 +132,46 @@ export const useHistoryViewStore = create<HistoryViewState>()(() => ({
   hotkeyReview: null,
   notice: null,
   holdSelection: false,
+  referenceTab: "heard",
+  heardView: "heard",
+  splitRatio: storedSplit(),
+  playbackRate: storedRate(),
+  backOnResume: readPref(PREF_KEYS.backOnResume) !== "false",
+  listChoice: storedListChoice(),
 }));
 
 export function setHistoryTextView(textView: "changes" | "text") {
   useHistoryViewStore.setState({ textView });
+}
+
+export function setHistoryReferenceTab(referenceTab: HistoryReferenceTab) {
+  useHistoryViewStore.setState({ referenceTab });
+}
+
+export function setHistoryHeardView(heardView: HistoryHeardView) {
+  useHistoryViewStore.setState({ heardView });
+}
+
+export function setHistorySplitRatio(ratio: number, { persist = true } = {}) {
+  const splitRatio = clampSplit(ratio);
+  useHistoryViewStore.setState({ splitRatio });
+  if (persist) writePref(PREF_KEYS.split, String(splitRatio));
+}
+
+export function setHistoryPlaybackRate(playbackRate: number) {
+  if (!(PLAYBACK_RATES as readonly number[]).includes(playbackRate)) return;
+  useHistoryViewStore.setState({ playbackRate });
+  writePref(PREF_KEYS.rate, String(playbackRate));
+}
+
+export function setHistoryBackOnResume(backOnResume: boolean) {
+  useHistoryViewStore.setState({ backOnResume });
+  writePref(PREF_KEYS.backOnResume, String(backOnResume));
+}
+
+export function setHistoryListChoice(listChoice: HistoryListChoice) {
+  useHistoryViewStore.setState({ listChoice });
+  writePref(PREF_KEYS.listChoice, listChoice);
 }
 
 export function setHistoryQuery(query: string) {

@@ -907,7 +907,31 @@
     "audio": {
       "play": "播放录音",
       "pause": "暂停",
-      "position": "播放位置"
+      "position": "播放位置",
+      "playHint": "播放或暂停（{{keys}}，输入时也可以）",
+      "back": "后退 5 秒",
+      "backShort": "−5 秒",
+      "backHint": "后退 5 秒（{{keys}}）",
+      "forward": "前进 5 秒",
+      "forwardShort": "+5 秒",
+      "forwardHint": "前进 5 秒（{{keys}}）",
+      "positionText": "{{position}} / {{length}}",
+      "seekHint": "点击或拖动以在录音中移动。刻度标出句子开头，琥珀色圆点标出你的更正不同之处，两者都是根据文本估算的。",
+      "rate": "{{rate}}×",
+      "rateLabel": "播放速度：{{rate}}",
+      "rateHint": "播放速度（{{keys}}）",
+      "backOnResume": "继续时后退 2 秒",
+      "backOnResumeHint": "暂停后继续播放时，会从 2 秒前开始，让你在上下文中再听一遍。",
+      "keysPlay": "播放/暂停",
+      "keysSkip": "5 秒",
+      "estimated": "估计位置",
+      "estimatedHint": "时间是根据文本估算的",
+      "estimatedIdle": "点击播放或按 {{keys}}：估计正在播放的句子会显示在这里，就在你输入的地方旁边。",
+      "fromCursor": "从光标处",
+      "fromCursorHint": "播放光标所在的句子（{{keys}}）。时间是根据文本估算的。",
+      "fromCursorKey": "重播你正在编辑的句子",
+      "fromCursorNone": "无法确定这句话是在哪里说的",
+      "editMark": "你在这里做了更改（约 {{time}}，估算）"
     },
     "steps": {
       "title": "步骤",
@@ -1001,22 +1025,27 @@
     "fixes": {
       "recognition": {
         "title": "语音转文字可能听错了",
-        "description": "在下方某个步骤中选中识别错的词语，然后添加术语表更正或词典词语。保存前你会看到更正内容及其适用范围；除非你加以限制，更正会在所有应用中生效。"
+        "description": "在下方某个步骤中选中识别错的词语，然后添加术语表更正或词典词语。保存前你会看到更正内容及其适用范围；除非你加以限制，更正会在所有应用中生效。",
+        "compact": "在“语音识别听到的内容”中选中错误的词语，然后："
       },
       "glossary": {
         "title": "可能是术语表更正改动了它",
         "description": "编辑已生效的更正，或在下方某个步骤中选中错误的词语来添加更正。",
         "titleNoRules": "术语表可能漏掉了它",
-        "noRules": "这次听写没有生效的术语表更正。在下方某个步骤中选中错误的词语来添加一条。"
+        "noRules": "这次听写没有生效的术语表更正。在下方某个步骤中选中错误的词语来添加一条。",
+        "compact": "编辑已生效的更正，或在“语音识别听到的内容”中选中错误的词语来添加更正。",
+        "noRulesCompact": "没有术语表更正生效。在“语音识别听到的内容”中选中错误的词语来添加更正。"
       },
       "fired": "在这次听写中生效：",
       "cleanup": {
         "title": "文本整理可能改动了你说的话",
-        "description": "将它添加到测试集，用它检验你的下一个提示词。用例会并排显示输入、最终输出和你的更正。"
+        "description": "将它添加到测试集，用它检验你的下一个提示词。用例会并排显示输入、最终输出和你的更正。",
+        "compact": "保留这个用例，用它检验你的下一个提示词。"
       },
       "style": {
         "title": "风格可能改得过头了",
-        "description": "将它添加到测试集，用它检验该风格的下一次修改。用例会并排显示输入、最终输出和你的更正。"
+        "description": "将它添加到测试集，用它检验该风格的下一次修改。用例会并排显示输入、最终输出和你的更正。",
+        "compact": "保留这个用例，用它检验风格的下一次修改。"
       },
       "delivery": {
         "title": "文本可能没有正确送达",
@@ -1031,7 +1060,8 @@
         "addToTestSet": "添加到测试集…",
         "openPromptStudio": "打开提示词工作室",
         "editStyle": "编辑风格",
-        "copyAgain": "再次复制文本"
+        "copyAgain": "再次复制文本",
+        "selectFirstHeard": "请先在“语音识别听到的内容”中选中词语"
       },
       "selection": {
         "label": "更正所选词语",
@@ -1086,7 +1116,41 @@
       "tooLong": "此次听写太长，无法逐词比较。",
       "underlineOk": "词典中的词：识别正确",
       "underlineFix": "词典中的词：识别后修正",
-      "inserted": "此步骤加入的词典词"
+      "inserted": "此步骤加入的词典词",
+      "summaryWords_one": "{{count}} 个词典词",
+      "summaryWords_other": "{{count}} 个词典词",
+      "summaryFixed_one": "{{count}} 个识别后修正",
+      "summaryFixed_other": "{{count}} 个识别后修正",
+      "summaryChanged_one": "{{count}} 个识别后更改",
+      "summaryChanged_other": "{{count}} 个识别后更改",
+      "legend": "✓ 识别正确，↺ 识别后修正或更改",
+      "chipLabel": "{{word}}：{{status}}",
+      "noteFinal": "最终输出中的下划线：绿色表示识别正确，琥珀色表示识别后修正。只有此次听写记录的步骤能说明时，才会标出“由术语表”或“由文本整理”。"
+    },
+    "heard": {
+      "tab": "语音识别听到的内容",
+      "viewLabel": "对比",
+      "views": {
+        "heard": "识别原样",
+        "afterSpeech": "识别后的改动",
+        "correction": "识别 → 你的更正"
+      },
+      "legend": {
+        "heard": "点击某个词，从大约那里开始播放（时间为估算）。选中词语即可更正。",
+        "plain": "语音转文字写下的内容，在后续步骤改动之前。",
+        "afterSpeech": "删除线：识别写下、被后续步骤改动的内容。高亮：替换它的内容。",
+        "correction": "删除线：识别写下、被你的更正改动的内容。高亮：你的更正。"
+      },
+      "caseNow": "现为“{{text}}”"
+    },
+    "wide": {
+      "reference": "参考",
+      "dictionary": "词典",
+      "dictionaryCount": "词典（{{number}}）",
+      "divider": "调整窗格大小",
+      "correctIt": "有问题？在这里更正",
+      "listCollapse": "收起列表",
+      "listExpand": "显示列表"
     }
   },
   "reasoning": {

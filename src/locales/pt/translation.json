@@ -886,7 +886,31 @@
     "audio": {
       "play": "Reproduzir a gravação",
       "pause": "Pausar",
-      "position": "Posição da reprodução"
+      "position": "Posição da reprodução",
+      "playHint": "Reproduzir ou pausar ({{keys}}, mesmo enquanto você digita)",
+      "back": "Voltar 5 segundos",
+      "backShort": "−5 s",
+      "backHint": "Voltar 5 segundos ({{keys}})",
+      "forward": "Avançar 5 segundos",
+      "forwardShort": "+5 s",
+      "forwardHint": "Avançar 5 segundos ({{keys}})",
+      "positionText": "{{position}} de {{length}}",
+      "seekHint": "Clique ou arraste para percorrer a gravação. Os traços marcam onde as frases começam e os pontos âmbar onde sua correção é diferente, ambos estimados a partir do texto.",
+      "rate": "{{rate}}×",
+      "rateLabel": "Velocidade de reprodução: {{rate}}",
+      "rateHint": "Velocidade de reprodução ({{keys}})",
+      "backOnResume": "Voltar 2 s ao retomar",
+      "backOnResumeHint": "Quando você retoma após uma pausa, a reprodução começa 2 segundos antes, para você ouvir as palavras de novo no contexto.",
+      "keysPlay": "reproduzir ou pausar",
+      "keysSkip": "5 s",
+      "estimated": "Posição estimada",
+      "estimatedHint": "Os tempos são estimados a partir do texto",
+      "estimatedIdle": "Pressione reproduzir ou {{keys}}: a frase que se estima estar tocando aparece aqui, ao lado de onde você digita.",
+      "fromCursor": "A partir do cursor",
+      "fromCursorHint": "Reproduz a frase em que está o seu cursor ({{keys}}). Os tempos são estimados a partir do texto.",
+      "fromCursorKey": "repete a frase que você está editando",
+      "fromCursorNone": "Não dá para saber onde esta frase foi dita",
+      "editMark": "Você mudou algo aqui (por volta de {{time}}, estimado)"
     },
     "steps": {
       "title": "Etapas",
@@ -980,22 +1004,27 @@
     "fixes": {
       "recognition": {
         "title": "A voz para texto pode ter ouvido errado",
-        "description": "Selecione as palavras erradas em uma etapa abaixo e adicione uma correção do glossário ou uma palavra do dicionário. Você verá a correção e onde ela se aplica antes de salvar; as correções valem em todos os apps, a menos que você as limite."
+        "description": "Selecione as palavras erradas em uma etapa abaixo e adicione uma correção do glossário ou uma palavra do dicionário. Você verá a correção e onde ela se aplica antes de salvar; as correções valem em todos os apps, a menos que você as limite.",
+        "compact": "Selecione as palavras erradas em “O que o reconhecimento ouviu” e depois:"
       },
       "glossary": {
         "title": "Uma correção do glossário pode ter mudado isso",
         "description": "Edite uma correção aplicada ou selecione as palavras erradas em uma etapa abaixo para adicionar uma.",
         "titleNoRules": "O glossário pode ter deixado passar",
-        "noRules": "Nenhuma correção do glossário foi aplicada neste ditado. Selecione as palavras erradas em uma etapa abaixo para adicionar uma."
+        "noRules": "Nenhuma correção do glossário foi aplicada neste ditado. Selecione as palavras erradas em uma etapa abaixo para adicionar uma.",
+        "compact": "Edite uma correção aplicada ou selecione as palavras erradas em “O que o reconhecimento ouviu” para adicionar uma.",
+        "noRulesCompact": "Nenhuma correção do glossário foi aplicada. Selecione as palavras erradas em “O que o reconhecimento ouviu” para adicionar uma."
       },
       "fired": "Aplicadas neste ditado:",
       "cleanup": {
         "title": "A limpeza pode ter mudado o que você disse",
-        "description": "Adicione ao conjunto de testes para verificar seu próximo prompt com ele. O caso mostra a entrada, o resultado final e sua correção lado a lado."
+        "description": "Adicione ao conjunto de testes para verificar seu próximo prompt com ele. O caso mostra a entrada, o resultado final e sua correção lado a lado.",
+        "compact": "Guarde este caso para testar seu próximo prompt com ele."
       },
       "style": {
         "title": "O estilo pode ter ido longe demais",
-        "description": "Adicione ao conjunto de testes para verificar com ele a próxima edição do estilo. O caso mostra a entrada, o resultado final e sua correção lado a lado."
+        "description": "Adicione ao conjunto de testes para verificar com ele a próxima edição do estilo. O caso mostra a entrada, o resultado final e sua correção lado a lado.",
+        "compact": "Guarde este caso para testar com ele a próxima edição do estilo."
       },
       "delivery": {
         "title": "O texto pode não ter chegado direito",
@@ -1010,7 +1039,8 @@
         "addToTestSet": "Adicionar ao conjunto de testes…",
         "openPromptStudio": "Abrir o Estúdio de prompts",
         "editStyle": "Editar estilo",
-        "copyAgain": "Copiar o texto de novo"
+        "copyAgain": "Copiar o texto de novo",
+        "selectFirstHeard": "Primeiro selecione as palavras em “O que o reconhecimento ouviu”"
       },
       "selection": {
         "label": "Corrigir as palavras selecionadas",
@@ -1065,7 +1095,41 @@
       "tooLong": "Este ditado é longo demais para comparar palavra por palavra.",
       "underlineOk": "Palavra do dicionário: o reconhecimento acertou",
       "underlineFix": "Palavra do dicionário: corrigida após o reconhecimento",
-      "inserted": "Uma palavra do dicionário que esta etapa colocou"
+      "inserted": "Uma palavra do dicionário que esta etapa colocou",
+      "summaryWords_one": "{{count}} palavra do dicionário",
+      "summaryWords_other": "{{count}} palavras do dicionário",
+      "summaryFixed_one": "{{count}} corrigida após o reconhecimento",
+      "summaryFixed_other": "{{count}} corrigidas após o reconhecimento",
+      "summaryChanged_one": "{{count}} alterada após o reconhecimento",
+      "summaryChanged_other": "{{count}} alteradas após o reconhecimento",
+      "legend": "✓ o reconhecimento acertou, ↺ corrigida ou alterada após o reconhecimento",
+      "chipLabel": "{{word}}: {{status}}",
+      "noteFinal": "Sublinhadas no resultado final: em verde, as que o reconhecimento acertou; em âmbar, as corrigidas após o reconhecimento. “Pelo glossário” ou “pela limpeza” só aparece quando as etapas registradas deste ditado mostram isso."
+    },
+    "heard": {
+      "tab": "O que o reconhecimento ouviu",
+      "viewLabel": "Comparar com",
+      "views": {
+        "heard": "Como foi ouvido",
+        "afterSpeech": "Alterações após o reconhecimento",
+        "correction": "Reconhecimento → sua correção"
+      },
+      "legend": {
+        "heard": "Clique em uma palavra para reproduzir mais ou menos dali (os tempos são estimados). Selecione palavras para corrigi-las.",
+        "plain": "O que a voz para texto escreveu, antes que uma etapa posterior mudasse algo.",
+        "afterSpeech": "Riscado: o que o reconhecimento escreveu e uma etapa posterior mudou. Destacado: o que entrou no lugar.",
+        "correction": "Riscado: o que o reconhecimento escreveu e sua correção muda. Destacado: sua correção."
+      },
+      "caseNow": "agora: “{{text}}”"
+    },
+    "wide": {
+      "reference": "Referência",
+      "dictionary": "Dicionário",
+      "dictionaryCount": "Dicionário ({{number}})",
+      "divider": "Redimensionar os painéis",
+      "correctIt": "Algo errado? Corrija aqui",
+      "listCollapse": "Recolher a lista",
+      "listExpand": "Mostrar a lista"
     }
   },
   "reasoning": {

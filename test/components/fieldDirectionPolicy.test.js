@@ -79,8 +79,9 @@ const EXPECTED_SHARED_FIELD_DIRECTIONS = {
   "src/components/GlossaryRuleDialog.tsx": ["auto", "auto", "ltr"],
   // A dictionary word and a test case's checks, from a review: dictated words in any script.
   "src/components/history/HistoryFixes.tsx": ["auto", "auto"],
-  // A review's correction and note: dictated words in any script.
-  "src/components/history/HistoryReview.tsx": ["auto", "auto"],
+  // A review's note, then its correction (the wide layout's pane, then the
+  // stacked form): dictated words in any script.
+  "src/components/history/HistoryReview.tsx": ["auto", "auto", "auto"],
   "src/components/InviteTeammateDialog.tsx": ["ltr"],
   "src/components/LeaderboardSection.tsx": ["ltr"],
   "src/components/OpenAICompatiblePanel.tsx": ["ltr"],
@@ -137,6 +138,8 @@ const EXPECTED_NATIVE_FIELD_DIRECTIONS = {
   "src/components/chat/EmailApprovalFields.tsx": ["auto", "auto", "auto", "auto"],
   // Title and description, or a comment: prose in any script.
   "src/components/chat/IssueApprovalFields.tsx": ["auto", "auto"],
+  // The player's "Back 2 s on resume" checkbox: no text.
+  "src/components/history/HistoryAudioPlayer.tsx": ["inherit"],
   // The History search: dictated words in any script.
   "src/components/history/HistoryList.tsx": ["auto"],
   "src/components/notes/ActionManagerDialog.tsx": ["auto", "auto"],

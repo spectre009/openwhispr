@@ -1,19 +1,31 @@
-import type { KeyboardEvent, ReactNode } from "react";
+import {
+  useLayoutEffect,
+  useRef,
+  type KeyboardEvent,
+  type MutableRefObject,
+  type ReactNode,
+} from "react";
 import { useTranslation } from "react-i18next";
 import { cn } from "../lib/utils";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
+import { Textarea } from "../ui/textarea";
 import { AutoGrowTextarea } from "../ui/AutoGrowTextarea";
 import { Keyboard, Loader2, ThumbsDown, ThumbsUp, X } from "../icons";
 import { getCachedPlatform } from "../../utils/platform";
 import { sameStage } from "./historyViewStore";
-import { MAX_REVIEW_NOTE_CHARS, type HistoryReviewController } from "./useHistoryReview";
+import {
+  MAX_REVIEW_NOTE_CHARS,
+  type HistoryReviewController,
+  type ReviewStageChip,
+} from "./useHistoryReview";
 
 // The review's pieces in the History detail: the 👍 / 👎 buttons in its
-// header, the "What went wrong?" form, a saved review, and the banner over a
+// header, the "What went wrong?" form (stacked under the header, or filling
+// the wide layout's end pane), a saved review, and the banner over a
 // dictation the review hotkey opened.
 
-function Kbd({ children }: { children: ReactNode }) {
+export function Kbd({ children }: { children: ReactNode }) {
   return (
     <kbd
       dir="ltr"
@@ -82,21 +94,217 @@ function HistoryOffNote({ onOpenPrivacy }: { onOpenPrivacy: () => void }) {
   );
 }
 
+/** Where the correction field's focus and caret were, to put back when it moves to another layout. */
+export interface FieldFocus {
+  start: number;
+  end: number;
+}
+
+function StageChips({
+  review,
+  compact,
+}: {
+  review: HistoryReviewController;
+  /** One line: the question, then the chips (the wide layout's pane). */
+  compact: boolean;
+}) {
+  const { t } = useTranslation();
+  const { draft } = review;
+  if (!draft) return null;
+  const chip = (item: ReviewStageChip) => {
+    const selected = sameStage(draft.stage, item.stage);
+    return (
+      <button
+        key={`${item.stage.kind}:${item.stage.seq ?? ""}`}
+        type="button"
+        role="radio"
+        aria-checked={selected}
+        onClick={() => review.pickStage(item.stage)}
+        className={cn(
+          "inline-flex items-center gap-1.5 rounded-lg border px-2.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30",
+          compact ? "h-6 text-xs" : "h-7 text-[12.5px]",
+          selected
+            ? "border-destructive/60 bg-destructive/10 text-foreground"
+            : "border-border/70 bg-muted/30 text-foreground/90 hover:bg-muted/60 dark:border-white/10"
+        )}
+      >
+        {item.digit && <Kbd>{item.digit}</Kbd>}
+        {item.label}
+      </button>
+    );
+  };
+  const question = (
+    <>
+      {t("historyView.review.stageQuestion")}{" "}
+      <span className="text-muted-foreground/70">{t("historyView.review.stageHint")}</span>
+    </>
+  );
+  if (compact) {
+    return (
+      <div className="flex shrink-0 flex-wrap items-center gap-1.5">
+        <span
+          id="history-review-stage"
+          title={t("historyView.review.stageHint")}
+          className="me-1 text-xs text-muted-foreground"
+        >
+          {t("historyView.review.stageQuestion")}
+        </span>
+        <div
+          ref={review.chipsRef}
+          role="radiogroup"
+          aria-labelledby="history-review-stage"
+          className="inline-flex flex-wrap items-center gap-1.5"
+        >
+          {review.chips.map(chip)}
+        </div>
+      </div>
+    );
+  }
+  return (
+    <>
+      <p id="history-review-stage" className="mt-3 text-xs text-muted-foreground">
+        {question}
+      </p>
+      <div
+        ref={review.chipsRef}
+        role="radiogroup"
+        aria-labelledby="history-review-stage"
+        className="mt-1.5 flex flex-wrap gap-1.5"
+      >
+        {review.chips.map(chip)}
+      </div>
+    </>
+  );
+}
+
 export function ReviewForm({
   review,
   historyOn,
   onOpenPrivacy,
   fixes,
+  layout = "stacked",
+  estimated,
+  fromCursor,
+  keepFocus,
 }: {
   review: HistoryReviewController;
   historyOn: boolean;
   onOpenPrivacy: () => void;
-  /** Suggestions to fix the chosen step, under the chips. */
+  /** Suggestions to fix the chosen step: under the chips, or under "From your cursor" in a pane. */
   fixes?: ReactNode;
+  /** "pane": fills the wide layout's end pane, the correction taking the free height. */
+  layout?: "stacked" | "pane";
+  /** The sentence estimated to be playing, over the correction. */
+  estimated?: ReactNode;
+  /** "From your cursor", under the correction. */
+  fromCursor?: ReactNode;
+  /** Keeps the correction's focus and caret when the form moves to the other layout. */
+  keepFocus?: MutableRefObject<FieldFocus | null>;
 }) {
   const { t } = useTranslation();
   const { draft } = review;
+  const open = !!draft;
+  const field = useRef<HTMLTextAreaElement | null>(null);
+
+  useLayoutEffect(() => {
+    const node = field.current;
+    if (!node || !keepFocus) return;
+    const kept = keepFocus.current;
+    if (kept) {
+      keepFocus.current = null;
+      node.focus({ preventScroll: true });
+      try {
+        node.setSelectionRange(kept.start, kept.end);
+      } catch {
+        // The text changed under it: the caret stays where focus put it.
+      }
+    }
+    return () => {
+      if (node.ownerDocument.activeElement === node) {
+        keepFocus.current = { start: node.selectionStart ?? 0, end: node.selectionEnd ?? 0 };
+      }
+    };
+  }, [keepFocus, open]);
+
   if (!draft) return null;
+  const historyOffNote = (!historyOn || review.error === "historyOff") && (
+    <HistoryOffNote onOpenPrivacy={onOpenPrivacy} />
+  );
+  const actions = (
+    <div
+      className={cn("flex flex-wrap items-center gap-2", layout === "pane" ? "shrink-0" : "mt-3")}
+    >
+      <Input
+        dir="auto"
+        value={draft.note}
+        onChange={(event) => review.setNote(event.target.value)}
+        onKeyDown={blurOnEscape}
+        maxLength={MAX_REVIEW_NOTE_CHARS}
+        placeholder={t("historyView.review.notePlaceholder")}
+        aria-label={t("historyView.review.noteLabel")}
+        className="h-8 min-w-[12rem] flex-1 text-sm"
+      />
+      <Button variant="ghost" size="sm" onClick={review.cancel}>
+        {t("common.cancel")}
+        <Kbd>Esc</Kbd>
+      </Button>
+      <Button size="sm" onClick={review.save} disabled={review.saving}>
+        {review.saving && <Loader2 size={13} className="animate-spin" />}
+        {t(review.hotkey ? "historyView.review.saveAndClose" : "historyView.review.save")}
+        <Kbd>{saveChord()}</Kbd>
+      </Button>
+    </div>
+  );
+  const saveError = review.error === "failed" && (
+    <p role="alert" className={cn("text-xs text-destructive", layout === "stacked" && "mt-2")}>
+      {t("historyView.review.saveError")}
+    </p>
+  );
+
+  if (layout === "pane") {
+    return (
+      <section
+        data-review-form
+        aria-labelledby="history-review-title"
+        className="flex min-h-full flex-col gap-2.5"
+      >
+        <div className="flex shrink-0 flex-wrap items-baseline gap-x-3 gap-y-1">
+          <h3
+            id="history-review-title"
+            className="flex items-center gap-2 text-sm font-medium text-foreground"
+          >
+            <ThumbsDown size={14} className="self-center text-destructive" />
+            <label htmlFor="history-review-expected">
+              {t("historyView.review.expectedQuestion")}
+            </label>
+          </h3>
+          <span className="text-[11px] text-muted-foreground">
+            {t("historyView.review.expectedHint")}
+          </span>
+        </div>
+        {historyOffNote}
+        <StageChips review={review} compact />
+        {estimated}
+        <Textarea
+          ref={field}
+          id="history-review-expected"
+          dir="auto"
+          value={draft.expectedText}
+          onChange={(event) => review.setExpectedText(event.target.value)}
+          onKeyDown={blurOnEscape}
+          className="min-h-[120px] flex-1 resize-none text-sm leading-relaxed"
+        />
+        {fromCursor}
+        {fixes}
+        {actions}
+        {saveError}
+        <p className="shrink-0 text-[11px] text-muted-foreground/80">
+          {t("historyView.review.privacy")}
+        </p>
+      </section>
+    );
+  }
+
   return (
     <section
       data-review-form
@@ -115,49 +323,17 @@ export function ReviewForm({
           {t("historyView.review.privacy")}
         </span>
       </div>
-      {(!historyOn || review.error === "historyOff") && (
-        <HistoryOffNote onOpenPrivacy={onOpenPrivacy} />
-      )}
-
-      <p id="history-review-stage" className="mt-3 text-xs text-muted-foreground">
-        {t("historyView.review.stageQuestion")}{" "}
-        <span className="text-muted-foreground/70">{t("historyView.review.stageHint")}</span>
-      </p>
-      <div
-        ref={review.chipsRef}
-        role="radiogroup"
-        aria-labelledby="history-review-stage"
-        className="mt-1.5 flex flex-wrap gap-1.5"
-      >
-        {review.chips.map((chip) => {
-          const selected = sameStage(draft.stage, chip.stage);
-          return (
-            <button
-              key={`${chip.stage.kind}:${chip.stage.seq ?? ""}`}
-              type="button"
-              role="radio"
-              aria-checked={selected}
-              onClick={() => review.pickStage(chip.stage)}
-              className={cn(
-                "inline-flex h-7 items-center gap-1.5 rounded-lg border px-2.5 text-[12.5px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30",
-                selected
-                  ? "border-destructive/60 bg-destructive/10 text-foreground"
-                  : "border-border/70 bg-muted/30 text-foreground/90 hover:bg-muted/60 dark:border-white/10"
-              )}
-            >
-              {chip.digit && <Kbd>{chip.digit}</Kbd>}
-              {chip.label}
-            </button>
-          );
-        })}
-      </div>
+      {historyOffNote}
+      <StageChips review={review} compact={false} />
       {fixes}
 
       <label htmlFor="history-review-expected" className="mt-4 block text-xs text-muted-foreground">
         {t("historyView.review.expectedQuestion")}{" "}
         <span className="text-muted-foreground/70">{t("historyView.review.expectedHint")}</span>
       </label>
+      {estimated && <div className="mt-1.5">{estimated}</div>}
       <AutoGrowTextarea
+        ref={field}
         id="history-review-expected"
         dir="auto"
         value={draft.expectedText}
@@ -166,37 +342,12 @@ export function ReviewForm({
         minRows={2}
         className="mt-1.5 text-sm leading-relaxed"
       />
-
-      <div className="mt-3 flex flex-wrap items-center gap-2">
-        <Input
-          dir="auto"
-          value={draft.note}
-          onChange={(event) => review.setNote(event.target.value)}
-          onKeyDown={blurOnEscape}
-          maxLength={MAX_REVIEW_NOTE_CHARS}
-          placeholder={t("historyView.review.notePlaceholder")}
-          aria-label={t("historyView.review.noteLabel")}
-          className="h-8 min-w-[12rem] flex-1 text-sm"
-        />
-        <Button variant="ghost" size="sm" onClick={review.cancel}>
-          {t("common.cancel")}
-          <Kbd>Esc</Kbd>
-        </Button>
-        <Button size="sm" onClick={review.save} disabled={review.saving}>
-          {review.saving && <Loader2 size={13} className="animate-spin" />}
-          {t(review.hotkey ? "historyView.review.saveAndClose" : "historyView.review.save")}
-          <Kbd>{saveChord()}</Kbd>
-        </Button>
-      </div>
-      {review.error === "failed" && (
-        <p role="alert" className="mt-2 text-xs text-destructive">
-          {t("historyView.review.saveError")}
-        </p>
-      )}
+      {fromCursor && <div className="mt-2">{fromCursor}</div>}
+      {actions}
+      {saveError}
     </section>
   );
 }
-
 /** A review saved for this version of the dictation, with Edit and Delete review. */
 export function SavedReview({
   review,

@@ -907,7 +907,31 @@
     "audio": {
       "play": "播放錄音",
       "pause": "暫停",
-      "position": "播放位置"
+      "position": "播放位置",
+      "playHint": "播放或暫停（{{keys}}，輸入時也可以）",
+      "back": "倒退 5 秒",
+      "backShort": "−5 秒",
+      "backHint": "倒退 5 秒（{{keys}}）",
+      "forward": "快轉 5 秒",
+      "forwardShort": "+5 秒",
+      "forwardHint": "快轉 5 秒（{{keys}}）",
+      "positionText": "{{position}} / {{length}}",
+      "seekHint": "點按或拖曳以在錄音中移動。刻度標出句子開頭，琥珀色圓點標出你的更正不同之處，兩者都是根據文字估算的。",
+      "rate": "{{rate}}×",
+      "rateLabel": "播放速度：{{rate}}",
+      "rateHint": "播放速度（{{keys}}）",
+      "backOnResume": "繼續時倒退 2 秒",
+      "backOnResumeHint": "暫停後繼續播放時，會從 2 秒前開始，讓你在上下文中再聽一次。",
+      "keysPlay": "播放/暫停",
+      "keysSkip": "5 秒",
+      "estimated": "估計位置",
+      "estimatedHint": "時間是根據文字估算的",
+      "estimatedIdle": "點按播放或按 {{keys}}：估計正在播放的句子會顯示在這裡，就在你輸入的地方旁邊。",
+      "fromCursor": "從游標處",
+      "fromCursorHint": "播放游標所在的句子（{{keys}}）。時間是根據文字估算的。",
+      "fromCursorKey": "重播你正在編輯的句子",
+      "fromCursorNone": "無法確定這句話是在哪裡說的",
+      "editMark": "你在這裡做了變更（約 {{time}}，估算）"
     },
     "steps": {
       "title": "步驟",
@@ -1001,22 +1025,27 @@
     "fixes": {
       "recognition": {
         "title": "語音轉文字可能聽錯了",
-        "description": "在下方某個步驟中選取辨識錯誤的詞語，然後新增詞彙表更正或字典詞語。儲存前你會看到更正內容及其適用範圍；除非你加以限制，更正會在所有應用程式中生效。"
+        "description": "在下方某個步驟中選取辨識錯誤的詞語，然後新增詞彙表更正或字典詞語。儲存前你會看到更正內容及其適用範圍；除非你加以限制，更正會在所有應用程式中生效。",
+        "compact": "在「語音辨識聽到的內容」中選取錯誤的詞語，然後："
       },
       "glossary": {
         "title": "可能是詞彙表更正改動了它",
         "description": "編輯已生效的更正，或在下方某個步驟中選取錯誤的詞語來新增更正。",
         "titleNoRules": "詞彙表可能漏掉了它",
-        "noRules": "這次聽寫沒有生效的詞彙表更正。在下方某個步驟中選取錯誤的詞語來新增一條。"
+        "noRules": "這次聽寫沒有生效的詞彙表更正。在下方某個步驟中選取錯誤的詞語來新增一條。",
+        "compact": "編輯已生效的更正，或在「語音辨識聽到的內容」中選取錯誤的詞語來新增更正。",
+        "noRulesCompact": "沒有詞彙表更正生效。在「語音辨識聽到的內容」中選取錯誤的詞語來新增更正。"
       },
       "fired": "在這次聽寫中生效：",
       "cleanup": {
         "title": "文字整理可能改動了你說的話",
-        "description": "將它加入測試集，用它檢驗你的下一個提示詞。案例會並排顯示輸入、最終輸出和你的更正。"
+        "description": "將它加入測試集，用它檢驗你的下一個提示詞。案例會並排顯示輸入、最終輸出和你的更正。",
+        "compact": "保留這個案例，用它檢驗你的下一個提示詞。"
       },
       "style": {
         "title": "風格可能改得過頭了",
-        "description": "將它加入測試集，用它檢驗該風格的下一次修改。案例會並排顯示輸入、最終輸出和你的更正。"
+        "description": "將它加入測試集，用它檢驗該風格的下一次修改。案例會並排顯示輸入、最終輸出和你的更正。",
+        "compact": "保留這個案例，用它檢驗風格的下一次修改。"
       },
       "delivery": {
         "title": "文字可能沒有正確送達",
@@ -1031,7 +1060,8 @@
         "addToTestSet": "加入測試集…",
         "openPromptStudio": "開啟提示詞工作室",
         "editStyle": "編輯風格",
-        "copyAgain": "再次複製文字"
+        "copyAgain": "再次複製文字",
+        "selectFirstHeard": "請先在「語音辨識聽到的內容」中選取詞語"
       },
       "selection": {
         "label": "更正選取的詞語",
@@ -1086,7 +1116,41 @@
       "tooLong": "此次聽寫太長，無法逐詞比較。",
       "underlineOk": "字典中的詞：辨識正確",
       "underlineFix": "字典中的詞：辨識後修正",
-      "inserted": "此步驟加入的字典詞"
+      "inserted": "此步驟加入的字典詞",
+      "summaryWords_one": "{{count}} 個字典詞",
+      "summaryWords_other": "{{count}} 個字典詞",
+      "summaryFixed_one": "{{count}} 個辨識後修正",
+      "summaryFixed_other": "{{count}} 個辨識後修正",
+      "summaryChanged_one": "{{count}} 個辨識後變更",
+      "summaryChanged_other": "{{count}} 個辨識後變更",
+      "legend": "✓ 辨識正確，↺ 辨識後修正或變更",
+      "chipLabel": "{{word}}：{{status}}",
+      "noteFinal": "最終輸出中的底線：綠色表示辨識正確，琥珀色表示辨識後修正。只有此次聽寫記錄的步驟能說明時，才會標出「由詞彙表」或「由文字整理」。"
+    },
+    "heard": {
+      "tab": "語音辨識聽到的內容",
+      "viewLabel": "比較",
+      "views": {
+        "heard": "辨識原樣",
+        "afterSpeech": "辨識後的變更",
+        "correction": "辨識 → 你的更正"
+      },
+      "legend": {
+        "heard": "點按某個詞，從大約那裡開始播放（時間為估算）。選取詞語即可更正。",
+        "plain": "語音轉文字寫下的內容，在後續步驟變更之前。",
+        "afterSpeech": "刪除線：辨識寫下、被後續步驟變更的內容。醒目提示：取代它的內容。",
+        "correction": "刪除線：辨識寫下、被你的更正變更的內容。醒目提示：你的更正。"
+      },
+      "caseNow": "現為「{{text}}」"
+    },
+    "wide": {
+      "reference": "參考",
+      "dictionary": "字典",
+      "dictionaryCount": "字典（{{number}}）",
+      "divider": "調整窗格大小",
+      "correctIt": "有問題？在這裡更正",
+      "listCollapse": "收合清單",
+      "listExpand": "顯示清單"
     }
   },
   "reasoning": {

@@ -907,7 +907,31 @@
     "audio": {
       "play": "Play the recording",
       "pause": "Pause",
-      "position": "Playback position"
+      "position": "Playback position",
+      "playHint": "Play or pause ({{keys}}, even while typing)",
+      "back": "Back 5 seconds",
+      "backShort": "−5 s",
+      "backHint": "Back 5 seconds ({{keys}})",
+      "forward": "Forward 5 seconds",
+      "forwardShort": "+5 s",
+      "forwardHint": "Forward 5 seconds ({{keys}})",
+      "positionText": "{{position}} of {{length}}",
+      "seekHint": "Click or drag to move through the recording. Ticks mark where sentences start and amber dots where your correction differs, both estimated from the text.",
+      "rate": "{{rate}}×",
+      "rateLabel": "Playback speed: {{rate}}",
+      "rateHint": "Playback speed ({{keys}})",
+      "backOnResume": "Back 2 s on resume",
+      "backOnResumeHint": "When you resume after a pause, playback starts 2 seconds earlier, so you hear the words again in context.",
+      "keysPlay": "play or pause",
+      "keysSkip": "5 s",
+      "estimated": "Estimated position",
+      "estimatedHint": "Times are estimated from the text",
+      "estimatedIdle": "Press play or {{keys}}: the sentence estimated to be playing shows here, next to where you type.",
+      "fromCursor": "From your cursor",
+      "fromCursorHint": "Play the sentence your cursor is in ({{keys}}). Times are estimated from the text.",
+      "fromCursorKey": "replays the sentence you're editing",
+      "fromCursorNone": "Can't tell where this sentence was said",
+      "editMark": "You changed something here (about {{time}}, estimated)"
     },
     "steps": {
       "title": "Steps",
@@ -1001,22 +1025,27 @@
     "fixes": {
       "recognition": {
         "title": "Speech-to-text may have heard it wrong",
-        "description": "Select the words it got wrong in a step below, then add a glossary correction or a dictionary word. You'll see the correction and where it applies before it's saved; corrections apply in every app unless you limit them."
+        "description": "Select the words it got wrong in a step below, then add a glossary correction or a dictionary word. You'll see the correction and where it applies before it's saved; corrections apply in every app unless you limit them.",
+        "compact": "Select the words it got wrong in What speech heard, then:"
       },
       "glossary": {
         "title": "A glossary correction may have changed it",
         "description": "Edit a correction that fired, or select the words it got wrong in a step below to add one.",
         "titleNoRules": "The glossary may have missed it",
-        "noRules": "No glossary correction fired on this dictation. Select the words it got wrong in a step below to add one."
+        "noRules": "No glossary correction fired on this dictation. Select the words it got wrong in a step below to add one.",
+        "compact": "Edit a correction that fired, or select the words it got wrong in What speech heard to add one.",
+        "noRulesCompact": "No glossary correction fired. Select the words it got wrong in What speech heard to add one."
       },
       "fired": "Fired on this dictation:",
       "cleanup": {
         "title": "Cleanup may have changed what you said",
-        "description": "Add it to the test set to check your next prompt against it. The case shows the input, the final output and your correction side by side."
+        "description": "Add it to the test set to check your next prompt against it. The case shows the input, the final output and your correction side by side.",
+        "compact": "Keep this case to test your next prompt against it."
       },
       "style": {
         "title": "The style may have gone too far",
-        "description": "Add it to the test set to check the style's next edit against it. The case shows the input, the final output and your correction side by side."
+        "description": "Add it to the test set to check the style's next edit against it. The case shows the input, the final output and your correction side by side.",
+        "compact": "Keep this case to test the style's next edit against it."
       },
       "delivery": {
         "title": "The text may not have arrived right",
@@ -1031,7 +1060,8 @@
         "addToTestSet": "Add to the test set…",
         "openPromptStudio": "Open Prompt Studio",
         "editStyle": "Edit style",
-        "copyAgain": "Copy text again"
+        "copyAgain": "Copy text again",
+        "selectFirstHeard": "Select the words in What speech heard first"
       },
       "selection": {
         "label": "Fix the selected words",
@@ -1086,7 +1116,41 @@
       "tooLong": "This dictation is too long to compare word by word.",
       "underlineOk": "Dictionary word: speech got it",
       "underlineFix": "Dictionary word: fixed after speech",
-      "inserted": "A dictionary word this step put in"
+      "inserted": "A dictionary word this step put in",
+      "summaryWords_one": "{{count}} dictionary word",
+      "summaryWords_other": "{{count}} dictionary words",
+      "summaryFixed_one": "{{count}} fixed after speech",
+      "summaryFixed_other": "{{count}} fixed after speech",
+      "summaryChanged_one": "{{count}} changed after speech",
+      "summaryChanged_other": "{{count}} changed after speech",
+      "legend": "✓ speech got it, ↺ fixed or changed after speech",
+      "chipLabel": "{{word}}: {{status}}",
+      "noteFinal": "Underlined in the final output: green, speech got it; amber, fixed after speech. “By the glossary” or “by cleanup” is named only when this dictation's recorded steps show which."
+    },
+    "heard": {
+      "tab": "What speech heard",
+      "viewLabel": "Compare with",
+      "views": {
+        "heard": "As heard",
+        "afterSpeech": "Changes after speech",
+        "correction": "Speech → your correction"
+      },
+      "legend": {
+        "heard": "Click a word to play from about there (times are estimated). Select words to fix them.",
+        "plain": "What speech-to-text wrote, before any later step changed it.",
+        "afterSpeech": "Struck: what speech wrote that a later step changed. Highlighted: what took its place.",
+        "correction": "Struck: what speech wrote that your correction changes. Highlighted: your correction."
+      },
+      "caseNow": "now “{{text}}”"
+    },
+    "wide": {
+      "reference": "Reference",
+      "dictionary": "Dictionary",
+      "dictionaryCount": "Dictionary ({{number}})",
+      "divider": "Resize the panes",
+      "correctIt": "Something wrong? Correct it here",
+      "listCollapse": "Collapse the list",
+      "listExpand": "Show the list"
     }
   },
   "reasoning": {

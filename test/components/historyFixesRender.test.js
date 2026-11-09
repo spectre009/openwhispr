@@ -190,17 +190,19 @@ test.before(async () => {
       updateTestCase: async (id, patch) => ({ success: true, case: testCase({ id, ...patch }) }),
     },
   });
+  // A 900 px view: the list beside the detail, too narrow for the wide layout
+  // even with the list folded, so the stacked layout is what's tested here.
   const proto = dom.window.HTMLElement.prototype;
   Object.defineProperty(proto, "offsetHeight", { configurable: true, get: () => 800 });
-  Object.defineProperty(proto, "offsetWidth", { configurable: true, get: () => 1200 });
+  Object.defineProperty(proto, "offsetWidth", { configurable: true, get: () => 900 });
   proto.getBoundingClientRect = () => ({
     x: 0,
     y: 0,
     top: 0,
     left: 0,
-    right: 1200,
+    right: 900,
     bottom: 800,
-    width: 1200,
+    width: 900,
     height: 800,
     toJSON() {},
   });

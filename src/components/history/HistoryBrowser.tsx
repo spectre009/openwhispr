@@ -11,9 +11,9 @@ import { useSettingsStore } from "../../stores/settingsStore";
 import { usePolicyStore } from "../../stores/policyStore";
 import { effectiveLocalHistoryEnabled } from "../../stores/policyRules";
 import { useDialogs } from "../../hooks/useDialogs";
-import { X } from "../icons";
+import { PanelLeftOpen, X } from "../icons";
 import HistoryList from "./HistoryList";
-import HistoryDetail from "./HistoryDetail";
+import HistoryDetail, { type DetailLayoutInfo } from "./HistoryDetail";
 import { useHistoryList } from "./useHistoryList";
 import type { ReviewConfirm } from "./useHistoryReview";
 import {
@@ -21,8 +21,10 @@ import {
   clearHistorySearch,
   dropHistoryReviewRequest,
   isReviewDraftChanged,
+  reviewDraftKey,
   selectHistoryItem,
   setHistoryDetailOpen,
+  setHistoryListChoice,
   setHistoryNotice,
   useHistoryViewStore,
 } from "./historyViewStore";
@@ -33,8 +35,18 @@ import {
 // (ControlPanel's copy, delete, retry and show-in-folder). "Review last
 // dictation" arrives here as a pending request: it opens that dictation with
 // its review, asking first when the shown one has unsaved review changes.
+//
+// The layout is decided here, from the view's width: first the list's state
+// (the user's own choice, else folded to a rail while a 👎 review is open on a
+// dictation the wide layout suits, when that leaves the detail room), then
+// the detail's layout: wide when the detail has WIDE_DETAIL_PX beside the
+// list as it is. The detail's width never feeds back into the list's state.
 
 const NARROW_PX = 900;
+const LIST_PX = 380;
+const RAIL_PX = 44;
+/** The detail's width from which a dictation shows side by side with what speech heard. */
+const WIDE_DETAIL_PX = 880;
 const SEARCH_DELAY_MS = 250;
 const PRIVACY_HISTORY_SETTING = "privacyData#privacy.history";
 
@@ -47,14 +59,15 @@ function useDebouncedValue<T>(value: T, delayMs: number): T {
   return debounced;
 }
 
-function useNarrowLayout(ref: RefObject<HTMLDivElement | null>): boolean {
-  const [narrow, setNarrow] = useState(false);
+/** The view's width (0 until it's laid out). */
+function useViewWidth(ref: RefObject<HTMLDivElement | null>): number {
+  const [viewWidth, setViewWidth] = useState(0);
   useLayoutEffect(() => {
     const node = ref.current;
     if (!node) return;
     const measure = () => {
       const width = node.getBoundingClientRect().width;
-      if (width > 0) setNarrow(width < NARROW_PX);
+      if (width > 0) setViewWidth(Math.round(width));
     };
     measure();
     if (typeof ResizeObserver === "undefined") return;
@@ -62,7 +75,7 @@ function useNarrowLayout(ref: RefObject<HTMLDivElement | null>): boolean {
     observer.observe(node);
     return () => observer.disconnect();
   }, [ref]);
-  return narrow;
+  return viewWidth;
 }
 
 interface HistoryBrowserProps {
@@ -97,6 +110,7 @@ export default function HistoryBrowser({
     pendingReview,
     notice,
     holdSelection,
+    listChoice,
   } = useHistoryViewStore(
     useShallow((state) => ({
       query: state.query,
@@ -109,6 +123,7 @@ export default function HistoryBrowser({
       pendingReview: state.pendingReview,
       notice: state.notice,
       holdSelection: state.holdSelection,
+      listChoice: state.listChoice,
     }))
   );
   const trimmed = query.trim();
@@ -128,7 +143,45 @@ export default function HistoryBrowser({
   const personalHistory = useSettingsStore((state) => state.dataRetentionEnabled);
   const historyOn = usePolicyStore((state) => effectiveLocalHistoryEnabled(state, personalHistory));
   const containerRef = useRef<HTMLDivElement>(null);
-  const narrow = useNarrowLayout(containerRef);
+  const viewWidth = useViewWidth(containerRef);
+  const narrow = viewWidth > 0 && viewWidth < NARROW_PX;
+  // The shown dictation, as its detail reported it once loaded.
+  const [detailInfo, setDetailInfo] = useState<DetailLayoutInfo | null>(null);
+  const onLayoutInfo = useCallback((info: DetailLayoutInfo) => {
+    setDetailInfo((previous) =>
+      previous &&
+      previous.id === info.id &&
+      previous.eligible === info.eligible &&
+      previous.owner === info.owner
+        ? previous
+        : info
+    );
+  }, []);
+  const shownInfo = detailInfo && detailInfo.id === selectedId ? detailInfo : null;
+  const reviewing = useHistoryViewStore((state) =>
+    shownInfo?.owner ? !!state.drafts[reviewDraftKey(shownInfo.owner, shownInfo.id)] : false
+  );
+  const eligible = !!shownInfo?.eligible;
+  const autoFold = !narrow && eligible && reviewing && viewWidth - RAIL_PX >= WIDE_DETAIL_PX;
+  const listCollapsed = !narrow && (listChoice ? listChoice === "collapsed" : autoFold);
+  const detailWidth = viewWidth - (listCollapsed ? RAIL_PX : LIST_PX);
+  // Room for the wide layout; the detail uses it for a dictation it suits.
+  const wideRoom = !narrow && viewWidth > 0 && detailWidth >= WIDE_DETAIL_PX;
+  // Expanding while a review folds it keeps it shown for reviews; otherwise it's back to folding by itself.
+  const expandList = useCallback(() => {
+    setHistoryListChoice(autoFold ? "expanded" : null);
+    requestAnimationFrame(() =>
+      containerRef.current
+        ?.querySelector<HTMLElement>('[role="listbox"]')
+        ?.focus({ preventScroll: true })
+    );
+  }, [autoFold]);
+  const collapseList = useCallback(() => {
+    setHistoryListChoice("collapsed");
+    requestAnimationFrame(() =>
+      containerRef.current?.querySelector<HTMLElement>("[data-history-list-expand]")?.focus()
+    );
+  }, []);
   // Bumped when main reports the shown row changed, or a retry finished.
   const [revision, setRevision] = useState(0);
 
@@ -324,9 +377,12 @@ export default function HistoryBrowser({
         onOpenPrivacy={openPrivacy}
         onOpenSettings={onOpenSettings}
         confirm={confirm}
+        wide={wideRoom}
+        onLayoutInfo={onLayoutInfo}
       />
     ) : null;
   const listCovered = narrow && showDetail;
+  const listHidden = listCovered || listCollapsed;
 
   return (
     <div ref={containerRef} data-history-view className="flex h-full min-h-0 flex-col">
@@ -334,25 +390,55 @@ export default function HistoryBrowser({
       {confirmation}
       <div className="relative flex min-h-0 flex-1">
         <div
-          inert={listCovered}
-          aria-hidden={listCovered || undefined}
+          data-history-list-column={listCollapsed ? "rail" : "list"}
           className={cn(
-            "flex min-h-0 flex-col",
-            narrow ? "w-full" : "w-[380px] shrink-0 border-e border-border/70 dark:border-white/10"
+            "relative flex min-h-0 flex-col",
+            narrow
+              ? "w-full"
+              : "shrink-0 overflow-hidden border-e border-border/70 transition-[width] duration-200 ease-out motion-reduce:transition-none dark:border-white/10"
           )}
+          style={narrow ? undefined : { width: listCollapsed ? RAIL_PX : LIST_PX }}
         >
-          <HistoryList
-            list={list}
-            selectedId={selectedId}
-            onSelect={(id, open) => selectHistoryItem(id, { open })}
-            narrow={narrow}
-            revealRequest={openRequest}
-            criteriaKey={`${searched}\u0000${filter}\u0000${app ?? ""}\u0000${dictionaryWord ?? ""}`}
-            criteriaActive={criteriaActive}
-            onClearCriteria={clearHistorySearch}
-            historyOn={historyOn}
-            onOpenPrivacy={openPrivacy}
-          />
+          <div
+            id="history-list-panel"
+            inert={listHidden}
+            aria-hidden={listHidden || undefined}
+            className={cn(
+              "flex h-full min-h-0 flex-col",
+              !narrow && "w-[380px]",
+              listCollapsed && "invisible"
+            )}
+          >
+            <HistoryList
+              list={list}
+              selectedId={selectedId}
+              onSelect={(id, open) => selectHistoryItem(id, { open })}
+              narrow={narrow}
+              revealRequest={openRequest}
+              criteriaKey={`${searched}\u0000${filter}\u0000${app ?? ""}\u0000${dictionaryWord ?? ""}`}
+              criteriaActive={criteriaActive}
+              onClearCriteria={clearHistorySearch}
+              historyOn={historyOn}
+              onOpenPrivacy={openPrivacy}
+              onCollapse={narrow ? undefined : collapseList}
+            />
+          </div>
+          {listCollapsed && (
+            <div className="absolute inset-0 flex flex-col items-center pt-3">
+              <button
+                type="button"
+                data-history-list-expand
+                onClick={expandList}
+                aria-label={t("historyView.wide.listExpand")}
+                title={t("historyView.wide.listExpand")}
+                aria-expanded={false}
+                aria-controls="history-list-panel"
+                className="grid size-8 place-items-center rounded-lg border border-border/70 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 dark:border-white/10"
+              >
+                <PanelLeftOpen size={15} className="rtl:-scale-x-100" />
+              </button>
+            </div>
+          )}
         </div>
         {narrow ? (
           showDetail && (

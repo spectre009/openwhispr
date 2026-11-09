@@ -6,7 +6,7 @@ import { cn } from "../lib/utils";
 import GlossaryRuleDialog from "../GlossaryRuleDialog";
 import GlossaryOfferNotice from "../dictionary/GlossaryOfferNotice";
 import { KindTag } from "../dictionary/DictionaryWordOccurrences";
-import { FIXED_BY_KEYS } from "../dictionary/dictionaryLabels";
+import { APPEARANCE_KIND_KEYS, FIXED_BY_KEYS } from "../dictionary/dictionaryLabels";
 import { useGlossaryStore } from "../../stores/glossaryStore";
 import { loadCommonWords, useDictionaryTidyStore } from "../../stores/dictionaryTidyStore";
 import { usageTokens } from "../../helpers/dictionaryUsage.js";
@@ -25,15 +25,15 @@ import type {
 } from "../../types/electron";
 
 // History's "Dictionary in this dictation" (history-get-item's `dictionary`):
-// your dictionary words in the dictation, as the dictionary is now, each with
-// what happened to it: speech got it, fixed after speech (what speech wrote,
-// and "by the glossary" or "by cleanup" when this dictation's recorded steps
-// show which) or changed after speech. A fix offers a glossary rule with the
-// panel's scope safety (the spelling's evidence over 90 days of local
-// History); "Open in Dictionary" opens the word's panel. The final text above
-// underlines the words (green: speech got it, amber: fixed after speech), and
-// the cleanup step's changes mark the dictionary words it put in. Nothing is
-// logged.
+// your dictionary words in the dictation, as the dictionary is now, as one
+// wrapped row of chips (✓ speech got it, ↺ fixed or changed after speech).
+// A chip opens that word's details under the row, one at a time: what
+// speech wrote, "by the glossary" or "by cleanup" when this dictation's
+// recorded steps show which, a glossary rule with the panel's scope safety
+// (the spelling's evidence over 90 days of local History), and "Open in
+// Dictionary". The final text underlines the words (green: speech got it,
+// amber: fixed after speech), and the cleanup step's changes mark the
+// dictionary words it put in. Nothing is logged.
 
 interface Underline {
   start: number;
@@ -134,14 +134,17 @@ function firstFix(appearances: readonly HistoryDictionaryAppearance[]) {
   );
 }
 
-function WordRow({
+/** What happened to one word: its kinds, what speech wrote, and its actions. */
+function WordDetails({
   entry,
   evidence,
   onMakeRule,
+  id,
 }: {
   entry: HistoryDictionaryWord;
   evidence: VariantEvidence | undefined;
   onMakeRule: (word: string, spelling: string) => void;
+  id: string;
 }) {
   const { t } = useTranslation();
   const rules = useGlossaryStore((state) => state.rules);
@@ -193,23 +196,23 @@ function WordRow({
     );
   }
   return (
-    <li
+    <div
+      id={id}
+      role="region"
+      aria-label={entry.word}
       data-history-dictionary-word={entry.word}
-      className="grid grid-cols-1 gap-x-3 gap-y-1 border-t border-border/50 py-2 text-[12.5px] first:border-t-0 @md:grid-cols-[minmax(0,9rem)_minmax(0,1fr)] dark:border-white/8"
+      className="mt-2 rounded-md border border-border/60 bg-background/50 px-3 py-2 text-[12.5px] dark:border-white/8"
     >
-      <span dir="auto" className="truncate font-semibold text-foreground">
-        {entry.word}
-      </span>
-      <span className="min-w-0">
-        <span className="flex flex-wrap gap-x-2">
-          {kinds.map((kind) => (
-            <KindTag key={kind} kind={kind} />
-          ))}
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+        <span dir="auto" className="font-semibold text-foreground">
+          {entry.word}
         </span>
-        <span className="mt-0.5 block text-foreground/85">{description}</span>
-      </span>
-      {/* Under the description, so the actions never squeeze it in a narrow pane. */}
-      <span className="flex flex-wrap items-center gap-x-3 gap-y-1 @md:col-start-2">
+        {kinds.map((kind) => (
+          <KindTag key={kind} kind={kind} />
+        ))}
+      </div>
+      <p className="mt-0.5 text-foreground/85">{description}</p>
+      <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
         {fix?.speechWrote &&
           (handled ? (
             <span className="text-[11px] text-success" data-glossary-handles>
@@ -234,8 +237,55 @@ function WordRow({
           {t("historyView.dictionary.openInDictionary")}
           <ExternalLink size={11} />
         </button>
-      </span>
-    </li>
+      </div>
+    </div>
+  );
+}
+
+/** One word as a chip: ✓ speech got it, ↺ fixed or changed after speech. */
+function WordChip({
+  entry,
+  expanded,
+  controls,
+  onToggle,
+}: {
+  entry: HistoryDictionaryWord;
+  expanded: boolean;
+  controls: string;
+  onToggle: () => void;
+}) {
+  const { t } = useTranslation();
+  const kinds = appearanceKinds(entry.appearances) as DictionaryAppearanceKind[];
+  const got = kinds.includes("ok");
+  const changed = kinds.includes("fix") || kinds.includes("chg");
+  const status = kinds.map((kind) => t(APPEARANCE_KIND_KEYS[kind])).join(", ");
+  return (
+    <button
+      type="button"
+      aria-expanded={expanded}
+      aria-controls={expanded ? controls : undefined}
+      aria-label={t("historyView.dictionary.chipLabel", { word: entry.word, status })}
+      data-history-dictionary-chip={entry.word}
+      onClick={onToggle}
+      className={cn(
+        "inline-flex h-6 items-center gap-1 rounded-full border px-2 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
+        expanded
+          ? "border-primary/60 bg-primary/10 text-foreground"
+          : "border-border/70 bg-muted/30 text-foreground/90 hover:bg-muted/60 dark:border-white/10"
+      )}
+    >
+      {got && (
+        <span aria-hidden="true" className="text-success">
+          ✓
+        </span>
+      )}
+      {changed && (
+        <span aria-hidden="true" className="text-warning">
+          ↺
+        </span>
+      )}
+      <span dir="auto">{entry.word}</span>
+    </button>
   );
 }
 
@@ -243,13 +293,17 @@ export default function HistoryDictionaryCard({
   itemId,
   words,
   aligned,
+  variant = "card",
 }: {
   itemId: number;
   words: readonly HistoryDictionaryWord[];
   aligned: boolean;
+  /** "tab": the wide layout's Dictionary tab, without the card around it. */
+  variant?: "card" | "tab";
 }) {
   const { t } = useTranslation();
   const rules = useGlossaryStore((state) => state.rules);
+  const detailsId = `${useId().replace(/:/g, "")}-word`;
   // What speech wrote for each fixed word, with its evidence over local History.
   const [evidence, setEvidence] = useState<Record<string, VariantEvidence>>({});
   const [dialog, setDialog] = useState<{
@@ -258,6 +312,8 @@ export default function HistoryDictionaryCard({
     keptInFinal: number | null;
   } | null>(null);
   const [reset, setReset] = useState(0);
+  // The chip whose details show (one at a time).
+  const [open, setOpen] = useState<string | null>(null);
   const request = useRef(0);
 
   // Another owner or policy: what was read for the old one goes.
@@ -319,10 +375,26 @@ export default function HistoryDictionaryCard({
   };
 
   if (aligned && words.length === 0) return null;
+  const expanded = words.find((entry) => entry.word === open) ?? null;
+  const has = (entry: HistoryDictionaryWord, kind: DictionaryAppearanceKind) =>
+    entry.appearances.some((appearance) => appearance.kind === kind);
+  const fixedCount = words.filter((entry) => has(entry, "fix")).length;
+  const changedCount = words.filter((entry) => has(entry, "chg")).length;
+  const summary = [
+    t("historyView.dictionary.summaryWords", { count: words.length }),
+    fixedCount > 0 ? t("historyView.dictionary.summaryFixed", { count: fixedCount }) : null,
+    changedCount > 0 ? t("historyView.dictionary.summaryChanged", { count: changedCount }) : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
   return (
     <section
       data-history-dictionary
-      className="@container mt-4 rounded-lg border border-border/70 bg-card/50 p-3.5 dark:border-white/10 dark:bg-surface-2/60"
+      className={cn(
+        variant === "card" &&
+          "mt-4 rounded-lg border border-border/70 bg-card/50 p-3.5 dark:border-white/10 dark:bg-surface-2/60"
+      )}
     >
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
         <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
@@ -336,19 +408,38 @@ export default function HistoryDictionaryCard({
       {!aligned ? (
         <p className="mt-2 text-xs text-muted-foreground">{t("historyView.dictionary.tooLong")}</p>
       ) : (
-        <ul className="mt-1.5">
-          {words.map((entry) => (
-            <WordRow
-              key={entry.word}
-              entry={entry}
-              evidence={evidence[entry.word]}
+        <>
+          <p className="mt-1.5 text-[11.5px] text-muted-foreground" data-history-dictionary-summary>
+            {summary}
+            <span className="text-muted-foreground/70">
+              {" · "}
+              {t("historyView.dictionary.legend")}
+            </span>
+          </p>
+          <div className="mt-1.5 flex flex-wrap gap-1.5">
+            {words.map((entry) => (
+              <WordChip
+                key={entry.word}
+                entry={entry}
+                expanded={expanded?.word === entry.word}
+                controls={detailsId}
+                onToggle={() => setOpen((current) => (current === entry.word ? null : entry.word))}
+              />
+            ))}
+          </div>
+          {expanded && (
+            <WordDetails
+              key={expanded.word}
+              id={detailsId}
+              entry={expanded}
+              evidence={evidence[expanded.word]}
               onMakeRule={makeRule}
             />
-          ))}
-        </ul>
+          )}
+        </>
       )}
       <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
-        {t("historyView.dictionary.note")}
+        {t(variant === "tab" ? "historyView.dictionary.noteFinal" : "historyView.dictionary.note")}
       </p>
       <GlossaryRuleDialog
         rule={dialog?.offer.rule ?? null}

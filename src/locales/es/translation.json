@@ -907,7 +907,31 @@
     "audio": {
       "play": "Reproducir la grabación",
       "pause": "Pausar",
-      "position": "Posición de reproducción"
+      "position": "Posición de reproducción",
+      "playHint": "Reproducir o pausar ({{keys}}, incluso mientras escribes)",
+      "back": "Retroceder 5 segundos",
+      "backShort": "−5 s",
+      "backHint": "Retroceder 5 segundos ({{keys}})",
+      "forward": "Avanzar 5 segundos",
+      "forwardShort": "+5 s",
+      "forwardHint": "Avanzar 5 segundos ({{keys}})",
+      "positionText": "{{position}} de {{length}}",
+      "seekHint": "Haz clic o arrastra para moverte por la grabación. Las marcas indican dónde empiezan las frases y los puntos ámbar dónde difiere tu corrección; ambos se estiman a partir del texto.",
+      "rate": "{{rate}}×",
+      "rateLabel": "Velocidad de reproducción: {{rate}}",
+      "rateHint": "Velocidad de reproducción ({{keys}})",
+      "backOnResume": "Retroceder 2 s al reanudar",
+      "backOnResumeHint": "Al reanudar tras una pausa, la reproducción empieza 2 segundos antes, para que vuelvas a oír las palabras en contexto.",
+      "keysPlay": "reproducir o pausar",
+      "keysSkip": "5 s",
+      "estimated": "Posición estimada",
+      "estimatedHint": "Los tiempos se estiman a partir del texto",
+      "estimatedIdle": "Pulsa reproducir o {{keys}}: aquí aparece la frase que se estima que está sonando, junto a donde escribes.",
+      "fromCursor": "Desde tu cursor",
+      "fromCursorHint": "Reproduce la frase en la que está tu cursor ({{keys}}). Los tiempos se estiman a partir del texto.",
+      "fromCursorKey": "vuelve a reproducir la frase que editas",
+      "fromCursorNone": "No se sabe dónde se dijo esta frase",
+      "editMark": "Aquí cambiaste algo (hacia {{time}}, estimado)"
     },
     "steps": {
       "title": "Pasos",
@@ -1001,22 +1025,27 @@
     "fixes": {
       "recognition": {
         "title": "Puede que la conversión de voz a texto lo entendiera mal",
-        "description": "Selecciona las palabras que entendió mal en un paso de abajo y añade una corrección del glosario o una palabra del diccionario. Verás la corrección y dónde se aplica antes de guardarla; las correcciones se aplican en todas las apps salvo que las limites."
+        "description": "Selecciona las palabras que entendió mal en un paso de abajo y añade una corrección del glosario o una palabra del diccionario. Verás la corrección y dónde se aplica antes de guardarla; las correcciones se aplican en todas las apps salvo que las limites.",
+        "compact": "Selecciona las palabras incorrectas en «Lo que oyó el reconocimiento» y luego:"
       },
       "glossary": {
         "title": "Puede que una corrección del glosario lo cambiara",
         "description": "Edita una corrección que se aplicó, o selecciona las palabras incorrectas en un paso de abajo para añadir una.",
         "titleNoRules": "Puede que al glosario se le escapara",
-        "noRules": "No se aplicó ninguna corrección del glosario en este dictado. Selecciona las palabras incorrectas en un paso de abajo para añadir una."
+        "noRules": "No se aplicó ninguna corrección del glosario en este dictado. Selecciona las palabras incorrectas en un paso de abajo para añadir una.",
+        "compact": "Edita una corrección que se aplicó, o selecciona las palabras incorrectas en «Lo que oyó el reconocimiento» para añadir una.",
+        "noRulesCompact": "No se aplicó ninguna corrección del glosario. Selecciona las palabras incorrectas en «Lo que oyó el reconocimiento» para añadir una."
       },
       "fired": "Aplicadas en este dictado:",
       "cleanup": {
         "title": "Puede que la corrección cambiara lo que dijiste",
-        "description": "Añádelo al conjunto de pruebas para comprobar tu próximo prompt con él. El caso muestra la entrada, el resultado final y tu corrección uno al lado del otro."
+        "description": "Añádelo al conjunto de pruebas para comprobar tu próximo prompt con él. El caso muestra la entrada, el resultado final y tu corrección uno al lado del otro.",
+        "compact": "Guarda este caso para comprobar tu próximo prompt con él."
       },
       "style": {
         "title": "Puede que el estilo se excediera",
-        "description": "Añádelo al conjunto de pruebas para comprobar con él la próxima edición del estilo. El caso muestra la entrada, el resultado final y tu corrección uno al lado del otro."
+        "description": "Añádelo al conjunto de pruebas para comprobar con él la próxima edición del estilo. El caso muestra la entrada, el resultado final y tu corrección uno al lado del otro.",
+        "compact": "Guarda este caso para comprobar con él la próxima edición del estilo."
       },
       "delivery": {
         "title": "Puede que el texto no llegara bien",
@@ -1031,7 +1060,8 @@
         "addToTestSet": "Añadir al conjunto de pruebas…",
         "openPromptStudio": "Abrir el Estudio de prompts",
         "editStyle": "Editar estilo",
-        "copyAgain": "Copiar el texto de nuevo"
+        "copyAgain": "Copiar el texto de nuevo",
+        "selectFirstHeard": "Primero selecciona las palabras en «Lo que oyó el reconocimiento»"
       },
       "selection": {
         "label": "Corregir las palabras seleccionadas",
@@ -1086,7 +1116,41 @@
       "tooLong": "Este dictado es demasiado largo para compararlo palabra por palabra.",
       "underlineOk": "Palabra del diccionario: el reconocimiento acertó",
       "underlineFix": "Palabra del diccionario: corregida tras el reconocimiento",
-      "inserted": "Una palabra del diccionario que puso este paso"
+      "inserted": "Una palabra del diccionario que puso este paso",
+      "summaryWords_one": "{{count}} palabra del diccionario",
+      "summaryWords_other": "{{count}} palabras del diccionario",
+      "summaryFixed_one": "{{count}} corregida tras el reconocimiento",
+      "summaryFixed_other": "{{count}} corregidas tras el reconocimiento",
+      "summaryChanged_one": "{{count}} cambiada tras el reconocimiento",
+      "summaryChanged_other": "{{count}} cambiadas tras el reconocimiento",
+      "legend": "✓ el reconocimiento acertó, ↺ corregida o cambiada tras el reconocimiento",
+      "chipLabel": "{{word}}: {{status}}",
+      "noteFinal": "Subrayadas en el resultado final: en verde, las que el reconocimiento acertó; en ámbar, las corregidas tras el reconocimiento. «Por el glosario» o «por la limpieza» solo aparece cuando los pasos registrados de este dictado lo muestran."
+    },
+    "heard": {
+      "tab": "Lo que oyó el reconocimiento",
+      "viewLabel": "Comparar con",
+      "views": {
+        "heard": "Tal como se oyó",
+        "afterSpeech": "Cambios tras el reconocimiento",
+        "correction": "Reconocimiento → tu corrección"
+      },
+      "legend": {
+        "heard": "Haz clic en una palabra para reproducir desde ahí, aproximadamente (los tiempos son estimados). Selecciona palabras para corregirlas.",
+        "plain": "Lo que escribió la conversión de voz a texto, antes de que un paso posterior lo cambiara.",
+        "afterSpeech": "Tachado: lo que escribió el reconocimiento y un paso posterior cambió. Resaltado: lo que lo sustituyó.",
+        "correction": "Tachado: lo que escribió el reconocimiento y tu corrección cambia. Resaltado: tu corrección."
+      },
+      "caseNow": "ahora: «{{text}}»"
+    },
+    "wide": {
+      "reference": "Referencia",
+      "dictionary": "Diccionario",
+      "dictionaryCount": "Diccionario ({{number}})",
+      "divider": "Ajustar los paneles",
+      "correctIt": "¿Algo está mal? Corrígelo aquí",
+      "listCollapse": "Contraer la lista",
+      "listExpand": "Mostrar la lista"
     }
   },
   "reasoning": {

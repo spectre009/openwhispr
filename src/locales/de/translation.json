@@ -907,7 +907,31 @@
     "audio": {
       "play": "Aufnahme abspielen",
       "pause": "Pause",
-      "position": "Wiedergabeposition"
+      "position": "Wiedergabeposition",
+      "playHint": "Abspielen oder pausieren ({{keys}}, auch beim Tippen)",
+      "back": "5 Sekunden zurück",
+      "backShort": "−5 s",
+      "backHint": "5 Sekunden zurück ({{keys}})",
+      "forward": "5 Sekunden vor",
+      "forwardShort": "+5 s",
+      "forwardHint": "5 Sekunden vor ({{keys}})",
+      "positionText": "{{position}} von {{length}}",
+      "seekHint": "Klicke oder ziehe, um dich in der Aufnahme zu bewegen. Striche markieren Satzanfänge, bernsteinfarbene Punkte Stellen, an denen deine Korrektur abweicht; beides ist aus dem Text geschätzt.",
+      "rate": "{{rate}}×",
+      "rateLabel": "Wiedergabegeschwindigkeit: {{rate}}",
+      "rateHint": "Wiedergabegeschwindigkeit ({{keys}})",
+      "backOnResume": "Beim Fortsetzen 2 s zurück",
+      "backOnResumeHint": "Wenn du nach einer Pause fortsetzt, beginnt die Wiedergabe 2 Sekunden früher, damit du die Wörter im Zusammenhang noch einmal hörst.",
+      "keysPlay": "abspielen oder pausieren",
+      "keysSkip": "5 s",
+      "estimated": "Geschätzte Position",
+      "estimatedHint": "Die Zeiten sind aus dem Text geschätzt",
+      "estimatedIdle": "Drücke Abspielen oder {{keys}}: Der Satz, der vermutlich gerade läuft, erscheint hier, neben der Stelle, an der du tippst.",
+      "fromCursor": "Ab deinem Cursor",
+      "fromCursorHint": "Spielt den Satz ab, in dem dein Cursor steht ({{keys}}). Die Zeiten sind aus dem Text geschätzt.",
+      "fromCursorKey": "spielt den Satz ab, den du bearbeitest",
+      "fromCursorNone": "Nicht erkennbar, wo dieser Satz gesprochen wurde",
+      "editMark": "Hier hast du etwas geändert (etwa bei {{time}}, geschätzt)"
     },
     "steps": {
       "title": "Schritte",
@@ -1001,22 +1025,27 @@
     "fixes": {
       "recognition": {
         "title": "Die Spracherkennung hat es vielleicht falsch verstanden",
-        "description": "Markiere unten in einem Schritt die falschen Wörter und füge dann eine Glossar-Korrektur oder ein Wörterbuchwort hinzu. Du siehst die Korrektur und wo sie gilt, bevor sie gespeichert wird; Korrekturen gelten in jeder App, solange du sie nicht einschränkst."
+        "description": "Markiere unten in einem Schritt die falschen Wörter und füge dann eine Glossar-Korrektur oder ein Wörterbuchwort hinzu. Du siehst die Korrektur und wo sie gilt, bevor sie gespeichert wird; Korrekturen gelten in jeder App, solange du sie nicht einschränkst.",
+        "compact": "Markiere in „Was die Erkennung hörte“ die falschen Wörter, dann:"
       },
       "glossary": {
         "title": "Vielleicht hat eine Glossar-Korrektur es geändert",
         "description": "Bearbeite eine angewendete Korrektur, oder markiere unten in einem Schritt die falschen Wörter, um eine hinzuzufügen.",
         "titleNoRules": "Vielleicht hat das Glossar es übersehen",
-        "noRules": "Bei diesem Diktat wurde keine Glossar-Korrektur angewendet. Markiere unten in einem Schritt die falschen Wörter, um eine hinzuzufügen."
+        "noRules": "Bei diesem Diktat wurde keine Glossar-Korrektur angewendet. Markiere unten in einem Schritt die falschen Wörter, um eine hinzuzufügen.",
+        "compact": "Bearbeite eine angewendete Korrektur, oder markiere in „Was die Erkennung hörte“ die falschen Wörter, um eine hinzuzufügen.",
+        "noRulesCompact": "Keine Glossar-Korrektur wurde angewendet. Markiere in „Was die Erkennung hörte“ die falschen Wörter, um eine hinzuzufügen."
       },
       "fired": "Bei diesem Diktat angewendet:",
       "cleanup": {
         "title": "Die Textbereinigung hat vielleicht verändert, was du gesagt hast",
-        "description": "Füge es zum Testset hinzu, um deinen nächsten Prompt daran zu prüfen. Der Fall zeigt die Eingabe, das Endergebnis und deine Korrektur nebeneinander."
+        "description": "Füge es zum Testset hinzu, um deinen nächsten Prompt daran zu prüfen. Der Fall zeigt die Eingabe, das Endergebnis und deine Korrektur nebeneinander.",
+        "compact": "Behalte diesen Fall, um deinen nächsten Prompt daran zu prüfen."
       },
       "style": {
         "title": "Der Stil ist vielleicht zu weit gegangen",
-        "description": "Füge es zum Testset hinzu, um die nächste Bearbeitung des Stils daran zu prüfen. Der Fall zeigt die Eingabe, das Endergebnis und deine Korrektur nebeneinander."
+        "description": "Füge es zum Testset hinzu, um die nächste Bearbeitung des Stils daran zu prüfen. Der Fall zeigt die Eingabe, das Endergebnis und deine Korrektur nebeneinander.",
+        "compact": "Behalte diesen Fall, um die nächste Bearbeitung des Stils daran zu prüfen."
       },
       "delivery": {
         "title": "Der Text ist vielleicht nicht richtig angekommen",
@@ -1031,7 +1060,8 @@
         "addToTestSet": "Zum Testset hinzufügen…",
         "openPromptStudio": "Prompt-Studio öffnen",
         "editStyle": "Stil bearbeiten",
-        "copyAgain": "Text erneut kopieren"
+        "copyAgain": "Text erneut kopieren",
+        "selectFirstHeard": "Markiere zuerst die Wörter in „Was die Erkennung hörte“"
       },
       "selection": {
         "label": "Markierte Wörter korrigieren",
@@ -1086,7 +1116,41 @@
       "tooLong": "Dieses Diktat ist zu lang für einen Wort-für-Wort-Vergleich.",
       "underlineOk": "Wörterbuchwort: richtig erkannt",
       "underlineFix": "Wörterbuchwort: nach der Erkennung korrigiert",
-      "inserted": "Ein Wörterbuchwort, das dieser Schritt eingefügt hat"
+      "inserted": "Ein Wörterbuchwort, das dieser Schritt eingefügt hat",
+      "summaryWords_one": "{{count}} Wörterbuchwort",
+      "summaryWords_other": "{{count}} Wörterbuchwörter",
+      "summaryFixed_one": "{{count}} nach der Erkennung korrigiert",
+      "summaryFixed_other": "{{count}} nach der Erkennung korrigiert",
+      "summaryChanged_one": "{{count}} nach der Erkennung geändert",
+      "summaryChanged_other": "{{count}} nach der Erkennung geändert",
+      "legend": "✓ richtig erkannt, ↺ nach der Erkennung korrigiert oder geändert",
+      "chipLabel": "{{word}}: {{status}}",
+      "noteFinal": "Im Endergebnis unterstrichen: grün richtig erkannt, bernsteinfarben nach der Erkennung korrigiert. „Durch das Glossar“ oder „durch die Bereinigung“ steht nur da, wenn die aufgezeichneten Schritte dieses Diktats es zeigen."
+    },
+    "heard": {
+      "tab": "Was die Erkennung hörte",
+      "viewLabel": "Vergleichen mit",
+      "views": {
+        "heard": "Wie erkannt",
+        "afterSpeech": "Änderungen nach der Erkennung",
+        "correction": "Erkennung → deine Korrektur"
+      },
+      "legend": {
+        "heard": "Klicke auf ein Wort, um ungefähr ab dort abzuspielen (die Zeiten sind geschätzt). Markiere Wörter, um sie zu korrigieren.",
+        "plain": "Was die Spracherkennung schrieb, bevor ein späterer Schritt etwas änderte.",
+        "afterSpeech": "Durchgestrichen: was die Erkennung schrieb und ein späterer Schritt änderte. Hervorgehoben: was an seine Stelle trat.",
+        "correction": "Durchgestrichen: was die Erkennung schrieb und deine Korrektur ändert. Hervorgehoben: deine Korrektur."
+      },
+      "caseNow": "jetzt: „{{text}}“"
+    },
+    "wide": {
+      "reference": "Referenz",
+      "dictionary": "Wörterbuch",
+      "dictionaryCount": "Wörterbuch ({{number}})",
+      "divider": "Bereiche anpassen",
+      "correctIt": "Stimmt etwas nicht? Hier korrigieren",
+      "listCollapse": "Liste einklappen",
+      "listExpand": "Liste anzeigen"
     }
   },
   "reasoning": {

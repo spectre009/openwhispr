@@ -14,7 +14,7 @@ import {
 } from "../ui/dropdown-menu";
 import { BIDI_VALUE_TOKEN, BidiInterpolatedText } from "../ui/BidiInterpolatedText";
 import { stepFailureBadgeLabel, stepKindLabel } from "../ui/transcriptionStepLabels";
-import { ChevronDown, Loader2, Search, ThumbsDown, ThumbsUp, X } from "../icons";
+import { ChevronDown, Loader2, PanelLeftClose, Search, ThumbsDown, ThumbsUp, X } from "../icons";
 import { formatDateGroup, normalizeDbDate } from "../../utils/dateFormatting";
 import { useUiLocale } from "../../hooks/useUiLocale";
 import type { HistoryListRow, HistoryStepChange, HistoryStepMark } from "../../types/electron";
@@ -378,6 +378,8 @@ interface HistoryListProps {
   onClearCriteria: () => void;
   historyOn: boolean;
   onOpenPrivacy: () => void;
+  /** Beside the detail: folds the list to a rail. */
+  onCollapse?: () => void;
 }
 
 export default function HistoryList({
@@ -391,6 +393,7 @@ export default function HistoryList({
   onClearCriteria,
   historyOn,
   onOpenPrivacy,
+  onCollapse,
 }: HistoryListProps) {
   const { t } = useTranslation();
   const locale = useUiLocale();
@@ -648,7 +651,24 @@ export default function HistoryList({
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="shrink-0 space-y-2 border-b border-border/70 px-3.5 pt-3 pb-2.5 dark:border-white/10">
-        <SearchField />
+        <div className="flex items-center gap-1.5">
+          <div className="min-w-0 flex-1">
+            <SearchField />
+          </div>
+          {onCollapse && (
+            <button
+              type="button"
+              onClick={onCollapse}
+              aria-label={t("historyView.wide.listCollapse")}
+              title={t("historyView.wide.listCollapse")}
+              aria-expanded
+              aria-controls="history-list-panel"
+              className="grid size-8 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+            >
+              <PanelLeftClose size={15} className="rtl:-scale-x-100" />
+            </button>
+          )}
+        </div>
         <FilterChips />
       </div>
       {!historyOn && (

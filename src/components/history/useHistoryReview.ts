@@ -89,9 +89,11 @@ const hasDetails = (feedback: HistoryFeedback | null) =>
 // Typing, picking from a list or composing text: the review's letters and digits stay out.
 const TYPING_TARGET =
   'input, textarea, select, [contenteditable=""], [contenteditable="true"], [role="combobox"], [role="textbox"]';
-const OPEN_DIALOG = '[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"]';
+export const OPEN_DIALOG =
+  '[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"]';
 
-function historyViewHas(target: EventTarget | null): boolean {
+/** Whether a key event's target is in the History view (or nothing has focus) and the view isn't covered. */
+export function historyViewHas(target: EventTarget | null): boolean {
   const root = document.querySelector("[data-history-view]");
   if (!root || root.closest("[inert]")) return false;
   if (!(target instanceof Node)) return false;
@@ -129,11 +131,14 @@ export function useHistoryReview({
   result,
   reload,
   confirm,
+  onHidePanel,
 }: {
   result: LoadedItem;
   /** Re-reads the dictation (it changed under the review). */
   reload: () => void;
   confirm: (options: ReviewConfirm) => void;
+  /** Runs before the review hotkey's flow hides the panel (stops playback). */
+  onHidePanel?: () => void;
 }): HistoryReviewController {
   const { t } = useTranslation();
   const { item, revision, owner } = result;
@@ -169,11 +174,18 @@ export function useHistoryReview({
     [finalText]
   );
 
+  // True once the first chip actually has focus.
   const focusFirstChip = useCallback(() => {
-    chipsRef.current?.querySelector<HTMLElement>("button")?.focus();
+    const chip = chipsRef.current?.querySelector<HTMLElement>("button");
+    if (!chip) return false;
+    chip.focus();
+    return chip.ownerDocument.activeElement === chip;
   }, []);
 
-  const hidePanel = () => void window.electronAPI?.hideControlPanel?.();
+  const hidePanel = () => {
+    onHidePanel?.();
+    void window.electronAPI?.hideControlPanel?.();
+  };
 
   // A retry (or any rewrite) made a new version: the draft was about the old one.
   useEffect(() => {
@@ -183,7 +195,9 @@ export function useHistoryReview({
     }
   }, [key, draft, revision]);
 
-  // Opened by the review hotkey: 👎 preselected as an unsaved draft, the first step chip focused.
+  // Opened by the review hotkey: 👎 preselected as an unsaved draft, the first
+  // step chip focused (marked done only once it has focus; the form may still
+  // be moving into place).
   useEffect(() => {
     if (!hotkeyReview || hotkeyReview.id !== id || !canReview || !owner || !revision) return;
     if (!draft) {
@@ -191,8 +205,14 @@ export function useHistoryReview({
       return;
     }
     if (hotkeyReview.focused) return;
-    focusFirstChip();
-    markHotkeyReviewFocused(hotkeyReview.requestId);
+    let frame = 0;
+    let tries = 0;
+    const attempt = () => {
+      if (focusFirstChip()) markHotkeyReviewFocused(hotkeyReview.requestId);
+      else if (++tries < 10) frame = requestAnimationFrame(attempt);
+    };
+    attempt();
+    return () => cancelAnimationFrame(frame);
   }, [hotkeyReview, id, canReview, owner, revision, draft, feedback, fieldsFrom, focusFirstChip]);
 
   const submit = async (request: HistoryFeedbackSaveRequest, closeAfter: boolean) => {

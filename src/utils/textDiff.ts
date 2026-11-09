@@ -24,7 +24,8 @@ export type TextDiff =
 /** About 8 MB of comparison table and ~15 ms: a 1,000-word dictation rewritten throughout. */
 export const DEFAULT_MAX_CELLS = 4_000_000;
 
-const UNSPACED =
+/** Scripts written without spaces between words, as a regex character-class body. */
+export const UNSPACED =
   "\\p{Script=Han}\\p{Script=Hiragana}\\p{Script=Katakana}\\p{Script=Thai}\\p{Script=Lao}\\p{Script=Khmer}\\p{Script=Myanmar}";
 const WORD_CHAR = `(?:(?![${UNSPACED}])[\\p{L}\\p{M}\\p{N}_])`;
 const TOKEN = new RegExp(

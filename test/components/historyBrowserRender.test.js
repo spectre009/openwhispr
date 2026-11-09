@@ -201,7 +201,7 @@ const ITEMS = new Map([
 ]);
 
 let dom;
-let layoutWidth = 1200;
+let layoutWidth = 900;
 const listeners = {};
 const requests = [];
 let pages = [];
@@ -245,8 +245,8 @@ test.before(async () => {
       },
     }
   );
-  // A laid-out window: wide enough for list and detail side by side, unless a
-  // test narrows it.
+  // A laid-out window: wide enough for list and detail side by side (the detail
+  // stacked), unless a test narrows it.
   const proto = dom.window.HTMLElement.prototype;
   Object.defineProperty(proto, "offsetHeight", { configurable: true, get: () => 800 });
   Object.defineProperty(proto, "offsetWidth", { configurable: true, get: () => layoutWidth });
@@ -576,7 +576,7 @@ test(
   async (t) => {
     layoutWidth = 700;
     t.after(() => {
-      layoutWidth = 1200;
+      layoutWidth = 900;
     });
     const {
       doc,

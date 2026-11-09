@@ -907,7 +907,31 @@
     "audio": {
       "play": "Écouter l'enregistrement",
       "pause": "Pause",
-      "position": "Position de lecture"
+      "position": "Position de lecture",
+      "playHint": "Lire ou mettre en pause ({{keys}}, même pendant la saisie)",
+      "back": "Reculer de 5 secondes",
+      "backShort": "−5 s",
+      "backHint": "Reculer de 5 secondes ({{keys}})",
+      "forward": "Avancer de 5 secondes",
+      "forwardShort": "+5 s",
+      "forwardHint": "Avancer de 5 secondes ({{keys}})",
+      "positionText": "{{position}} sur {{length}}",
+      "seekHint": "Cliquez ou faites glisser pour vous déplacer dans l'enregistrement. Les traits marquent le début des phrases et les points ambre les endroits où votre correction diffère, tous deux estimés à partir du texte.",
+      "rate": "{{rate}}×",
+      "rateLabel": "Vitesse de lecture : {{rate}}",
+      "rateHint": "Vitesse de lecture ({{keys}})",
+      "backOnResume": "Reculer de 2 s à la reprise",
+      "backOnResumeHint": "Quand vous reprenez après une pause, la lecture repart 2 secondes plus tôt, pour réentendre les mots dans leur contexte.",
+      "keysPlay": "lire ou mettre en pause",
+      "keysSkip": "5 s",
+      "estimated": "Position estimée",
+      "estimatedHint": "Les temps sont estimés à partir du texte",
+      "estimatedIdle": "Appuyez sur lecture ou {{keys}} : la phrase estimée en cours de lecture s'affiche ici, à côté de là où vous écrivez.",
+      "fromCursor": "Depuis votre curseur",
+      "fromCursorHint": "Lit la phrase où se trouve votre curseur ({{keys}}). Les temps sont estimés à partir du texte.",
+      "fromCursorKey": "relit la phrase que vous modifiez",
+      "fromCursorNone": "Impossible de savoir où cette phrase a été dite",
+      "editMark": "Vous avez modifié quelque chose ici (vers {{time}}, estimé)"
     },
     "steps": {
       "title": "Étapes",
@@ -1001,22 +1025,27 @@
     "fixes": {
       "recognition": {
         "title": "La reconnaissance vocale a peut-être mal entendu",
-        "description": "Sélectionnez les mots mal reconnus dans une étape ci-dessous, puis ajoutez une correction du glossaire ou un mot du dictionnaire. Vous verrez la correction et où elle s'applique avant qu'elle soit enregistrée ; les corrections s'appliquent dans toutes les applications, sauf si vous les limitez."
+        "description": "Sélectionnez les mots mal reconnus dans une étape ci-dessous, puis ajoutez une correction du glossaire ou un mot du dictionnaire. Vous verrez la correction et où elle s'applique avant qu'elle soit enregistrée ; les corrections s'appliquent dans toutes les applications, sauf si vous les limitez.",
+        "compact": "Sélectionnez les mots erronés dans « Ce que la reconnaissance a entendu », puis :"
       },
       "glossary": {
         "title": "Une correction du glossaire l'a peut-être modifié",
         "description": "Modifiez une correction appliquée, ou sélectionnez les mots erronés dans une étape ci-dessous pour en ajouter une.",
         "titleNoRules": "Le glossaire l'a peut-être manqué",
-        "noRules": "Aucune correction du glossaire ne s'est appliquée à cette dictée. Sélectionnez les mots erronés dans une étape ci-dessous pour en ajouter une."
+        "noRules": "Aucune correction du glossaire ne s'est appliquée à cette dictée. Sélectionnez les mots erronés dans une étape ci-dessous pour en ajouter une.",
+        "compact": "Modifiez une correction appliquée, ou sélectionnez les mots erronés dans « Ce que la reconnaissance a entendu » pour en ajouter une.",
+        "noRulesCompact": "Aucune correction du glossaire ne s'est appliquée. Sélectionnez les mots erronés dans « Ce que la reconnaissance a entendu » pour en ajouter une."
       },
       "fired": "Appliquées à cette dictée :",
       "cleanup": {
         "title": "La correction a peut-être modifié ce que vous avez dit",
-        "description": "Ajoutez-la au jeu de tests pour y vérifier votre prochain prompt. Le cas montre l'entrée, le résultat final et votre correction côte à côte."
+        "description": "Ajoutez-la au jeu de tests pour y vérifier votre prochain prompt. Le cas montre l'entrée, le résultat final et votre correction côte à côte.",
+        "compact": "Gardez ce cas pour y vérifier votre prochain prompt."
       },
       "style": {
         "title": "Le style est peut-être allé trop loin",
-        "description": "Ajoutez-la au jeu de tests pour y vérifier la prochaine modification du style. Le cas montre l'entrée, le résultat final et votre correction côte à côte."
+        "description": "Ajoutez-la au jeu de tests pour y vérifier la prochaine modification du style. Le cas montre l'entrée, le résultat final et votre correction côte à côte.",
+        "compact": "Gardez ce cas pour y vérifier la prochaine modification du style."
       },
       "delivery": {
         "title": "Le texte n'est peut-être pas arrivé correctement",
@@ -1031,7 +1060,8 @@
         "addToTestSet": "Ajouter au jeu de tests…",
         "openPromptStudio": "Ouvrir le Studio de prompts",
         "editStyle": "Modifier le style",
-        "copyAgain": "Copier à nouveau le texte"
+        "copyAgain": "Copier à nouveau le texte",
+        "selectFirstHeard": "Sélectionnez d'abord les mots dans « Ce que la reconnaissance a entendu »"
       },
       "selection": {
         "label": "Corriger les mots sélectionnés",
@@ -1086,7 +1116,41 @@
       "tooLong": "Cette dictée est trop longue pour être comparée mot à mot.",
       "underlineOk": "Mot du dictionnaire : bien reconnu",
       "underlineFix": "Mot du dictionnaire : corrigé après la reconnaissance",
-      "inserted": "Un mot du dictionnaire ajouté par cette étape"
+      "inserted": "Un mot du dictionnaire ajouté par cette étape",
+      "summaryWords_one": "{{count}} mot du dictionnaire",
+      "summaryWords_other": "{{count}} mots du dictionnaire",
+      "summaryFixed_one": "{{count}} corrigé après la reconnaissance",
+      "summaryFixed_other": "{{count}} corrigés après la reconnaissance",
+      "summaryChanged_one": "{{count}} modifié après la reconnaissance",
+      "summaryChanged_other": "{{count}} modifiés après la reconnaissance",
+      "legend": "✓ bien reconnu, ↺ corrigé ou modifié après la reconnaissance",
+      "chipLabel": "{{word}} : {{status}}",
+      "noteFinal": "Soulignés dans le résultat final : en vert, bien reconnu ; en ambre, corrigé après la reconnaissance. « Par le glossaire » ou « par le nettoyage » n'est indiqué que lorsque les étapes enregistrées de cette dictée le montrent."
+    },
+    "heard": {
+      "tab": "Ce que la reconnaissance a entendu",
+      "viewLabel": "Comparer avec",
+      "views": {
+        "heard": "Tel qu'entendu",
+        "afterSpeech": "Modifications après la reconnaissance",
+        "correction": "Reconnaissance → votre correction"
+      },
+      "legend": {
+        "heard": "Cliquez sur un mot pour lire à partir de là environ (les temps sont estimés). Sélectionnez des mots pour les corriger.",
+        "plain": "Ce que la reconnaissance vocale a écrit, avant toute modification par une étape suivante.",
+        "afterSpeech": "Barré : ce que la reconnaissance a écrit et qu'une étape suivante a modifié. Surligné : ce qui l'a remplacé.",
+        "correction": "Barré : ce que la reconnaissance a écrit et que votre correction modifie. Surligné : votre correction."
+      },
+      "caseNow": "désormais : « {{text}} »"
+    },
+    "wide": {
+      "reference": "Référence",
+      "dictionary": "Dictionnaire",
+      "dictionaryCount": "Dictionnaire ({{number}})",
+      "divider": "Redimensionner les volets",
+      "correctIt": "Quelque chose cloche ? Corrigez-le ici",
+      "listCollapse": "Replier la liste",
+      "listExpand": "Afficher la liste"
     }
   },
   "reasoning": {
