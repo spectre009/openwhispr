@@ -2269,7 +2269,9 @@
   "settingsLayer": {
     "backTo": "Voltar para “{{view}}”",
     "sections": "Seções das configurações",
-    "appViews": "Telas do app"
+    "appViews": "Telas do app",
+    "showPages": "Mostrar as páginas de {{name}}",
+    "hidePages": "Ocultar as páginas de {{name}}"
   },
   "settingsSearch": {
     "placeholder": "Pesquisar configurações",
@@ -3724,7 +3726,8 @@
           "hidden": "Oculta",
           "busy": "Trabalhando",
           "stopsIn": "Encerra em {{minutes}} min"
-        }
+        },
+        "plusConsoleHost": "+ host de console"
       },
       "details": {
         "what": "O que faz",
@@ -3754,7 +3757,9 @@
         "runningFor": "Em execução há {{duration}}",
         "copy": "Copiar",
         "copyLabel": "Copiar os números deste processo como texto",
-        "graphicsDetails": "Gráficos em Diagnóstico"
+        "graphicsDetails": "Gráficos em Diagnóstico",
+        "includes": "Inclui",
+        "consoleHostNote": "Host de console: o Windows inicia um para um programa de linha de comando, mesmo um oculto."
       },
       "terms": {
         "ws": "Conjunto de trabalho: a parte da memória do processo que está na RAM neste momento.",
@@ -4107,7 +4112,7 @@
         },
         "consoleHost": {
           "name": "Host de console",
-          "what": "O Windows inicia um para cada programa auxiliar de linha de comando, mesmo um oculto.",
+          "what": "O Windows inicia um para um programa de linha de comando, mesmo um oculto.",
           "why": {
             "default": "O programa auxiliar dele está em execução."
           },

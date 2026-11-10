@@ -105,7 +105,10 @@ export function missingReason(
   }
 }
 
-/** The row's second line: its program (or Electron's process type), PID and, for a key listener, its hotkey. */
+/**
+ * The row's second line: its program (or Electron's process type), PID, for a
+ * key listener its hotkey, and "+ console host" when one is folded in.
+ */
 export function processSubline(row: ProcessInventoryProcess, t: Translate): string {
   const parts: string[] = [];
   const program = row.exe ?? row.type;
@@ -114,6 +117,9 @@ export function processSubline(row: ProcessInventoryProcess, t: Translate): stri
   const hotkey = row.about?.whyParams?.hotkey;
   if (row.role === "keyListener" && typeof hotkey === "string" && hotkey) {
     parts.push(formatHotkeyLabel(hotkey));
+  }
+  if (row.includes?.some((part) => part.role === "consoleHost")) {
+    parts.push(t(`${P}.table.plusConsoleHost`));
   }
   return parts.join(" · ");
 }

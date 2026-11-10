@@ -1,6 +1,14 @@
-import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useTranslation } from "react-i18next";
-import { ChevronLeft, ChevronRight, ExternalLink, Search, Settings } from "../icons";
+import { ChevronDown, ChevronLeft, ChevronRight, ExternalLink, Search, Settings } from "../icons";
 import WindowControls from "../WindowControls";
 import { cn } from "../lib/utils";
 import { SettingsLayoutProvider } from "../ui/useSettingsLayout";
@@ -16,8 +24,10 @@ import {
   restoreFocusAfterSettings,
   type SettingsEscapeContext,
 } from "./settingsLayerPolicy";
+import { readOpenNavParents, writeOpenNavParents } from "./settingsPages";
 
 const platform = getCachedPlatform();
+const navStorage = () => (typeof localStorage === "undefined" ? undefined : localStorage);
 
 // Controls inside a drag region must opt out or the click starts a window drag.
 const dragStyle = { WebkitAppRegion: "drag" } as React.CSSProperties;
@@ -49,7 +59,7 @@ export interface SettingsNavItem<T extends string> {
   icon: NavIcon;
   /** The page it opens; a parent opens its first page. */
   page?: T;
-  /** A parent's pages, listed under it while one of them is open. */
+  /** A parent's pages, listed under it while it's open. */
   children?: SettingsNavPageLink<T>[];
   /** Leaves Settings for an app page (Dictionary, Integrations) instead. */
   onSelect?: () => void;
@@ -158,6 +168,35 @@ export default function SettingsLayer<T extends string>({
   const navIconsOnly = layerWidth > 0 && layerWidth < NAV_ICONS_BELOW_PX;
   const isCompact = contentWidth > 0 && contentWidth < COMPACT_CONTENT_BELOW_PX;
   const layout = useMemo(() => ({ isCompact }), [isCompact]);
+
+  // Which parents list their pages. Going into one (a click, search,
+  // openSettings, a link from another page) opens it; leaving it doesn't close
+  // it, so the rows under the pointer never move; its chevron opens or closes
+  // it by hand. Kept across restarts.
+  const navId = useId();
+  const [openParents, setOpenParents] = useState<ReadonlySet<string>>(() =>
+    readOpenNavParents(navStorage())
+  );
+  const activeParent =
+    navGroups
+      .flatMap((group) => group.items)
+      .find((item) => item.children?.some((child) => child.id === activePage))?.id ?? null;
+  const entered = `${navigationKey}:${activePage}`;
+  const [lastEntered, setLastEntered] = useState<string | null>(null);
+  if (lastEntered !== entered) {
+    setLastEntered(entered);
+    if (activeParent && !openParents.has(activeParent)) {
+      setOpenParents(new Set(openParents).add(activeParent));
+    }
+  }
+  useEffect(() => writeOpenNavParents(navStorage(), openParents), [openParents]);
+  const toggleParent = (id: string) =>
+    setOpenParents((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
 
   const setRoot = useCallback(
     (element: HTMLElement | null) => {
@@ -473,16 +512,23 @@ export default function SettingsLayer<T extends string>({
                         {group.items.map((item) => {
                           const Icon = item.icon;
                           const children = item.children ?? [];
-                          // A parent shows its pages while one of them is open.
-                          const expanded = children.some((child) => child.id === activePage);
-                          const isActive = !item.children && item.page === activePage;
+                          const expanded = Boolean(item.children) && openParents.has(item.id);
+                          const inside = children.some((child) => child.id === activePage);
+                          // A closed parent stands in for its hidden page.
+                          const isActive = item.children
+                            ? inside && !expanded
+                            : item.page === activePage;
+                          const pagesId = `${navId}-${item.id}-pages`;
+                          const toggleLabel = t(
+                            expanded ? "settingsLayer.hidePages" : "settingsLayer.showPages",
+                            { name: item.label }
+                          );
                           return (
-                            <div key={item.id}>
+                            <div key={item.id} className={item.children ? "relative" : undefined}>
                               <button
                                 type="button"
                                 data-settings-nav={item.id}
                                 aria-current={isActive ? "page" : undefined}
-                                aria-expanded={item.children ? expanded : undefined}
                                 onClick={() => {
                                   if (item.onSelect) item.onSelect();
                                   else if (item.page) onNavigate(item.page);
@@ -497,10 +543,11 @@ export default function SettingsLayer<T extends string>({
                                 }
                                 className={cn(
                                   navRowClass(isActive),
-                                  expanded && "text-foreground dark:text-foreground"
+                                  item.children && !navIconsOnly && "pe-8",
+                                  inside && "text-foreground dark:text-foreground"
                                 )}
                               >
-                                <Icon className={navIconClass(isActive || expanded)} />
+                                <Icon className={navIconClass(isActive || inside)} />
                                 {item.flag && (
                                   <span
                                     aria-hidden="true"
@@ -518,7 +565,7 @@ export default function SettingsLayer<T extends string>({
                                     <span
                                       className={cn(
                                         "min-w-0 flex-1 truncate leading-tight",
-                                        isActive || expanded ? "font-medium" : "font-normal"
+                                        isActive || inside ? "font-medium" : "font-normal"
                                       )}
                                     >
                                       {item.label}
@@ -532,8 +579,40 @@ export default function SettingsLayer<T extends string>({
                                   </>
                                 )}
                               </button>
-                              {expanded && (
+                              {item.children && (
+                                <button
+                                  type="button"
+                                  data-settings-nav-toggle={item.id}
+                                  aria-expanded={expanded}
+                                  aria-controls={pagesId}
+                                  aria-label={toggleLabel}
+                                  title={toggleLabel}
+                                  onClick={() => toggleParent(item.id)}
+                                  className={cn(
+                                    "absolute flex items-center justify-center rounded text-muted-foreground/70 outline-none transition-colors duration-100 hover:bg-foreground/5 hover:text-foreground focus-visible:ring-1 focus-visible:ring-primary/30 dark:hover:bg-white/5",
+                                    navIconsOnly ? "-end-1 top-4 h-4 w-4" : "end-1 top-1 h-6 w-6"
+                                  )}
+                                >
+                                  {expanded ? (
+                                    <ChevronDown
+                                      aria-hidden="true"
+                                      className={navIconsOnly ? "h-2.5 w-2.5" : "h-3.5 w-3.5"}
+                                    />
+                                  ) : (
+                                    <ChevronRight
+                                      aria-hidden="true"
+                                      className={cn(
+                                        "rtl:rotate-180",
+                                        navIconsOnly ? "h-2.5 w-2.5" : "h-3.5 w-3.5"
+                                      )}
+                                    />
+                                  )}
+                                </button>
+                              )}
+                              {item.children && (
                                 <div
+                                  id={pagesId}
+                                  hidden={!expanded}
                                   className={cn(
                                     "mt-px mb-1 space-y-px border-s border-border/70 dark:border-white/10",
                                     navIconsOnly ? "ms-2.5 ps-1" : "ms-[17px] ps-2"
@@ -547,7 +626,7 @@ export default function SettingsLayer<T extends string>({
                                         key={child.id}
                                         type="button"
                                         data-settings-nav={child.id}
-                                        aria-current={childActive ? "page" : undefined}
+                                        aria-current={childActive && expanded ? "page" : undefined}
                                         onClick={() => onNavigate(child.id)}
                                         title={navIconsOnly ? child.label : undefined}
                                         aria-label={navIconsOnly ? child.label : undefined}

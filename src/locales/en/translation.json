@@ -2384,7 +2384,9 @@
   "settingsLayer": {
     "backTo": "Back to {{view}}",
     "sections": "Settings sections",
-    "appViews": "App views"
+    "appViews": "App views",
+    "showPages": "Show {{name}} pages",
+    "hidePages": "Hide {{name}} pages"
   },
   "settingsSearch": {
     "placeholder": "Search settings",
@@ -3839,7 +3841,8 @@
           "hidden": "Hidden",
           "busy": "Working",
           "stopsIn": "Stops in {{minutes}} min"
-        }
+        },
+        "plusConsoleHost": "+ console host"
       },
       "details": {
         "what": "What it does",
@@ -3869,7 +3872,9 @@
         "runningFor": "Running for {{duration}}",
         "copy": "Copy",
         "copyLabel": "Copy this process's numbers as text",
-        "graphicsDetails": "Graphics in Diagnostics"
+        "graphicsDetails": "Graphics in Diagnostics",
+        "includes": "Includes",
+        "consoleHostNote": "Console host: Windows starts one for a command-line program, even a hidden one."
       },
       "terms": {
         "ws": "Working set: the part of the process's memory that's in RAM right now.",
@@ -4222,7 +4227,7 @@
         },
         "consoleHost": {
           "name": "Console host",
-          "what": "Windows starts one for every command-line helper, even a hidden one.",
+          "what": "Windows starts one for a command-line program, even a hidden one.",
           "why": {
             "default": "Its helper program is running."
           },

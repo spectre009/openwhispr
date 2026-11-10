@@ -19,16 +19,20 @@ const DATA_PATHS = [
 ];
 
 // Helpers that build-*.js / download-*.js download from upstream releases before
-// (or instead of) compiling, so a fork edit to their source would not ship.
-const DOWNLOAD_FIRST_HELPER_SOURCES = [
-  "resources/windows-fast-paste.c",
-  "resources/windows-mic-listener.c",
-  "resources/windows-system-audio-helper.c",
-];
+// (or instead of) compiling, so a fork edit to their source would not ship. None
+// of the resources/*.c helpers today: they all compile first.
+const DOWNLOAD_FIRST_HELPER_SOURCES = [];
 
 // Helpers that compile from source first. After resources/bin is wiped, the
 // prebuild log must show each one compiled, not downloaded.
-const COMPILED_HELPERS = ["windows-key-listener", "windows-text-monitor", "windows-process-stats"];
+const COMPILED_HELPERS = [
+  "windows-key-listener",
+  "windows-text-monitor",
+  "windows-process-stats",
+  "windows-mic-listener",
+  "windows-system-audio-helper",
+  "windows-fast-paste",
+];
 
 const RUN_VALUE = "com.gizmolabs.openwhispr";
 const LEGACY_DOGFOOD_RUN_VALUE = "OpenWhispr (dogfood)";

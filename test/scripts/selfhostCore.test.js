@@ -98,6 +98,9 @@ test("a compile-first helper that was downloaded instead is reported", () => {
     "[windows-key-listener] Successfully built with MSVC",
     "[windows-text-monitor] Successfully downloaded prebuilt binary",
     "[windows-process-stats] Successfully built with MSVC",
+    "[windows-mic-listener] Successfully built with MSVC",
+    "[windows-system-audio-helper] Successfully built with MSVC",
+    "[windows-fast-paste] Successfully built with MSVC",
   ].join("\n");
   assert.deepEqual(core.helpersNotCompiled(log), ["windows-text-monitor"]);
   assert.deepEqual(
@@ -106,6 +109,9 @@ test("a compile-first helper that was downloaded instead is reported", () => {
         "[windows-key-listener] Successfully built with MSVC",
         "[windows-text-monitor] Successfully built with MSVC",
         "[windows-process-stats] Successfully built with MinGW-w64",
+        "[windows-mic-listener] Successfully built with MSVC",
+        "[windows-system-audio-helper] Successfully built with Clang",
+        "[windows-fast-paste] Successfully built with MSVC",
       ].join("\n")
     ),
     []
@@ -114,11 +120,41 @@ test("a compile-first helper that was downloaded instead is reported", () => {
 
 test("the process stats helper must compile too: it has no prebuilt download", () => {
   assert.ok(core.COMPILED_HELPERS.includes("windows-process-stats"));
+  assert.ok(
+    core
+      .helpersNotCompiled(
+        "[windows-key-listener] Successfully built with MSVC\n[windows-text-monitor] Successfully built with MSVC"
+      )
+      .includes("windows-process-stats")
+  );
+});
+
+// Each one calls FreeConsole() when piped, so a downloaded upstream binary
+// would bring its console host back.
+test("the mic listener, system audio helper and fast paste compile from source too", () => {
+  for (const name of [
+    "windows-mic-listener",
+    "windows-system-audio-helper",
+    "windows-fast-paste",
+  ]) {
+    assert.ok(core.COMPILED_HELPERS.includes(name), name);
+    assert.ok(
+      !core.DOWNLOAD_FIRST_HELPER_SOURCES.includes(`resources/${name}.c`),
+      `${name} is no longer download-first`
+    );
+  }
   assert.deepEqual(
     core.helpersNotCompiled(
-      "[windows-key-listener] Successfully built with MSVC\n[windows-text-monitor] Successfully built with MSVC"
+      [
+        "[windows-key-listener] Successfully built with MSVC",
+        "[windows-text-monitor] Successfully built with MSVC",
+        "[windows-process-stats] Successfully built with MSVC",
+        "[windows-mic-listener] Successfully downloaded prebuilt binary",
+        "[windows-system-audio-helper] Successfully downloaded prebuilt binary",
+        "[windows-fast-paste] Successfully downloaded prebuilt binary",
+      ].join("\n")
     ),
-    ["windows-process-stats"]
+    ["windows-mic-listener", "windows-system-audio-helper", "windows-fast-paste"]
   );
 });
 

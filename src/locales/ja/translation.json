@@ -2290,7 +2290,9 @@
   "settingsLayer": {
     "backTo": "「{{view}}」に戻る",
     "sections": "設定メニュー",
-    "appViews": "アプリの画面"
+    "appViews": "アプリの画面",
+    "showPages": "「{{name}}」のページを表示",
+    "hidePages": "「{{name}}」のページを隠す"
   },
   "settingsSearch": {
     "placeholder": "設定を検索",
@@ -3745,7 +3747,8 @@
           "hidden": "非表示",
           "busy": "処理中",
           "stopsIn": "{{minutes}} 分後に停止"
-        }
+        },
+        "plusConsoleHost": "+ コンソールホスト"
       },
       "details": {
         "what": "役割",
@@ -3775,7 +3778,9 @@
         "runningFor": "{{duration}} 実行中",
         "copy": "コピー",
         "copyLabel": "このプロセスの数値をテキストとしてコピー",
-        "graphicsDetails": "診断のグラフィックス"
+        "graphicsDetails": "診断のグラフィックス",
+        "includes": "含まれるプロセス",
+        "consoleHostNote": "コンソールホスト: Windows はコマンドラインのプログラムに（非表示のものでも）1 つ起動します。"
       },
       "terms": {
         "ws": "ワーキングセット：プロセスのメモリのうち、現在 RAM にある部分。",
@@ -4128,7 +4133,7 @@
         },
         "consoleHost": {
           "name": "コンソールホスト",
-          "what": "Windows は、コマンドラインのヘルパーごとに（非表示のものでも）1 つ起動します。",
+          "what": "Windows はコマンドラインのプログラムに（非表示のものでも）1 つ起動します。",
           "why": {
             "default": "そのヘルパープログラムが実行中です。"
           },

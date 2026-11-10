@@ -1,5 +1,6 @@
 import type {
   ProcessGroup,
+  ProcessInventoryPart,
   ProcessInventoryProcess,
   ProcessInventoryReport,
   ProcessInventoryReportRow,
@@ -88,6 +89,17 @@ function tableLine(cells: string[]): string {
     .trimEnd();
 }
 
+/** A row, then the processes it includes (the program and its console host), indented. */
+function rowLines(row: ProcessInventoryReportRow): string[] {
+  const lines = [tableLine(COLUMNS.map((column) => column.value(row)))];
+  for (const part of row.includes ?? []) {
+    const cells = COLUMNS.map((column) => column.value(part));
+    cells[0] = `  ${cells[0]}`;
+    lines.push(tableLine(cells));
+  }
+  return lines;
+}
+
 function sortedRows(rows: readonly ProcessInventoryReportRow[]): ProcessInventoryReportRow[] {
   return [...rows].sort(
     (a, b) =>
@@ -126,9 +138,7 @@ export function processesText(report: ProcessInventoryReport | null): string[] {
     lines.push(`Windows numbers: ${HELPER_TEXT[report.helper] ?? report.helper}${reason}`);
   }
   lines.push(tableLine(COLUMNS.map((column) => column.title)));
-  for (const row of sortedRows(report.processes)) {
-    lines.push(tableLine(COLUMNS.map((column) => column.value(row))));
-  }
+  for (const row of sortedRows(report.processes)) lines.push(...rowLines(row));
   return lines;
 }
 
@@ -137,42 +147,51 @@ const finite = (value: unknown): number | null =>
 const whole = (value: unknown): number | null =>
   Number.isInteger(value) && (value as number) >= 0 ? (value as number) : null;
 
-/**
- * A page row as the report's allowlisted row (roles, PIDs and numbers only,
- * as main's buildReport makes it), for the row's Copy.
- */
-export function reportRowOf(row: ProcessInventoryProcess, at: number): ProcessInventoryReportRow {
-  const cpuSec = finite(row.cpuSec);
+function reportFieldsOf(
+  item: ProcessInventoryProcess | ProcessInventoryPart,
+  group: ProcessGroup,
+  at: number
+): ProcessInventoryReportRow {
+  const cpuSec = finite(item.cpuSec);
   return {
-    role: row.role,
-    group: row.group,
-    pid: whole(row.pid),
-    ws: finite(row.ws),
-    priv: finite(row.priv),
-    peak: finite(row.peak),
-    cpuPct: finite(row.cpuPct),
-    cpuAvg: finite(row.cpuAvg),
+    role: item.role,
+    group,
+    pid: whole(item.pid),
+    ws: finite(item.ws),
+    priv: finite(item.priv),
+    peak: finite(item.peak),
+    cpuPct: finite(item.cpuPct),
+    cpuAvg: finite(item.cpuAvg),
     cpuSec: cpuSec === null ? null : Math.round(cpuSec * 10) / 10,
-    gpuDedicated: finite(row.gpuDedicated),
-    gpuShared: finite(row.gpuShared),
-    gpuUse: finite(row.gpuUse),
-    handles: whole(row.handles),
-    threads: whole(row.threads),
-    gdi: whole(row.gdi),
-    user: whole(row.user),
+    gpuDedicated: finite(item.gpuDedicated),
+    gpuShared: finite(item.gpuShared),
+    gpuUse: finite(item.gpuUse),
+    handles: whole(item.handles),
+    threads: whole(item.threads),
+    gdi: whole(item.gdi),
+    user: whole(item.user),
     uptimeSec:
-      finite(row.createdAt) && (row.createdAt as number) > 0
-        ? Math.max(0, Math.round((at - (row.createdAt as number)) / 1000))
+      finite(item.createdAt) && (item.createdAt as number) > 0
+        ? Math.max(0, Math.round((at - (item.createdAt as number)) / 1000))
         : null,
   };
 }
 
-/** One process as Copy diagnostics' table: the column titles, then its row. English. */
+/**
+ * A page row as the report's allowlisted row (roles, PIDs and numbers only,
+ * as main's buildReport makes it, with a folded row's parts), for the row's Copy.
+ */
+export function reportRowOf(row: ProcessInventoryProcess, at: number): ProcessInventoryReportRow {
+  const item = reportFieldsOf(row, row.group, at);
+  if (row.includes?.length) {
+    item.includes = row.includes.map((part) => reportFieldsOf(part, row.group, at));
+  }
+  return item;
+}
+
+/** One process as Copy diagnostics' table: the column titles, then its row (and its parts). English. */
 export function processRowText(row: ProcessInventoryReportRow): string {
-  return [
-    tableLine(COLUMNS.map((column) => column.title)),
-    tableLine(COLUMNS.map((column) => column.value(row))),
-  ].join("\n");
+  return [tableLine(COLUMNS.map((column) => column.title)), ...rowLines(row)].join("\n");
 }
 
 // --- The page's numbers, in the UI language --------------------------------

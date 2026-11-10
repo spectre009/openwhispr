@@ -763,7 +763,15 @@ static int parseDword(const char* s, DWORD* out) {
   return 1;
 }
 
+// Windows gives a console program a console (a conhost.exe) even when it's
+// started hidden with piped stdio. Started that way, release it; the pipes keep
+// working. Run by hand in a terminal, stdout is the console and stays.
+static void releaseConsoleWhenPiped(void) {
+  if (GetFileType(GetStdHandle(STD_OUTPUT_HANDLE)) != FILE_TYPE_CHAR) FreeConsole();
+}
+
 int main(int argc, char** argv) {
+  releaseConsoleWhenPiped();
   QueryPerformanceFrequency(&qpcFreq);
   int once = 0, stream = 0, wantGpu = 0;
   DWORD root = 0;

@@ -2290,7 +2290,9 @@
   "settingsLayer": {
     "backTo": "返回{{view}}",
     "sections": "設定導覽",
-    "appViews": "應用程式頁面"
+    "appViews": "應用程式頁面",
+    "showPages": "顯示「{{name}}」的頁面",
+    "hidePages": "隱藏「{{name}}」的頁面"
   },
   "settingsSearch": {
     "placeholder": "搜尋設定",
@@ -3745,7 +3747,8 @@
           "hidden": "已隱藏",
           "busy": "工作中",
           "stopsIn": "{{minutes}} 分鐘後停止"
-        }
+        },
+        "plusConsoleHost": "+ 主控台主機"
       },
       "details": {
         "what": "用途",
@@ -3775,7 +3778,9 @@
         "runningFor": "已執行 {{duration}}",
         "copy": "複製",
         "copyLabel": "將此處理程序的數值複製為文字",
-        "graphicsDetails": "診斷中的圖形"
+        "graphicsDetails": "診斷中的圖形",
+        "includes": "包含",
+        "consoleHostNote": "主控台主機：Windows 會為命令列程式啟動一個，即使該程式是隱藏的也一樣。"
       },
       "terms": {
         "ws": "工作集：處理程序記憶體中目前位於 RAM 的部分。",
@@ -4128,7 +4133,7 @@
         },
         "consoleHost": {
           "name": "主控台主機",
-          "what": "Windows 會為每個命令列輔助程式啟動一個，即使是隱藏的輔助程式也一樣。",
+          "what": "Windows 會為命令列程式啟動一個，即使該程式是隱藏的也一樣。",
           "why": {
             "default": "其輔助程式正在執行。"
           },

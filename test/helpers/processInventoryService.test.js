@@ -432,3 +432,55 @@ test("warnings are logged from the sample that crosses a threshold", async () =>
   });
   await h.inventory.stop();
 });
+
+test("a console host is folded into its program before history, warnings and the snapshot line see it", async () => {
+  const h = makeHarness();
+  h.inventory.start();
+  const conhost = helperRow({
+    pid: 131,
+    ppid: 130,
+    exe: "conhost.exe",
+    createdAt: T0 - 3499_000,
+    ws: 8 * MB,
+    user: 5000,
+  });
+  await h.clock.advance(60_000);
+  h.spawned[0].answer(helperJson({ processes: [...baseRows(), conhost], gpu: GPU_OK() }));
+  await flush();
+
+  const { snapshot, history } = h.inventory.get();
+  const listener = snapshot.processes.find((row) => row.role === "keyListener");
+  assert.deepEqual(
+    listener.includes.map((part) => [part.pid, part.role]),
+    [
+      [130, "keyListener"],
+      [131, "consoleHost"],
+    ]
+  );
+  assert.equal(listener.ws, 108 * MB);
+  assert.equal(snapshot.processes.length, 4, "no row of its own");
+  assert.equal(snapshot.totals.processes, 5);
+  assert.deepEqual(
+    history.instances.map((entry) => entry.pid),
+    [100, 110, 120, 130],
+    "history follows the key listener's own instance"
+  );
+  assert.equal(history.instances[3].points[0].ws, 108 * MB);
+
+  const line = JSON.parse(h.logs.find((entry) => entry.message === "Resource snapshot").meta);
+  assert.deepEqual(
+    line.roles.map((row) => row.role),
+    ["main", "gpu", "dictationWindow", "keyListener"]
+  );
+  assert.equal(line.roles[3].wsMB, 108);
+  assert.equal(line.processes, 5);
+  const warning = h.logs.find((entry) => entry.message === "Resource warning");
+  assert.deepEqual(warning.meta, {
+    kind: "userObjects",
+    role: "keyListener",
+    pid: 130,
+    count: 5060,
+    limit: 10_000,
+  });
+  await h.inventory.stop();
+});

@@ -2290,7 +2290,9 @@
   "settingsLayer": {
     "backTo": "Torna a «{{view}}»",
     "sections": "Sezioni delle impostazioni",
-    "appViews": "Viste dell'app"
+    "appViews": "Viste dell'app",
+    "showPages": "Mostra le pagine di {{name}}",
+    "hidePages": "Nascondi le pagine di {{name}}"
   },
   "settingsSearch": {
     "placeholder": "Cerca nelle impostazioni",
@@ -3745,7 +3747,8 @@
           "hidden": "Nascosta",
           "busy": "Al lavoro",
           "stopsIn": "Si ferma tra {{minutes}} min"
-        }
+        },
+        "plusConsoleHost": "+ host della console"
       },
       "details": {
         "what": "Cosa fa",
@@ -3775,7 +3778,9 @@
         "runningFor": "In esecuzione da {{duration}}",
         "copy": "Copia",
         "copyLabel": "Copia i valori di questo processo come testo",
-        "graphicsDetails": "Grafica in Diagnostica"
+        "graphicsDetails": "Grafica in Diagnostica",
+        "includes": "Include",
+        "consoleHostNote": "Host della console: Windows ne avvia uno per un programma da riga di comando, anche se nascosto."
       },
       "terms": {
         "ws": "Working set: la parte della memoria del processo che è in RAM in questo momento.",
@@ -4128,7 +4133,7 @@
         },
         "consoleHost": {
           "name": "Host della console",
-          "what": "Windows ne avvia uno per ogni programma di supporto da riga di comando, anche se nascosto.",
+          "what": "Windows ne avvia uno per un programma da riga di comando, anche se nascosto.",
           "why": {
             "default": "Il suo programma di supporto è in esecuzione."
           },

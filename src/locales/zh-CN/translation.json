@@ -2290,7 +2290,9 @@
   "settingsLayer": {
     "backTo": "返回{{view}}",
     "sections": "设置导航",
-    "appViews": "应用页面"
+    "appViews": "应用页面",
+    "showPages": "显示“{{name}}”的页面",
+    "hidePages": "隐藏“{{name}}”的页面"
   },
   "settingsSearch": {
     "placeholder": "搜索设置",
@@ -3745,7 +3747,8 @@
           "hidden": "已隐藏",
           "busy": "工作中",
           "stopsIn": "{{minutes}} 分钟后停止"
-        }
+        },
+        "plusConsoleHost": "+ 控制台主机"
       },
       "details": {
         "what": "作用",
@@ -3775,7 +3778,9 @@
         "runningFor": "已运行 {{duration}}",
         "copy": "复制",
         "copyLabel": "将此进程的数值复制为文本",
-        "graphicsDetails": "诊断中的图形"
+        "graphicsDetails": "诊断中的图形",
+        "includes": "包含",
+        "consoleHostNote": "控制台主机：Windows 会为命令行程序启动一个，即使该程序是隐藏的。"
       },
       "terms": {
         "ws": "工作集：进程内存中当前位于 RAM 的部分。",
@@ -4128,7 +4133,7 @@
         },
         "consoleHost": {
           "name": "控制台主机",
-          "what": "Windows 会为每个命令行辅助程序启动一个，即使是隐藏的辅助程序。",
+          "what": "Windows 会为命令行程序启动一个，即使该程序是隐藏的。",
           "why": {
             "default": "其辅助程序正在运行。"
           },

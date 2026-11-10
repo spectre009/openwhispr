@@ -3,7 +3,8 @@ import type { PromptKind } from "../../config/prompts/registry";
 
 /**
  * The Settings pages and their nav tree: groups → pages, or a parent whose
- * sub-pages show under it while one of them is open. Kept free of React and
+ * sub-pages list under it while it's open (going into it opens it; only its
+ * chevron closes it). Kept free of React and
  * icons (icons are named here and mapped in settingsPageIcons.ts) so the
  * resolver and the search index run in plain tests.
  *
@@ -614,6 +615,45 @@ export function takeSavedLegacyTabs(storage: SettingsKeyValueStorage | undefined
     if (page) tabs[section] = page;
   }
   return tabs;
+}
+
+// ── The nav's open parents ─────────────────────────────────────────────────
+
+/**
+ * The parents whose pages the nav lists. A parent opens when you go into it
+ * (or by its chevron) and closes only by its chevron, so leaving it never moves
+ * the rows under the pointer. Kept across restarts.
+ */
+export const OPEN_NAV_PARENTS_KEY = "settings.navOpenParents";
+
+/** Before any parent was opened or closed by hand: Dictation open, the others closed. */
+export const DEFAULT_OPEN_NAV_PARENTS: readonly SettingsParentId[] = ["dictation"];
+
+/** The saved open parents, unknown ids dropped; the default when nothing usable is saved. */
+export function readOpenNavParents(
+  storage: Pick<Storage, "getItem"> | undefined
+): Set<SettingsParentId> {
+  let saved: unknown = null;
+  try {
+    const raw = storage?.getItem(OPEN_NAV_PARENTS_KEY) ?? null;
+    saved = raw === null ? null : JSON.parse(raw);
+  } catch {
+    saved = null;
+  }
+  return new Set(
+    Array.isArray(saved) ? saved.filter(isSettingsParentId) : DEFAULT_OPEN_NAV_PARENTS
+  );
+}
+
+export function writeOpenNavParents(
+  storage: Pick<Storage, "setItem"> | undefined,
+  open: ReadonlySet<string>
+): void {
+  try {
+    storage?.setItem(OPEN_NAV_PARENTS_KEY, JSON.stringify([...open].filter(isSettingsParentId)));
+  } catch {
+    // Not remembered; the nav still works.
+  }
 }
 
 // ── Destinations ───────────────────────────────────────────────────────────

@@ -8,7 +8,8 @@
 //   see: helper programs, handles, threads, GDI/USER objects and, with --gpu,
 //   graphics memory per process and how many processes on this PC hold it.
 //   Its rows enrich Electron's for the same (pid, creation time), never
-//   duplicate them.
+//   duplicate them. A console host (conhost.exe) is folded into the row of
+//   the program it serves, before anything else sees the rows.
 // - CPU % is "% of one core", from each instance's total CPU seconds over a
 //   monotonic clock; Electron's own % divides by the core count and resets
 //   whenever anyone (ownProcessPids.js) reads the metrics.
@@ -27,7 +28,13 @@ const fs = require("fs");
 const os = require("os");
 const path = require("path");
 const { spawn: nodeSpawn } = require("child_process");
-const { describeRole, notRunningRoles, resolveRole, ROLE_IDS } = require("./processRoles");
+const {
+  describeRole,
+  notRunningRoles,
+  resolveRole,
+  roleForExe,
+  ROLE_IDS,
+} = require("./processRoles");
 
 const HELPER_EXE = "windows-process-stats.exe";
 const KIB = 1024;
@@ -279,6 +286,57 @@ function mergeProcesses({ electron = [], helper = null } = {}) {
   return rows;
 }
 
+// Everything a console host adds to its program's row.
+const FOLDED_FIELDS = Object.freeze([...SHARED_FIELDS, ...HELPER_ONLY_FIELDS]);
+
+const isConsoleHost = (row) => row.type === null && roleForExe(row.exe) === "consoleHost";
+
+/** The sum of the values that are known; null when none is. */
+function sumKnown(values) {
+  const known = values.filter((value) => value !== null && value !== undefined);
+  return known.length ? known.reduce((total, value) => total + value, 0) : null;
+}
+
+function rowPart(row) {
+  const part = { key: row.key, pid: row.pid, createdAt: row.createdAt, exe: row.exe };
+  for (const field of FOLDED_FIELDS) part[field] = row[field];
+  return part;
+}
+
+/**
+ * Each console host (conhost.exe, which Windows starts for a console program)
+ * folded into the row of the program it serves, when that program is in the
+ * tree: the program's row keeps its identity (key, PID, history) and gets the
+ * console host's numbers added, with `includes` listing both. A console host
+ * whose program isn't in the tree keeps its own row.
+ */
+function foldConsoleHosts(rows) {
+  const folded = new Set();
+  for (const host of rows) {
+    if (!isConsoleHost(host) || host.ppid === null) continue;
+    const parent = rows.find(
+      (row) =>
+        row.pid === host.ppid &&
+        !isConsoleHost(row) &&
+        (row.createdAt === null ||
+          host.createdAt === null ||
+          row.createdAt <= host.createdAt + CREATED_MATCH_TOLERANCE_MS)
+    );
+    if (!parent) continue;
+    parent.includes ??= [rowPart(parent)];
+    parent.includes.push(rowPart(host));
+    folded.add(host);
+  }
+  if (!folded.size) return rows;
+  for (const row of rows) {
+    if (!row.includes) continue;
+    for (const field of FOLDED_FIELDS) {
+      row[field] = sumKnown(row.includes.map((part) => part[field]));
+    }
+  }
+  return rows.filter((row) => !folded.has(row));
+}
+
 /** `100 × Δcpu seconds ÷ Δwall seconds`: % of one core; null without a usable previous reading. */
 function cpuPercent(previous, current) {
   if (!previous || previous.cpuSec === null || current.cpuSec === null) return null;
@@ -296,9 +354,20 @@ function createCpuTracker() {
     /** Sets each row's cpuPct; returns the interval it covers in seconds (null on the first). */
     apply(rows, mono) {
       const next = new Map();
+      const percentOf = (item) => {
+        const pct = cpuPercent(previous.get(item.key), { cpuSec: item.cpuSec, mono });
+        if (item.cpuSec !== null) next.set(item.key, { cpuSec: item.cpuSec, mono });
+        return pct;
+      };
       for (const row of rows) {
-        row.cpuPct = cpuPercent(previous.get(row.key), { cpuSec: row.cpuSec, mono });
-        if (row.cpuSec !== null) next.set(row.key, { cpuSec: row.cpuSec, mono });
+        if (!row.includes) {
+          row.cpuPct = percentOf(row);
+          continue;
+        }
+        // A folded row's parts each against their own last reading, so a console
+        // host that appears, goes or can't be read never shows as a spike.
+        for (const part of row.includes) part.cpuPct = percentOf(part);
+        row.cpuPct = round(sumKnown(row.includes.map((part) => part.cpuPct)), 2);
       }
       const interval = previousMono === null ? null : round((mono - previousMono) / 1000, 1);
       previous = next;
@@ -416,6 +485,13 @@ function aboutParams(role, row, context, at) {
   }
 }
 
+const cpuAverage = (cpuSec, createdAt, at) => {
+  const uptimeSec = createdAt === null ? null : (at - createdAt) / 1000;
+  return cpuSec !== null && uptimeSec !== null && uptimeSec >= 1
+    ? round((100 * cpuSec) / uptimeSec, 2)
+    : null;
+};
+
 /** Role, group, what-it-is keys, state and average CPU for every merged row. */
 function annotateRows(rows, context = {}, at = Date.now()) {
   const windows = context.windows instanceof Map ? context.windows : new Map();
@@ -435,16 +511,19 @@ function annotateRows(rows, context = {}, at = Date.now()) {
     if (hosted.length) row.state = hosted[0].visible === false ? "hidden" : "visible";
     else if (row.role === "copilotRuntime") row.state = params.busy ? "busy" : "idle";
     else row.state = null;
-    const uptimeSec = row.createdAt === null ? null : (at - row.createdAt) / 1000;
-    row.cpuAvg =
-      row.cpuSec !== null && uptimeSec !== null && uptimeSec >= 1
-        ? round((100 * row.cpuSec) / uptimeSec, 2)
-        : null;
+    row.cpuAvg = cpuAverage(row.cpuSec, row.createdAt, at);
+    for (const part of row.includes ?? []) {
+      part.role = part.key === row.key ? row.role : roleForExe(part.exe);
+      part.cpuAvg = cpuAverage(part.cpuSec, part.createdAt, at);
+    }
   }
   return rows;
 }
 
-/** Sums over all processes: shared memory is counted once per process, so it's an upper bound. */
+/**
+ * Sums over all processes, a folded row's parts each counted: shared memory is
+ * counted once per process, so it's an upper bound.
+ */
 function computeTotals(rows) {
   const sum = (field) => {
     const values = rows
@@ -454,7 +533,7 @@ function computeTotals(rows) {
   };
   const cpu = sum("cpuPct");
   return {
-    processes: rows.length,
+    processes: rows.reduce((count, row) => count + (row.includes?.length || 1), 0),
     ws: sum("ws"),
     priv: sum("priv"),
     cpuPct: cpu === null ? null : round(cpu, 2),
@@ -640,15 +719,10 @@ function frameWindowOf(reading, startedAt) {
 
 const knownRole = (role) => (ROLE_IDS.includes(role) ? role : "unknown");
 
-/**
- * The allowlisted view of a snapshot that logs and Copy diagnostics use:
- * roles, PIDs, numbers and enums only. Bytes; CPU in % of one core.
- */
-function buildReport(snapshot, now = Date.now()) {
-  if (!snapshot) return null;
-  const processes = snapshot.processes.map((row) => ({
+function reportRow(row, group, now) {
+  return {
     role: knownRole(row.role),
-    group: ["app", "windows", "services", "helpers"].includes(row.group) ? row.group : "helpers",
+    group: ["app", "windows", "services", "helpers"].includes(group) ? group : "helpers",
     pid: countOrNull(row.pid),
     ws: finiteOrNull(row.ws),
     priv: finiteOrNull(row.priv),
@@ -667,7 +741,23 @@ function buildReport(snapshot, now = Date.now()) {
       Number.isFinite(row.createdAt) && row.createdAt > 0
         ? Math.max(0, Math.round((now - row.createdAt) / 1000))
         : null,
-  }));
+  };
+}
+
+/**
+ * The allowlisted view of a snapshot that logs and Copy diagnostics use:
+ * roles, PIDs, numbers and enums only. Bytes; CPU in % of one core. A folded
+ * row lists its parts (the program and its console host) the same way.
+ */
+function buildReport(snapshot, now = Date.now()) {
+  if (!snapshot) return null;
+  const processes = snapshot.processes.map((row) => {
+    const item = reportRow(row, row.group, now);
+    if (Array.isArray(row.includes) && row.includes.length) {
+      item.includes = row.includes.map((part) => reportRow(part, row.group, now));
+    }
+    return item;
+  });
   const graphics = snapshot.machine?.graphics ?? null;
   return {
     at: snapshot.at,
@@ -773,12 +863,12 @@ function evaluateWarnings({ rows, history = null, lastWarned, now }) {
       }
     }
   }
-  const ws = computeTotals(rows).ws;
-  if (ws !== null && ws > TOTAL_WS_WARN_BYTES && due("totalMemory")) {
+  const totals = computeTotals(rows);
+  if (totals.ws !== null && totals.ws > TOTAL_WS_WARN_BYTES && due("totalMemory")) {
     warnings.push({
       kind: "totalMemory",
-      wsMB: toMb(ws),
-      processes: rows.length,
+      wsMB: toMb(totals.ws),
+      processes: totals.processes,
       limitMB: TOTAL_WS_WARN_BYTES / MB,
     });
   }
@@ -977,7 +1067,7 @@ function createProcessInventory({
   function ingest(sample, { source, tracker }) {
     const at = now();
     const monoAt = mono();
-    const rows = mergeProcesses({ electron: readElectron(), helper: sample });
+    const rows = foldConsoleHosts(mergeProcesses({ electron: readElectron(), helper: sample }));
     annotateRows(rows, readContext(), at);
     const cpuIntervalSec = tracker.apply(rows, monoAt);
 
@@ -994,6 +1084,11 @@ function createProcessInventory({
         if (!known) continue;
         row.gpuDedicated = known.gpuDedicated;
         row.gpuShared = known.gpuShared;
+        const knownParts = new Map((known.includes ?? [known]).map((part) => [part.key, part]));
+        for (const part of row.includes ?? []) {
+          part.gpuDedicated = knownParts.get(part.key)?.gpuDedicated ?? null;
+          part.gpuShared = knownParts.get(part.key)?.gpuShared ?? null;
+        }
       }
     }
 
@@ -1639,6 +1734,7 @@ module.exports = {
   createProcessInventory,
   createWindowVisibilityTracker,
   evaluateWarnings,
+  foldConsoleHosts,
   frameWindowOf,
   mergeProcesses,
   normalizeElectronMetrics,

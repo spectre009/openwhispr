@@ -4,8 +4,8 @@
  *
  * Strategy:
  * 1. If binary exists and is up-to-date, do nothing
- * 2. Try to download prebuilt binary from GitHub releases
- * 3. Fall back to local compilation if download fails
+ * 2. Try to compile locally so source changes are picked up in Windows builds
+ * 3. Fall back to downloading a prebuilt binary if local compilation is unavailable
  *
  * This allows developers without a C compiler to still build the app.
  */
@@ -100,9 +100,7 @@ async function tryDownload() {
       log("Successfully downloaded prebuilt binary");
       return true;
     }
-    discardStaleBinary(
-      "Discarded prebuilt binary without selection-copy-v1 support; compiling locally"
-    );
+    discardStaleBinary("Discarded prebuilt binary without selection-copy-v1 support");
     return false;
   }
 
@@ -205,13 +203,13 @@ async function main() {
     return;
   }
 
-  const downloaded = await tryDownload();
-  if (downloaded) {
+  const compiled = tryCompile();
+  if (compiled) {
     return;
   }
 
-  const compiled = tryCompile();
-  if (compiled) {
+  const downloaded = await tryDownload();
+  if (downloaded) {
     return;
   }
 

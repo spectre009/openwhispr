@@ -625,6 +625,7 @@ function preflight(sha) {
         "a build of it would offer upstream updates"
     );
   }
+  if (!core.DOWNLOAD_FIRST_HELPER_SOURCES.length) return;
   const base = git(["merge-base", sha, upstreamRef()]);
   const changed = git([
     "diff",

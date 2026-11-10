@@ -2384,7 +2384,9 @@
   "settingsLayer": {
     "backTo": "Retour à « {{view}} »",
     "sections": "Sections des paramètres",
-    "appViews": "Vues de l'app"
+    "appViews": "Vues de l'app",
+    "showPages": "Afficher les pages « {{name}} »",
+    "hidePages": "Masquer les pages « {{name}} »"
   },
   "settingsSearch": {
     "placeholder": "Rechercher dans les paramètres",
@@ -3839,7 +3841,8 @@
           "hidden": "Masqué",
           "busy": "Occupé",
           "stopsIn": "S'arrête dans {{minutes}} min"
-        }
+        },
+        "plusConsoleHost": "+ hôte de la fenêtre de console"
       },
       "details": {
         "what": "Ce qu'il fait",
@@ -3869,7 +3872,9 @@
         "runningFor": "En cours depuis {{duration}}",
         "copy": "Copier",
         "copyLabel": "Copier les valeurs de ce processus sous forme de texte",
-        "graphicsDetails": "Graphismes dans Diagnostic"
+        "graphicsDetails": "Graphismes dans Diagnostic",
+        "includes": "Comprend",
+        "consoleHostNote": "Hôte de la fenêtre de console : Windows en lance un pour un programme en ligne de commande, même masqué."
       },
       "terms": {
         "ws": "Plage de travail : la partie de la mémoire du processus qui se trouve en RAM en ce moment.",
@@ -4222,7 +4227,7 @@
         },
         "consoleHost": {
           "name": "Hôte de la fenêtre de console",
-          "what": "Windows en lance un pour chaque programme auxiliaire en ligne de commande, même masqué.",
+          "what": "Windows en lance un pour un programme en ligne de commande, même masqué.",
           "why": {
             "default": "Son programme auxiliaire tourne."
           },

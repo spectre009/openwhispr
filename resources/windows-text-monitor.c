@@ -176,7 +176,17 @@ static int focused_has_selection(IUIAutomationElement *focused) {
     return has_selection;
 }
 
+/* Windows gives a console program a console (a conhost.exe) even when it's
+ * started hidden with piped stdio. Started that way, release it; the pipes keep
+ * working. Run by hand in a terminal, stdout is the console and stays. */
+static void release_console_when_piped(void) {
+    if (GetFileType(GetStdHandle(STD_OUTPUT_HANDLE)) != FILE_TYPE_CHAR) {
+        FreeConsole();
+    }
+}
+
 int main(int argc, char **argv) {
+    release_console_when_piped();
     signal(SIGTERM, signal_handler);
     signal(SIGINT, signal_handler);
 

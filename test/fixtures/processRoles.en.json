@@ -189,7 +189,7 @@
         },
         "consoleHost": {
           "name": "Console host",
-          "what": "Windows starts one for every command-line helper, even a hidden one.",
+          "what": "Windows starts one for a command-line program, even a hidden one.",
           "why": { "default": "Its helper program is running." },
           "goesAway": { "default": "With its helper program." }
         },

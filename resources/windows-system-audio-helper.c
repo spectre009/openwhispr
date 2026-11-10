@@ -690,6 +690,16 @@ static BOOL WINAPI console_ctrl_handler(DWORD ctrlType)
     return TRUE;
 }
 
+/* Windows gives a console program a console (a conhost.exe) even when it's
+ * started hidden with piped stdio. Started that way, release it; the pipes keep
+ * working. Run by hand in a terminal, stdout is the console and stays. */
+static void release_console_when_piped(void)
+{
+    if (GetFileType(GetStdHandle(STD_OUTPUT_HANDLE)) != FILE_TYPE_CHAR) {
+        FreeConsole();
+    }
+}
+
 int main(int argc, char *argv[])
 {
     const char *command = argc > 1 ? argv[1] : NULL;
@@ -698,6 +708,8 @@ int main(int argc, char *argv[])
     HRESULT hr;
     int exitCode;
     int i;
+
+    release_console_when_piped();
 
     if (!command || (strcmp(command, "probe") != 0 && strcmp(command, "start") != 0)) {
         fprintf(stderr, "Usage: windows-system-audio-helper <probe|start> "

@@ -1284,6 +1284,16 @@ static DWORD WINAPI StdinMonitorThread(LPVOID parameter)
     return 0;
 }
 
+/* Windows gives a console program a console (a conhost.exe) even when it's
+ * started hidden with piped stdio. Started that way, release it; the pipes keep
+ * working. Run by hand in a terminal, stdout is the console and stays. */
+static void ReleaseConsoleWhenPiped(void)
+{
+    if (GetFileType(GetStdHandle(STD_OUTPUT_HANDLE)) != FILE_TYPE_CHAR) {
+        FreeConsole();
+    }
+}
+
 int main(int argc, char *argv[])
 {
     IMMDeviceEnumerator *enumerator = NULL;
@@ -1299,6 +1309,7 @@ int main(int argc, char *argv[])
     (void)argc;
     (void)argv;
 
+    ReleaseConsoleWhenPiped();
     g_mainThreadId = GetCurrentThreadId();
     PeekMessage(&message, NULL, WM_USER, WM_USER, PM_NOREMOVE);
     MicPidRegistryInitialize(

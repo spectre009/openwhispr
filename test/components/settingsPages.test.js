@@ -380,6 +380,59 @@ test("the retired saved tabs are read once, mapped to pages and removed", async 
   assert.deepEqual(takeSavedLegacyTabs(undefined), {});
 });
 
+test("the nav's open parents: Dictation the first time, then what was saved, unknown ids dropped", async () => {
+  const { readOpenNavParents, writeOpenNavParents, OPEN_NAV_PARENTS_KEY, SETTINGS_NAV } =
+    await load();
+  const store = new Map();
+  const storage = {
+    getItem: (key) => (store.has(key) ? store.get(key) : null),
+    setItem: (key, value) => store.set(key, value),
+  };
+  assert.deepEqual([...readOpenNavParents(storage)], ["dictation"], "first time");
+  assert.deepEqual([...readOpenNavParents(undefined)], ["dictation"]);
+
+  writeOpenNavParents(storage, new Set(["notes", "app"]));
+  assert.equal(store.get(OPEN_NAV_PARENTS_KEY), JSON.stringify(["notes", "app"]));
+  assert.deepEqual([...readOpenNavParents(storage)], ["notes", "app"]);
+  writeOpenNavParents(storage, new Set());
+  assert.deepEqual([...readOpenNavParents(storage)], [], "all closed is remembered too");
+
+  store.set(OPEN_NAV_PARENTS_KEY, JSON.stringify(["dictation", "retired", 7, null, "overview"]));
+  assert.deepEqual([...readOpenNavParents(storage)], ["dictation"], "only parent ids");
+  writeOpenNavParents(storage, new Set(["app", "gone"]));
+  assert.equal(store.get(OPEN_NAV_PARENTS_KEY), JSON.stringify(["app"]));
+  for (const raw of ["not json", JSON.stringify({ dictation: true }), JSON.stringify("app")]) {
+    store.set(OPEN_NAV_PARENTS_KEY, raw);
+    assert.deepEqual([...readOpenNavParents(storage)], ["dictation"], raw);
+  }
+  const throwing = {
+    getItem: () => {
+      throw new Error("denied");
+    },
+    setItem: () => {
+      throw new Error("full");
+    },
+  };
+  assert.deepEqual([...readOpenNavParents(throwing)], ["dictation"]);
+  assert.doesNotThrow(() => writeOpenNavParents(throwing, new Set(["notes"])));
+
+  // Every parent the nav has can be remembered.
+  const parents = SETTINGS_NAV.flatMap((group) => group.items)
+    .filter((item) => item.kind === "parent")
+    .map((item) => item.id);
+  writeOpenNavParents(storage, new Set(parents));
+  assert.deepEqual([...readOpenNavParents(storage)], parents);
+});
+
+test("the nav's chevron names exist in all 11 locales, with the parent's name", () => {
+  for (const lang of LOCALES) {
+    const layer = readLocale(lang).settingsLayer;
+    for (const key of ["showPages", "hidePages"]) {
+      assert.match(layer?.[key] ?? "", /\{\{name\}\}/, `${lang} settingsLayer.${key}`);
+    }
+  }
+});
+
 test("a bare llms / speechToText uses the saved tab once, then the default page", async () => {
   const { applySettingsRequest, initialSettingsNavigation, nextSettingsRequest } = await load();
   const savedTabs = { llms: "chat", speechToText: "liveRecording" };

@@ -2384,7 +2384,9 @@
   "settingsLayer": {
     "backTo": "Zurück zu „{{view}}“",
     "sections": "Einstellungsbereiche",
-    "appViews": "App-Ansichten"
+    "appViews": "App-Ansichten",
+    "showPages": "Seiten von „{{name}}“ einblenden",
+    "hidePages": "Seiten von „{{name}}“ ausblenden"
   },
   "settingsSearch": {
     "placeholder": "Einstellungen durchsuchen",
@@ -3839,7 +3841,8 @@
           "hidden": "Ausgeblendet",
           "busy": "Beschäftigt",
           "stopsIn": "Endet in {{minutes}} Min."
-        }
+        },
+        "plusConsoleHost": "+ Konsolenfenster-Host"
       },
       "details": {
         "what": "Was er tut",
@@ -3869,7 +3872,9 @@
         "runningFor": "Läuft seit {{duration}}",
         "copy": "Kopieren",
         "copyLabel": "Die Werte dieses Prozesses als Text kopieren",
-        "graphicsDetails": "Grafik in der Diagnose"
+        "graphicsDetails": "Grafik in der Diagnose",
+        "includes": "Enthält",
+        "consoleHostNote": "Konsolenfenster-Host: Windows startet einen für ein Befehlszeilenprogramm, auch für ein ausgeblendetes."
       },
       "terms": {
         "ws": "Arbeitssatz: der Teil des Prozessspeichers, der gerade im RAM liegt.",
@@ -4222,7 +4227,7 @@
         },
         "consoleHost": {
           "name": "Konsolenfenster-Host",
-          "what": "Windows startet einen für jedes Befehlszeilen-Hilfsprogramm, auch für ein ausgeblendetes.",
+          "what": "Windows startet einen für ein Befehlszeilenprogramm, auch für ein ausgeblendetes.",
           "why": {
             "default": "Sein Hilfsprogramm läuft."
           },

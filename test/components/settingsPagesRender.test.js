@@ -267,14 +267,36 @@ test(
       doc.querySelector('[data-settings-nav="noteFormatting"]').getAttribute("aria-current"),
       "page"
     );
+    const toggle = (parent) => doc.querySelector(`[data-settings-nav-toggle="${parent}"]`);
+    assert.equal(toggle("notes").getAttribute("aria-expanded"), "true");
     assert.equal(
-      doc.querySelector('[data-settings-nav="notes"]').getAttribute("aria-expanded"),
-      "true"
+      toggle("dictation").getAttribute("aria-expanded"),
+      "true",
+      "leaving Dictation didn't close it"
     );
+    assert.equal(doc.querySelector('[data-settings-nav="cleanup"]').closest("[hidden]"), null);
+    assert.deepEqual(
+      JSON.parse(happyWindow.localStorage.getItem("settings.navOpenParents")).sort(),
+      ["app", "dictation", "notes"]
+    );
+
+    // Closed by hand, a parent opens again when a destination goes into it.
+    await React.act(async () => {
+      toggle("notes").click();
+      await settle();
+    });
+    assert.equal(toggle("notes").getAttribute("aria-expanded"), "false");
     assert.equal(
-      doc.querySelector('[data-settings-nav="cleanup"]'),
-      null,
-      "Dictation is collapsed"
+      doc.querySelector('[data-settings-nav="notes"]').getAttribute("aria-current"),
+      "page",
+      "the parent row stands in for its hidden page"
+    );
+    await render({ section: "uploadTranscription", id: id++ });
+    assert.deepEqual(shown(), ["fileTranscription"]);
+    assert.equal(toggle("notes").getAttribute("aria-expanded"), "true");
+    assert.equal(
+      doc.querySelector('[data-settings-nav="fileTranscription"]').getAttribute("aria-current"),
+      "page"
     );
 
     assert.deepEqual(errors, [], "nothing logged an error");

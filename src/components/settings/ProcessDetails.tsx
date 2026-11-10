@@ -21,6 +21,7 @@ import {
   P,
   aboutParams,
   missingReason,
+  roleName,
   type ProcessField,
   type ProcessPageContext,
 } from "./processesText";
@@ -147,8 +148,10 @@ function Small({ children }: { children: ReactNode }) {
 
 /**
  * A process's expanded row: what it does, why it's running and when it goes
- * away; its memory, CPU & graphics, and Windows objects; then its PID, type
- * and age with Copy (and, for the graphics process, a link to Diagnostics).
+ * away, then for a folded row the processes it includes (the program and its
+ * console host); its memory, CPU & graphics, and Windows objects; then its
+ * PID, type and age with Copy (and, for the graphics process, a link to
+ * Diagnostics).
  */
 export function ProcessDetails({
   row,
@@ -243,6 +246,60 @@ export function ProcessDetails({
         </dd>
       </dl>
 
+      {row.includes && row.includes.length > 1 && (
+        <table
+          data-process-includes=""
+          className="w-full max-w-[560px] border-collapse text-xs tabular-nums"
+        >
+          <thead>
+            <tr className="border-b border-border/60 text-[11px] text-muted-foreground dark:border-white/5">
+              <th scope="col" className="py-1 pe-3 text-start font-medium">
+                {t(`${P}.details.includes`)}
+              </th>
+              <th scope="col" className="py-1 ps-3 text-end font-medium">
+                {t(`${P}.table.ws`)}
+              </th>
+              {windowsNumbers && (
+                <th scope="col" className="py-1 ps-3 text-end font-medium">
+                  {t(`${P}.table.priv`)}
+                </th>
+              )}
+            </tr>
+          </thead>
+          <tbody>
+            {row.includes.map((part) => (
+              <tr
+                key={part.key}
+                data-process-part={part.key}
+                data-process-part-role={part.role}
+                className="border-b border-border/40 last:border-b-0 dark:border-white/[0.04]"
+              >
+                <td className="py-1.5 pe-3 align-top">
+                  <bdi className="text-foreground/90">
+                    {[
+                      part.exe ?? roleName(t, part.role),
+                      t(`${P}.table.pid`, { pid: part.pid }),
+                    ].join(" · ")}
+                  </bdi>
+                  {part.role === "consoleHost" && (
+                    <span className="block text-[11px] text-muted-foreground">
+                      {t(`${P}.details.consoleHostNote`)}
+                    </span>
+                  )}
+                </td>
+                <td data-process-part-value="ws" className="py-1.5 ps-3 text-end align-top">
+                  {part.ws === null ? dash("ws") : formatProcessBytes(part.ws, locale)}
+                </td>
+                {windowsNumbers && (
+                  <td data-process-part-value="priv" className="py-1.5 ps-3 text-end align-top">
+                    {part.priv === null ? dash("priv") : formatProcessBytes(part.priv, locale)}
+                  </td>
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
       <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-2.5">
         <Panel
           id="memory"

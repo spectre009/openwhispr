@@ -1168,6 +1168,108 @@ test("Copy as text copies Copy diagnostics' English table", async (t) => {
   assert.match(text(host.querySelector("[data-process-copy-all]")), /Copied/);
 });
 
+// Copilot's runtime with its console host folded in, as main's process
+// inventory sends it: the runtime's identity, both processes' numbers added.
+function withConsoleHost(rows) {
+  return rows.map((row) => {
+    if (row.role !== "copilotRuntime") return row;
+    const part = (from) => ({
+      key: from.key,
+      pid: from.pid,
+      createdAt: from.createdAt,
+      exe: from.exe,
+      role: from.role,
+      ws: from.ws,
+      priv: from.priv,
+      peak: from.peak,
+      cpuSec: from.cpuSec,
+      cpuPct: from.cpuPct,
+      cpuAvg: from.cpuAvg,
+      handles: from.handles,
+      threads: from.threads,
+      gdi: from.gdi,
+      user: from.user,
+      gpuDedicated: from.gpuDedicated,
+      gpuShared: from.gpuShared,
+      gpuUse: from.gpuUse,
+    });
+    const conhost = {
+      ...part(proc("consoleHost", { pid: 92360, exe: "conhost.exe", ws: 8.5, priv: null })),
+      createdAt: row.createdAt + 20,
+      key: `92360:${row.createdAt + 20}`,
+    };
+    return {
+      ...row,
+      ws: row.ws + conhost.ws,
+      includes: [part(row), conhost],
+    };
+  });
+}
+
+test("a row with its console host folded in: + console host, the Includes table, and both Copies list the parts", async (t) => {
+  const rows = withConsoleHost(processes());
+  subscribeAnswer = sampleOf({ snapshot: snapshotOf(rows) });
+  const { host, click } = await mount(t, PAGE);
+  const subline = (role, index = 0) =>
+    text(rowOf(host, key(role, index)).querySelector("[data-process-toggle] bdi"));
+  assert.equal(subline("copilotRuntime"), "copilot-runtime.exe · PID 92352 · + console host");
+  assert.equal(subline("keyListener"), "windows-key-listener.exe · PID 30168 · Ctrl+`");
+  assert.equal(text(cellOf(host, key("copilotRuntime"), "ws")), bytes(124.5));
+
+  await click(host.querySelector(`[data-process-toggle="${key("copilotRuntime")}"]`));
+  const details = host.querySelector(`[data-process-details="${key("copilotRuntime")}"]`);
+  const includes = details.querySelector("[data-process-includes]");
+  assert.ok(includes, "the Includes table");
+  assert.equal(
+    details.querySelector("[data-process-about]").nextElementSibling,
+    includes,
+    "under the About list"
+  );
+  assert.deepEqual([...includes.querySelectorAll("thead th")].map(text), [
+    "Includes",
+    "In RAM",
+    "Committed",
+  ]);
+  const parts = [...includes.querySelectorAll("[data-process-part]")];
+  assert.deepEqual(
+    parts.map((tr) => tr.getAttribute("data-process-part-role")),
+    ["copilotRuntime", "consoleHost"]
+  );
+  const cells = (tr) => [...tr.querySelectorAll("td")].map(text);
+  assert.deepEqual(cells(parts[0]), ["copilot-runtime.exe · PID 92352", bytes(116), bytes(122)]);
+  assert.deepEqual(cells(parts[1]).slice(0, 2), [
+    "conhost.exe · PID 92360Console host: Windows starts one for a command-line program, even a hidden one.",
+    bytes(8.5),
+  ]);
+  assert.equal(
+    dashReason(parts[1].querySelector('[data-process-part-value="priv"]')),
+    "Couldn't be read for this process."
+  );
+
+  await click(host.querySelector(`[data-process-toggle="${key("gpu")}"]`));
+  assert.equal(
+    host.querySelector(`[data-process-details="${key("gpu")}"] [data-process-includes]`),
+    null,
+    "a row with nothing folded in has no Includes table"
+  );
+
+  await click(details.querySelector(`[data-process-copy="${key("copilotRuntime")}"]`));
+  const row = rows.find((item) => item.role === "copilotRuntime");
+  assert.equal(clipboard.at(-1), format.processRowText(format.reportRowOf(row, NOW)));
+  const copied = clipboard.at(-1).split("\n");
+  assert.equal(copied.length, 4);
+  assert.match(copied[1], /^copilotRuntime\s+92352\s+124\.5 MB\s+122\.0 MB/);
+  assert.match(copied[2], /^ {2}copilotRuntime\s+92352\s+116\.0 MB\s+122\.0 MB/);
+  assert.match(copied[3], /^ {2}consoleHost\s+92360\s+8\.5 MB\s+n\/a/);
+
+  await click(host.querySelector("[data-process-copy-all]"));
+  const all = clipboard.at(-1);
+  assert.equal(all, format.processesText(buildReport(subscribeAnswer.snapshot, NOW)).join("\n"));
+  assert.match(all, /^Processes: 12, sampled/, "every process counted");
+  assert.match(all, /\ncopilotRuntime\s.*\n {2}copilotRuntime\s.*\n {2}consoleHost\s+92360\s/);
+  assert.doesNotMatch(all, /conhost|\.exe/, "roles only, never a program's name");
+});
+
 test("System › Diagnostics: one processes row that opens Processes & resources", async (t) => {
   subscribeAnswer = sampleOf();
   const opened = [];

@@ -28,6 +28,7 @@ const DOM_GLOBALS = [
   "DOMRect",
   // Radix FocusScope walks tabbables with a TreeWalker.
   "NodeFilter",
+  "localStorage",
 ];
 
 let happyWindow;
@@ -50,8 +51,24 @@ test.after(async () => {
 
 const settle = (ms = 20) => new Promise((resolve) => setTimeout(resolve, ms));
 
-async function mountSettings(t) {
+async function mountSettings(t, { page: initialPage = "recognition", layerWidth = null } = {}) {
   globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+  if (layerWidth !== null) {
+    // Every observed element reports this width: the layer's, so the nav folds to icons below 900.
+    const original = globalThis.ResizeObserver;
+    globalThis.ResizeObserver = class {
+      constructor(callback) {
+        this.callback = callback;
+      }
+      observe(target) {
+        setTimeout(() => this.callback([{ target, contentRect: { width: layerWidth } }], this));
+      }
+      disconnect() {}
+    };
+    t.after(() => {
+      globalThis.ResizeObserver = original;
+    });
+  }
   const React = require("react");
   const { createRoot } = require("react-dom/client");
   const h = React.createElement;
@@ -114,7 +131,8 @@ async function mountSettings(t) {
   function Harness() {
     const settings = useSettingsLayerController();
     const [search, setSearch] = React.useState(null);
-    const [page, setPage] = React.useState("recognition");
+    const [page, setPage] = React.useState(initialPage);
+    const [navigationKey, setNavigationKey] = React.useState(0);
     api.settings = settings;
     api.setSearch = setSearch;
     api.search = search;
@@ -177,8 +195,11 @@ async function mountSettings(t) {
             ],
             activePage: page,
             breadcrumb: page === "translation" ? ["Features", "Translation"] : ["Dictation", page],
-            onNavigate: setPage,
-            navigationKey: 0,
+            onNavigate: (next) => {
+              setPage(next);
+              setNavigationKey((key) => key + 1);
+            },
+            navigationKey,
             returnFocusRef: settings.returnFocusRef,
             getFallbackFocus: () => happyWindow.document.getElementById("opener"),
             navTop: h("input", { id: "search-field" }),
@@ -458,17 +479,20 @@ test("Esc clears an active search before it leaves Settings", async (t) => {
   assert.equal(s.api.settings.open, false);
 });
 
-test("the nav shows a parent's pages while one is open, marks the page, and links out", async (t) => {
+test("the nav lists an open parent's pages, marks the page, and links out", async (t) => {
+  localStorage.clear();
   const s = await mountSettings(t);
   await s.open();
   const nav = (id) => s.layer().querySelector(`[data-settings-nav="${id}"]`);
+  const toggle = (id) => s.layer().querySelector(`[data-settings-nav-toggle="${id}"]`);
   const header = () => s.layer().querySelector("header h1").textContent;
 
   // Dictation › Recognition is open: its pages show, Recognition is the page.
-  assert.equal(nav("dictation").getAttribute("aria-expanded"), "true");
+  assert.equal(toggle("dictation").getAttribute("aria-expanded"), "true");
   assert.equal(nav("recognition").getAttribute("aria-current"), "page");
-  assert.equal(nav("dictation").hasAttribute("aria-current"), false, "a parent isn't a page");
-  assert.ok(nav("cleanup"));
+  assert.equal(nav("dictation").hasAttribute("aria-current"), false, "its page row is the page");
+  assert.equal(nav("dictation").hasAttribute("aria-expanded"), false, "the chevron has it");
+  assert.equal(nav("cleanup").closest("[hidden]"), null);
   assert.match(header(), /settingsModal\.title.*Dictation.*recognition/);
 
   await s.act(() => nav("cleanup").click());
@@ -476,15 +500,16 @@ test("the nav shows a parent's pages while one is open, marks the page, and link
   assert.equal(nav("cleanup").getAttribute("aria-current"), "page");
   assert.equal(nav("recognition").hasAttribute("aria-current"), false);
 
-  // Another page collapses Dictation's list.
+  // A page elsewhere moves only the highlight: Dictation stays open.
   await s.act(() => nav("translation").click());
   assert.equal(s.api.page, "translation");
-  assert.equal(nav("dictation").getAttribute("aria-expanded"), "false");
-  assert.equal(nav("cleanup"), null);
+  assert.equal(toggle("dictation").getAttribute("aria-expanded"), "true");
+  assert.equal(nav("cleanup").closest("[hidden]"), null, "nothing folds under the pointer");
+  assert.equal(nav("cleanup").hasAttribute("aria-current"), false);
   assert.equal(nav("translation").getAttribute("aria-current"), "page");
   assert.match(header(), /Features.*Translation/);
 
-  // A parent opens its first page.
+  // A parent's name opens its first page.
   await s.act(() => nav("dictation").click());
   assert.equal(s.api.page, "recognition");
 
@@ -497,6 +522,92 @@ test("the nav shows a parent's pages while one is open, marks the page, and link
   await s.act(() => nav("dictionary").click());
   assert.equal(s.api.elsewhere, "dictionary");
   assert.equal(s.api.page, "recognition");
+});
+
+test("a parent's chevron opens and closes it; closed around the page, the parent row is the page", async (t) => {
+  localStorage.clear();
+  const s = await mountSettings(t);
+  await s.open();
+  const nav = (id) => s.layer().querySelector(`[data-settings-nav="${id}"]`);
+  const toggle = (id) => s.layer().querySelector(`[data-settings-nav-toggle="${id}"]`);
+  const pages = () => s.doc.getElementById(toggle("dictation").getAttribute("aria-controls"));
+
+  assert.equal(toggle("dictation").tagName, "BUTTON");
+  assert.notEqual(toggle("dictation"), nav("dictation"), "its own button, beside the name");
+  assert.equal(toggle("dictation").getAttribute("aria-label"), "settingsLayer.hidePages");
+  assert.ok(pages().contains(nav("cleanup")), "aria-controls names the pages' list");
+  assert.equal(pages().hidden, false);
+
+  // Closed while inside it: the pages hide and the parent row stands in for Recognition.
+  await s.act(() => toggle("dictation").click());
+  assert.equal(s.api.page, "recognition", "the chevron never navigates");
+  assert.equal(toggle("dictation").getAttribute("aria-expanded"), "false");
+  assert.equal(toggle("dictation").getAttribute("aria-label"), "settingsLayer.showPages");
+  assert.equal(pages().hidden, true);
+  assert.equal(nav("dictation").getAttribute("aria-current"), "page");
+  assert.equal(nav("recognition").hasAttribute("aria-current"), false);
+  assert.deepEqual(JSON.parse(localStorage.getItem("settings.navOpenParents")), []);
+
+  // Leaving keeps it closed; going back in (its name) opens it.
+  await s.act(() => nav("translation").click());
+  assert.equal(nav("dictation").hasAttribute("aria-current"), false);
+  assert.equal(toggle("dictation").getAttribute("aria-expanded"), "false");
+  await s.act(() => nav("dictation").click());
+  assert.equal(s.api.page, "recognition");
+  assert.equal(toggle("dictation").getAttribute("aria-expanded"), "true");
+  assert.equal(nav("recognition").getAttribute("aria-current"), "page");
+  assert.deepEqual(JSON.parse(localStorage.getItem("settings.navOpenParents")), ["dictation"]);
+
+  // Reopened by hand from elsewhere, it stays open.
+  await s.act(() => nav("translation").click());
+  await s.act(() => toggle("dictation").click());
+  await s.act(() => toggle("dictation").click());
+  assert.equal(toggle("dictation").getAttribute("aria-expanded"), "true");
+  assert.equal(s.api.page, "translation");
+});
+
+test("the open parents are remembered: one closed by hand stays closed on the next start", async (t) => {
+  localStorage.setItem("settings.navOpenParents", JSON.stringify([]));
+  const s = await mountSettings(t, { page: "translation" });
+  await s.open();
+  const toggle = s.layer().querySelector('[data-settings-nav-toggle="dictation"]');
+  assert.equal(toggle.getAttribute("aria-expanded"), "false");
+});
+
+test("the open parents: Dictation open the first time", async (t) => {
+  localStorage.clear();
+  const s = await mountSettings(t, { page: "translation" });
+  await s.open();
+  const toggle = s.layer().querySelector('[data-settings-nav-toggle="dictation"]');
+  assert.equal(toggle.getAttribute("aria-expanded"), "true");
+});
+
+test("the open parents: a start inside a closed parent opens it; unknown ids are dropped", async (t) => {
+  localStorage.setItem("settings.navOpenParents", JSON.stringify(["somethingElse"]));
+  const s = await mountSettings(t);
+  await s.open();
+  const toggle = s.layer().querySelector('[data-settings-nav-toggle="dictation"]');
+  assert.equal(toggle.getAttribute("aria-expanded"), "true", "going into Recognition opens it");
+  assert.deepEqual(JSON.parse(localStorage.getItem("settings.navOpenParents")), ["dictation"]);
+});
+
+test("the icon nav below 900 px: the same chevron, the same rules", async (t) => {
+  localStorage.clear();
+  const s = await mountSettings(t, { layerWidth: 800 });
+  await s.open();
+  await s.act(() => {});
+  const nav = (id) => s.layer().querySelector(`[data-settings-nav="${id}"]`);
+  const toggle = (id) => s.layer().querySelector(`[data-settings-nav-toggle="${id}"]`);
+  assert.equal(nav("dictation").getAttribute("aria-label"), "Dictation", "icons only");
+  assert.equal(nav("cleanup").getAttribute("aria-label"), "Cleanup");
+  assert.equal(toggle("dictation").getAttribute("aria-expanded"), "true");
+
+  await s.act(() => nav("translation").click());
+  assert.equal(toggle("dictation").getAttribute("aria-expanded"), "true", "leaving keeps it open");
+  await s.act(() => nav("cleanup").click());
+  await s.act(() => toggle("dictation").click());
+  assert.equal(nav("cleanup").closest("[hidden]") !== null, true);
+  assert.equal(nav("dictation").getAttribute("aria-current"), "page");
 });
 
 // ControlPanel is too large to render here, so its wiring is read from source:

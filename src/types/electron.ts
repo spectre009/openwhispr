@@ -2197,6 +2197,33 @@ export interface ProcessInventoryProcess {
   gpuUse: number | null;
   /** The helper's structured error codes for this process. */
   errors: string[];
+  /**
+   * A row with a console host folded in: the program itself, then its
+   * conhost.exe. The row's numbers are theirs added up.
+   */
+  includes?: ProcessInventoryPart[];
+}
+
+/** One process a folded row includes. */
+export interface ProcessInventoryPart {
+  key: string;
+  pid: number;
+  createdAt: number | null;
+  exe: string | null;
+  role: ProcessRole;
+  ws: number | null;
+  priv: number | null;
+  peak: number | null;
+  cpuSec: number | null;
+  cpuPct: number | null;
+  cpuAvg: number | null;
+  handles: number | null;
+  threads: number | null;
+  gdi: number | null;
+  user: number | null;
+  gpuDedicated: number | null;
+  gpuShared: number | null;
+  gpuUse: number | null;
 }
 
 export interface ProcessInventoryTotals {
@@ -2327,6 +2354,8 @@ export interface ProcessInventoryReportRow {
   gdi: number | null;
   user: number | null;
   uptimeSec: number | null;
+  /** A folded row's parts (the program, then its console host), each with its own numbers. */
+  includes?: ProcessInventoryReportRow[];
 }
 
 export interface ProcessInventoryReport {
