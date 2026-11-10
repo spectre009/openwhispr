@@ -2095,6 +2095,272 @@ export interface LogSettingsUpdate {
   includeText?: boolean;
 }
 
+/** What a process is for (helpers/processRoles.js). */
+export type ProcessRole =
+  | "main"
+  | "gpu"
+  | "network"
+  | "audio"
+  | "videoCapture"
+  | "storage"
+  | "controlPanel"
+  | "dictationWindow"
+  | "edgeStrip"
+  | "companionPill"
+  | "meetingOverlay"
+  | "permissionGuide"
+  | "keyListener"
+  | "copilotRuntime"
+  | "whisperServer"
+  | "parakeetServer"
+  | "llamaServer"
+  | "qdrant"
+  | "searchWorker"
+  | "systemAudioHelper"
+  | "micListener"
+  | "textMonitor"
+  | "ffmpeg"
+  | "meetingAecHelper"
+  | "diarization"
+  | "consoleHost"
+  | "unknown";
+
+export type ProcessGroup = "app" | "windows" | "services" | "helpers";
+
+type ProcessTextParams = Record<string, string | number | boolean | null>;
+
+/** A role's i18n keys (settingsPage.processes.roles.*) and the parameters main filled in. */
+export interface ProcessRoleDescription {
+  role: ProcessRole;
+  group: ProcessGroup;
+  nameKey: string;
+  whatKey: string;
+  whyKey: string;
+  /** Raw values: times are ms since epoch, for the page to format. */
+  whyParams: ProcessTextParams;
+  goesAwayKey: string;
+  goesAwayParams: ProcessTextParams;
+}
+
+/** One of main's windows a renderer hosts; `since` is when it was last shown or hidden. */
+export interface ProcessWindowInfo {
+  role: ProcessRole;
+  visible: boolean | null;
+  since: number | null;
+  /** An edge-strip window's Screen edge mode. */
+  mode?: "short" | "full" | "frame" | null;
+}
+
+/**
+ * One process in a sample (process-inventory-*). Bytes; CPU in % of one core;
+ * null is unavailable or failed, never 0.
+ */
+export interface ProcessInventoryProcess {
+  /** `${pid}:${createdAt}`: a reused PID is another process. */
+  key: string;
+  pid: number;
+  ppid: number | null;
+  /** ms since epoch. */
+  createdAt: number | null;
+  /** Electron's process type ("Browser", "GPU", "Tab", "Utility", …); null for a helper program. */
+  type: string | null;
+  serviceName: string | null;
+  name: string | null;
+  /** The helper's exe file name (Windows), never a path. */
+  exe: string | null;
+  source: "electron" | "helper" | "both";
+  role: ProcessRole;
+  group: ProcessGroup;
+  about: ProcessRoleDescription;
+  windows: ProcessWindowInfo[];
+  state: "visible" | "hidden" | "busy" | "idle" | null;
+  /** In RAM (working set). */
+  ws: number | null;
+  /** Committed (private bytes). */
+  priv: number | null;
+  /** The most it has had in RAM (peak working set). */
+  peak: number | null;
+  /** Total CPU seconds since it started. */
+  cpuSec: number | null;
+  /** CPU since the previous sample of the same series; null on an instance's first. */
+  cpuPct: number | null;
+  /** Average CPU since it started. */
+  cpuAvg: number | null;
+  handles: number | null;
+  threads: number | null;
+  gdi: number | null;
+  user: number | null;
+  /** Graphics memory: dedicated and shared. */
+  gpuDedicated: number | null;
+  gpuShared: number | null;
+  /** The busiest 3D engine, % (stream samples only). */
+  gpuUse: number | null;
+  /** The helper's structured error codes for this process. */
+  errors: string[];
+}
+
+export interface ProcessInventoryTotals {
+  processes: number;
+  ws: number | null;
+  priv: number | null;
+  cpuPct: number | null;
+  gpuDedicated: number | null;
+  gpuShared?: number | null;
+}
+
+export interface ProcessInventorySnapshot {
+  /** ms since epoch. */
+  at: number;
+  source: "once" | "stream" | "electron";
+  /** The interval `cpuPct` covers, in seconds; null on a series' first sample. */
+  cpuIntervalSec: number | null;
+  /** When the graphics memory figures were read (an earlier sample's when this one had none). */
+  gpuAt: number | null;
+  processes: ProcessInventoryProcess[];
+  /** Sums over all processes: memory shared between them is counted once per process. */
+  totals: ProcessInventoryTotals;
+  machine: {
+    /** Processes on this PC holding dedicated graphics memory (every adapter). */
+    gpuProcesses: number | null;
+    graphics: {
+      mode: GraphicsModeState["mode"];
+      reason: GraphicsModeState["reason"];
+      glRenderer: string | null;
+    } | null;
+    ramTotal: number | null;
+    ramFree: number | null;
+  };
+  helper: {
+    status: "ok" | "missing" | "failed" | "unsupported";
+    error: string | null;
+    gpu: "ok" | "off" | "failed";
+    gpuError: string | null;
+    engine: "ok" | "pending" | "off" | "failed";
+  };
+  /** On-demand roles not running now (Windows, when the helper ran). */
+  notRunning: Array<{ role: ProcessRole; nameKey: string; startsKey: string }>;
+}
+
+export interface ProcessHistoryPoint {
+  at: number;
+  ws: number | null;
+  priv: number | null;
+  /** CPU since this instance's previous point; null across a gap. */
+  cpuPct: number | null;
+  /** Only from samples that read graphics memory. */
+  gpuDedicated: number | null;
+  handles: number | null;
+  gdi: number | null;
+  user: number | null;
+}
+
+/** 24 hours in memory: a point per process instance every 5 minutes, with gaps left as gaps. */
+export interface ProcessInventoryHistory {
+  maxAgeMs: number;
+  samples: number[];
+  recordings: Array<{ at: number; durationMs: number | null }>;
+  instances: Array<{
+    key: string;
+    role: ProcessRole;
+    group: ProcessGroup;
+    pid: number;
+    createdAt: number | null;
+    points: ProcessHistoryPoint[];
+  }>;
+}
+
+/** A process's CPU in one phase of a dictation; partial when it appeared or exited during it. */
+export interface ProcessPhaseUsage {
+  key: string;
+  pid: number;
+  role: ProcessRole;
+  cpuPct: number | null;
+  partial: boolean;
+  change: "appeared" | "exited" | null;
+}
+
+/** The last recording: CPU while recording, then while processing and delivering, then graphics memory after delivery. */
+export interface ProcessInventoryRecording {
+  at: number;
+  inputKind: string;
+  strip: string;
+  frameWindow: "new" | "reused" | "none";
+  recordingMs: number | null;
+  processingMs: number | null;
+  /** The next dictation started before this one was delivered. */
+  overlapped: boolean;
+  processes: Array<{
+    key: string;
+    pid: number;
+    role: ProcessRole;
+    recording: ProcessPhaseUsage | null;
+    processing: ProcessPhaseUsage | null;
+    gpuAfterDelivery: number | null;
+  }>;
+  afterDelivery: {
+    status: "pending" | "ok" | "unavailable" | "cancelled" | "skipped";
+    at: number | null;
+    gpuProcesses: number | null;
+    gpuDedicated: number | null;
+  };
+}
+
+export type ProcessInventoryUnavailable =
+  "windowsOnly" | "helperMissing" | "helperFailed" | "gpuCounters" | "memory";
+
+/** The allowlisted view logs and Copy diagnostics use: roles, PIDs and numbers only. */
+export interface ProcessInventoryReportRow {
+  role: ProcessRole;
+  group: ProcessGroup;
+  pid: number | null;
+  ws: number | null;
+  priv: number | null;
+  peak: number | null;
+  cpuPct: number | null;
+  cpuAvg: number | null;
+  cpuSec: number | null;
+  gpuDedicated: number | null;
+  gpuShared: number | null;
+  gpuUse: number | null;
+  handles: number | null;
+  threads: number | null;
+  gdi: number | null;
+  user: number | null;
+  uptimeSec: number | null;
+}
+
+export interface ProcessInventoryReport {
+  at: number;
+  ageSec: number;
+  source: "once" | "stream" | "electron";
+  cpuIntervalSec: number | null;
+  gpuAt: number | null;
+  totals: ProcessInventoryTotals;
+  gpuProcesses: number | null;
+  graphics: { mode: GraphicsModeState["mode"]; reason: GraphicsModeState["reason"] };
+  ramTotal: number | null;
+  ramFree: number | null;
+  helper: "ok" | "missing" | "failed" | "unsupported";
+  helperError: string | null;
+  processes: ProcessInventoryReportRow[];
+}
+
+/** process-inventory-subscribe's answer and each process-inventory-sample. */
+export interface ProcessInventorySample {
+  snapshot: ProcessInventorySnapshot | null;
+  lastRecording: ProcessInventoryRecording | null;
+  unavailable: ProcessInventoryUnavailable[];
+  /** A dictation is running: nothing is sampled until it's delivered. */
+  paused: boolean;
+  streaming: boolean;
+}
+
+/** process-inventory-get: the latest, without starting a run. */
+export interface ProcessInventoryResult extends ProcessInventorySample {
+  history: ProcessInventoryHistory | null;
+  report: ProcessInventoryReport | null;
+}
+
 /** What every window's logger needs (`get-log-state`, `log-settings-changed`). */
 export interface LogState {
   level: LogLevel;
@@ -3908,6 +4174,10 @@ declare global {
       getRecentLogProblems?: () => Promise<LogProblem[]>;
       openLogsFolder?: () => Promise<{ success: boolean; error?: string }>;
       onGraphicsModeChanged?: (callback: (state: GraphicsModeState) => void) => () => void;
+      getProcessInventory?: (options?: { history?: boolean }) => Promise<ProcessInventoryResult>;
+      subscribeProcessInventory?: () => Promise<ProcessInventorySample>;
+      unsubscribeProcessInventory?: () => Promise<{ success: boolean }>;
+      onProcessInventorySample?: (callback: (sample: ProcessInventorySample) => void) => () => void;
 
       // FFmpeg availability
       checkFFmpegAvailability: () => Promise<FFmpegAvailabilityResult>;

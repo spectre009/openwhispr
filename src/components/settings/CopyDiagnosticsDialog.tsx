@@ -11,7 +11,12 @@ import {
 } from "../ui/dialog";
 import { Check, Copy } from "../icons";
 import { useCopyFeedback } from "../../hooks/useCopyFeedback";
-import type { BuildInfoResult, LogInfoResult, LogProblem } from "../../types/electron";
+import type {
+  BuildInfoResult,
+  LogInfoResult,
+  LogProblem,
+  ProcessInventoryReport,
+} from "../../types/electron";
 import { diagnosticsText } from "./logSettingsFormat";
 
 interface CopyDiagnosticsDialogProps {
@@ -23,8 +28,8 @@ interface CopyDiagnosticsDialogProps {
 
 /**
  * Copy diagnostics: shows exactly the text that will be copied (build, OS, the
- * graphics mode, log settings, the masked folder, sizes and problem counts by
- * area), then copies it.
+ * graphics mode, log settings, the masked folder, sizes, problem counts by
+ * area and the processes' latest numbers), then copies it.
  */
 export default function CopyDiagnosticsDialog({
   open,
@@ -34,6 +39,8 @@ export default function CopyDiagnosticsDialog({
 }: CopyDiagnosticsDialogProps) {
   const { t } = useTranslation();
   const [build, setBuild] = useState<BuildInfoResult | null>(null);
+  // undefined until main answers (and when it can't): the section is left out.
+  const [processes, setProcesses] = useState<ProcessInventoryReport | null | undefined>(undefined);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -43,12 +50,20 @@ export default function CopyDiagnosticsDialog({
         if (!cancelled && next && typeof next === "object") setBuild(next);
       })
       .catch(() => {});
+    // The latest sample only: opening the dialog never starts a run.
+    Promise.resolve(window.electronAPI?.getProcessInventory?.({ history: false }))
+      .then((next) => {
+        if (!cancelled && next && typeof next === "object") setProcesses(next.report ?? null);
+      })
+      .catch(() => {});
     return () => {
       cancelled = true;
     };
   }, [open]);
 
-  const text = info ? diagnosticsText({ build, log: info, problems: problems ?? [] }) : "";
+  const text = info
+    ? diagnosticsText({ build, log: info, problems: problems ?? [], processes })
+    : "";
   const { copied, copy } = useCopyFeedback(text);
 
   return (

@@ -1,0 +1,220 @@
+{
+  "_comment": "English texts for src/helpers/processRoles.js's keys (settingsPage.processes.*), for stage 2's locales to copy. Parameters are raw: since/stopsAt are epoch ms and the page formats them; hotkey is the saved accelerator. test/helpers/processRoles.test.js checks every key the module can produce is here.",
+  "settingsPage": {
+    "processes": {
+      "roles": {
+        "main": {
+          "name": "Main process",
+          "what": "Runs the app itself: hotkeys, the tray, the History database and requests to providers. It starts every other process.",
+          "why": { "default": "Always, while OpenWhispr runs." },
+          "goesAway": { "default": "When you quit." }
+        },
+        "gpu": {
+          "name": "Graphics",
+          "what": "Draws every OpenWhispr window on the graphics card, or on the CPU when graphics acceleration is off.",
+          "why": {
+            "default": "Always. Its graphics memory grows while the screen-edge frame shows."
+          },
+          "goesAway": {
+            "default": "When you quit. Graphics memory kept after a frame drops the next time OpenWhispr draws without it."
+          }
+        },
+        "network": {
+          "name": "Network service",
+          "what": "Chromium's networking: requests to providers, sign-in and update checks.",
+          "why": { "default": "Always." },
+          "goesAway": { "default": "When you quit." }
+        },
+        "audio": {
+          "name": "Audio service",
+          "what": "Captures your microphone and plays the start and stop sounds.",
+          "why": {
+            "default": "Started the first time OpenWhispr used the microphone or played a sound."
+          },
+          "goesAway": { "default": "When you quit." }
+        },
+        "videoCapture": {
+          "name": "Video capture service",
+          "what": "Chromium's camera service. OpenWhispr never opens a camera.",
+          "why": {
+            "default": "OpenWhispr lists your microphones, and Chromium lists cameras in the same call and starts this service to do it.",
+            "cameras": "OpenWhispr lists your microphones, and Chromium lists cameras in the same call ({{cameras}} found) and starts this service to do it."
+          },
+          "goesAway": {
+            "default": "Not on its own: Chromium keeps it for the rest of the session."
+          }
+        },
+        "storage": {
+          "name": "Storage service",
+          "what": "Chromium's storage for what the windows keep locally, such as your settings.",
+          "why": { "default": "Started when a window first used its storage." },
+          "goesAway": { "default": "When you quit." }
+        },
+        "controlPanel": {
+          "name": "Control panel window",
+          "what": "This window: Home, History, Notes, Chat and Settings.",
+          "why": {
+            "default": "You opened it.",
+            "visible": "It's open.",
+            "hidden": "Hidden since {{since}}. Closing it only hides it, so it stays loaded.",
+            "hiddenUnknown": "It's hidden. Closing it only hides it, so it stays loaded."
+          },
+          "goesAway": { "default": "When you quit." }
+        },
+        "dictationWindow": {
+          "name": "Dictation window",
+          "what": "The floating icon: records your voice, runs the dictation and pastes the text.",
+          "why": { "default": "Always." },
+          "goesAway": {
+            "default": "When you quit. Most of its CPU time is spent while you record."
+          }
+        },
+        "edgeStrip": {
+          "name": "Screen-edge indicator",
+          "what": "The strip or frame at the edge of your screen while the microphone is live (Settings › Floating icon › Screen edge).",
+          "why": {
+            "default": "Your Screen edge setting is on.",
+            "recording": "A recording is running.",
+            "kept": "Kept after the last recording, so the next one shows it at once."
+          },
+          "goesAway": {
+            "default": "A while after the recording ends.",
+            "afterSeconds": "{{seconds}} seconds after the last recording ends.",
+            "afterMinutes": "{{minutes}} minutes after the last recording ends."
+          }
+        },
+        "companionPill": {
+          "name": "Companion pill",
+          "what": "The small pill that shows a dictation while the assistant panel is open.",
+          "why": { "default": "The assistant panel is open." },
+          "goesAway": { "default": "When the assistant panel closes." }
+        },
+        "meetingOverlay": {
+          "name": "Meeting prompt",
+          "what": "The card that offers to transcribe a meeting OpenWhispr detected.",
+          "why": { "default": "A meeting was detected." },
+          "goesAway": { "default": "When you answer it or it times out." }
+        },
+        "permissionGuide": {
+          "name": "Permission guide",
+          "what": "Points at the right switch in System Settings during setup.",
+          "why": { "default": "Setup is asking for a permission." },
+          "goesAway": { "default": "When the permission is granted or you close it." }
+        },
+        "keyListener": {
+          "name": "Key listener",
+          "what": "Watches one hotkey so OpenWhispr knows when you press and release it.",
+          "why": {
+            "default": "A hotkey needs it: Hold, or a key Windows can't register on its own.",
+            "hotkey": "Your hotkey {{hotkey}} needs it: Hold, or a key Windows can't register on its own."
+          },
+          "goesAway": { "default": "When you quit or change that hotkey." }
+        },
+        "copilotRuntime": {
+          "name": "GitHub Copilot runtime",
+          "what": "Sends requests to GitHub Copilot: cleanup, chat and the Voice Assistant.",
+          "why": {
+            "default": "Started for a request to GitHub Copilot.",
+            "busy": "A request to GitHub Copilot is running."
+          },
+          "goesAway": {
+            "default": "After 10 minutes without a request.",
+            "stopsIn": "After 10 minutes without a request (in about {{minutes}} min)."
+          }
+        },
+        "whisperServer": {
+          "name": "Local Whisper server",
+          "what": "Transcribes your voice on this PC with a Whisper model.",
+          "why": { "default": "You dictate with a local Whisper model." },
+          "goesAway": { "default": "When you switch away from local Whisper, or quit." }
+        },
+        "parakeetServer": {
+          "name": "Parakeet / Cohere server",
+          "what": "Transcribes your voice on this PC with a Parakeet or Cohere model.",
+          "why": { "default": "You dictate with a local Parakeet or Cohere model." },
+          "goesAway": { "default": "When you switch to another model, or quit." }
+        },
+        "llamaServer": {
+          "name": "Local language model",
+          "what": "Runs a downloaded language model on this PC for cleanup or chat.",
+          "why": { "default": "Cleanup or chat uses a downloaded model." },
+          "goesAway": { "default": "When you switch to another model, or quit." }
+        },
+        "qdrant": {
+          "name": "Note search index",
+          "what": "Searches your notes by meaning.",
+          "why": { "default": "You searched notes by meaning, or notes are being indexed." },
+          "goesAway": { "default": "After 5 minutes without a search." }
+        },
+        "searchWorker": {
+          "name": "Search and speaker worker",
+          "what": "Turns notes into search vectors and recognizes speakers in meetings, on this PC.",
+          "why": { "default": "Note search or speaker recognition needed it." },
+          "goesAway": { "default": "Once nothing has used it for a while." }
+        },
+        "systemAudioHelper": {
+          "name": "Meeting audio",
+          "what": "Records what other apps play, so the other side of a meeting is transcribed.",
+          "why": { "default": "A meeting is being transcribed." },
+          "goesAway": { "default": "When the meeting transcription stops." }
+        },
+        "micListener": {
+          "name": "Microphone watcher",
+          "what": "Notices when another app starts using the microphone, to detect meetings.",
+          "why": { "default": "Meeting detection is on." },
+          "goesAway": { "default": "When you turn meeting detection off, or quit." }
+        },
+        "textMonitor": {
+          "name": "Correction watcher",
+          "what": "Watches the text field you pasted into, to learn the corrections you make.",
+          "why": { "default": "You just pasted a dictation." },
+          "goesAway": { "default": "About 30 seconds after the paste." }
+        },
+        "ffmpeg": {
+          "name": "Audio converter (FFmpeg)",
+          "what": "Converts audio for transcription.",
+          "why": { "default": "A recording or a file is being converted." },
+          "goesAway": { "default": "When the conversion is done." }
+        },
+        "meetingAecHelper": {
+          "name": "Meeting echo canceller",
+          "what": "Removes the other side's voice from your microphone during a meeting.",
+          "why": { "default": "A meeting is being transcribed." },
+          "goesAway": { "default": "When the meeting transcription stops." }
+        },
+        "diarization": {
+          "name": "Speaker separation",
+          "what": "Works out who spoke when in a meeting recording.",
+          "why": { "default": "A meeting transcript is being split by speaker." },
+          "goesAway": { "default": "When it's done." }
+        },
+        "consoleHost": {
+          "name": "Console host",
+          "what": "Windows starts one for every command-line helper, even a hidden one.",
+          "why": { "default": "Its helper program is running." },
+          "goesAway": { "default": "With its helper program." }
+        },
+        "unknown": {
+          "name": "Other process",
+          "what": "A process OpenWhispr started that this page doesn't know.",
+          "why": { "default": "Started by OpenWhispr." },
+          "goesAway": { "default": "When it finishes, or when you quit." }
+        }
+      },
+      "notRunning": {
+        "whisperServer": "Starts when you dictate with a local Whisper model.",
+        "parakeetServer": "Starts when you dictate with a local Parakeet or Cohere model.",
+        "llamaServer": "Starts when cleanup or chat uses a downloaded model.",
+        "copilotRuntime": "Starts with the first request to GitHub Copilot; stops after 10 idle minutes.",
+        "qdrant": "Starts on the first search by meaning; stops after 5 idle minutes.",
+        "searchWorker": "Starts for note search or speaker recognition.",
+        "systemAudioHelper": "Starts while a meeting is being transcribed.",
+        "meetingAecHelper": "Starts while a meeting is being transcribed.",
+        "diarization": "Starts after a meeting, to separate its speakers.",
+        "micListener": "Starts when meeting detection is on.",
+        "textMonitor": "Starts for 30 seconds after a paste, to learn corrections.",
+        "edgeStrip": "Starts when you record, if Screen edge is on."
+      }
+    }
+  }
+}

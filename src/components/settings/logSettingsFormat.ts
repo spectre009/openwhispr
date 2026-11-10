@@ -6,9 +6,11 @@ import type {
   LogProblem,
   LogRetentionDays,
   LogSettingLevel,
+  ProcessInventoryReport,
 } from "../../types/electron";
 import { formatBytes } from "../../utils/formatBytes";
 import { buildInfoText } from "./buildInfoFormat";
+import { processesText } from "./processInventoryFormat";
 
 // Formatting for Storage › Logs and System › Diagnostics (LogsSection.tsx,
 // DiagnosticsSection.tsx). React-free.
@@ -127,15 +129,20 @@ export interface DiagnosticsInput {
   build: BuildInfoResult | null;
   log: LogInfoResult;
   problems: readonly LogProblem[];
+  /**
+   * The process inventory's report (process-inventory-get): null when nothing
+   * was sampled yet; left out (undefined) when the app can't answer.
+   */
+  processes?: ProcessInventoryReport | null;
 }
 
 /**
  * Copy diagnostics: plain English lines for a bug report, whatever the UI
- * language. Settings, sizes, counts and the graphics mode only: no log lines,
- * keys or dictated text, and main has already masked the user profile in the
- * paths.
+ * language. Settings, sizes, counts, the graphics mode and the processes'
+ * numbers only: no log lines, keys, dictated text or program names, and main
+ * has already masked the user profile in the paths.
  */
-export function diagnosticsText({ build, log, problems }: DiagnosticsInput): string {
+export function diagnosticsText({ build, log, problems, processes }: DiagnosticsInput): string {
   const lines = ["OpenWhispr diagnostics", ""];
   lines.push(build ? buildInfoText(build) : "Build: unknown");
   if (log.system) {
@@ -165,5 +172,6 @@ export function diagnosticsText({ build, log, problems }: DiagnosticsInput): str
   const warnings = problems.length - errors;
   lines.push(`Recent problems: ${errors} errors, ${warnings} warnings`);
   for (const [area, count] of problemCountsByArea(problems)) lines.push(`  ${area}: ${count}`);
+  if (processes !== undefined) lines.push("", ...processesText(processes));
   return lines.join("\n");
 }

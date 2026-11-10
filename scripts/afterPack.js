@@ -269,6 +269,19 @@ function verifyWindowsKeyListener(binDir) {
   }
 }
 
+// compile:winprocstats only warns without a compiler, and the helper has no
+// prebuilt download: a package without it would show Processes & resources
+// with Electron's numbers only (no helper programs, GDI/USER objects or
+// graphics memory) and never say why in a bug report.
+function verifyWindowsProcessStats(binDir) {
+  const helperPath = path.join(binDir, "windows-process-stats.exe");
+  if (!fs.existsSync(helperPath)) {
+    throw new Error(
+      `afterPack: missing ${helperPath} — run npm run compile:winprocstats on Windows (compiles with MSVC, MinGW or Clang; there is no prebuilt download); Processes & resources would lose helper programs, GDI/USER objects and graphics memory`
+    );
+  }
+}
+
 // The GitHub Copilot provider spawns the Copilot SDK's runtime, which only runs
 // from app.asar.unpacked (see src/helpers/copilot/index.js).
 function verifyCopilotRuntime(context) {
@@ -338,6 +351,7 @@ function verifyUnpackedBinaries(context) {
     const binDir = path.join(resolveResourcesDir(context), "bin");
     verifyWindowsOnnxRuntimePrivatized(binDir);
     verifyWindowsKeyListener(binDir);
+    verifyWindowsProcessStats(binDir);
   }
   verifyCopilotRuntime(context);
 
@@ -417,6 +431,7 @@ exports.default = async function (context) {
 
 exports.verifyWindowsOnnxRuntimePrivatized = verifyWindowsOnnxRuntimePrivatized;
 exports.verifyWindowsKeyListener = verifyWindowsKeyListener;
+exports.verifyWindowsProcessStats = verifyWindowsProcessStats;
 exports.verifyCopilotRuntime = verifyCopilotRuntime;
 exports.collectBuildInfo = collectBuildInfo;
 exports.writeBuildInfo = writeBuildInfo;

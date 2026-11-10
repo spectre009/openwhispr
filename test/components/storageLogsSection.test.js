@@ -9,7 +9,8 @@ const { installSettingsDom, settle } = require("../lib/settingsDomHarness");
 // in for main's log IPC: the three levels and an override's note, retention and
 // dictated text saved as one setting each, recent problems folded, Clear logs
 // asking first and reporting what it kept, Copy diagnostics previewing exactly
-// what it copies, nothing read while the page is hidden, and the graphics row:
+// what it copies (with the processes' latest numbers as a table, never a
+// program's name), nothing read while the page is hidden, and the graphics row:
 // a warning with Restart for a software fallback, a note for a launch flag's.
 
 const HOUR = 3600 * 1000;
@@ -58,6 +59,9 @@ let problems = PROBLEMS;
 let clearResult = { deleted: 72, failed: [] };
 let rejectSave = false;
 let relaunches = 0;
+// process-inventory-get's answer; undefined (as from an older main) leaves the section out.
+let inventory;
+const inventoryRequests = [];
 const graphicsListeners = new Set();
 const saved = [];
 const clipboard = [];
@@ -80,6 +84,10 @@ test.before(async () => {
       clearLogs: async () => clearResult,
       openLogsFolder: async () => ({ success: true }),
       getBuildInfo: async () => BUILD,
+      getProcessInventory: async (options) => {
+        inventoryRequests.push(options);
+        return inventory;
+      },
       writeClipboard: async (text) => {
         clipboard.push(text);
         return { success: true };
@@ -484,4 +492,148 @@ test("Copy diagnostics names the graphics mode and its renderer", async (t) => {
   assert.doesNotMatch(text(REQUESTED), /Graphics renderer/);
   assert.match(text(null), /^Graphics: unknown$/m);
   info = INFO;
+});
+
+const MB = 1024 * 1024;
+const SAMPLED = Date.parse("2026-11-10T16:05:00.000Z");
+const reportRow = (fields) => ({
+  role: "main",
+  group: "app",
+  pid: 13368,
+  ws: 160.4 * MB,
+  priv: 325.5 * MB,
+  peak: 261.7 * MB,
+  cpuPct: 0.4,
+  cpuAvg: 0.38,
+  cpuSec: 381,
+  gpuDedicated: 0,
+  gpuShared: 0,
+  gpuUse: null,
+  handles: 1100,
+  threads: 50,
+  gdi: 41,
+  user: 60,
+  uptimeSec: 99_000,
+  ...fields,
+});
+const REPORT = {
+  at: SAMPLED,
+  ageSec: 120,
+  source: "once",
+  cpuIntervalSec: 300,
+  gpuAt: SAMPLED - 600_000,
+  totals: { processes: 3, ws: 455.3 * MB, priv: 1100 * MB, cpuPct: 35.6, gpuDedicated: 326 * MB },
+  gpuProcesses: 49,
+  graphics: { mode: "hardware", reason: null },
+  ramTotal: null,
+  ramFree: null,
+  helper: "ok",
+  helperError: null,
+  processes: [
+    reportRow({
+      role: "keyListener",
+      group: "helpers",
+      pid: 30168,
+      ws: 5.2 * MB,
+      priv: 0.8 * MB,
+      gdi: 0,
+      user: 2,
+      cpuSec: 13,
+      threads: 1,
+    }),
+    reportRow({}),
+    reportRow({
+      role: "gpu",
+      pid: 4832,
+      ws: 167.1 * MB,
+      priv: 522.8 * MB,
+      cpuPct: 35.2,
+      gpuDedicated: 326 * MB,
+      cpuSec: 1476,
+    }),
+    reportRow({
+      role: "dictationWindow",
+      group: "windows",
+      pid: 29856,
+      ws: 124.5 * MB,
+      cpuPct: null,
+      handles: null,
+      gdi: null,
+      user: null,
+      threads: null,
+    }),
+  ],
+};
+
+test("Copy diagnostics ends with the processes' latest numbers as a table, asking main for no history", async (t) => {
+  info = INFO;
+  problems = [];
+  inventory = { report: REPORT, snapshot: { processes: [{ exe: "zqxprogram.exe" }] } };
+  inventoryRequests.length = 0;
+  const { host, doc, click } = await mount(t, "/components/settings/LogsSection.tsx");
+  await click(row(host, "storage.logs.diagnostics").querySelector("button"));
+  const text = doc.querySelector("[data-diagnostics-preview]").textContent;
+  const lines = text.split("\n");
+  assert.deepEqual(inventoryRequests, [{ history: false }]);
+  const start = lines.indexOf(
+    "Processes: 3, sampled 2026-11-10T16:05:00.000Z (2 min ago, the 5-minute run)"
+  );
+  assert.ok(start > 0, "the section follows the log's");
+  assert.equal(lines[start - 1], "");
+  assert.deepEqual(lines.slice(start + 1, start + 4), [
+    "Sum of all processes: 455.3 MB in RAM, 1.07 GB committed, CPU 36% of one core over the last 5 min, graphics memory 326.0 MB",
+    "Graphics memory read: 2026-11-10T15:55:00.000Z (12 min ago)",
+    "Processes on this PC holding graphics memory: 49",
+  ]);
+  const table = lines.slice(start + 4);
+  assert.match(
+    table[0],
+    /^Role\s+PID\s+In RAM\s+Committed\s+CPU now\s+CPU avg\s+CPU time\s+Graphics\s+Handles\s+GDI\s+USER\s+Threads\s+Running$/
+  );
+  assert.deepEqual(
+    table.slice(1).map((line) => line.split(/\s+/)[0]),
+    ["gpu", "main", "dictationWindow", "keyListener"],
+    "grouped (app, windows, services, helpers), most in RAM first"
+  );
+  assert.match(
+    table[2],
+    /^main\s+13368\s+160\.4 MB\s+325\.5 MB\s+0\.4%\s+0\.4%\s+6 min\s+0\.0 MB\s+1100\s+41\s+60\s+50\s+27\.5 h$/
+  );
+  assert.match(
+    table[3],
+    /^dictationWindow\s+29856\s+124\.5 MB\s+325\.5 MB\s+n\/a\s+0\.4%\s+6 min\s+0\.0 MB\s+n\/a\s+n\/a\s+n\/a\s+n\/a\s+27\.5 h$/
+  );
+  assert.doesNotMatch(text, /zqxprogram|\.exe/, "roles only, never a program's name");
+  inventory = undefined;
+});
+
+test("the processes section: not sampled yet, a missing helper, and left out when main can't answer", async () => {
+  const { diagnosticsText } = await vite.ssrLoadModule("/components/settings/logSettingsFormat.ts");
+  const { processesText } = await vite.ssrLoadModule(
+    "/components/settings/processInventoryFormat.ts"
+  );
+  assert.deepEqual(processesText(null), [
+    "Processes: not sampled yet (the first sample runs a minute after start)",
+  ]);
+  const missing = processesText({
+    ...REPORT,
+    gpuAt: null,
+    gpuProcesses: null,
+    helper: "missing",
+    source: "electron",
+    processes: [
+      reportRow({ handles: null, gdi: null, user: null, threads: null, gpuDedicated: null }),
+    ],
+  });
+  assert.match(missing[0], /Electron's numbers only\)$/);
+  assert.ok(
+    missing.includes(
+      "Windows numbers: missing (no helper programs, handles, GDI/USER objects or graphics memory)"
+    )
+  );
+  assert.ok(!missing.some((line) => line.startsWith("Graphics memory read")));
+  const without = diagnosticsText({ build: null, log: INFO, problems: [] });
+  assert.doesNotMatch(without, /Processes/);
+  const notYet = diagnosticsText({ build: null, log: INFO, problems: [], processes: null });
+  assert.match(notYet, /\n\nProcesses: not sampled yet/);
 });

@@ -65,6 +65,7 @@ const {
 } = require("./connectionOutcomeTargets.js");
 const { registerLogIpc } = require("./logIpc");
 const { registerStorageInventoryIpc, defaultStorageResources } = require("./storageInventory");
+const { registerProcessInventoryIpc } = require("./processInventory");
 const { logText } = require("../utils/logText.js");
 const { mergeBitrateFor } = require("../utils/recordingQuality.js");
 const { recordingSweepDays } = require("../utils/retentionPeriods.js");
@@ -735,6 +736,7 @@ class IPCHandlers {
     this.windowsLoopbackAudioManager = managers.windowsLoopbackAudioManager;
     this.meetingAecManager = managers.meetingAecManager;
     this.getSemanticSearch = managers.getSemanticSearch;
+    this.processInventory = managers.processInventory || null;
     this.oauthProtocolRegistered = managers.oauthProtocolRegistered === true;
     this.oauthProtocol = managers.oauthProtocol || "openwhispr";
     this.sessionId = crypto.randomUUID();
@@ -7291,6 +7293,12 @@ class IPCHandlers {
       clearLogs: () => debugLogger.clearLogs(),
       getSession: () => session.defaultSession,
     });
+
+    // Processes & resources: the latest sample and history, and samples every
+    // 2 s to a subscribed page (process-inventory-sample).
+    if (this.processInventory) {
+      registerProcessInventoryIpc({ ipcMain, inventory: this.processInventory });
+    }
 
     const SYSTEM_SETTINGS_URLS = {
       darwin: {

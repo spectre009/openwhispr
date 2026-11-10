@@ -97,13 +97,28 @@ test("a compile-first helper that was downloaded instead is reported", () => {
   const log = [
     "[windows-key-listener] Successfully built with MSVC",
     "[windows-text-monitor] Successfully downloaded prebuilt binary",
+    "[windows-process-stats] Successfully built with MSVC",
   ].join("\n");
   assert.deepEqual(core.helpersNotCompiled(log), ["windows-text-monitor"]);
   assert.deepEqual(
     core.helpersNotCompiled(
-      "[windows-key-listener] Successfully built with MSVC\n[windows-text-monitor] Successfully built with MSVC"
+      [
+        "[windows-key-listener] Successfully built with MSVC",
+        "[windows-text-monitor] Successfully built with MSVC",
+        "[windows-process-stats] Successfully built with MinGW-w64",
+      ].join("\n")
     ),
     []
+  );
+});
+
+test("the process stats helper must compile too: it has no prebuilt download", () => {
+  assert.ok(core.COMPILED_HELPERS.includes("windows-process-stats"));
+  assert.deepEqual(
+    core.helpersNotCompiled(
+      "[windows-key-listener] Successfully built with MSVC\n[windows-text-monitor] Successfully built with MSVC"
+    ),
+    ["windows-process-stats"]
   );
 });
 

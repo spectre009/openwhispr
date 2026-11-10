@@ -223,21 +223,30 @@ test("the runtime stops only after every request ends and the idle time passes",
   };
   const { runtime, fake } = runtimeWith(
     { send },
-    { setTimer: timers.setTimer, clearTimer: timers.clearTimer, idleStopMs: 1000 }
+    {
+      setTimer: timers.setTimer,
+      clearTimer: timers.clearTimer,
+      idleStopMs: 1000,
+      now: () => 50_000,
+    }
   );
   runtime.setToken("gho_token123456");
   const first = runtime.complete({ model: "claude-haiku-5.5", system: "s", user: "a" });
   const second = runtime.complete({ model: "claude-haiku-5.5", system: "s", user: "b" });
   await new Promise((resolve) => setImmediate(resolve));
   assert.equal(runtime.getStatus().activeRequests, 2);
+  assert.equal(runtime.getStatus().idleStopAt, null, "busy: no idle stop scheduled");
   assert.equal(timers.pending(1000), 0);
   release();
   await Promise.all([first, second]);
   assert.equal(timers.pending(1000), 1);
+  // Processes & resources says when it goes away.
+  assert.equal(runtime.getStatus().idleStopAt, 51_000);
   timers.fire(1000);
   await new Promise((resolve) => setImmediate(resolve));
   assert.equal(fake.clients[0].stopped, true);
   assert.equal(fake.clients.length, 1);
+  assert.equal(runtime.getStatus().idleStopAt, null);
 });
 
 test("a new sign-in gets its own client; the old one finishes its request first", async () => {

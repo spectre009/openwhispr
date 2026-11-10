@@ -658,6 +658,32 @@ test("a hidden frame is released after the short frame grace", async () => {
   assert.equal(live().length, 0);
 });
 
+// Processes & resources names the renderers these windows hold.
+test("listWindows reports every live strip window with its mode, shown or kept", async () => {
+  const { strip, live, runTimers } = harness();
+  assert.deepEqual(strip.listWindows(), []);
+  strip.configure({ ...ON, displays: "all" });
+  strip.setRecording(true);
+  await settle();
+  const listed = strip.listWindows();
+  assert.equal(listed.length, 3);
+  assert.deepEqual(
+    listed.map(({ mode, visible }) => ({ mode, visible })),
+    Array(3).fill({ mode: "short", visible: true })
+  );
+  assert.deepEqual(
+    listed.map((entry) => entry.window),
+    live()
+  );
+  strip.setRecording(false);
+  assert.ok(
+    strip.listWindows().every((entry) => entry.visible === false),
+    "kept, hidden"
+  );
+  runTimers(EDGE_STRIP_IDLE_RELEASE_MS);
+  assert.deepEqual(strip.listWindows(), []);
+});
+
 // Dictation start visuals (windowManager → dictationStartVisuals.js) learn when
 // a recording's strip or frame is on screen from this callback.
 test("a recording's strip reports once it shows: new after its page loads, reused at once", async () => {

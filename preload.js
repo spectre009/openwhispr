@@ -972,6 +972,16 @@ contextBridge.exposeInMainWorld("electronAPI", {
     (callback) => (_event, state) => callback(state)
   ),
 
+  // Processes & resources: the latest sample (no run started), and a sample
+  // every 2 s while subscribed and the window shows.
+  getProcessInventory: (options) => ipcRenderer.invoke("process-inventory-get", options),
+  subscribeProcessInventory: () => ipcRenderer.invoke("process-inventory-subscribe"),
+  unsubscribeProcessInventory: () => ipcRenderer.invoke("process-inventory-unsubscribe"),
+  onProcessInventorySample: registerListener(
+    "process-inventory-sample",
+    (callback) => (_event, payload) => callback(payload)
+  ),
+
   // System settings helpers for microphone/audio permissions
   requestMicrophoneAccess: () => ipcRenderer.invoke("request-microphone-access"),
   checkMicrophoneAccess: () => ipcRenderer.invoke("check-microphone-access"),

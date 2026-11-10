@@ -242,6 +242,14 @@ class RecordingEdgeStrip {
     this._apply("displays-changed");
   }
 
+  // The strip windows that exist now (shown or kept for reuse), for the
+  // process inventory: { window, mode ("short" | "full" | "frame" | null), visible }.
+  listWindows() {
+    return [...this._windows.values()]
+      .filter((entry) => !entry.win.isDestroyed())
+      .map((entry) => ({ window: entry.win, mode: entry.mode, visible: entry.win.isVisible() }));
+  }
+
   // The dictation window is gone: drop every strip window, so hidden strips
   // never keep the app alive or count as its windows, and forget the settings
   // until a new dictation window reports them. Unlike destroy(), the strip

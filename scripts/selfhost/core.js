@@ -28,7 +28,7 @@ const DOWNLOAD_FIRST_HELPER_SOURCES = [
 
 // Helpers that compile from source first. After resources/bin is wiped, the
 // prebuild log must show each one compiled, not downloaded.
-const COMPILED_HELPERS = ["windows-key-listener", "windows-text-monitor"];
+const COMPILED_HELPERS = ["windows-key-listener", "windows-text-monitor", "windows-process-stats"];
 
 const RUN_VALUE = "com.gizmolabs.openwhispr";
 const LEGACY_DOGFOOD_RUN_VALUE = "OpenWhispr (dogfood)";

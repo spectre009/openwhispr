@@ -134,6 +134,7 @@
         "windows-mic-listener*",
         "windows-system-audio-helper*",
         "windows-text-monitor*",
+        "windows-process-stats*",
         "windows-fast-paste*",
         "all-MiniLM-L6-v2/**/*",
         "diarization-models/**/*",

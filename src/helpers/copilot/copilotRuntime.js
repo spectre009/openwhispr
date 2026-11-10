@@ -309,6 +309,7 @@ function createCopilotRuntime({
       starting: null,
       active: 0,
       idleTimer: null,
+      idleStopAt: null,
       // The catalog fetch in flight on this runtime, shared by its callers.
       flight: null,
       pid: null,
@@ -430,8 +431,10 @@ function createCopilotRuntime({
 
   function scheduleIdleStop(entry) {
     if (entry.idleTimer) clearTimer(entry.idleTimer);
+    entry.idleStopAt = now() + idleStopMs;
     entry.idleTimer = setTimer(() => {
       entry.idleTimer = null;
+      entry.idleStopAt = null;
       if (entry.active === 0 && current === entry) {
         current = null;
         stopEntry(entry);
@@ -445,6 +448,7 @@ function createCopilotRuntime({
     entry.active += 1;
     if (entry.idleTimer) clearTimer(entry.idleTimer);
     entry.idleTimer = null;
+    entry.idleStopAt = null;
   }
 
   // `stats.coldStart` says whether this call started the runtime.
@@ -923,6 +927,8 @@ function createCopilotRuntime({
       running: !!current?.client,
       activeRequests: current?.active || 0,
       generation,
+      // When the idle stop will stop it (ms since epoch); null while busy or stopped.
+      idleStopAt: current?.client && current.idleTimer ? (current.idleStopAt ?? null) : null,
     };
   }
 

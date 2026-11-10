@@ -392,6 +392,7 @@ let linuxPortalAudioManager = null;
 let windowsLoopbackAudioManager = null;
 let meetingAecManager = null;
 let semanticSearch = null;
+let processInventory = null;
 let ipcHandlers = null;
 let cliBridge = null;
 let globeKeyAlertShown = false;
@@ -714,6 +715,11 @@ function initializeCoreManagers() {
     environmentManager,
   });
 
+  // Processes & resources: every process OpenWhispr runs and what it costs.
+  // Created before any window, so it sees each one's show and hide; sampling
+  // starts in startApp.
+  processInventory = createMainProcessInventory();
+
   // IPC handlers must be registered before window content loads
   ipcHandlers = new IPCHandlers({
     environmentManager,
@@ -742,6 +748,7 @@ function initializeCoreManagers() {
     meetingAecManager,
     getSemanticSearch: () => semanticSearch,
     getTrayManager: () => trayManager,
+    processInventory,
     oauthProtocolRegistered: protocolRegistered,
     oauthProtocol: OAUTH_PROTOCOL,
   });
@@ -758,6 +765,62 @@ function registerSidecars() {
   const onnxWorkerClient = require("./src/helpers/onnxWorkerClient");
   sidecarRegistry.register("onnx", () => onnxWorkerClient.stop());
   if (copilotServices) sidecarRegistry.register("copilot", () => copilotServices.runtime.stop());
+  // The stream-mode helper also exits when its stdin closes or main exits.
+  if (processInventory) sidecarRegistry.register("process-stats", () => processInventory.stop());
+}
+
+// The process inventory's main-side view: which window each renderer hosts,
+// which hotkey each key listener watches, the Copilot runtime's idle stop, and
+// whether a subscribed page's window is showing.
+function createMainProcessInventory() {
+  const {
+    collectWindowRoles,
+    createProcessInventory,
+    createWindowVisibilityTracker,
+  } = require("./src/helpers/processInventory");
+  const visibility = createWindowVisibilityTracker({ app });
+  const windowOf = (contents) => {
+    try {
+      return BrowserWindow.fromWebContents(contents);
+    } catch {
+      return null;
+    }
+  };
+  const inventory = createProcessInventory({
+    app,
+    logger: debugLogger,
+    isDictationBusy: () => windowManager?.isDictationBusy?.() === true,
+    getDictationLifecycle: () => windowManager?.getDictationLifecycle?.() ?? null,
+    getGraphics: () => graphicsMode.getState(),
+    getStripMode: () => windowManager?.recordingEdgeStrip?.stripModeForRecording?.() ?? "off",
+    describeContext: () => ({
+      windows: collectWindowRoles({ windowManager, visibility }),
+      keyListeners: new Map(
+        [...(windowsKeyManager?.listeners ?? [])]
+          .filter(([, child]) => Number.isInteger(child?.pid))
+          .map(([hotkey, child]) => [child.pid, hotkey])
+      ),
+      copilot: copilotServices?.runtime?.getStatus?.() ?? null,
+      recording: windowManager?.getDictationLifecycle?.()?.state === "recording",
+    }),
+    isVisible: (contents) => {
+      const win = windowOf(contents);
+      return Boolean(win && !win.isDestroyed() && win.isVisible() && !win.isMinimized());
+    },
+    watchVisibility: (contents, onChange) => {
+      const win = windowOf(contents);
+      if (!win) return () => {};
+      const events = ["show", "hide", "minimize", "restore"];
+      for (const name of events) win.on(name, onChange);
+      return () => {
+        if (win.isDestroyed()) return;
+        for (const name of events) win.removeListener(name, onChange);
+      };
+    },
+  });
+  // Until the tray takes this hook over (it calls the inventory too).
+  windowManager.onDictationStateChanged = () => inventory.handleDictationStateChanged();
+  return inventory;
 }
 
 // Phase 2: Non-critical setup after windows are visible
@@ -1237,6 +1300,7 @@ async function startApp() {
   // failure before the whisper pre-warm below resolves its GPU backend.
   resetWhisperGpuFailureOnUpgrade(environmentManager);
   registerSidecars();
+  processInventory?.start();
   startAuthBridgeServer();
 
   cliBridge = new CliBridge(ipcHandlers);
@@ -1634,10 +1698,12 @@ async function startApp() {
   });
   // The tray's listen item is a toggle and its Restart waits for a dictation's
   // delivery, so it has to rebuild when dictation starts, stops or finishes
-  // delivering; the recording dot and tooltip follow the same state.
+  // delivering; the recording dot and tooltip follow the same state. The
+  // process inventory pauses for a dictation and measures its recording.
   windowManager.onDictationStateChanged = () => {
     trayManager.updateTrayMenu();
     trayManager.updateTrayIcon();
+    processInventory?.handleDictationStateChanged();
   };
   windowManager.onRecordingIndicatorSettings = () => trayManager.updateTrayIcon();
   trayManager.setCreateControlPanelCallback(() => windowManager.createControlPanelWindow());
@@ -2236,6 +2302,11 @@ if (gotSingleInstanceLock) {
   });
 
   let isShuttingDown = false;
+  // before-quit's sidecar shutdown covers a normal quit; an update's quit
+  // doesn't wait for it, so the process inventory's helper also stops here.
+  app.on("will-quit", () => {
+    processInventory?.stop().catch(() => {});
+  });
   app.on("before-quit", (event) => {
     if (isShuttingDown) return;
     isShuttingDown = true;
