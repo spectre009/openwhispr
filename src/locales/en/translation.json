@@ -2297,6 +2297,10 @@
       "storage": {
         "title": "Storage",
         "description": "What OpenWhispr keeps on this computer, where it lives, how big it is and how long it stays."
+      },
+      "processes": {
+        "title": "Processes & resources",
+        "description": "Every program OpenWhispr is running right now, what each one does and what it costs."
       }
     },
     "elsewhere": {
@@ -3777,6 +3781,479 @@
         "clearFailed": "Couldn't clear the app cache."
       }
     },
+    "processes": {
+      "summaryTitle": "Memory, CPU and graphics now",
+      "count_one": "{{count}} process",
+      "count_other": "{{count}} processes",
+      "status": {
+        "loading": "Measuring…",
+        "failed": "Couldn't read OpenWhispr's processes.",
+        "live": "Live: a new sample every 2 seconds while this page is open.",
+        "sampledAt": "Last sample at {{time}}.",
+        "paused": "Paused while you dictate",
+        "pausedDetail": "Showing the numbers from {{time}}. Nothing is measured until the dictation is delivered."
+      },
+      "notices": {
+        "windowsOnly": "Not available on this system: committed memory, graphics memory and use, handles, GDI and USER objects, and the helper programs OpenWhispr starts. Those come from a Windows helper; the rest comes from Electron.",
+        "helperMissing": "The Windows helper is missing, so helper programs, handles, GDI and USER objects, and graphics memory aren't shown. The rest comes from Electron.",
+        "helperFailed": "The Windows helper stopped working, so helper programs, handles, GDI and USER objects, and graphics memory aren't shown. The rest comes from Electron.",
+        "gpuCounters": "Windows' graphics counters couldn't be read, so graphics memory and use aren't shown.",
+        "memory": "This system doesn't report memory per process, so memory shows as unavailable."
+      },
+      "groups": {
+        "app": "App",
+        "windows": "Windows",
+        "services": "Chromium services",
+        "helpers": "Helpers",
+        "notRunning": "Not running now"
+      },
+      "tiles": {
+        "memory": "In RAM",
+        "committed": "{{size}} committed",
+        "sumNote": "Sum of all processes: memory they share is counted once per process.",
+        "cpu": "CPU now",
+        "ofOneCore": "of one core",
+        "cpuNote": "Sum of all processes; 100% is one core fully busy.",
+        "graphics": "Graphics memory",
+        "graphicsNote": "Dedicated memory on the graphics card, sum of all processes.",
+        "graphicsReadAt": "Read at {{time}}.",
+        "gpuProcesses": "Graphics card",
+        "gpuProcessesUnit": "processes holding graphics memory on this PC",
+        "gpuProcessesNote": "Every process on this PC that holds memory on the graphics card, idle ones and OpenWhispr's included.",
+        "modes": {
+          "hardware": "Hardware",
+          "software": "On the CPU"
+        }
+      },
+      "table": {
+        "title": "Processes",
+        "process": "Process",
+        "ws": "In RAM",
+        "priv": "Committed",
+        "cpu": "CPU",
+        "gpu": "Graphics",
+        "started": "Started",
+        "pid": "PID {{pid}}",
+        "none": "none",
+        "states": {
+          "hidden": "Hidden",
+          "busy": "Working",
+          "stopsIn": "Stops in {{minutes}} min"
+        }
+      },
+      "details": {
+        "what": "What it does",
+        "why": "Why it's running",
+        "goesAway": "When it goes away",
+        "memory": "Memory",
+        "cpu": "CPU & graphics",
+        "objects": "Windows objects",
+        "ws": "In RAM",
+        "priv": "Committed",
+        "peak": "Most in RAM",
+        "gpuMemory": "Graphics card memory",
+        "cpuNow": "Now",
+        "cpuRecording": "During the last recording",
+        "cpuAvg": "Average since it started",
+        "cpuTime": "Total CPU time",
+        "gpuUse": "Graphics card use",
+        "handles": "Handles",
+        "gdi": "GDI objects",
+        "user": "USER objects",
+        "threads": "Threads",
+        "ofLimit": "of {{limit}}",
+        "leakNote": "A count that only grows points to a leak.",
+        "handleTrend": "Handles went from {{from}} to {{to}} over {{duration}}.",
+        "notAvailable": "Not available on this system.",
+        "startedAt": "Started {{time}}",
+        "runningFor": "Running for {{duration}}",
+        "copy": "Copy",
+        "copyLabel": "Copy this process's numbers as text",
+        "graphicsDetails": "Graphics in Diagnostics"
+      },
+      "terms": {
+        "ws": "Working set: the part of the process's memory that's in RAM right now.",
+        "priv": "Private bytes: memory the process has committed for itself. Some of it may be paged out, so it can be larger than what's in RAM.",
+        "peak": "Peak working set: the most this process has had in RAM since it started.",
+        "gpuMemory": "Dedicated graphics memory: memory on the graphics card that this process holds.",
+        "gpuUse": "How busy the graphics card's busiest 3D engine is with this process's work.",
+        "cpu": "% of one core: 100% is one core fully busy, so a busy process can go over 100%.",
+        "cpuAvg": "Total CPU time divided by how long the process has been running.",
+        "cpuTime": "CPU time the process has used since it started, on all cores together.",
+        "handles": "Kernel handles: open files, events, threads, registry keys and the like. There's no practical limit; a count that only grows points to a leak.",
+        "gdi": "GDI objects: bitmaps, fonts and brushes. Windows refuses to create more than 10,000 per process.",
+        "user": "USER objects: windows, menus, cursors and hooks. Windows refuses to create more than 10,000 per process.",
+        "threads": "Threads running in this process."
+      },
+      "unavailable": {
+        "firstSample": "Not measured yet: CPU needs two samples.",
+        "notRead": "Couldn't be read for this process.",
+        "helper": "Read by the Windows helper, which isn't working.",
+        "gpuNotRead": "Graphics memory hasn't been read for this process yet.",
+        "gpuCounters": "Windows' graphics counters couldn't be read.",
+        "gpuUse": "Graphics card use is read only while this page is open, from the second sample on.",
+        "memory": "This system doesn't report memory per process.",
+        "notRecorded": "This process wasn't running during the last recording."
+      },
+      "lastRecording": {
+        "title": "Last recording",
+        "aside": "What one recording costs",
+        "none": "No recording since OpenWhispr started.",
+        "kinds": {
+          "dictation": "Dictation",
+          "assistant": "Voice Assistant",
+          "translation": "Translation"
+        },
+        "screenEdge": "Screen edge: {{mode}}",
+        "frameWindow": {
+          "new": "its window opened for this recording",
+          "reused": "its window was already open",
+          "none": "no window"
+        },
+        "process": "Process",
+        "recording": "While recording",
+        "processing": "Processing and delivery",
+        "gpuAfter": "Graphics memory after delivery",
+        "total": "All processes",
+        "partial": "partial",
+        "appeared": "Started during this phase: measured over its own life, not the whole phase.",
+        "exited": "Exited during this phase, so it has no number.",
+        "tooShort": "Too short to measure: under 0.2 seconds.",
+        "overlapped": "The next dictation started before this one was delivered, so processing ends there.",
+        "afterDelivery": {
+          "pending": "Graphics memory is read once the dictation is delivered.",
+          "ok": "Graphics memory was read at {{time}}, after delivery: not a peak.",
+          "unavailable": "Graphics memory couldn't be read after delivery.",
+          "cancelled": "Graphics memory wasn't read: another dictation started.",
+          "skipped": "Graphics memory wasn't read: the next dictation started before this one was delivered."
+        },
+        "gpuProcesses_one": "{{count}} process on this PC held graphics memory then.",
+        "gpuProcesses_other": "{{count}} processes on this PC held graphics memory then.",
+        "note": "CPU in % of one core. While recording covers start to stop; processing and delivery come after it."
+      },
+      "history": {
+        "title": "Last 24 hours",
+        "show": "Show",
+        "metrics": {
+          "memory": "Memory",
+          "graphics": "Graphics",
+          "cpu": "CPU"
+        },
+        "empty": "Nothing yet: a point is kept every 5 minutes, starting a minute after OpenWhispr starts.",
+        "note": "A point every 5 minutes, kept in memory for 24 hours (not on disk); CPU is the average over each 5 minutes. Gaps are times nothing was measured. Graphics memory is read every 30 minutes, or every 5 while this page is open.",
+        "summary": "Highest {{max}} at {{time}}.",
+        "tableCaption": "{{metric}} by group over the last 24 hours",
+        "now": "Now",
+        "highest": "Highest",
+        "average": "Average",
+        "total": "All processes",
+        "recordingCount_one": "{{count}} recording",
+        "recordingCount_other": "{{count}} recordings"
+      },
+      "footnote": {
+        "terms": "In RAM is the working set: what's in RAM now. Committed is private bytes: memory a process has committed for itself, some of it possibly paged out. Graphics is dedicated memory on the graphics card. CPU is % of one core. Sums count memory that processes share once per process.",
+        "log": "A snapshot of this table goes to the log every 30 minutes, and into Copy diagnostics.",
+        "copy": "Copy as text",
+        "copyFailed": "Couldn't copy the table."
+      },
+      "roles": {
+        "main": {
+          "name": "Main process",
+          "what": "Runs the app itself: hotkeys, the tray, the History database and requests to providers. It starts every other process.",
+          "why": {
+            "default": "Always, while OpenWhispr runs."
+          },
+          "goesAway": {
+            "default": "When you quit."
+          }
+        },
+        "gpu": {
+          "name": "Graphics",
+          "what": "Draws every OpenWhispr window on the graphics card, or on the CPU when graphics acceleration is off.",
+          "why": {
+            "default": "Always. Its graphics memory grows while the screen-edge frame shows."
+          },
+          "goesAway": {
+            "default": "When you quit. Graphics memory kept after a frame drops the next time OpenWhispr draws without it."
+          }
+        },
+        "network": {
+          "name": "Network service",
+          "what": "Chromium's networking: requests to providers, sign-in and update checks.",
+          "why": {
+            "default": "Always."
+          },
+          "goesAway": {
+            "default": "When you quit."
+          }
+        },
+        "audio": {
+          "name": "Audio service",
+          "what": "Captures your microphone and plays the start and stop sounds.",
+          "why": {
+            "default": "Started the first time OpenWhispr used the microphone or played a sound."
+          },
+          "goesAway": {
+            "default": "When you quit."
+          }
+        },
+        "videoCapture": {
+          "name": "Video capture service",
+          "what": "Chromium's camera service. OpenWhispr never opens a camera.",
+          "why": {
+            "default": "OpenWhispr lists your microphones, and Chromium lists cameras in the same call and starts this service to do it.",
+            "cameras": "OpenWhispr lists your microphones, and Chromium lists cameras in the same call ({{cameras}} found) and starts this service to do it."
+          },
+          "goesAway": {
+            "default": "Not on its own: Chromium keeps it for the rest of the session."
+          }
+        },
+        "storage": {
+          "name": "Storage service",
+          "what": "Chromium's storage for what the windows keep locally, such as your settings.",
+          "why": {
+            "default": "Started when a window first used its storage."
+          },
+          "goesAway": {
+            "default": "When you quit."
+          }
+        },
+        "controlPanel": {
+          "name": "Control panel window",
+          "what": "This window: Home, History, Notes, Chat and Settings.",
+          "why": {
+            "default": "You opened it.",
+            "visible": "It's open.",
+            "hidden": "Hidden since {{since}}. Closing it only hides it, so it stays loaded.",
+            "hiddenUnknown": "It's hidden. Closing it only hides it, so it stays loaded."
+          },
+          "goesAway": {
+            "default": "When you quit."
+          }
+        },
+        "dictationWindow": {
+          "name": "Dictation window",
+          "what": "The floating icon: records your voice, runs the dictation and pastes the text.",
+          "why": {
+            "default": "Always."
+          },
+          "goesAway": {
+            "default": "When you quit. Most of its CPU time is spent while you record."
+          }
+        },
+        "edgeStrip": {
+          "name": "Screen-edge indicator",
+          "what": "The strip or frame at the edge of your screen while the microphone is live (Settings › Floating icon › Screen edge).",
+          "why": {
+            "default": "Your Screen edge setting is on.",
+            "recording": "A recording is running.",
+            "kept": "Kept after the last recording, so the next one shows it at once."
+          },
+          "goesAway": {
+            "default": "A while after the recording ends.",
+            "afterSeconds": "{{seconds}} seconds after the last recording ends.",
+            "afterMinutes": "{{minutes}} minutes after the last recording ends."
+          }
+        },
+        "companionPill": {
+          "name": "Companion pill",
+          "what": "The small pill that shows a dictation while the assistant panel is open.",
+          "why": {
+            "default": "The assistant panel is open."
+          },
+          "goesAway": {
+            "default": "When the assistant panel closes."
+          }
+        },
+        "meetingOverlay": {
+          "name": "Meeting prompt",
+          "what": "The card that offers to transcribe a meeting OpenWhispr detected.",
+          "why": {
+            "default": "A meeting was detected."
+          },
+          "goesAway": {
+            "default": "When you answer it or it times out."
+          }
+        },
+        "permissionGuide": {
+          "name": "Permission guide",
+          "what": "Points at the right switch in System Settings during setup.",
+          "why": {
+            "default": "Setup is asking for a permission."
+          },
+          "goesAway": {
+            "default": "When the permission is granted or you close it."
+          }
+        },
+        "keyListener": {
+          "name": "Key listener",
+          "what": "Watches one hotkey so OpenWhispr knows when you press and release it.",
+          "why": {
+            "default": "A hotkey needs it: Hold, or a key Windows can't register on its own.",
+            "hotkey": "Your hotkey {{hotkey}} needs it: Hold, or a key Windows can't register on its own."
+          },
+          "goesAway": {
+            "default": "When you quit or change that hotkey."
+          }
+        },
+        "copilotRuntime": {
+          "name": "GitHub Copilot runtime",
+          "what": "Sends requests to GitHub Copilot: cleanup, chat and the Voice Assistant.",
+          "why": {
+            "default": "Started for a request to GitHub Copilot.",
+            "busy": "A request to GitHub Copilot is running."
+          },
+          "goesAway": {
+            "default": "After 10 minutes without a request.",
+            "stopsIn": "After 10 minutes without a request (in about {{minutes}} min)."
+          }
+        },
+        "whisperServer": {
+          "name": "Local Whisper server",
+          "what": "Transcribes your voice on this PC with a Whisper model.",
+          "why": {
+            "default": "You dictate with a local Whisper model."
+          },
+          "goesAway": {
+            "default": "When you switch away from local Whisper, or quit."
+          }
+        },
+        "parakeetServer": {
+          "name": "Parakeet / Cohere server",
+          "what": "Transcribes your voice on this PC with a Parakeet or Cohere model.",
+          "why": {
+            "default": "You dictate with a local Parakeet or Cohere model."
+          },
+          "goesAway": {
+            "default": "When you switch to another model, or quit."
+          }
+        },
+        "llamaServer": {
+          "name": "Local language model",
+          "what": "Runs a downloaded language model on this PC for cleanup or chat.",
+          "why": {
+            "default": "Cleanup or chat uses a downloaded model."
+          },
+          "goesAway": {
+            "default": "When you switch to another model, or quit."
+          }
+        },
+        "qdrant": {
+          "name": "Note search index",
+          "what": "Searches your notes by meaning.",
+          "why": {
+            "default": "You searched notes by meaning, or notes are being indexed."
+          },
+          "goesAway": {
+            "default": "After 5 minutes without a search."
+          }
+        },
+        "searchWorker": {
+          "name": "Search and speaker worker",
+          "what": "Turns notes into search vectors and recognizes speakers in meetings, on this PC.",
+          "why": {
+            "default": "Note search or speaker recognition needed it."
+          },
+          "goesAway": {
+            "default": "Once nothing has used it for a while."
+          }
+        },
+        "systemAudioHelper": {
+          "name": "Meeting audio",
+          "what": "Records what other apps play, so the other side of a meeting is transcribed.",
+          "why": {
+            "default": "A meeting is being transcribed."
+          },
+          "goesAway": {
+            "default": "When the meeting transcription stops."
+          }
+        },
+        "micListener": {
+          "name": "Microphone watcher",
+          "what": "Notices when another app starts using the microphone, to detect meetings.",
+          "why": {
+            "default": "Meeting detection is on."
+          },
+          "goesAway": {
+            "default": "When you turn meeting detection off, or quit."
+          }
+        },
+        "textMonitor": {
+          "name": "Correction watcher",
+          "what": "Watches the text field you pasted into, to learn the corrections you make.",
+          "why": {
+            "default": "You just pasted a dictation."
+          },
+          "goesAway": {
+            "default": "About 30 seconds after the paste."
+          }
+        },
+        "ffmpeg": {
+          "name": "Audio converter (FFmpeg)",
+          "what": "Converts audio for transcription.",
+          "why": {
+            "default": "A recording or a file is being converted."
+          },
+          "goesAway": {
+            "default": "When the conversion is done."
+          }
+        },
+        "meetingAecHelper": {
+          "name": "Meeting echo canceller",
+          "what": "Removes the other side's voice from your microphone during a meeting.",
+          "why": {
+            "default": "A meeting is being transcribed."
+          },
+          "goesAway": {
+            "default": "When the meeting transcription stops."
+          }
+        },
+        "diarization": {
+          "name": "Speaker separation",
+          "what": "Works out who spoke when in a meeting recording.",
+          "why": {
+            "default": "A meeting transcript is being split by speaker."
+          },
+          "goesAway": {
+            "default": "When it's done."
+          }
+        },
+        "consoleHost": {
+          "name": "Console host",
+          "what": "Windows starts one for every command-line helper, even a hidden one.",
+          "why": {
+            "default": "Its helper program is running."
+          },
+          "goesAway": {
+            "default": "With its helper program."
+          }
+        },
+        "unknown": {
+          "name": "Other process",
+          "what": "A process OpenWhispr started that this page doesn't know.",
+          "why": {
+            "default": "Started by OpenWhispr."
+          },
+          "goesAway": {
+            "default": "When it finishes, or when you quit."
+          }
+        }
+      },
+      "notRunning": {
+        "whisperServer": "Starts when you dictate with a local Whisper model.",
+        "parakeetServer": "Starts when you dictate with a local Parakeet or Cohere model.",
+        "llamaServer": "Starts when cleanup or chat uses a downloaded model.",
+        "copilotRuntime": "Starts with the first request to GitHub Copilot; stops after 10 idle minutes.",
+        "qdrant": "Starts on the first search by meaning; stops after 5 idle minutes.",
+        "searchWorker": "Starts for note search or speaker recognition.",
+        "systemAudioHelper": "Starts while a meeting is being transcribed.",
+        "meetingAecHelper": "Starts while a meeting is being transcribed.",
+        "diarization": "Starts after a meeting, to separate its speakers.",
+        "micListener": "Starts when meeting detection is on.",
+        "textMonitor": "Starts for 30 seconds after a paste, to learn corrections.",
+        "edgeStrip": "Starts when you record, if Screen edge is on."
+      }
+    },
     "diagnostics": {
       "title": "Diagnostics",
       "logs": "Logs",
@@ -3790,6 +4267,13 @@
         "fallback": "Graphics acceleration is off. OpenWhispr is drawing on the CPU, so animations can stutter. This usually means another app has used up the graphics card; restart OpenWhispr once it's free.",
         "requested": "Drawing on the CPU (set by a launch flag)",
         "restart": "Restart OpenWhispr"
+      },
+      "processes": {
+        "label": "Processes & resources",
+        "inRam": "{{size}} in RAM",
+        "graphicsMemory": "{{size}} graphics memory",
+        "notMeasured": "Not measured yet: the first sample runs a minute after OpenWhispr starts.",
+        "open": "Open Processes & resources"
       },
       "copy": {
         "label": "Copy diagnostics",

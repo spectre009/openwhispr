@@ -84,6 +84,7 @@ import LinuxPttSetupInfo from "./ui/LinuxPttSetupInfo";
 import { Toggle } from "./ui/toggle";
 import DiagnosticsSection from "./settings/DiagnosticsSection";
 import StoragePage from "./settings/StoragePage";
+import ProcessesPage from "./settings/ProcessesPage";
 import PrivacyStorageSummary from "./settings/PrivacyStorageSummary";
 import { retentionPeriodLabel } from "./settings/storageFormat";
 import { transcriptRetentionChoices } from "../utils/retentionPeriods.js";
@@ -4659,6 +4660,10 @@ EOF`,
 
       case "storage":
         return <StoragePage showing={page === "storage"} />;
+
+      case "processes":
+        // Subscribes to live samples only while it shows.
+        return <ProcessesPage showing={page === "processes"} />;
 
       default:
         return <div className="space-y-6">{renderPreferencesBlocks(pageId)}</div>;

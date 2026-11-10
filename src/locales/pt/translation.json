@@ -2182,6 +2182,10 @@
       "storage": {
         "title": "Armazenamento",
         "description": "O que o OpenWhispr guarda neste computador: onde fica, quanto ocupa e por quanto tempo."
+      },
+      "processes": {
+        "title": "Processos e recursos",
+        "description": "Todos os programas que o OpenWhispr está executando agora, o que cada um faz e quanto custa."
       }
     },
     "elsewhere": {
@@ -3662,6 +3666,479 @@
         "clearFailed": "Não foi possível limpar o cache do app."
       }
     },
+    "processes": {
+      "summaryTitle": "Memória, CPU e gráficos agora",
+      "count_one": "{{count}} processo",
+      "count_other": "{{count}} processos",
+      "status": {
+        "loading": "Medindo…",
+        "failed": "Não foi possível ler os processos do OpenWhispr.",
+        "live": "Ao vivo: uma nova amostra a cada 2 segundos enquanto esta página está aberta.",
+        "sampledAt": "Última amostra às {{time}}.",
+        "paused": "Pausado enquanto você dita",
+        "pausedDetail": "Mostrando os números das {{time}}. Nada é medido até que o ditado seja entregue."
+      },
+      "notices": {
+        "windowsOnly": "Não disponível neste sistema: memória confirmada, memória e uso gráficos, identificadores, objetos GDI e USER, e os programas auxiliares que o OpenWhispr inicia. Esses dados vêm de um auxiliar do Windows; o resto vem do Electron.",
+        "helperMissing": "O auxiliar do Windows está faltando, então os programas auxiliares, os identificadores, os objetos GDI e USER e a memória gráfica não são mostrados. O resto vem do Electron.",
+        "helperFailed": "O auxiliar do Windows parou de funcionar, então os programas auxiliares, os identificadores, os objetos GDI e USER e a memória gráfica não são mostrados. O resto vem do Electron.",
+        "gpuCounters": "Não foi possível ler os contadores gráficos do Windows, então a memória e o uso gráficos não são mostrados.",
+        "memory": "Este sistema não informa a memória por processo, então a memória aparece como indisponível."
+      },
+      "groups": {
+        "app": "App",
+        "windows": "Janelas",
+        "services": "Serviços do Chromium",
+        "helpers": "Programas auxiliares",
+        "notRunning": "Fora de execução agora"
+      },
+      "tiles": {
+        "memory": "Na RAM",
+        "committed": "{{size}} confirmados",
+        "sumNote": "Soma de todos os processos: a memória que eles compartilham é contada uma vez por processo.",
+        "cpu": "CPU agora",
+        "ofOneCore": "de um núcleo",
+        "cpuNote": "Soma de todos os processos; 100% é um núcleo totalmente ocupado.",
+        "graphics": "Memória gráfica",
+        "graphicsNote": "Memória dedicada na placa de vídeo, soma de todos os processos.",
+        "graphicsReadAt": "Lida às {{time}}.",
+        "gpuProcesses": "Placa de vídeo",
+        "gpuProcessesUnit": "processos com memória gráfica neste computador",
+        "gpuProcessesNote": "Todos os processos deste computador que ocupam memória na placa de vídeo, incluindo os ociosos e os do OpenWhispr.",
+        "modes": {
+          "hardware": "Hardware",
+          "software": "Com a CPU"
+        }
+      },
+      "table": {
+        "title": "Processos",
+        "process": "Processo",
+        "ws": "Na RAM",
+        "priv": "Confirmada",
+        "cpu": "CPU",
+        "gpu": "Gráficos",
+        "started": "Início",
+        "pid": "PID {{pid}}",
+        "none": "nenhum",
+        "states": {
+          "hidden": "Oculta",
+          "busy": "Trabalhando",
+          "stopsIn": "Encerra em {{minutes}} min"
+        }
+      },
+      "details": {
+        "what": "O que faz",
+        "why": "Por que está em execução",
+        "goesAway": "Quando é encerrado",
+        "memory": "Memória",
+        "cpu": "CPU e gráficos",
+        "objects": "Objetos do Windows",
+        "ws": "Na RAM",
+        "priv": "Confirmada",
+        "peak": "Máximo na RAM",
+        "gpuMemory": "Memória da placa de vídeo",
+        "cpuNow": "Agora",
+        "cpuRecording": "Durante a última gravação",
+        "cpuAvg": "Média desde o início",
+        "cpuTime": "Tempo total de CPU",
+        "gpuUse": "Uso da placa de vídeo",
+        "handles": "Identificadores",
+        "gdi": "Objetos GDI",
+        "user": "Objetos USER",
+        "threads": "Threads",
+        "ofLimit": "de {{limit}}",
+        "leakNote": "Uma contagem que só cresce indica um vazamento.",
+        "handleTrend": "Os identificadores passaram de {{from}} para {{to}} em {{duration}}.",
+        "notAvailable": "Não disponível neste sistema.",
+        "startedAt": "Início: {{time}}",
+        "runningFor": "Em execução há {{duration}}",
+        "copy": "Copiar",
+        "copyLabel": "Copiar os números deste processo como texto",
+        "graphicsDetails": "Gráficos em Diagnóstico"
+      },
+      "terms": {
+        "ws": "Conjunto de trabalho: a parte da memória do processo que está na RAM neste momento.",
+        "priv": "Bytes privados: a memória que o processo confirmou para si. Parte dela pode estar paginada, então pode ser maior do que o que está na RAM.",
+        "peak": "Pico do conjunto de trabalho: o máximo que este processo já teve na RAM desde que iniciou.",
+        "gpuMemory": "Memória gráfica dedicada: a memória da placa de vídeo que este processo ocupa.",
+        "gpuUse": "Quanto o mecanismo 3D mais ocupado da placa de vídeo está ocupado com o trabalho deste processo.",
+        "cpu": "% de um núcleo: 100% é um núcleo totalmente ocupado, então um processo ocupado pode passar de 100%.",
+        "cpuAvg": "O tempo total de CPU dividido pelo tempo em que o processo está em execução.",
+        "cpuTime": "O tempo de CPU que o processo usou desde que iniciou, somando todos os núcleos.",
+        "handles": "Identificadores do kernel: arquivos abertos, eventos, threads, chaves do Registro e afins. Não há limite prático; uma contagem que só cresce indica um vazamento.",
+        "gdi": "Objetos GDI: bitmaps, fontes e pincéis. O Windows se recusa a criar mais de 10.000 por processo.",
+        "user": "Objetos USER: janelas, menus, cursores e ganchos. O Windows se recusa a criar mais de 10.000 por processo.",
+        "threads": "Threads em execução neste processo."
+      },
+      "unavailable": {
+        "firstSample": "Ainda não medido: a CPU precisa de duas amostras.",
+        "notRead": "Não foi possível ler para este processo.",
+        "helper": "Lido pelo auxiliar do Windows, que não está funcionando.",
+        "gpuNotRead": "A memória gráfica deste processo ainda não foi lida.",
+        "gpuCounters": "Não foi possível ler os contadores gráficos do Windows.",
+        "gpuUse": "O uso da placa de vídeo só é lido enquanto esta página está aberta, a partir da segunda amostra.",
+        "memory": "Este sistema não informa a memória por processo.",
+        "notRecorded": "Este processo não estava em execução durante a última gravação."
+      },
+      "lastRecording": {
+        "title": "Última gravação",
+        "aside": "Quanto custa uma gravação",
+        "none": "Nenhuma gravação desde que o OpenWhispr iniciou.",
+        "kinds": {
+          "dictation": "Ditado",
+          "assistant": "Assistente de voz",
+          "translation": "Tradução"
+        },
+        "screenEdge": "Borda da tela: {{mode}}",
+        "frameWindow": {
+          "new": "a janela dele abriu para esta gravação",
+          "reused": "a janela dele já estava aberta",
+          "none": "sem janela"
+        },
+        "process": "Processo",
+        "recording": "Durante a gravação",
+        "processing": "Processamento e entrega",
+        "gpuAfter": "Memória gráfica após a entrega",
+        "total": "Todos os processos",
+        "partial": "parcial",
+        "appeared": "Iniciado durante esta fase: medido só enquanto existiu, não durante a fase inteira.",
+        "exited": "Encerrado durante esta fase, por isso não tem número.",
+        "tooShort": "Curto demais para medir: menos de 0,2 segundo.",
+        "overlapped": "O próximo ditado começou antes de este ser entregue, então o processamento termina ali.",
+        "afterDelivery": {
+          "pending": "A memória gráfica é lida assim que o ditado é entregue.",
+          "ok": "A memória gráfica foi lida às {{time}}, após a entrega: não é um pico.",
+          "unavailable": "Não foi possível ler a memória gráfica após a entrega.",
+          "cancelled": "A memória gráfica não foi lida: outro ditado começou.",
+          "skipped": "A memória gráfica não foi lida: o próximo ditado começou antes de este ser entregue."
+        },
+        "gpuProcesses_one": "{{count}} processo deste computador ocupava memória gráfica naquele momento.",
+        "gpuProcesses_other": "{{count}} processos deste computador ocupavam memória gráfica naquele momento.",
+        "note": "CPU em % de um núcleo. “Durante a gravação” vai do início ao fim; o processamento e a entrega vêm depois."
+      },
+      "history": {
+        "title": "Últimas 24 horas",
+        "show": "Mostrar",
+        "metrics": {
+          "memory": "Memória",
+          "graphics": "Gráficos",
+          "cpu": "CPU"
+        },
+        "empty": "Nada ainda: um ponto é guardado a cada 5 minutos, começando um minuto depois que o OpenWhispr inicia.",
+        "note": "Um ponto a cada 5 minutos, guardado na memória por 24 horas (não no disco); a CPU é a média de cada 5 minutos. As lacunas são momentos em que nada foi medido. A memória gráfica é lida a cada 30 minutos, ou a cada 5 enquanto esta página está aberta.",
+        "summary": "Máximo de {{max}} às {{time}}.",
+        "tableCaption": "{{metric}} por grupo nas últimas 24 horas",
+        "now": "Agora",
+        "highest": "Máximo",
+        "average": "Média",
+        "total": "Todos os processos",
+        "recordingCount_one": "{{count}} gravação",
+        "recordingCount_other": "{{count}} gravações"
+      },
+      "footnote": {
+        "terms": "Na RAM é o conjunto de trabalho: o que está na RAM agora. Confirmada são os bytes privados: a memória que um processo confirmou para si, parte dela possivelmente paginada. Gráficos é a memória dedicada na placa de vídeo. CPU é o % de um núcleo. As somas contam a memória que os processos compartilham uma vez por processo.",
+        "log": "Um instantâneo desta tabela vai para o log a cada 30 minutos, e para Copiar diagnóstico.",
+        "copy": "Copiar como texto",
+        "copyFailed": "Não foi possível copiar a tabela."
+      },
+      "roles": {
+        "main": {
+          "name": "Processo principal",
+          "what": "Executa o próprio app: os atalhos, a bandeja, o banco de dados do Histórico e as solicitações aos provedores. Ele inicia todos os outros processos.",
+          "why": {
+            "default": "Sempre, enquanto o OpenWhispr está em execução."
+          },
+          "goesAway": {
+            "default": "Quando você sai."
+          }
+        },
+        "gpu": {
+          "name": "Gráficos",
+          "what": "Desenha todas as janelas do OpenWhispr na placa de vídeo, ou com a CPU quando a aceleração gráfica está desligada.",
+          "why": {
+            "default": "Sempre. A memória gráfica dele cresce enquanto a moldura da borda da tela aparece."
+          },
+          "goesAway": {
+            "default": "Quando você sai. A memória gráfica retida depois de uma moldura é liberada na próxima vez que o OpenWhispr desenha sem ela."
+          }
+        },
+        "network": {
+          "name": "Serviço de rede",
+          "what": "A rede do Chromium: solicitações aos provedores, login e verificações de atualização.",
+          "why": {
+            "default": "Sempre."
+          },
+          "goesAway": {
+            "default": "Quando você sai."
+          }
+        },
+        "audio": {
+          "name": "Serviço de áudio",
+          "what": "Captura seu microfone e toca os sons de início e fim.",
+          "why": {
+            "default": "Iniciado na primeira vez que o OpenWhispr usou o microfone ou tocou um som."
+          },
+          "goesAway": {
+            "default": "Quando você sai."
+          }
+        },
+        "videoCapture": {
+          "name": "Serviço de captura de vídeo",
+          "what": "O serviço de câmera do Chromium. O OpenWhispr nunca abre uma câmera.",
+          "why": {
+            "default": "O OpenWhispr lista seus microfones, e o Chromium lista as câmeras na mesma chamada e inicia este serviço para isso.",
+            "cameras": "O OpenWhispr lista seus microfones, e o Chromium lista as câmeras na mesma chamada ({{cameras}} encontradas) e inicia este serviço para isso."
+          },
+          "goesAway": {
+            "default": "Não sozinho: o Chromium o mantém pelo resto da sessão."
+          }
+        },
+        "storage": {
+          "name": "Serviço de armazenamento",
+          "what": "O armazenamento do Chromium para o que as janelas guardam localmente, como suas configurações.",
+          "why": {
+            "default": "Iniciado quando uma janela usou o armazenamento pela primeira vez."
+          },
+          "goesAway": {
+            "default": "Quando você sai."
+          }
+        },
+        "controlPanel": {
+          "name": "Janela do painel de controle",
+          "what": "Esta janela: Início, Histórico, Notas, Chat e Configurações.",
+          "why": {
+            "default": "Você a abriu.",
+            "visible": "Está aberta.",
+            "hidden": "Oculta desde {{since}}. Fechá-la só a oculta, então ela continua carregada.",
+            "hiddenUnknown": "Está oculta. Fechá-la só a oculta, então ela continua carregada."
+          },
+          "goesAway": {
+            "default": "Quando você sai."
+          }
+        },
+        "dictationWindow": {
+          "name": "Janela de ditado",
+          "what": "O ícone flutuante: grava sua voz, processa o ditado e cola o texto.",
+          "why": {
+            "default": "Sempre."
+          },
+          "goesAway": {
+            "default": "Quando você sai. Quase todo o tempo de CPU dela é gasto enquanto você grava."
+          }
+        },
+        "edgeStrip": {
+          "name": "Indicador na borda da tela",
+          "what": "A faixa ou a moldura na borda da tela enquanto o microfone está ativo (Configurações › Ícone flutuante › Borda da tela).",
+          "why": {
+            "default": "Sua configuração Borda da tela está ativada.",
+            "recording": "Uma gravação está em andamento.",
+            "kept": "Mantido após a última gravação, para que a próxima o mostre na hora."
+          },
+          "goesAway": {
+            "default": "Algum tempo depois que a gravação termina.",
+            "afterSeconds": "{{seconds}} segundos depois que a última gravação termina.",
+            "afterMinutes": "{{minutes}} minutos depois que a última gravação termina."
+          }
+        },
+        "companionPill": {
+          "name": "Pílula complementar",
+          "what": "A pequena pílula que mostra um ditado enquanto o painel do assistente está aberto.",
+          "why": {
+            "default": "O painel do assistente está aberto."
+          },
+          "goesAway": {
+            "default": "Quando o painel do assistente fecha."
+          }
+        },
+        "meetingOverlay": {
+          "name": "Aviso de reunião",
+          "what": "O cartão que oferece transcrever uma reunião que o OpenWhispr detectou.",
+          "why": {
+            "default": "Uma reunião foi detectada."
+          },
+          "goesAway": {
+            "default": "Quando você responde ou o tempo se esgota."
+          }
+        },
+        "permissionGuide": {
+          "name": "Guia de permissões",
+          "what": "Aponta o interruptor certo nos Ajustes do Sistema durante a configuração.",
+          "why": {
+            "default": "A configuração está pedindo uma permissão."
+          },
+          "goesAway": {
+            "default": "Quando a permissão é concedida ou você o fecha."
+          }
+        },
+        "keyListener": {
+          "name": "Detector de teclas",
+          "what": "Monitora um atalho para que o OpenWhispr saiba quando você o pressiona e solta.",
+          "why": {
+            "default": "Um atalho precisa dele: Segurar, ou uma tecla que o Windows não consegue registrar sozinho.",
+            "hotkey": "Seu atalho {{hotkey}} precisa dele: Segurar, ou uma tecla que o Windows não consegue registrar sozinho."
+          },
+          "goesAway": {
+            "default": "Quando você sai ou muda esse atalho."
+          }
+        },
+        "copilotRuntime": {
+          "name": "Runtime do GitHub Copilot",
+          "what": "Envia solicitações ao GitHub Copilot: limpeza, chat e o Assistente de voz.",
+          "why": {
+            "default": "Iniciado para uma solicitação ao GitHub Copilot.",
+            "busy": "Uma solicitação ao GitHub Copilot está em andamento."
+          },
+          "goesAway": {
+            "default": "Após 10 minutos sem solicitações.",
+            "stopsIn": "Após 10 minutos sem solicitações (em cerca de {{minutes}} min)."
+          }
+        },
+        "whisperServer": {
+          "name": "Servidor local do Whisper",
+          "what": "Transcreve sua voz neste computador com um modelo do Whisper.",
+          "why": {
+            "default": "Você dita com um modelo local do Whisper."
+          },
+          "goesAway": {
+            "default": "Quando você deixa de usar o Whisper local, ou sai."
+          }
+        },
+        "parakeetServer": {
+          "name": "Servidor Parakeet / Cohere",
+          "what": "Transcreve sua voz neste computador com um modelo Parakeet ou Cohere.",
+          "why": {
+            "default": "Você dita com um modelo local Parakeet ou Cohere."
+          },
+          "goesAway": {
+            "default": "Quando você muda para outro modelo, ou sai."
+          }
+        },
+        "llamaServer": {
+          "name": "Modelo de linguagem local",
+          "what": "Executa um modelo de linguagem baixado neste computador para a limpeza ou o chat.",
+          "why": {
+            "default": "A limpeza ou o chat usa um modelo baixado."
+          },
+          "goesAway": {
+            "default": "Quando você muda para outro modelo, ou sai."
+          }
+        },
+        "qdrant": {
+          "name": "Índice de busca de notas",
+          "what": "Busca suas notas pelo significado.",
+          "why": {
+            "default": "Você buscou notas pelo significado, ou notas estão sendo indexadas."
+          },
+          "goesAway": {
+            "default": "Após 5 minutos sem buscas."
+          }
+        },
+        "searchWorker": {
+          "name": "Processo de busca e falantes",
+          "what": "Transforma notas em vetores de busca e reconhece os falantes em reuniões, neste computador.",
+          "why": {
+            "default": "A busca de notas ou o reconhecimento de falantes precisou dele."
+          },
+          "goesAway": {
+            "default": "Depois que nada o usa por algum tempo."
+          }
+        },
+        "systemAudioHelper": {
+          "name": "Áudio de reuniões",
+          "what": "Grava o que outros apps reproduzem, para que o outro lado de uma reunião seja transcrito.",
+          "why": {
+            "default": "Uma reunião está sendo transcrita."
+          },
+          "goesAway": {
+            "default": "Quando a transcrição da reunião para."
+          }
+        },
+        "micListener": {
+          "name": "Monitor do microfone",
+          "what": "Percebe quando outro app começa a usar o microfone, para detectar reuniões.",
+          "why": {
+            "default": "A detecção de reuniões está ativada."
+          },
+          "goesAway": {
+            "default": "Quando você desativa a detecção de reuniões, ou sai."
+          }
+        },
+        "textMonitor": {
+          "name": "Monitor de correções",
+          "what": "Monitora o campo de texto em que você colou, para aprender as correções que você faz.",
+          "why": {
+            "default": "Você acabou de colar um ditado."
+          },
+          "goesAway": {
+            "default": "Cerca de 30 segundos depois de colar."
+          }
+        },
+        "ffmpeg": {
+          "name": "Conversor de áudio (FFmpeg)",
+          "what": "Converte o áudio para a transcrição.",
+          "why": {
+            "default": "Uma gravação ou um arquivo está sendo convertido."
+          },
+          "goesAway": {
+            "default": "Quando a conversão termina."
+          }
+        },
+        "meetingAecHelper": {
+          "name": "Cancelador de eco de reuniões",
+          "what": "Remove do seu microfone a voz do outro lado durante uma reunião.",
+          "why": {
+            "default": "Uma reunião está sendo transcrita."
+          },
+          "goesAway": {
+            "default": "Quando a transcrição da reunião para."
+          }
+        },
+        "diarization": {
+          "name": "Separação de falantes",
+          "what": "Descobre quem falou e quando na gravação de uma reunião.",
+          "why": {
+            "default": "A transcrição de uma reunião está sendo dividida por falante."
+          },
+          "goesAway": {
+            "default": "Quando termina."
+          }
+        },
+        "consoleHost": {
+          "name": "Host de console",
+          "what": "O Windows inicia um para cada programa auxiliar de linha de comando, mesmo um oculto.",
+          "why": {
+            "default": "O programa auxiliar dele está em execução."
+          },
+          "goesAway": {
+            "default": "Junto com o programa auxiliar dele."
+          }
+        },
+        "unknown": {
+          "name": "Outro processo",
+          "what": "Um processo que o OpenWhispr iniciou e que esta página não conhece.",
+          "why": {
+            "default": "Iniciado pelo OpenWhispr."
+          },
+          "goesAway": {
+            "default": "Quando termina, ou quando você sai."
+          }
+        }
+      },
+      "notRunning": {
+        "whisperServer": "Inicia quando você dita com um modelo local do Whisper.",
+        "parakeetServer": "Inicia quando você dita com um modelo local Parakeet ou Cohere.",
+        "llamaServer": "Inicia quando a limpeza ou o chat usa um modelo baixado.",
+        "copilotRuntime": "Inicia com a primeira solicitação ao GitHub Copilot; é encerrado após 10 minutos ocioso.",
+        "qdrant": "Inicia na primeira busca pelo significado; é encerrado após 5 minutos ocioso.",
+        "searchWorker": "Inicia para a busca de notas ou o reconhecimento de falantes.",
+        "systemAudioHelper": "Inicia enquanto uma reunião está sendo transcrita.",
+        "meetingAecHelper": "Inicia enquanto uma reunião está sendo transcrita.",
+        "diarization": "Inicia depois de uma reunião, para separar os falantes.",
+        "micListener": "Inicia quando a detecção de reuniões está ativada.",
+        "textMonitor": "Inicia por 30 segundos depois de colar, para aprender correções.",
+        "edgeStrip": "Inicia quando você grava, se Borda da tela estiver ativada."
+      }
+    },
     "diagnostics": {
       "title": "Diagnóstico",
       "logs": "Logs",
@@ -3675,6 +4152,13 @@
         "fallback": "A aceleração gráfica está desligada. O OpenWhispr está desenhando com a CPU, então as animações podem engasgar. Geralmente isso significa que outro app esgotou a placa de vídeo; reinicie o OpenWhispr quando ela estiver livre.",
         "requested": "Desenhando com a CPU (definido por uma opção de inicialização)",
         "restart": "Reiniciar o OpenWhispr"
+      },
+      "processes": {
+        "label": "Processos e recursos",
+        "inRam": "{{size}} na RAM",
+        "graphicsMemory": "{{size}} de memória gráfica",
+        "notMeasured": "Ainda não medido: a primeira amostra é feita um minuto depois que o OpenWhispr inicia.",
+        "open": "Abrir Processos e recursos"
       },
       "copy": {
         "label": "Copiar diagnóstico",

@@ -2203,6 +2203,10 @@
       "storage": {
         "title": "ストレージ",
         "description": "OpenWhispr がこのコンピューターに保存しているもの、その場所、サイズ、保存期間。"
+      },
+      "processes": {
+        "title": "プロセスとリソース",
+        "description": "OpenWhispr が今実行しているすべてのプログラムと、それぞれの役割、使用しているリソース。"
       }
     },
     "elsewhere": {
@@ -3683,6 +3687,479 @@
         "clearFailed": "アプリのキャッシュを消去できませんでした。"
       }
     },
+    "processes": {
+      "summaryTitle": "現在のメモリ、CPU、グラフィックス",
+      "count_one": "{{count}} 個のプロセス",
+      "count_other": "{{count}} 個のプロセス",
+      "status": {
+        "loading": "計測中…",
+        "failed": "OpenWhispr のプロセスを読み取れませんでした。",
+        "live": "ライブ：このページを開いている間、2 秒ごとに計測します。",
+        "sampledAt": "最終計測：{{time}}。",
+        "paused": "ディクテーション中は一時停止",
+        "pausedDetail": "{{time}} の数値を表示しています。ディクテーションの出力が終わるまで計測しません。"
+      },
+      "notices": {
+        "windowsOnly": "このシステムでは利用できません：コミット済みメモリ、グラフィックメモリと使用率、ハンドル、GDI オブジェクトと USER オブジェクト、OpenWhispr が起動するヘルパープログラム。これらは Windows ヘルパーから取得し、それ以外は Electron から取得します。",
+        "helperMissing": "Windows ヘルパーが見つからないため、ヘルパープログラム、ハンドル、GDI オブジェクトと USER オブジェクト、グラフィックメモリは表示されません。それ以外は Electron から取得します。",
+        "helperFailed": "Windows ヘルパーが動作しなくなったため、ヘルパープログラム、ハンドル、GDI オブジェクトと USER オブジェクト、グラフィックメモリは表示されません。それ以外は Electron から取得します。",
+        "gpuCounters": "Windows のグラフィックカウンターを読み取れなかったため、グラフィックメモリと使用率は表示されません。",
+        "memory": "このシステムはプロセスごとのメモリを報告しないため、メモリは利用不可と表示されます。"
+      },
+      "groups": {
+        "app": "アプリ",
+        "windows": "ウィンドウ",
+        "services": "Chromium サービス",
+        "helpers": "ヘルパー",
+        "notRunning": "現在は実行されていません"
+      },
+      "tiles": {
+        "memory": "RAM 使用量",
+        "committed": "コミット済み {{size}}",
+        "sumNote": "全プロセスの合計：プロセス間で共有するメモリは、プロセスごとに数えます。",
+        "cpu": "現在の CPU",
+        "ofOneCore": "1 コア基準",
+        "cpuNote": "全プロセスの合計。100% は 1 コアがフルに使われている状態です。",
+        "graphics": "グラフィックメモリ",
+        "graphicsNote": "グラフィックカード上の専用メモリ。全プロセスの合計です。",
+        "graphicsReadAt": "{{time}} に読み取り。",
+        "gpuProcesses": "グラフィックカード",
+        "gpuProcessesUnit": "この PC でグラフィックメモリを保持しているプロセス",
+        "gpuProcessesNote": "この PC でグラフィックカード上のメモリを保持しているすべてのプロセス（アイドル中のものと OpenWhispr のものを含む）。",
+        "modes": {
+          "hardware": "ハードウェア",
+          "software": "CPU で描画"
+        }
+      },
+      "table": {
+        "title": "プロセス",
+        "process": "プロセス",
+        "ws": "RAM 使用量",
+        "priv": "コミット済み",
+        "cpu": "CPU",
+        "gpu": "グラフィックス",
+        "started": "開始時刻",
+        "pid": "PID {{pid}}",
+        "none": "なし",
+        "states": {
+          "hidden": "非表示",
+          "busy": "処理中",
+          "stopsIn": "{{minutes}} 分後に停止"
+        }
+      },
+      "details": {
+        "what": "役割",
+        "why": "実行されている理由",
+        "goesAway": "終了するタイミング",
+        "memory": "メモリ",
+        "cpu": "CPU とグラフィックス",
+        "objects": "Windows オブジェクト",
+        "ws": "RAM 使用量",
+        "priv": "コミット済み",
+        "peak": "RAM 使用量の最大値",
+        "gpuMemory": "グラフィックカードのメモリ",
+        "cpuNow": "現在",
+        "cpuRecording": "前回の録音中",
+        "cpuAvg": "開始以降の平均",
+        "cpuTime": "合計 CPU 時間",
+        "gpuUse": "グラフィックカードの使用率",
+        "handles": "ハンドル",
+        "gdi": "GDI オブジェクト",
+        "user": "USER オブジェクト",
+        "threads": "スレッド",
+        "ofLimit": "上限 {{limit}}",
+        "leakNote": "増え続ける一方の数はリークの兆候です。",
+        "handleTrend": "ハンドルは {{duration}} で {{from}} から {{to}} になりました。",
+        "notAvailable": "このシステムでは利用できません。",
+        "startedAt": "{{time}} に開始",
+        "runningFor": "{{duration}} 実行中",
+        "copy": "コピー",
+        "copyLabel": "このプロセスの数値をテキストとしてコピー",
+        "graphicsDetails": "診断のグラフィックス"
+      },
+      "terms": {
+        "ws": "ワーキングセット：プロセスのメモリのうち、現在 RAM にある部分。",
+        "priv": "プライベートバイト：プロセスが自身のためにコミットしたメモリ。一部がページアウトされている場合があるため、RAM 使用量より大きくなることがあります。",
+        "peak": "ピークワーキングセット：このプロセスが開始以降に RAM 上で使用した最大量。",
+        "gpuMemory": "専用グラフィックメモリ：このプロセスが保持しているグラフィックカード上のメモリ。",
+        "gpuUse": "グラフィックカードで最も負荷の高い 3D エンジンが、このプロセスの処理でどれだけ使われているか。",
+        "cpu": "1 コア基準の %：100% は 1 コアがフルに使われている状態なので、負荷の高いプロセスは 100% を超えることがあります。",
+        "cpuAvg": "合計 CPU 時間を、プロセスの実行時間で割った値。",
+        "cpuTime": "プロセスが開始以降に使用した CPU 時間（全コアの合計）。",
+        "handles": "カーネルハンドル：開いているファイル、イベント、スレッド、レジストリキーなど。実質的な上限はありません。増え続ける一方の数はリークの兆候です。",
+        "gdi": "GDI オブジェクト：ビットマップ、フォント、ブラシ。Windows は 1 プロセスあたり 10,000 個を超える作成を拒否します。",
+        "user": "USER オブジェクト：ウィンドウ、メニュー、カーソル、フック。Windows は 1 プロセスあたり 10,000 個を超える作成を拒否します。",
+        "threads": "このプロセスで実行中のスレッド。"
+      },
+      "unavailable": {
+        "firstSample": "まだ計測されていません：CPU には 2 回の計測が必要です。",
+        "notRead": "このプロセスについては読み取れませんでした。",
+        "helper": "Windows ヘルパーで読み取りますが、ヘルパーが動作していません。",
+        "gpuNotRead": "このプロセスのグラフィックメモリはまだ読み取られていません。",
+        "gpuCounters": "Windows のグラフィックカウンターを読み取れませんでした。",
+        "gpuUse": "グラフィックカードの使用率は、このページを開いている間、2 回目の計測から読み取ります。",
+        "memory": "このシステムはプロセスごとのメモリを報告しません。",
+        "notRecorded": "このプロセスは前回の録音中には実行されていませんでした。"
+      },
+      "lastRecording": {
+        "title": "前回の録音",
+        "aside": "1 回の録音にかかる負荷",
+        "none": "OpenWhispr の起動以降、録音はありません。",
+        "kinds": {
+          "dictation": "ディクテーション",
+          "assistant": "音声アシスタント",
+          "translation": "翻訳"
+        },
+        "screenEdge": "画面端：{{mode}}",
+        "frameWindow": {
+          "new": "この録音のためにウィンドウを開きました",
+          "reused": "ウィンドウはすでに開いていました",
+          "none": "ウィンドウなし"
+        },
+        "process": "プロセス",
+        "recording": "録音中",
+        "processing": "処理と出力",
+        "gpuAfter": "出力後のグラフィックメモリ",
+        "total": "全プロセス",
+        "partial": "一部",
+        "appeared": "このフェーズ中に開始：フェーズ全体ではなく、開始以降の期間で計測しています。",
+        "exited": "このフェーズ中に終了したため、数値はありません。",
+        "tooShort": "短すぎて測定できません（0.2 秒未満）。",
+        "overlapped": "このディクテーションの出力前に次のディクテーションが始まったため、処理はそこで終わっています。",
+        "afterDelivery": {
+          "pending": "グラフィックメモリはディクテーションの出力後に読み取ります。",
+          "ok": "グラフィックメモリは出力後の {{time}} に読み取りました（ピーク値ではありません）。",
+          "unavailable": "出力後にグラフィックメモリを読み取れませんでした。",
+          "cancelled": "グラフィックメモリは読み取られませんでした：別のディクテーションが始まりました。",
+          "skipped": "グラフィックメモリは読み取られませんでした：このディクテーションの出力前に次のディクテーションが始まりました。"
+        },
+        "gpuProcesses_one": "そのとき、この PC では {{count}} 個のプロセスがグラフィックメモリを保持していました。",
+        "gpuProcesses_other": "そのとき、この PC では {{count}} 個のプロセスがグラフィックメモリを保持していました。",
+        "note": "CPU は 1 コア基準の %。「録音中」は開始から停止まで、「処理と出力」はその後です。"
+      },
+      "history": {
+        "title": "過去 24 時間",
+        "show": "表示",
+        "metrics": {
+          "memory": "メモリ",
+          "graphics": "グラフィックス",
+          "cpu": "CPU"
+        },
+        "empty": "まだデータがありません：OpenWhispr の起動から 1 分後から、5 分ごとに 1 点を記録します。",
+        "note": "5 分ごとに 1 点を記録し、24 時間メモリに保持します（ディスクには保存しません）。CPU は各 5 分間の平均です。空白は何も計測されなかった時間です。グラフィックメモリは 30 分ごと、このページを開いている間は 5 分ごとに読み取ります。",
+        "summary": "最大 {{max}}（{{time}}）。",
+        "tableCaption": "過去 24 時間のグループ別 {{metric}}",
+        "now": "現在",
+        "highest": "最大",
+        "average": "平均",
+        "total": "全プロセス",
+        "recordingCount_one": "{{count}} 件の録音",
+        "recordingCount_other": "{{count}} 件の録音"
+      },
+      "footnote": {
+        "terms": "「RAM 使用量」はワーキングセット（現在 RAM にある量）です。「コミット済み」はプライベートバイト（プロセスが自身のためにコミットしたメモリで、一部はページアウトされている場合があります）です。「グラフィックス」はグラフィックカード上の専用メモリです。CPU は 1 コア基準の % です。合計では、プロセス間で共有するメモリをプロセスごとに数えます。",
+        "log": "この表のスナップショットは 30 分ごとにログに記録され、「診断情報をコピー」にも含まれます。",
+        "copy": "テキストとしてコピー",
+        "copyFailed": "表をコピーできませんでした。"
+      },
+      "roles": {
+        "main": {
+          "name": "メインプロセス",
+          "what": "アプリ本体を実行します：ホットキー、トレイ、履歴のデータベース、プロバイダーへのリクエスト。ほかのすべてのプロセスを起動します。",
+          "why": {
+            "default": "OpenWhispr の実行中は常に。"
+          },
+          "goesAway": {
+            "default": "OpenWhispr を終了したとき。"
+          }
+        },
+        "gpu": {
+          "name": "グラフィックス",
+          "what": "OpenWhispr のすべてのウィンドウをグラフィックカードで描画します。グラフィックアクセラレーションがオフのときは CPU で描画します。",
+          "why": {
+            "default": "常に。画面端のフレームを表示している間は、グラフィックメモリが増えます。"
+          },
+          "goesAway": {
+            "default": "OpenWhispr を終了したとき。フレームの表示後に残ったグラフィックメモリは、次に OpenWhispr がフレームなしで描画したときに解放されます。"
+          }
+        },
+        "network": {
+          "name": "ネットワークサービス",
+          "what": "Chromium のネットワーク処理：プロバイダーへのリクエスト、サインイン、アップデートの確認。",
+          "why": {
+            "default": "常に。"
+          },
+          "goesAway": {
+            "default": "OpenWhispr を終了したとき。"
+          }
+        },
+        "audio": {
+          "name": "オーディオサービス",
+          "what": "マイクの音声を取り込み、開始音と停止音を再生します。",
+          "why": {
+            "default": "OpenWhispr が初めてマイクを使ったとき、またはサウンドを再生したときに起動しました。"
+          },
+          "goesAway": {
+            "default": "OpenWhispr を終了したとき。"
+          }
+        },
+        "videoCapture": {
+          "name": "ビデオキャプチャサービス",
+          "what": "Chromium のカメラサービス。OpenWhispr がカメラを開くことはありません。",
+          "why": {
+            "default": "OpenWhispr がマイクを一覧表示するとき、Chromium は同じ呼び出しでカメラも一覧表示し、そのためにこのサービスを起動します。",
+            "cameras": "OpenWhispr がマイクを一覧表示するとき、Chromium は同じ呼び出しでカメラも一覧表示し（{{cameras}} 台を検出）、そのためにこのサービスを起動します。"
+          },
+          "goesAway": {
+            "default": "自動では終了しません：Chromium はセッションが終わるまで保持します。"
+          }
+        },
+        "storage": {
+          "name": "ストレージサービス",
+          "what": "ウィンドウがローカルに保存するもの（設定など）のための Chromium のストレージ。",
+          "why": {
+            "default": "ウィンドウが初めてストレージを使ったときに起動しました。"
+          },
+          "goesAway": {
+            "default": "OpenWhispr を終了したとき。"
+          }
+        },
+        "controlPanel": {
+          "name": "コントロールパネルウィンドウ",
+          "what": "このウィンドウです：ホーム、履歴、ノート、チャット、設定。",
+          "why": {
+            "default": "あなたが開きました。",
+            "visible": "開いています。",
+            "hidden": "{{since}} から非表示です。閉じても非表示になるだけなので、読み込まれたままです。",
+            "hiddenUnknown": "非表示です。閉じても非表示になるだけなので、読み込まれたままです。"
+          },
+          "goesAway": {
+            "default": "OpenWhispr を終了したとき。"
+          }
+        },
+        "dictationWindow": {
+          "name": "ディクテーションウィンドウ",
+          "what": "フローティングアイコン：声を録音し、ディクテーションを実行して、テキストを貼り付けます。",
+          "why": {
+            "default": "常に。"
+          },
+          "goesAway": {
+            "default": "OpenWhispr を終了したとき。CPU 時間の大半は録音中に使われます。"
+          }
+        },
+        "edgeStrip": {
+          "name": "画面端インジケーター",
+          "what": "マイクがオンの間、画面の端に表示されるバーまたはフレーム（設定 › フローティングアイコン › 録音中の画面端）。",
+          "why": {
+            "default": "「録音中の画面端」の設定がオンです。",
+            "recording": "録音中です。",
+            "kept": "前回の録音後も残しておき、次の録音ですぐに表示できるようにしています。"
+          },
+          "goesAway": {
+            "default": "録音が終わってからしばらく後。",
+            "afterSeconds": "最後の録音が終わってから {{seconds}} 秒後。",
+            "afterMinutes": "最後の録音が終わってから {{minutes}} 分後。"
+          }
+        },
+        "companionPill": {
+          "name": "コンパニオンピル",
+          "what": "アシスタントパネルが開いている間、ディクテーションを表示する小さなピル。",
+          "why": {
+            "default": "アシスタントパネルが開いています。"
+          },
+          "goesAway": {
+            "default": "アシスタントパネルが閉じたとき。"
+          }
+        },
+        "meetingOverlay": {
+          "name": "会議の通知",
+          "what": "OpenWhispr が検出した会議の文字起こしを提案するカード。",
+          "why": {
+            "default": "会議を検出しました。"
+          },
+          "goesAway": {
+            "default": "応答したとき、またはタイムアウトしたとき。"
+          }
+        },
+        "permissionGuide": {
+          "name": "権限ガイド",
+          "what": "セットアップ中に、システム設定で操作するスイッチを指し示します。",
+          "why": {
+            "default": "セットアップで権限を求めています。"
+          },
+          "goesAway": {
+            "default": "権限が許可されたとき、またはガイドを閉じたとき。"
+          }
+        },
+        "keyListener": {
+          "name": "キーリスナー",
+          "what": "1 つのホットキーを監視し、押したときと離したときを OpenWhispr に伝えます。",
+          "why": {
+            "default": "ホットキーに必要です：ホールド、または Windows が単独では登録できないキー。",
+            "hotkey": "ホットキー {{hotkey}} に必要です：ホールド、または Windows が単独では登録できないキー。"
+          },
+          "goesAway": {
+            "default": "OpenWhispr を終了したとき、またはそのホットキーを変更したとき。"
+          }
+        },
+        "copilotRuntime": {
+          "name": "GitHub Copilot ランタイム",
+          "what": "GitHub Copilot にリクエストを送信します：クリーンアップ、チャット、音声アシスタント。",
+          "why": {
+            "default": "GitHub Copilot へのリクエストのために起動しました。",
+            "busy": "GitHub Copilot へのリクエストを実行中です。"
+          },
+          "goesAway": {
+            "default": "リクエストのない状態が 10 分続いたとき。",
+            "stopsIn": "リクエストのない状態が 10 分続いたとき（あと約 {{minutes}} 分）。"
+          }
+        },
+        "whisperServer": {
+          "name": "ローカル Whisper サーバー",
+          "what": "この PC で Whisper モデルを使って音声を文字起こしします。",
+          "why": {
+            "default": "ローカルの Whisper モデルでディクテーションしています。"
+          },
+          "goesAway": {
+            "default": "ローカル Whisper から切り替えたとき、または OpenWhispr を終了したとき。"
+          }
+        },
+        "parakeetServer": {
+          "name": "Parakeet / Cohere サーバー",
+          "what": "この PC で Parakeet または Cohere モデルを使って音声を文字起こしします。",
+          "why": {
+            "default": "ローカルの Parakeet または Cohere モデルでディクテーションしています。"
+          },
+          "goesAway": {
+            "default": "別のモデルに切り替えたとき、または OpenWhispr を終了したとき。"
+          }
+        },
+        "llamaServer": {
+          "name": "ローカル言語モデル",
+          "what": "ダウンロードした言語モデルをこの PC で実行し、クリーンアップやチャットに使います。",
+          "why": {
+            "default": "クリーンアップまたはチャットでダウンロードしたモデルを使っています。"
+          },
+          "goesAway": {
+            "default": "別のモデルに切り替えたとき、または OpenWhispr を終了したとき。"
+          }
+        },
+        "qdrant": {
+          "name": "ノート検索インデックス",
+          "what": "意味でノートを検索します。",
+          "why": {
+            "default": "意味でノートを検索したか、ノートのインデックスを作成中です。"
+          },
+          "goesAway": {
+            "default": "検索のない状態が 5 分続いたとき。"
+          }
+        },
+        "searchWorker": {
+          "name": "検索と話者のワーカー",
+          "what": "この PC 上で、ノートを検索用のベクトルに変換し、会議の話者を認識します。",
+          "why": {
+            "default": "ノート検索または話者の認識で必要になりました。"
+          },
+          "goesAway": {
+            "default": "しばらく使われなくなったとき。"
+          }
+        },
+        "systemAudioHelper": {
+          "name": "会議の音声",
+          "what": "ほかのアプリが再生する音声を録音し、会議の相手側の発言を文字起こしできるようにします。",
+          "why": {
+            "default": "会議を文字起こし中です。"
+          },
+          "goesAway": {
+            "default": "会議の文字起こしが停止したとき。"
+          }
+        },
+        "micListener": {
+          "name": "マイクの監視",
+          "what": "ほかのアプリがマイクを使い始めたことに気付き、会議を検出します。",
+          "why": {
+            "default": "会議の検出がオンです。"
+          },
+          "goesAway": {
+            "default": "会議の検出をオフにしたとき、または OpenWhispr を終了したとき。"
+          }
+        },
+        "textMonitor": {
+          "name": "修正の監視",
+          "what": "貼り付け先のテキスト欄を監視し、あなたが行った修正から学習します。",
+          "why": {
+            "default": "ディクテーションを貼り付けたところです。"
+          },
+          "goesAway": {
+            "default": "貼り付けから約 30 秒後。"
+          }
+        },
+        "ffmpeg": {
+          "name": "音声コンバーター（FFmpeg）",
+          "what": "文字起こしのために音声を変換します。",
+          "why": {
+            "default": "録音またはファイルを変換中です。"
+          },
+          "goesAway": {
+            "default": "変換が終わったとき。"
+          }
+        },
+        "meetingAecHelper": {
+          "name": "会議のエコーキャンセラー",
+          "what": "会議中、マイクの音声から相手側の声を取り除きます。",
+          "why": {
+            "default": "会議を文字起こし中です。"
+          },
+          "goesAway": {
+            "default": "会議の文字起こしが停止したとき。"
+          }
+        },
+        "diarization": {
+          "name": "話者の分離",
+          "what": "会議の録音で、誰がいつ話したかを判別します。",
+          "why": {
+            "default": "会議の文字起こしを話者ごとに分けています。"
+          },
+          "goesAway": {
+            "default": "完了したとき。"
+          }
+        },
+        "consoleHost": {
+          "name": "コンソールホスト",
+          "what": "Windows は、コマンドラインのヘルパーごとに（非表示のものでも）1 つ起動します。",
+          "why": {
+            "default": "そのヘルパープログラムが実行中です。"
+          },
+          "goesAway": {
+            "default": "ヘルパープログラムと一緒に終了します。"
+          }
+        },
+        "unknown": {
+          "name": "その他のプロセス",
+          "what": "OpenWhispr が起動した、このページでは識別できないプロセス。",
+          "why": {
+            "default": "OpenWhispr が起動しました。"
+          },
+          "goesAway": {
+            "default": "処理が完了したとき、または OpenWhispr を終了したとき。"
+          }
+        }
+      },
+      "notRunning": {
+        "whisperServer": "ローカルの Whisper モデルでディクテーションすると起動します。",
+        "parakeetServer": "ローカルの Parakeet または Cohere モデルでディクテーションすると起動します。",
+        "llamaServer": "クリーンアップまたはチャットでダウンロードしたモデルを使うと起動します。",
+        "copilotRuntime": "GitHub Copilot への最初のリクエストで起動し、10 分間使われないと停止します。",
+        "qdrant": "最初の意味検索で起動し、5 分間使われないと停止します。",
+        "searchWorker": "ノート検索または話者の認識のために起動します。",
+        "systemAudioHelper": "会議の文字起こし中に起動します。",
+        "meetingAecHelper": "会議の文字起こし中に起動します。",
+        "diarization": "会議の後、話者を分離するために起動します。",
+        "micListener": "会議の検出がオンのときに起動します。",
+        "textMonitor": "貼り付け後の 30 秒間、修正から学習するために起動します。",
+        "edgeStrip": "「録音中の画面端」がオンの場合、録音すると起動します。"
+      }
+    },
     "diagnostics": {
       "title": "診断",
       "logs": "ログ",
@@ -3696,6 +4173,13 @@
         "fallback": "グラフィックアクセラレーションがオフです。OpenWhispr は CPU で描画しているため、アニメーションがカクつくことがあります。通常は別のアプリがグラフィックカードを使い切っていることが原因です。空いたら OpenWhispr を再起動してください。",
         "requested": "CPU で描画中 (起動オプションで指定)",
         "restart": "OpenWhispr を再起動"
+      },
+      "processes": {
+        "label": "プロセスとリソース",
+        "inRam": "RAM 使用量 {{size}}",
+        "graphicsMemory": "グラフィックメモリ {{size}}",
+        "notMeasured": "まだ計測されていません：最初の計測は OpenWhispr の起動から 1 分後に行われます。",
+        "open": "プロセスとリソースを開く"
       },
       "copy": {
         "label": "診断情報をコピー",

@@ -545,17 +545,17 @@ test("Dictation › Overview comes first; Overview, Styles and Hotkeys lay out w
   assert.equal(resolve("account", CLOUD_OFF).page, "recognition");
 
   const wide = SETTINGS_PAGE_IDS.filter((page) => isWideSettingsPage(page));
-  assert.deepEqual(wide.sort(), ["hotkeys", "overview", "styles"]);
+  assert.deepEqual(wide.sort(), ["hotkeys", "overview", "processes", "styles"]);
   assert.equal(SETTINGS_PAGES.cleanup.wide, undefined, "feature pages keep the reading width");
 });
 
-test("Storage sits in Data between Privacy & Data and System, with its own title and icon", async () => {
+test("Storage sits in Data between Privacy & Data and Processes & resources, with its own title and icon", async () => {
   const { SETTINGS_NAV, SETTINGS_PAGES, resolveSettingsDestination, settingsBreadcrumbKeys } =
     await load();
   const data = SETTINGS_NAV.find((group) => group.id === "data");
   assert.deepEqual(
     data.items.map((item) => item.kind === "page" && item.page),
-    ["privacyData", "storage", "system"]
+    ["privacyData", "storage", "processes", "system"]
   );
   assert.equal(SETTINGS_PAGES.storage.icon, "HardDrive");
   assert.deepEqual(settingsBreadcrumbKeys("storage"), [
@@ -566,4 +566,27 @@ test("Storage sits in Data between Privacy & Data and System, with its own title
   for (const ctx of [ALL, CLOUD_OFF, { ...ALL, agentAllowed: false }]) {
     assert.deepEqual(resolveSettingsDestination("storage", { ctx }), { page: "storage" });
   }
+});
+
+test("Processes & resources sits in Data between Storage and System, wide, with its own title and icon", async () => {
+  const { SETTINGS_PAGES, resolveSettingsDestination, settingsBreadcrumbKeys, locateSetting } =
+    await load();
+  assert.equal(SETTINGS_PAGES.processes.icon, "Gauge");
+  assert.equal(SETTINGS_PAGES.processes.wide, true);
+  assert.deepEqual(settingsBreadcrumbKeys("processes"), [
+    "settingsNav.groups.data",
+    "settingsNav.pages.processes.title",
+  ]);
+  for (const ctx of [ALL, CLOUD_OFF, { ...ALL, agentAllowed: false }]) {
+    assert.deepEqual(resolveSettingsDestination("processes", { ctx }), { page: "processes" });
+  }
+  // System › Diagnostics' link and a search result for one of its parts.
+  assert.deepEqual(
+    resolveSettingsDestination("#data.processes.table", { ctx: ALL, locateSetting }),
+    { page: "processes", settingId: "data.processes.table" }
+  );
+  assert.deepEqual(
+    resolveSettingsDestination("system#system.diagnostics.graphics", { ctx: ALL, locateSetting }),
+    { page: "system", settingId: "system.diagnostics.graphics" }
+  );
 });

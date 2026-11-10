@@ -2203,6 +2203,10 @@
       "storage": {
         "title": "存储",
         "description": "OpenWhispr 在这台电脑上保存了什么、存在哪里、占用多大空间、保留多久。"
+      },
+      "processes": {
+        "title": "进程与资源",
+        "description": "OpenWhispr 当前运行的每个程序、各自的作用及资源占用。"
       }
     },
     "elsewhere": {
@@ -3683,6 +3687,479 @@
         "clearFailed": "无法清除应用缓存。"
       }
     },
+    "processes": {
+      "summaryTitle": "当前的内存、CPU 和图形",
+      "count_one": "{{count}} 个进程",
+      "count_other": "{{count}} 个进程",
+      "status": {
+        "loading": "正在测量…",
+        "failed": "无法读取 OpenWhispr 的进程。",
+        "live": "实时：此页面打开期间每 2 秒采样一次。",
+        "sampledAt": "上次采样时间：{{time}}。",
+        "paused": "听写时已暂停",
+        "pausedDetail": "显示 {{time}} 的数值。听写粘贴完成前不会进行测量。"
+      },
+      "notices": {
+        "windowsOnly": "此系统不提供以下信息：已提交内存、显存和显卡占用、句柄、GDI 和 USER 对象，以及 OpenWhispr 启动的辅助程序。这些信息来自 Windows 辅助程序，其余来自 Electron。",
+        "helperMissing": "缺少 Windows 辅助程序，因此不显示辅助程序、句柄、GDI 和 USER 对象以及显存。其余信息来自 Electron。",
+        "helperFailed": "Windows 辅助程序已停止工作，因此不显示辅助程序、句柄、GDI 和 USER 对象以及显存。其余信息来自 Electron。",
+        "gpuCounters": "无法读取 Windows 的图形计数器，因此不显示显存和显卡占用。",
+        "memory": "此系统不按进程报告内存，因此内存显示为不可用。"
+      },
+      "groups": {
+        "app": "应用",
+        "windows": "窗口",
+        "services": "Chromium 服务",
+        "helpers": "辅助程序",
+        "notRunning": "当前未运行"
+      },
+      "tiles": {
+        "memory": "RAM 占用",
+        "committed": "已提交 {{size}}",
+        "sumNote": "所有进程之和：进程间共享的内存在每个进程中各计一次。",
+        "cpu": "当前 CPU",
+        "ofOneCore": "以单核计",
+        "cpuNote": "所有进程之和；100% 表示一个核心满载。",
+        "graphics": "显存",
+        "graphicsNote": "显卡上的专用内存，所有进程之和。",
+        "graphicsReadAt": "读取于 {{time}}。",
+        "gpuProcesses": "显卡",
+        "gpuProcessesUnit": "个进程在这台电脑上占用显存",
+        "gpuProcessesNote": "这台电脑上所有占用显存的进程，包括空闲进程和 OpenWhispr 的进程。",
+        "modes": {
+          "hardware": "硬件",
+          "software": "使用 CPU"
+        }
+      },
+      "table": {
+        "title": "进程",
+        "process": "进程",
+        "ws": "RAM 占用",
+        "priv": "已提交",
+        "cpu": "CPU",
+        "gpu": "图形",
+        "started": "启动时间",
+        "pid": "PID {{pid}}",
+        "none": "无",
+        "states": {
+          "hidden": "已隐藏",
+          "busy": "工作中",
+          "stopsIn": "{{minutes}} 分钟后停止"
+        }
+      },
+      "details": {
+        "what": "作用",
+        "why": "运行原因",
+        "goesAway": "何时退出",
+        "memory": "内存",
+        "cpu": "CPU 与图形",
+        "objects": "Windows 对象",
+        "ws": "RAM 占用",
+        "priv": "已提交",
+        "peak": "RAM 占用峰值",
+        "gpuMemory": "显卡内存",
+        "cpuNow": "当前",
+        "cpuRecording": "上次录音期间",
+        "cpuAvg": "启动以来的平均值",
+        "cpuTime": "CPU 总时间",
+        "gpuUse": "显卡占用",
+        "handles": "句柄",
+        "gdi": "GDI 对象",
+        "user": "USER 对象",
+        "threads": "线程",
+        "ofLimit": "上限 {{limit}}",
+        "leakNote": "只增不减的计数意味着存在泄漏。",
+        "handleTrend": "句柄数在 {{duration}} 内从 {{from}} 变为 {{to}}。",
+        "notAvailable": "此系统不提供。",
+        "startedAt": "启动于 {{time}}",
+        "runningFor": "已运行 {{duration}}",
+        "copy": "复制",
+        "copyLabel": "将此进程的数值复制为文本",
+        "graphicsDetails": "诊断中的图形"
+      },
+      "terms": {
+        "ws": "工作集：进程内存中当前位于 RAM 的部分。",
+        "priv": "专用字节：进程为自身提交的内存。其中一部分可能已换出，因此可能大于 RAM 占用。",
+        "peak": "峰值工作集：此进程自启动以来在 RAM 中占用的最大值。",
+        "gpuMemory": "专用显存：此进程在显卡上占用的内存。",
+        "gpuUse": "显卡中最繁忙的 3D 引擎处理此进程工作的繁忙程度。",
+        "cpu": "单核百分比：100% 表示一个核心满载，因此繁忙的进程可能超过 100%。",
+        "cpuAvg": "CPU 总时间除以进程已运行的时长。",
+        "cpuTime": "进程自启动以来在所有核心上累计使用的 CPU 时间。",
+        "handles": "内核句柄：打开的文件、事件、线程、注册表项等。实际上没有上限；只增不减的计数意味着存在泄漏。",
+        "gdi": "GDI 对象：位图、字体和画刷。Windows 不允许每个进程创建超过 10,000 个。",
+        "user": "USER 对象：窗口、菜单、光标和钩子。Windows 不允许每个进程创建超过 10,000 个。",
+        "threads": "此进程中运行的线程。"
+      },
+      "unavailable": {
+        "firstSample": "尚未测量：CPU 需要两次采样。",
+        "notRead": "无法读取此进程的数值。",
+        "helper": "由 Windows 辅助程序读取，但它无法正常工作。",
+        "gpuNotRead": "尚未读取此进程的显存。",
+        "gpuCounters": "无法读取 Windows 的图形计数器。",
+        "gpuUse": "仅在此页面打开时读取显卡占用，从第二次采样开始。",
+        "memory": "此系统不按进程报告内存。",
+        "notRecorded": "上次录音期间此进程未运行。"
+      },
+      "lastRecording": {
+        "title": "上次录音",
+        "aside": "一次录音的资源消耗",
+        "none": "OpenWhispr 启动以来尚无录音。",
+        "kinds": {
+          "dictation": "听写",
+          "assistant": "语音助手",
+          "translation": "翻译"
+        },
+        "screenEdge": "屏幕边缘：{{mode}}",
+        "frameWindow": {
+          "new": "其窗口为此次录音打开",
+          "reused": "其窗口已处于打开状态",
+          "none": "无窗口"
+        },
+        "process": "进程",
+        "recording": "录音期间",
+        "processing": "处理与粘贴",
+        "gpuAfter": "粘贴后的显存",
+        "total": "所有进程",
+        "partial": "部分",
+        "appeared": "在此阶段中启动：按其自身运行时间测量，而非整个阶段。",
+        "exited": "在此阶段中退出，因此没有数值。",
+        "tooShort": "时间太短，无法测量：不到 0.2 秒。",
+        "overlapped": "下一次听写在本次粘贴前已开始，因此处理阶段到此为止。",
+        "afterDelivery": {
+          "pending": "听写粘贴后会读取显存。",
+          "ok": "显存读取于粘贴后的 {{time}}：不是峰值。",
+          "unavailable": "粘贴后无法读取显存。",
+          "cancelled": "未读取显存：另一次听写已开始。",
+          "skipped": "未读取显存：下一次听写在本次粘贴前已开始。"
+        },
+        "gpuProcesses_one": "当时这台电脑上有 {{count}} 个进程占用显存。",
+        "gpuProcesses_other": "当时这台电脑上有 {{count}} 个进程占用显存。",
+        "note": "CPU 以单核百分比表示。“录音期间”涵盖从开始到停止；“处理与粘贴”在其之后。"
+      },
+      "history": {
+        "title": "过去 24 小时",
+        "show": "显示",
+        "metrics": {
+          "memory": "内存",
+          "graphics": "图形",
+          "cpu": "CPU"
+        },
+        "empty": "暂无数据：OpenWhispr 启动一分钟后开始，每 5 分钟记录一个数据点。",
+        "note": "每 5 分钟一个数据点，在内存中保留 24 小时（不写入磁盘）；CPU 为每 5 分钟的平均值。空缺表示当时没有测量。显存每 30 分钟读取一次，此页面打开时每 5 分钟读取一次。",
+        "summary": "最高 {{max}}，出现在 {{time}}。",
+        "tableCaption": "{{metric}}：过去 24 小时各分组",
+        "now": "当前",
+        "highest": "最高",
+        "average": "平均",
+        "total": "所有进程",
+        "recordingCount_one": "{{count}} 次录音",
+        "recordingCount_other": "{{count}} 次录音"
+      },
+      "footnote": {
+        "terms": "RAM 占用即工作集：当前位于 RAM 中的部分。已提交即专用字节：进程为自身提交的内存，其中一部分可能已换出。图形是显卡上的专用内存。CPU 以单核百分比表示。总和中，进程间共享的内存在每个进程中各计一次。",
+        "log": "此表格的快照每 30 分钟写入一次日志，并包含在“复制诊断信息”中。",
+        "copy": "复制为文本",
+        "copyFailed": "无法复制表格。"
+      },
+      "roles": {
+        "main": {
+          "name": "主进程",
+          "what": "运行应用本身：快捷键、托盘、历史记录数据库以及发往服务商的请求。它会启动其他所有进程。",
+          "why": {
+            "default": "OpenWhispr 运行期间始终运行。"
+          },
+          "goesAway": {
+            "default": "退出 OpenWhispr 时。"
+          }
+        },
+        "gpu": {
+          "name": "图形",
+          "what": "在显卡上绘制 OpenWhispr 的所有窗口；图形加速关闭时则使用 CPU 绘制。",
+          "why": {
+            "default": "始终运行。屏幕边缘边框显示时，其显存会增加。"
+          },
+          "goesAway": {
+            "default": "退出 OpenWhispr 时。边框结束后保留的显存，会在 OpenWhispr 下次绘制不含边框的画面时释放。"
+          }
+        },
+        "network": {
+          "name": "网络服务",
+          "what": "Chromium 的网络功能：发往服务商的请求、登录和更新检查。",
+          "why": {
+            "default": "始终运行。"
+          },
+          "goesAway": {
+            "default": "退出 OpenWhispr 时。"
+          }
+        },
+        "audio": {
+          "name": "音频服务",
+          "what": "采集你的麦克风，并播放开始和停止提示音。",
+          "why": {
+            "default": "在 OpenWhispr 首次使用麦克风或播放声音时启动。"
+          },
+          "goesAway": {
+            "default": "退出 OpenWhispr 时。"
+          }
+        },
+        "videoCapture": {
+          "name": "视频捕获服务",
+          "what": "Chromium 的摄像头服务。OpenWhispr 从不打开摄像头。",
+          "why": {
+            "default": "OpenWhispr 列出你的麦克风时，Chromium 会在同一次调用中列出摄像头，并为此启动此服务。",
+            "cameras": "OpenWhispr 列出你的麦克风时，Chromium 会在同一次调用中列出摄像头（找到 {{cameras}} 个），并为此启动此服务。"
+          },
+          "goesAway": {
+            "default": "不会自行退出：Chromium 会在本次会话的剩余时间内保留它。"
+          }
+        },
+        "storage": {
+          "name": "存储服务",
+          "what": "Chromium 的存储，用于保存窗口在本地保留的内容，例如你的设置。",
+          "why": {
+            "default": "在某个窗口首次使用其存储时启动。"
+          },
+          "goesAway": {
+            "default": "退出 OpenWhispr 时。"
+          }
+        },
+        "controlPanel": {
+          "name": "控制面板窗口",
+          "what": "就是此窗口：首页、历史记录、笔记、聊天和设置。",
+          "why": {
+            "default": "你打开了它。",
+            "visible": "它已打开。",
+            "hidden": "自 {{since}} 起隐藏。关闭它只会将其隐藏，因此它会保持加载。",
+            "hiddenUnknown": "它已隐藏。关闭它只会将其隐藏，因此它会保持加载。"
+          },
+          "goesAway": {
+            "default": "退出 OpenWhispr 时。"
+          }
+        },
+        "dictationWindow": {
+          "name": "听写窗口",
+          "what": "悬浮图标：录制你的语音、执行听写并粘贴文本。",
+          "why": {
+            "default": "始终运行。"
+          },
+          "goesAway": {
+            "default": "退出 OpenWhispr 时。其 CPU 时间大部分花在你录音时。"
+          }
+        },
+        "edgeStrip": {
+          "name": "屏幕边缘指示器",
+          "what": "麦克风开启时显示在屏幕边缘的光条或边框（设置 › 悬浮图标 › 录音时的屏幕边缘）。",
+          "why": {
+            "default": "“录音时的屏幕边缘”设置已开启。",
+            "recording": "正在录音。",
+            "kept": "上次录音后保留，以便下次录音时立即显示。"
+          },
+          "goesAway": {
+            "default": "录音结束一段时间后。",
+            "afterSeconds": "上次录音结束 {{seconds}} 秒后。",
+            "afterMinutes": "上次录音结束 {{minutes}} 分钟后。"
+          }
+        },
+        "companionPill": {
+          "name": "伴随胶囊",
+          "what": "助手面板打开时显示听写状态的小胶囊。",
+          "why": {
+            "default": "助手面板已打开。"
+          },
+          "goesAway": {
+            "default": "助手面板关闭时。"
+          }
+        },
+        "meetingOverlay": {
+          "name": "会议提示",
+          "what": "询问是否转录 OpenWhispr 检测到的会议的卡片。",
+          "why": {
+            "default": "检测到了会议。"
+          },
+          "goesAway": {
+            "default": "你作出回应或它超时后。"
+          }
+        },
+        "permissionGuide": {
+          "name": "权限引导",
+          "what": "在设置过程中指出系统设置中的正确开关。",
+          "why": {
+            "default": "设置过程正在请求权限。"
+          },
+          "goesAway": {
+            "default": "权限授予后或你关闭它时。"
+          }
+        },
+        "keyListener": {
+          "name": "按键监听器",
+          "what": "监视一个快捷键，以便 OpenWhispr 知道你何时按下和松开它。",
+          "why": {
+            "default": "某个快捷键需要它：使用“按住”模式，或是 Windows 无法自行注册的按键。",
+            "hotkey": "你的快捷键 {{hotkey}} 需要它：使用“按住”模式，或是 Windows 无法自行注册的按键。"
+          },
+          "goesAway": {
+            "default": "退出 OpenWhispr 或更改该快捷键时。"
+          }
+        },
+        "copilotRuntime": {
+          "name": "GitHub Copilot 运行时",
+          "what": "向 GitHub Copilot 发送请求：清理、聊天和语音助手。",
+          "why": {
+            "default": "为发往 GitHub Copilot 的请求而启动。",
+            "busy": "正在处理发往 GitHub Copilot 的请求。"
+          },
+          "goesAway": {
+            "default": "10 分钟内没有请求后。",
+            "stopsIn": "10 分钟内没有请求后（约 {{minutes}} 分钟后）。"
+          }
+        },
+        "whisperServer": {
+          "name": "本地 Whisper 服务器",
+          "what": "使用 Whisper 模型在这台电脑上转录你的语音。",
+          "why": {
+            "default": "你使用本地 Whisper 模型听写。"
+          },
+          "goesAway": {
+            "default": "你不再使用本地 Whisper，或退出 OpenWhispr 时。"
+          }
+        },
+        "parakeetServer": {
+          "name": "Parakeet / Cohere 服务器",
+          "what": "使用 Parakeet 或 Cohere 模型在这台电脑上转录你的语音。",
+          "why": {
+            "default": "你使用本地 Parakeet 或 Cohere 模型听写。"
+          },
+          "goesAway": {
+            "default": "你切换到其他模型，或退出 OpenWhispr 时。"
+          }
+        },
+        "llamaServer": {
+          "name": "本地语言模型",
+          "what": "在这台电脑上运行已下载的语言模型，用于清理或聊天。",
+          "why": {
+            "default": "清理或聊天使用了已下载的模型。"
+          },
+          "goesAway": {
+            "default": "你切换到其他模型，或退出 OpenWhispr 时。"
+          }
+        },
+        "qdrant": {
+          "name": "笔记搜索索引",
+          "what": "按含义搜索你的笔记。",
+          "why": {
+            "default": "你按含义搜索了笔记，或笔记正在建立索引。"
+          },
+          "goesAway": {
+            "default": "5 分钟内没有搜索后。"
+          }
+        },
+        "searchWorker": {
+          "name": "搜索与说话人工作进程",
+          "what": "在这台电脑上将笔记转换为搜索向量，并识别会议中的说话人。",
+          "why": {
+            "default": "笔记搜索或说话人识别需要它。"
+          },
+          "goesAway": {
+            "default": "一段时间无人使用后。"
+          }
+        },
+        "systemAudioHelper": {
+          "name": "会议音频",
+          "what": "录制其他应用播放的声音，以便转录会议中对方的发言。",
+          "why": {
+            "default": "正在转录会议。"
+          },
+          "goesAway": {
+            "default": "会议转录停止时。"
+          }
+        },
+        "micListener": {
+          "name": "麦克风监视器",
+          "what": "察觉其他应用何时开始使用麦克风，以检测会议。",
+          "why": {
+            "default": "会议检测已开启。"
+          },
+          "goesAway": {
+            "default": "你关闭会议检测，或退出 OpenWhispr 时。"
+          }
+        },
+        "textMonitor": {
+          "name": "更正监视器",
+          "what": "监视你粘贴到的文本框，以学习你所做的更正。",
+          "why": {
+            "default": "你刚刚粘贴了一次听写。"
+          },
+          "goesAway": {
+            "default": "粘贴后约 30 秒。"
+          }
+        },
+        "ffmpeg": {
+          "name": "音频转换器（FFmpeg）",
+          "what": "为转录转换音频。",
+          "why": {
+            "default": "正在转换录音或文件。"
+          },
+          "goesAway": {
+            "default": "转换完成时。"
+          }
+        },
+        "meetingAecHelper": {
+          "name": "会议回声消除器",
+          "what": "会议期间从你的麦克风中去除对方的声音。",
+          "why": {
+            "default": "正在转录会议。"
+          },
+          "goesAway": {
+            "default": "会议转录停止时。"
+          }
+        },
+        "diarization": {
+          "name": "说话人分离",
+          "what": "判断会议录音中谁在何时发言。",
+          "why": {
+            "default": "正在按说话人拆分会议转录。"
+          },
+          "goesAway": {
+            "default": "完成时。"
+          }
+        },
+        "consoleHost": {
+          "name": "控制台主机",
+          "what": "Windows 会为每个命令行辅助程序启动一个，即使是隐藏的辅助程序。",
+          "why": {
+            "default": "其辅助程序正在运行。"
+          },
+          "goesAway": {
+            "default": "随其辅助程序一起退出。"
+          }
+        },
+        "unknown": {
+          "name": "其他进程",
+          "what": "由 OpenWhispr 启动、但此页面不认识的进程。",
+          "why": {
+            "default": "由 OpenWhispr 启动。"
+          },
+          "goesAway": {
+            "default": "完成时，或退出 OpenWhispr 时。"
+          }
+        }
+      },
+      "notRunning": {
+        "whisperServer": "使用本地 Whisper 模型听写时启动。",
+        "parakeetServer": "使用本地 Parakeet 或 Cohere 模型听写时启动。",
+        "llamaServer": "清理或聊天使用已下载的模型时启动。",
+        "copilotRuntime": "首次向 GitHub Copilot 发送请求时启动；空闲 10 分钟后停止。",
+        "qdrant": "首次按含义搜索时启动；空闲 5 分钟后停止。",
+        "searchWorker": "为笔记搜索或说话人识别而启动。",
+        "systemAudioHelper": "转录会议时启动。",
+        "meetingAecHelper": "转录会议时启动。",
+        "diarization": "会议结束后启动，用于分离说话人。",
+        "micListener": "会议检测开启时启动。",
+        "textMonitor": "粘贴后启动 30 秒，用于学习更正。",
+        "edgeStrip": "开启“录音时的屏幕边缘”后，录音时启动。"
+      }
+    },
     "diagnostics": {
       "title": "诊断",
       "logs": "日志",
@@ -3696,6 +4173,13 @@
         "fallback": "图形加速已关闭。OpenWhispr 正在使用 CPU 绘制，动画可能会卡顿。这通常是因为其他应用占满了显卡；显卡空闲后请重启 OpenWhispr。",
         "requested": "使用 CPU 绘制（由启动参数设置）",
         "restart": "重启 OpenWhispr"
+      },
+      "processes": {
+        "label": "进程与资源",
+        "inRam": "RAM 占用 {{size}}",
+        "graphicsMemory": "显存 {{size}}",
+        "notMeasured": "尚未测量：首次采样在 OpenWhispr 启动一分钟后进行。",
+        "open": "打开“进程与资源”"
       },
       "copy": {
         "label": "复制诊断信息",

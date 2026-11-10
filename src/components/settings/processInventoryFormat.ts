@@ -1,5 +1,6 @@
 import type {
   ProcessGroup,
+  ProcessInventoryProcess,
   ProcessInventoryReport,
   ProcessInventoryReportRow,
 } from "../../types/electron";
@@ -7,9 +8,12 @@ import type {
 // Copy diagnostics' Processes section (logSettingsFormat.ts's diagnosticsText):
 // the process inventory's allowlisted report (roles, PIDs and numbers; main's
 // processInventory.js builds it) as a plain-text table. English whatever the
-// UI language, with UTC times, like the rest of Copy diagnostics. React-free.
+// UI language, with UTC times, like the rest of Copy diagnostics. Below it, the
+// same numbers in the UI language for Settings › Data › Processes & resources.
+// React-free.
 
-const MB = 1024 * 1024;
+const KB = 1024;
+const MB = 1024 * KB;
 const GB = 1024 * MB;
 const GROUP_ORDER: readonly ProcessGroup[] = ["app", "windows", "services", "helpers"];
 
@@ -126,4 +130,115 @@ export function processesText(report: ProcessInventoryReport | null): string[] {
     lines.push(tableLine(COLUMNS.map((column) => column.value(row))));
   }
   return lines;
+}
+
+const finite = (value: unknown): number | null =>
+  typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : null;
+const whole = (value: unknown): number | null =>
+  Number.isInteger(value) && (value as number) >= 0 ? (value as number) : null;
+
+/**
+ * A page row as the report's allowlisted row (roles, PIDs and numbers only,
+ * as main's buildReport makes it), for the row's Copy.
+ */
+export function reportRowOf(row: ProcessInventoryProcess, at: number): ProcessInventoryReportRow {
+  const cpuSec = finite(row.cpuSec);
+  return {
+    role: row.role,
+    group: row.group,
+    pid: whole(row.pid),
+    ws: finite(row.ws),
+    priv: finite(row.priv),
+    peak: finite(row.peak),
+    cpuPct: finite(row.cpuPct),
+    cpuAvg: finite(row.cpuAvg),
+    cpuSec: cpuSec === null ? null : Math.round(cpuSec * 10) / 10,
+    gpuDedicated: finite(row.gpuDedicated),
+    gpuShared: finite(row.gpuShared),
+    gpuUse: finite(row.gpuUse),
+    handles: whole(row.handles),
+    threads: whole(row.threads),
+    gdi: whole(row.gdi),
+    user: whole(row.user),
+    uptimeSec:
+      finite(row.createdAt) && (row.createdAt as number) > 0
+        ? Math.max(0, Math.round((at - (row.createdAt as number)) / 1000))
+        : null,
+  };
+}
+
+/** One process as Copy diagnostics' table: the column titles, then its row. English. */
+export function processRowText(row: ProcessInventoryReportRow): string {
+  return [
+    tableLine(COLUMNS.map((column) => column.title)),
+    tableLine(COLUMNS.map((column) => column.value(row))),
+  ].join("\n");
+}
+
+// --- The page's numbers, in the UI language --------------------------------
+
+function unitText(value: number, unit: string, digits: number, locale?: string): string {
+  try {
+    return new Intl.NumberFormat(locale, {
+      style: "unit",
+      unit,
+      unitDisplay: "short",
+      maximumFractionDigits: digits,
+    }).format(value);
+  } catch {
+    return `${value.toFixed(digits)} ${unit}`;
+  }
+}
+
+/** "512 kB", "5.2 MB", "151 MB", "1.12 GB" in the UI language (1024-based, as Windows counts). */
+export function formatProcessBytes(bytes: number, locale?: string): string {
+  const value = Math.max(0, bytes);
+  if (value >= GB) return unitText(value / GB, "gigabyte", 2, locale);
+  if (value >= MB) {
+    const mb = value / MB;
+    return unitText(mb, "megabyte", mb < 10 ? 1 : 0, locale);
+  }
+  return unitText(value / KB, "kilobyte", 0, locale);
+}
+
+/** % of one core in the UI language: "0.4%", "35%". */
+export function formatProcessPercent(value: number, locale?: string): string {
+  const digits = Math.abs(value) < 10 ? 1 : 0;
+  try {
+    return new Intl.NumberFormat(locale, {
+      style: "percent",
+      maximumFractionDigits: digits,
+    }).format(value / 100);
+  } catch {
+    return `${value.toFixed(digits)}%`;
+  }
+}
+
+/** "45 sec", "23 min", "3.4 hr", "2.5 days" in the UI language. */
+export function formatProcessDuration(seconds: number, locale?: string): string {
+  const value = Math.max(0, seconds);
+  if (value < 90) return unitText(Math.round(value), "second", 0, locale);
+  if (value < 90 * 60) return unitText(Math.round(value / 60), "minute", 0, locale);
+  if (value < 48 * 3600) return unitText(value / 3600, "hour", 1, locale);
+  return unitText(value / 86400, "day", 1, locale);
+}
+
+/** A time in the UI language: the clock alone today, with the date on another day. */
+export function formatProcessTime(at: number, locale?: string, now = Date.now()): string {
+  const date = new Date(at);
+  const today = new Date(now);
+  const sameDay =
+    date.getFullYear() === today.getFullYear() &&
+    date.getMonth() === today.getMonth() &&
+    date.getDate() === today.getDate();
+  try {
+    return date.toLocaleString(
+      locale,
+      sameDay
+        ? { hour: "numeric", minute: "2-digit" }
+        : { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }
+    );
+  } catch {
+    return date.toISOString();
+  }
 }

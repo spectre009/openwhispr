@@ -184,6 +184,7 @@ const NOTE_FILES = at("noteFiles");
 const HOTKEYS = at("hotkeys");
 const PRIVACY = at("privacyData");
 const STORAGE = at("storage");
+const PROCESSES = at("processes");
 const SYSTEM = at("system");
 const CONNECTIONS = at("connections");
 
@@ -1427,6 +1428,70 @@ export const SETTINGS_SEARCH_DESCRIPTORS: readonly SettingDescriptor[] = [
     aliases: ["cli", "command line", "cli bridge", "token", "terminal"],
   }),
 
+  // ── Processes & resources ────────────────────────────────────────────────
+  page("page.processes", "processes", {
+    aliases: [
+      "processes",
+      "task manager",
+      "performance",
+      "resources",
+      "memory",
+      "ram",
+      "cpu",
+      "gpu",
+    ],
+  }),
+  row("data.processes.summary", PROCESSES, "settingsPage.processes.summaryTitle", {
+    aliases: [
+      "memory",
+      "memory usage",
+      "ram",
+      "cpu",
+      "cpu usage",
+      "gpu",
+      "graphics",
+      "graphics memory",
+      "vram",
+      "performance",
+    ],
+  }),
+  row("data.processes.table", PROCESSES, "settingsPage.processes.table.title", {
+    aliases: [
+      "processes",
+      "task manager",
+      "process explorer",
+      "handles",
+      "gdi",
+      "gdi objects",
+      "user objects",
+      "threads",
+      "private bytes",
+      "working set",
+      "committed",
+      "pid",
+      "why so many processes",
+    ],
+  }),
+  row("data.processes.lastRecording", PROCESSES, "settingsPage.processes.lastRecording.title", {
+    descriptionKey: "settingsPage.processes.lastRecording.aside",
+    aliases: ["recording cost", "cpu while recording", "gpu while recording", "performance"],
+  }),
+  row("data.processes.history", PROCESSES, "settingsPage.processes.history.title", {
+    groupKey: "settingsNav.pages.processes.title",
+    aliases: [
+      "memory history",
+      "memory over time",
+      "memory leak",
+      "leak",
+      "cpu history",
+      "graphics history",
+    ],
+  }),
+  row("data.processes.copy", PROCESSES, "settingsPage.processes.footnote.copy", {
+    groupKey: "settingsPage.processes.table.title",
+    aliases: ["copy processes", "process list", "processes as text"],
+  }),
+
   // ── System ───────────────────────────────────────────────────────────────
   page("page.system", "system", {
     aliases: ["system", "about", "advanced"],
@@ -1480,6 +1545,13 @@ export const SETTINGS_SEARCH_DESCRIPTORS: readonly SettingDescriptor[] = [
       "problems",
     ],
     aliasKeys: ["settingsPage.diagnostics.copy.label", "settingsPage.diagnostics.manage"],
+    summary: true,
+  }),
+  // Sums up Processes & resources and links there.
+  row("system.diagnostics.processes", SYSTEM, "settingsPage.diagnostics.processes.label", {
+    groupKey: "settingsPage.diagnostics.title",
+    aliases: ["processes", "memory", "task manager"],
+    aliasKeys: ["settingsPage.diagnostics.processes.open"],
     summary: true,
   }),
   // Shown only while Chromium draws on the CPU; otherwise search lands on Diagnostics.
