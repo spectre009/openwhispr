@@ -411,8 +411,6 @@ function aboutParams(role, row, context, at) {
         minutes: stopsAt === null ? null : Math.max(0, Math.ceil((stopsAt - at) / 60000)),
       };
     }
-    case "videoCapture":
-      return Number.isInteger(context.cameras) ? { cameras: context.cameras } : {};
     default:
       return {};
   }
@@ -862,7 +860,7 @@ function killQuietly(child) {
  * @param {object} [deps.logger]  debugLogger
  * @param {() => boolean} [deps.isDictationBusy]  windowManager.isDictationBusy
  * @param {() => { state: string, inputKind: string }} [deps.getDictationLifecycle]
- * @param {() => object} [deps.describeContext]  { windows, keyListeners, copilot, recording, cameras }
+ * @param {() => object} [deps.describeContext]  { windows, keyListeners, copilot, recording }
  * @param {() => object | null} [deps.getGraphics]  graphicsMode's state
  * @param {() => string} [deps.getStripMode]  the edge strip's mode for a recording
  * @param {(contents, payload) => void} [deps.send]  to one subscriber
@@ -1195,7 +1193,7 @@ function createProcessInventory({
       return;
     }
     // Graphics memory (PDH, ~200 ms of CPU) only for the run the log line uses;
-    // a run a dictation cancelled logs nothing (the after-delivery run will).
+    // a run a dictation cancels runs again once the dictation is delivered.
     collectOnce({ gpu: snapshotLogDue() }).then((result) => {
       if (result) maybeLogSnapshot();
     });
@@ -1484,6 +1482,7 @@ function createProcessInventory({
 
     if (nextBusy && !busy) {
       busy = true;
+      if (inflight) deferredTick = true;
       cancelOnce();
       stopStream();
       if (pendingAfterDelivery) settleAfterDelivery("cancelled");
@@ -1503,13 +1502,10 @@ function createProcessInventory({
       if (hadRecording && !helperUsable()) settleAfterDelivery("unavailable");
       // A stream's first sample carries graphics memory: it answers "after delivery".
       if (wantStream()) startStream();
-      if (hadRecording && helperUsable() && !stream) {
-        deferredTick = false;
-        collectOnce({ gpu: true }).then((result) => {
-          if (pendingAfterDelivery) settleAfterDelivery(result ? "unavailable" : "cancelled");
-          if (result) maybeLogSnapshot();
-        });
-      } else if (deferredTick && !isStreaming()) {
+      // Without the page open, reading graphics memory would cost a PDH run (~200 ms of
+      // CPU) per dictation, so it's read only while the page is open.
+      if (hadRecording && helperUsable() && !wantStream()) settleAfterDelivery("pageClosed");
+      if (deferredTick && !isStreaming()) {
         deferredTick = false;
         tick();
       }

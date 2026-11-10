@@ -3810,7 +3810,8 @@
           "ok": "A memória gráfica foi lida às {{time}}, após a entrega: não é um pico.",
           "unavailable": "Não foi possível ler a memória gráfica após a entrega.",
           "cancelled": "A memória gráfica não foi lida: outro ditado começou.",
-          "skipped": "A memória gráfica não foi lida: o próximo ditado começou antes de este ser entregue."
+          "skipped": "A memória gráfica não foi lida: o próximo ditado começou antes de este ser entregue.",
+          "pageClosed": "A memória gráfica após uma gravação só é lida enquanto esta página está aberta."
         },
         "gpuProcesses_one": "{{count}} processo deste computador ocupava memória gráfica naquele momento.",
         "gpuProcesses_other": "{{count}} processos deste computador ocupavam memória gráfica naquele momento.",
@@ -3826,6 +3827,7 @@
         },
         "empty": "Nada ainda: um ponto é guardado a cada 5 minutos, começando um minuto depois que o OpenWhispr inicia.",
         "note": "Um ponto a cada 5 minutos, guardado na memória por 24 horas (não no disco); a CPU é a média de cada 5 minutos. As lacunas são momentos em que nada foi medido. A memória gráfica é lida a cada 30 minutos, ou a cada 5 enquanto esta página está aberta.",
+        "noteBasic": "Um ponto a cada 5 minutos, guardado na memória por 24 horas (não no disco); a CPU é a média de cada 5 minutos. As lacunas são momentos em que nada foi medido.",
         "summary": "Máximo de {{max}} às {{time}}.",
         "tableCaption": "{{metric}} por grupo nas últimas 24 horas",
         "now": "Agora",
@@ -3837,6 +3839,7 @@
       },
       "footnote": {
         "terms": "Na RAM é o conjunto de trabalho: o que está na RAM agora. Confirmada são os bytes privados: a memória que um processo confirmou para si, parte dela possivelmente paginada. Gráficos é a memória dedicada na placa de vídeo. CPU é o % de um núcleo. As somas contam a memória que os processos compartilham uma vez por processo.",
+        "termsBasic": "Na RAM é o conjunto de trabalho: o que está na RAM agora. CPU é o % de um núcleo. As somas contam a memória que os processos compartilham uma vez por processo.",
         "log": "Um instantâneo desta tabela vai para o log a cada 30 minutos, e para Copiar diagnóstico.",
         "copy": "Copiar como texto",
         "copyFailed": "Não foi possível copiar a tabela."
@@ -3886,8 +3889,7 @@
           "name": "Serviço de captura de vídeo",
           "what": "O serviço de câmera do Chromium. O OpenWhispr nunca abre uma câmera.",
           "why": {
-            "default": "O OpenWhispr lista seus microfones, e o Chromium lista as câmeras na mesma chamada e inicia este serviço para isso.",
-            "cameras": "O OpenWhispr lista seus microfones, e o Chromium lista as câmeras na mesma chamada ({{cameras}} encontradas) e inicia este serviço para isso."
+            "default": "O OpenWhispr lista seus microfones, e o Chromium lista as câmeras na mesma chamada e inicia este serviço para isso."
           },
           "goesAway": {
             "default": "Não sozinho: o Chromium o mantém pelo resto da sessão."
@@ -3983,7 +3985,7 @@
         },
         "copilotRuntime": {
           "name": "Runtime do GitHub Copilot",
-          "what": "Envia solicitações ao GitHub Copilot: limpeza, chat e o Assistente de voz.",
+          "what": "Envia solicitações ao GitHub Copilot: limpeza, estilos, tradução e formatação de notas.",
           "why": {
             "default": "Iniciado para uma solicitação ao GitHub Copilot.",
             "busy": "Uma solicitação ao GitHub Copilot está em andamento."
@@ -4162,7 +4164,7 @@
       },
       "copy": {
         "label": "Copiar diagnóstico",
-        "description": "Versões, build, sistema operacional, modo gráfico, configurações de log e contagem de problemas recentes, prontos para um relatório de erro. Sem chaves, sem texto ditado, sem linhas de log.",
+        "description": "Versões, build, sistema operacional, modo gráfico, configurações de log, contagem de problemas recentes e os processos do OpenWhispr, prontos para um relatório de erro. Sem chaves, sem texto ditado, sem linhas de log.",
         "button": "Copiar…",
         "dialogTitle": "Copiar diagnóstico",
         "dialogDescription": "Isto é exatamente o que será copiado, em inglês para um relatório de erro. Seu nome de usuário fica oculto nos caminhos."

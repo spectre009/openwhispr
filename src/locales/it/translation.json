@@ -3831,7 +3831,8 @@
           "ok": "La memoria grafica è stata letta alle {{time}}, dopo la consegna: non è un picco.",
           "unavailable": "Impossibile leggere la memoria grafica dopo la consegna.",
           "cancelled": "La memoria grafica non è stata letta: è iniziata un'altra dettatura.",
-          "skipped": "La memoria grafica non è stata letta: la dettatura successiva è iniziata prima che questa fosse consegnata."
+          "skipped": "La memoria grafica non è stata letta: la dettatura successiva è iniziata prima che questa fosse consegnata.",
+          "pageClosed": "La memoria grafica dopo una registrazione viene letta solo mentre questa pagina è aperta."
         },
         "gpuProcesses_one": "{{count}} processo su questo computer occupava memoria grafica in quel momento.",
         "gpuProcesses_other": "{{count}} processi su questo computer occupavano memoria grafica in quel momento.",
@@ -3847,6 +3848,7 @@
         },
         "empty": "Ancora niente: viene salvato un punto ogni 5 minuti, a partire da un minuto dopo l'avvio di OpenWhispr.",
         "note": "Un punto ogni 5 minuti, conservato in memoria per 24 ore (non su disco); la CPU è la media di ogni 5 minuti. I vuoti sono momenti in cui non è stato misurato nulla. La memoria grafica viene letta ogni 30 minuti, o ogni 5 mentre questa pagina è aperta.",
+        "noteBasic": "Un punto ogni 5 minuti, conservato in memoria per 24 ore (non su disco); la CPU è la media di ogni 5 minuti. I vuoti sono momenti in cui non è stato misurato nulla.",
         "summary": "Massimo {{max}} alle {{time}}.",
         "tableCaption": "{{metric}} per gruppo nelle ultime 24 ore",
         "now": "Ora",
@@ -3858,6 +3860,7 @@
       },
       "footnote": {
         "terms": "In RAM è il working set: ciò che è in RAM ora. Impegnata sono i byte privati: la memoria che un processo ha impegnato per sé, in parte forse spostata nel file di paging. Grafica è la memoria dedicata sulla scheda grafica. CPU è la % di un core. Le somme contano la memoria condivisa tra i processi una volta per processo.",
+        "termsBasic": "In RAM è il working set: ciò che è in RAM ora. CPU è la % di un core. Le somme contano la memoria condivisa tra i processi una volta per processo.",
         "log": "Un'istantanea di questa tabella finisce nel log ogni 30 minuti, e in Copia diagnostica.",
         "copy": "Copia come testo",
         "copyFailed": "Impossibile copiare la tabella."
@@ -3907,8 +3910,7 @@
           "name": "Servizio di acquisizione video",
           "what": "Il servizio fotocamera di Chromium. OpenWhispr non apre mai una fotocamera.",
           "why": {
-            "default": "OpenWhispr elenca i tuoi microfoni, e Chromium elenca le fotocamere nella stessa chiamata e avvia questo servizio per farlo.",
-            "cameras": "OpenWhispr elenca i tuoi microfoni, e Chromium elenca le fotocamere nella stessa chiamata ({{cameras}} trovate) e avvia questo servizio per farlo."
+            "default": "OpenWhispr elenca i tuoi microfoni, e Chromium elenca le fotocamere nella stessa chiamata e avvia questo servizio per farlo."
           },
           "goesAway": {
             "default": "Non da solo: Chromium lo mantiene per il resto della sessione."
@@ -4004,7 +4006,7 @@
         },
         "copilotRuntime": {
           "name": "Runtime di GitHub Copilot",
-          "what": "Invia richieste a GitHub Copilot: pulizia, chat e l'Assistente vocale.",
+          "what": "Invia richieste a GitHub Copilot: pulizia, stili, traduzione e formattazione delle note.",
           "why": {
             "default": "Avviato per una richiesta a GitHub Copilot.",
             "busy": "È in corso una richiesta a GitHub Copilot."
@@ -4183,7 +4185,7 @@
       },
       "copy": {
         "label": "Copia diagnostica",
-        "description": "Versioni, build, sistema operativo, modalità grafica, impostazioni dei log e conteggio dei problemi recenti, pronti per una segnalazione di bug. Niente chiavi, niente testo dettato, niente righe di log.",
+        "description": "Versioni, build, sistema operativo, modalità grafica, impostazioni dei log, conteggio dei problemi recenti e processi di OpenWhispr, pronti per una segnalazione di bug. Niente chiavi, niente testo dettato, niente righe di log.",
         "button": "Copia…",
         "dialogTitle": "Copia diagnostica",
         "dialogDescription": "Questo è esattamente ciò che verrà copiato, in inglese per una segnalazione di bug. Il nome utente è nascosto nei percorsi."

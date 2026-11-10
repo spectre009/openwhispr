@@ -824,6 +824,33 @@ test("off Windows: one note, no Windows-only columns, tiles or panels, and no pe
   assert.ok(host.querySelector('[data-process-phase="recording"]'));
   assert.equal(host.querySelector('[data-process-history-metric="graphics"]'), null);
   assert.ok(host.querySelector('[data-process-history-metric="cpu"]'));
+  // The footnote and the chart note leave out what isn't shown.
+  const footnote = text(host.querySelector("[data-process-footnote]"));
+  assert.doesNotMatch(footnote, /Committed|Graphics/);
+  assert.match(footnote, /In RAM is the working set/);
+  const page = text(host);
+  assert.doesNotMatch(page, /Graphics memory is read every 30 minutes/);
+  assert.match(page, /Gaps are times nothing was measured\./);
+});
+
+test("the last recording while the page was closed: no graphics column, and the line says why", async (t) => {
+  const processes = LAST_RECORDING.processes.map((row) => ({ ...row, gpuAfterDelivery: null }));
+  subscribeAnswer = sampleOf({
+    lastRecording: {
+      ...LAST_RECORDING,
+      processes,
+      afterDelivery: { status: "pageClosed", at: null, gpuProcesses: null, gpuDedicated: null },
+    },
+  });
+  const { host } = await mount(t, PAGE);
+  const card = host.querySelector('[data-process-recording=""]');
+  assert.equal(card.querySelector('[data-process-phase="gpu"]'), null);
+  assert.doesNotMatch(text(card.querySelector("thead")), /Graphics memory after delivery/);
+  assert.equal(
+    text(card.querySelector("[data-process-after-delivery]")),
+    "Graphics memory after a recording is read only while this page is open."
+  );
+  assert.ok(card.querySelector('[data-process-phase="recording"]'));
 });
 
 test("Linux: memory is unavailable, never 0", async (t) => {

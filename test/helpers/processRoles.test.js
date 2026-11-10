@@ -136,10 +136,6 @@ test("the why and goes-away texts follow what main filled in", () => {
   assert.equal(strip.whyKey, "settingsPage.processes.roles.edgeStrip.why.recording");
   assert.deepEqual(strip.goesAwayParams, { minutes: 5 });
 
-  const cameras = roles.describeRole("videoCapture", { cameras: 2 });
-  assert.equal(cameras.whyKey, "settingsPage.processes.roles.videoCapture.why.cameras");
-  assert.deepEqual(cameras.whyParams, { cameras: 2 });
-
   const bogus = roles.describeRole("nope");
   assert.equal(bogus.role, "unknown");
   assert.equal(bogus.nameKey, "settingsPage.processes.roles.unknown.name");
@@ -171,7 +167,6 @@ test("every key the roles can produce has an English text, and the fixture has n
     { busy: false, minutes: 3 },
     { recording: true, releaseAfterSec: 30 },
     { recording: false, releaseAfterSec: 300 },
-    { cameras: 1 },
   ];
   const keys = new Set();
   for (const role of roles.ROLE_IDS) {
@@ -205,7 +200,6 @@ test("each English text's placeholders are parameters the role passes", () => {
     "copilotRuntime.goesAway.stopsIn": ["minutes"],
     "edgeStrip.goesAway.afterSeconds": ["seconds"],
     "edgeStrip.goesAway.afterMinutes": ["minutes"],
-    "videoCapture.why.cameras": ["cameras"],
   };
   const walk = (node, prefix) => {
     for (const [name, value] of Object.entries(node)) {

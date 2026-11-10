@@ -3925,7 +3925,8 @@
           "ok": "Graphics memory was read at {{time}}, after delivery: not a peak.",
           "unavailable": "Graphics memory couldn't be read after delivery.",
           "cancelled": "Graphics memory wasn't read: another dictation started.",
-          "skipped": "Graphics memory wasn't read: the next dictation started before this one was delivered."
+          "skipped": "Graphics memory wasn't read: the next dictation started before this one was delivered.",
+          "pageClosed": "Graphics memory after a recording is read only while this page is open."
         },
         "gpuProcesses_one": "{{count}} process on this PC held graphics memory then.",
         "gpuProcesses_other": "{{count}} processes on this PC held graphics memory then.",
@@ -3941,6 +3942,7 @@
         },
         "empty": "Nothing yet: a point is kept every 5 minutes, starting a minute after OpenWhispr starts.",
         "note": "A point every 5 minutes, kept in memory for 24 hours (not on disk); CPU is the average over each 5 minutes. Gaps are times nothing was measured. Graphics memory is read every 30 minutes, or every 5 while this page is open.",
+        "noteBasic": "A point every 5 minutes, kept in memory for 24 hours (not on disk); CPU is the average over each 5 minutes. Gaps are times nothing was measured.",
         "summary": "Highest {{max}} at {{time}}.",
         "tableCaption": "{{metric}} by group over the last 24 hours",
         "now": "Now",
@@ -3952,6 +3954,7 @@
       },
       "footnote": {
         "terms": "In RAM is the working set: what's in RAM now. Committed is private bytes: memory a process has committed for itself, some of it possibly paged out. Graphics is dedicated memory on the graphics card. CPU is % of one core. Sums count memory that processes share once per process.",
+        "termsBasic": "In RAM is the working set: what's in RAM now. CPU is % of one core. Sums count memory that processes share once per process.",
         "log": "A snapshot of this table goes to the log every 30 minutes, and into Copy diagnostics.",
         "copy": "Copy as text",
         "copyFailed": "Couldn't copy the table."
@@ -4001,8 +4004,7 @@
           "name": "Video capture service",
           "what": "Chromium's camera service. OpenWhispr never opens a camera.",
           "why": {
-            "default": "OpenWhispr lists your microphones, and Chromium lists cameras in the same call and starts this service to do it.",
-            "cameras": "OpenWhispr lists your microphones, and Chromium lists cameras in the same call ({{cameras}} found) and starts this service to do it."
+            "default": "OpenWhispr lists your microphones, and Chromium lists cameras in the same call and starts this service to do it."
           },
           "goesAway": {
             "default": "Not on its own: Chromium keeps it for the rest of the session."
@@ -4098,7 +4100,7 @@
         },
         "copilotRuntime": {
           "name": "GitHub Copilot runtime",
-          "what": "Sends requests to GitHub Copilot: cleanup, chat and the Voice Assistant.",
+          "what": "Sends requests to GitHub Copilot: cleanup, styles, translation and note formatting.",
           "why": {
             "default": "Started for a request to GitHub Copilot.",
             "busy": "A request to GitHub Copilot is running."
@@ -4277,7 +4279,7 @@
       },
       "copy": {
         "label": "Copy diagnostics",
-        "description": "Versions, build, OS, graphics mode, log settings and counts of recent problems, ready for a bug report. No keys, no dictated text, no log lines.",
+        "description": "Versions, build, OS, graphics mode, log settings, counts of recent problems and OpenWhispr's processes, ready for a bug report. No keys, no dictated text, no log lines.",
         "button": "Copy…",
         "dialogTitle": "Copy diagnostics",
         "dialogDescription": "This is exactly what will be copied, in English for a bug report. Your user name is hidden in paths."

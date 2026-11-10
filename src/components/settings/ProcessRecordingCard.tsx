@@ -96,6 +96,8 @@ export function ProcessRecordingCard({
   };
 
   const delivered = recording.afterDelivery;
+  // Read only while the page is open; when it wasn't, the line below says so.
+  const gpuColumn = windowsNumbers && delivered.status !== "pageClosed";
   const gpuCell = (bytes: number | null): ReactNode => {
     if (delivered.status !== "ok") {
       return <Dash reason={t(`${P}.lastRecording.afterDelivery.${delivered.status}`)} />;
@@ -180,7 +182,7 @@ export function ProcessRecordingCard({
             >
               {processingHeader}
             </th>
-            {windowsNumbers && (
+            {gpuColumn && (
               <th
                 scope="col"
                 className="px-3 py-2 text-end text-[11px] font-medium text-muted-foreground"
@@ -211,7 +213,7 @@ export function ProcessRecordingCard({
               <td data-process-phase="processing" className="px-3 py-1.5 text-end tabular-nums">
                 {usageCell(row.processing, "processing")}
               </td>
-              {windowsNumbers && (
+              {gpuColumn && (
                 <td data-process-phase="gpu" className="px-3 py-1.5 text-end tabular-nums">
                   {gpuCell(row.gpuAfterDelivery)}
                 </td>
@@ -232,7 +234,7 @@ export function ProcessRecordingCard({
                 ? ""
                 : formatProcessPercent(sum("processing") as number, locale)}
             </td>
-            {windowsNumbers && (
+            {gpuColumn && (
               <td className="px-3 py-1.5 text-end tabular-nums">
                 {delivered.status === "ok" && delivered.gpuDedicated !== null
                   ? formatProcessBytes(delivered.gpuDedicated, locale)

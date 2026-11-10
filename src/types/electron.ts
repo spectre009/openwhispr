@@ -2298,7 +2298,7 @@ export interface ProcessInventoryRecording {
     gpuAfterDelivery: number | null;
   }>;
   afterDelivery: {
-    status: "pending" | "ok" | "unavailable" | "cancelled" | "skipped";
+    status: "pending" | "ok" | "unavailable" | "cancelled" | "skipped" | "pageClosed";
     at: number | null;
     gpuProcesses: number | null;
     gpuDedicated: number | null;

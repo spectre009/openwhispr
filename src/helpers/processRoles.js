@@ -54,10 +54,7 @@ const ROLE_SPECS = Object.freeze({
   gpu: { group: "app" },
   network: { group: "services" },
   audio: { group: "services" },
-  videoCapture: {
-    group: "services",
-    why: (p) => (Number.isInteger(p.cameras) ? ["cameras", { cameras: p.cameras }] : null),
-  },
+  videoCapture: { group: "services" },
   storage: { group: "services" },
   controlPanel: {
     group: "windows",

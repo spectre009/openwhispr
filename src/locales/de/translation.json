@@ -3925,7 +3925,8 @@
           "ok": "Der Grafikspeicher wurde um {{time}} nach dem Einfügen gelesen: kein Spitzenwert.",
           "unavailable": "Der Grafikspeicher konnte nach dem Einfügen nicht gelesen werden.",
           "cancelled": "Der Grafikspeicher wurde nicht gelesen: Ein anderes Diktat hat begonnen.",
-          "skipped": "Der Grafikspeicher wurde nicht gelesen: Das nächste Diktat begann, bevor dieses eingefügt war."
+          "skipped": "Der Grafikspeicher wurde nicht gelesen: Das nächste Diktat begann, bevor dieses eingefügt war.",
+          "pageClosed": "Der Grafikspeicher nach einer Aufnahme wird nur gelesen, während diese Seite geöffnet ist."
         },
         "gpuProcesses_one": "{{count}} Prozess auf diesem PC belegte damals Grafikspeicher.",
         "gpuProcesses_other": "{{count}} Prozesse auf diesem PC belegten damals Grafikspeicher.",
@@ -3941,6 +3942,7 @@
         },
         "empty": "Noch nichts: Alle 5 Minuten wird ein Punkt gespeichert, ab einer Minute nach dem Start von OpenWhispr.",
         "note": "Ein Punkt alle 5 Minuten, 24 Stunden lang im Arbeitsspeicher behalten (nicht auf der Festplatte); CPU ist der Durchschnitt über je 5 Minuten. Lücken sind Zeiten, in denen nichts gemessen wurde. Der Grafikspeicher wird alle 30 Minuten gelesen, oder alle 5, solange diese Seite geöffnet ist.",
+        "noteBasic": "Ein Punkt alle 5 Minuten, 24 Stunden lang im Arbeitsspeicher behalten (nicht auf der Festplatte); CPU ist der Durchschnitt über je 5 Minuten. Lücken sind Zeiten, in denen nichts gemessen wurde.",
         "summary": "Höchstwert {{max}} um {{time}}.",
         "tableCaption": "{{metric}} nach Gruppe in den letzten 24 Stunden",
         "now": "Jetzt",
@@ -3952,6 +3954,7 @@
       },
       "footnote": {
         "terms": "„Im RAM“ ist der Arbeitssatz: was jetzt im RAM liegt. „Zugesichert“ sind die Private Bytes: Speicher, den ein Prozess für sich zugesichert hat, möglicherweise teils ausgelagert. „Grafik“ ist dedizierter Speicher auf der Grafikkarte. CPU ist % eines Kerns. Summen zählen Speicher, den Prozesse gemeinsam nutzen, pro Prozess einmal.",
+        "termsBasic": "„Im RAM“ ist der Arbeitssatz: was jetzt im RAM liegt. CPU ist % eines Kerns. Summen zählen Speicher, den Prozesse gemeinsam nutzen, pro Prozess einmal.",
         "log": "Eine Momentaufnahme dieser Tabelle geht alle 30 Minuten ins Protokoll und in „Diagnose kopieren“.",
         "copy": "Als Text kopieren",
         "copyFailed": "Die Tabelle konnte nicht kopiert werden."
@@ -4001,8 +4004,7 @@
           "name": "Videoaufnahmedienst",
           "what": "Der Kameradienst von Chromium. OpenWhispr öffnet nie eine Kamera.",
           "why": {
-            "default": "OpenWhispr listet Ihre Mikrofone auf, und Chromium listet im selben Aufruf auch Kameras auf und startet dafür diesen Dienst.",
-            "cameras": "OpenWhispr listet Ihre Mikrofone auf, und Chromium listet im selben Aufruf auch Kameras auf ({{cameras}} gefunden) und startet dafür diesen Dienst."
+            "default": "OpenWhispr listet Ihre Mikrofone auf, und Chromium listet im selben Aufruf auch Kameras auf und startet dafür diesen Dienst."
           },
           "goesAway": {
             "default": "Nicht von selbst: Chromium behält ihn für den Rest der Sitzung."
@@ -4098,7 +4100,7 @@
         },
         "copilotRuntime": {
           "name": "Laufzeit für GitHub Copilot",
-          "what": "Sendet Anfragen an GitHub Copilot: Bereinigung, Chat und den Sprachassistenten.",
+          "what": "Sendet Anfragen an GitHub Copilot: Bereinigung, Stile, Übersetzung und Notizformatierung.",
           "why": {
             "default": "Für eine Anfrage an GitHub Copilot gestartet.",
             "busy": "Eine Anfrage an GitHub Copilot läuft."
@@ -4277,7 +4279,7 @@
       },
       "copy": {
         "label": "Diagnose kopieren",
-        "description": "Versionen, Build, Betriebssystem, Grafikmodus, Protokolleinstellungen und die Anzahl der letzten Probleme, bereit für einen Fehlerbericht. Keine Schlüssel, kein diktierter Text, keine Protokollzeilen.",
+        "description": "Versionen, Build, Betriebssystem, Grafikmodus, Protokolleinstellungen, die Anzahl der letzten Probleme und die Prozesse von OpenWhispr, bereit für einen Fehlerbericht. Keine Schlüssel, kein diktierter Text, keine Protokollzeilen.",
         "button": "Kopieren…",
         "dialogTitle": "Diagnose kopieren",
         "dialogDescription": "Genau dieser Text wird kopiert, auf Englisch für einen Fehlerbericht. Der Benutzername ist in Pfaden ausgeblendet."

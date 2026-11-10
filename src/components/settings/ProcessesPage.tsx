@@ -253,6 +253,7 @@ export default function ProcessesPage({ showing }: { showing: boolean }) {
   const locale = i18n.language;
   const snapshot = sample?.snapshot ?? null;
   const unavailable = sample?.unavailable ?? [];
+  const windowsNumbers = !unavailable.includes("windowsOnly");
   const paused = sample?.paused === true;
   const ctx: ProcessPageContext | null = snapshot
     ? {
@@ -260,7 +261,7 @@ export default function ProcessesPage({ showing }: { showing: boolean }) {
         history,
         lastRecording: sample?.lastRecording ?? null,
         unavailable,
-        windowsNumbers: !unavailable.includes("windowsOnly"),
+        windowsNumbers,
         locale,
       }
     : null;
@@ -420,7 +421,7 @@ export default function ProcessesPage({ showing }: { showing: boolean }) {
             recording={sample.lastRecording ?? null}
             locale={locale}
             now={snapshot?.at ?? Date.now()}
-            windowsNumbers={!unavailable.includes("windowsOnly")}
+            windowsNumbers={windowsNumbers}
           />
         )}
       </section>
@@ -430,7 +431,7 @@ export default function ProcessesPage({ showing }: { showing: boolean }) {
           history={history}
           locale={locale}
           now={snapshot?.at ?? Date.now()}
-          windowsNumbers={!unavailable.includes("windowsOnly")}
+          windowsNumbers={windowsNumbers}
         />
       </section>
 
@@ -438,7 +439,7 @@ export default function ProcessesPage({ showing }: { showing: boolean }) {
         data-process-footnote=""
         className="space-y-1 border-t border-border/70 pt-4 text-[11px] leading-relaxed text-muted-foreground/80"
       >
-        <p>{t(`${P}.footnote.terms`)}</p>
+        <p>{t(windowsNumbers ? `${P}.footnote.terms` : `${P}.footnote.termsBasic`)}</p>
         <p>{t(`${P}.footnote.log`)}</p>
       </footer>
     </div>

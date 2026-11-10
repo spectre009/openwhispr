@@ -168,15 +168,54 @@ test("never during a dictation: a run in flight is cancelled, its result dropped
   h.dictation("idle", { delivering: true });
   assert.equal(h.spawned.length, 1, "still delivering");
   h.dictation("idle");
-  assert.equal(h.spawned.length, 2, "after delivery: one run, with graphics memory");
+  assert.equal(
+    h.spawned.length,
+    2,
+    "after delivery: the deferred run, with graphics for the log line"
+  );
   assert.ok(h.spawned[1].args.includes("--gpu"));
   await h.inventory.stop();
 });
 
-test("a recording's cost: CPU at its boundaries, graphics memory after delivery, one debug line", async () => {
+test("a 5-minute run a dictation cancels runs again once the dictation is delivered", async () => {
   const h = makeHarness();
   h.inventory.start();
+  await h.clock.advance(60_000);
+  assert.equal(h.spawned.length, 1);
+  h.dictation("recording");
+  assert.equal(h.spawned[0].killed, true);
+  h.dictation("idle");
+  assert.equal(h.spawned.length, 2, "the cancelled run runs again");
+  assert.ok(h.spawned[1].args.includes("--once"));
+  await h.inventory.stop();
+});
+
+test("without the page open, nothing reads graphics memory after a dictation", async () => {
+  const h = makeHarness();
+  h.inventory.start();
+  h.dictation("recording");
+  await h.clock.advance(3_000);
+  h.dictation("processing");
+  h.dictation("idle");
+  assert.equal(h.spawned.length, 0, "no helper run after delivery");
+  const record = h.inventory.get().lastRecording;
+  assert.equal(record.afterDelivery.status, "pageClosed");
+  assert.ok(record.processes.every((item) => item.gpuAfterDelivery === null));
+  const lines = h.logs.filter((entry) => entry.message === "Recording cost");
+  assert.equal(lines.length, 1);
+  const meta = JSON.parse(lines[0].meta);
+  assert.equal(meta.gpuAfterDelivery, "pageClosed");
+  assert.deepEqual(meta.gpuAfterDeliveryMB, {});
+  await h.inventory.stop();
+});
+
+test("a recording's cost: CPU at its boundaries, graphics memory after delivery while the page is open, one debug line", async () => {
+  const h = makeHarness();
+  h.inventory.start();
+  h.inventory.subscribe(fakeContents(9));
+  assert.equal(h.spawned.length, 1, "the page's stream");
   h.dictation("preparing");
+  assert.equal(h.spawned[0].stdin.ended, true, "a dictation stops the stream");
   h.dictation("recording");
   await h.clock.advance(10_000);
   h.state.metrics = [
@@ -202,15 +241,17 @@ test("a recording's cost: CPU at its boundaries, graphics memory after delivery,
   h.dictation("idle", { delivering: true });
   await h.clock.advance(500);
   h.dictation("idle");
-  assert.equal(h.spawned.length, 1);
+  assert.equal(h.spawned.length, 2, "the stream resumes; no run of its own");
+  assert.ok(h.spawned[1].args.includes("--stream"));
   assert.equal(h.inventory.get().lastRecording.afterDelivery.status, "pending");
-  h.spawned[0].answer(
+  h.spawned[1].write(
     helperJson({
       processes: [
         ...baseRows({ 110: { gpuDedicated: 478 * MB } }),
         helperRow({ pid: 140, ppid: 100, createdAt: T0 + 5_000, gdi: 0, user: 0 }),
       ],
       gpu: GPU_OK(46),
+      mode: "stream",
     })
   );
   await flush();
@@ -245,13 +286,14 @@ test("a recording's cost: CPU at its boundaries, graphics memory after delivery,
 test("a dictation starting before the last one's graphics reading cancels it, and the line still comes", async () => {
   const h = makeHarness();
   h.inventory.start();
+  h.inventory.subscribe(fakeContents(9));
   h.dictation("recording");
   await h.clock.advance(3_000);
   h.dictation("processing");
   h.dictation("idle");
-  assert.equal(h.spawned.length, 1);
+  assert.equal(h.spawned.length, 2, "the stream resumed and hasn't answered yet");
   h.dictation("recording");
-  assert.equal(h.spawned[0].killed, true);
+  assert.equal(h.spawned[1].stdin.ended, true);
   const record = h.inventory.get().lastRecording;
   assert.equal(record.afterDelivery.status, "cancelled");
   assert.equal(h.logs.filter((entry) => entry.message === "Recording cost").length, 1);

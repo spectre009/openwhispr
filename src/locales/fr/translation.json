@@ -3925,7 +3925,8 @@
           "ok": "Mémoire graphique lue à {{time}}, après le collage : ce n'est pas un pic.",
           "unavailable": "Impossible de lire la mémoire graphique après le collage.",
           "cancelled": "Mémoire graphique non lue : une autre dictée a commencé.",
-          "skipped": "Mémoire graphique non lue : la dictée suivante a commencé avant que celle-ci soit collée."
+          "skipped": "Mémoire graphique non lue : la dictée suivante a commencé avant que celle-ci soit collée.",
+          "pageClosed": "La mémoire graphique après un enregistrement n'est lue que lorsque cette page est ouverte."
         },
         "gpuProcesses_one": "{{count}} processus de ce PC occupait alors de la mémoire graphique.",
         "gpuProcesses_other": "{{count}} processus de ce PC occupaient alors de la mémoire graphique.",
@@ -3941,6 +3942,7 @@
         },
         "empty": "Rien pour l'instant : un point est conservé toutes les 5 minutes, à partir d'une minute après le démarrage d'OpenWhispr.",
         "note": "Un point toutes les 5 minutes, conservé en mémoire pendant 24 heures (pas sur le disque) ; le CPU est la moyenne sur chaque période de 5 minutes. Les trous correspondent aux moments où rien n'a été mesuré. La mémoire graphique est lue toutes les 30 minutes, ou toutes les 5 tant que cette page est ouverte.",
+        "noteBasic": "Un point toutes les 5 minutes, conservé en mémoire pendant 24 heures (pas sur le disque) ; le CPU est la moyenne sur chaque période de 5 minutes. Les trous correspondent aux moments où rien n'a été mesuré.",
         "summary": "Maximum {{max}} à {{time}}.",
         "tableCaption": "{{metric}} par groupe sur les dernières 24 heures",
         "now": "Maintenant",
@@ -3952,6 +3954,7 @@
       },
       "footnote": {
         "terms": "« En RAM » correspond à la plage de travail : ce qui est en RAM maintenant. « Validée » correspond aux octets privés : la mémoire qu'un processus a validée pour lui-même, dont une partie peut se trouver dans le fichier d'échange. « Graphismes » correspond à la mémoire dédiée de la carte graphique. Le CPU est en % d'un cœur. Les sommes comptent la mémoire partagée par plusieurs processus une fois par processus.",
+        "termsBasic": "« En RAM » correspond à la plage de travail : ce qui est en RAM maintenant. Le CPU est en % d'un cœur. Les sommes comptent la mémoire partagée par plusieurs processus une fois par processus.",
         "log": "Un instantané de ce tableau est écrit dans le journal toutes les 30 minutes, et inclus dans « Copier le diagnostic ».",
         "copy": "Copier en texte",
         "copyFailed": "Impossible de copier le tableau."
@@ -4001,8 +4004,7 @@
           "name": "Service de capture vidéo",
           "what": "Le service caméra de Chromium. OpenWhispr n'ouvre jamais de caméra.",
           "why": {
-            "default": "OpenWhispr liste vos micros, et Chromium liste les caméras dans le même appel et lance ce service pour le faire.",
-            "cameras": "OpenWhispr liste vos micros, et Chromium liste les caméras dans le même appel ({{cameras}} trouvées) et lance ce service pour le faire."
+            "default": "OpenWhispr liste vos micros, et Chromium liste les caméras dans le même appel et lance ce service pour le faire."
           },
           "goesAway": {
             "default": "Pas de lui-même : Chromium le garde jusqu'à la fin de la session."
@@ -4098,7 +4100,7 @@
         },
         "copilotRuntime": {
           "name": "Environnement d'exécution GitHub Copilot",
-          "what": "Envoie les requêtes à GitHub Copilot : nettoyage, chat et Assistant vocal.",
+          "what": "Envoie les requêtes à GitHub Copilot : nettoyage, styles, traduction et mise en forme des notes.",
           "why": {
             "default": "Lancé pour une requête à GitHub Copilot.",
             "busy": "Une requête à GitHub Copilot est en cours."
@@ -4277,7 +4279,7 @@
       },
       "copy": {
         "label": "Copier le diagnostic",
-        "description": "Versions, build, système, mode graphique, réglages des journaux et nombre de problèmes récents, prêts pour un rapport de bug. Aucune clé, aucun texte dicté, aucune ligne de journal.",
+        "description": "Versions, build, système, mode graphique, réglages des journaux, nombre de problèmes récents et processus d'OpenWhispr, prêts pour un rapport de bug. Aucune clé, aucun texte dicté, aucune ligne de journal.",
         "button": "Copier…",
         "dialogTitle": "Copier le diagnostic",
         "dialogDescription": "Voici exactement ce qui sera copié, en anglais pour un rapport de bug. Votre nom d'utilisateur est masqué dans les chemins."

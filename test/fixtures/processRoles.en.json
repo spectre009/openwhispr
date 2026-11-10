@@ -37,8 +37,7 @@
           "name": "Video capture service",
           "what": "Chromium's camera service. OpenWhispr never opens a camera.",
           "why": {
-            "default": "OpenWhispr lists your microphones, and Chromium lists cameras in the same call and starts this service to do it.",
-            "cameras": "OpenWhispr lists your microphones, and Chromium lists cameras in the same call ({{cameras}} found) and starts this service to do it."
+            "default": "OpenWhispr lists your microphones, and Chromium lists cameras in the same call and starts this service to do it."
           },
           "goesAway": {
             "default": "Not on its own: Chromium keeps it for the rest of the session."
@@ -112,7 +111,7 @@
         },
         "copilotRuntime": {
           "name": "GitHub Copilot runtime",
-          "what": "Sends requests to GitHub Copilot: cleanup, chat and the Voice Assistant.",
+          "what": "Sends requests to GitHub Copilot: cleanup, styles, translation and note formatting.",
           "why": {
             "default": "Started for a request to GitHub Copilot.",
             "busy": "A request to GitHub Copilot is running."

@@ -3883,7 +3883,8 @@
           "ok": "La memoria gráfica se leyó a las {{time}}, tras la entrega: no es un pico.",
           "unavailable": "No se pudo leer la memoria gráfica tras la entrega.",
           "cancelled": "No se leyó la memoria gráfica: empezó otro dictado.",
-          "skipped": "No se leyó la memoria gráfica: el siguiente dictado empezó antes de que se entregara este."
+          "skipped": "No se leyó la memoria gráfica: el siguiente dictado empezó antes de que se entregara este.",
+          "pageClosed": "La memoria gráfica tras una grabación solo se lee mientras esta página está abierta."
         },
         "gpuProcesses_one": "{{count}} proceso de este equipo tenía memoria gráfica en ese momento.",
         "gpuProcesses_other": "{{count}} procesos de este equipo tenían memoria gráfica en ese momento.",
@@ -3899,6 +3900,7 @@
         },
         "empty": "Aún nada: se guarda un punto cada 5 minutos, a partir de un minuto después de que se inicie OpenWhispr.",
         "note": "Un punto cada 5 minutos, guardado en memoria durante 24 horas (no en el disco); la CPU es el promedio de cada 5 minutos. Los huecos son momentos en los que no se midió nada. La memoria gráfica se lee cada 30 minutos, o cada 5 mientras esta página está abierta.",
+        "noteBasic": "Un punto cada 5 minutos, guardado en memoria durante 24 horas (no en el disco); la CPU es el promedio de cada 5 minutos. Los huecos son momentos en los que no se midió nada.",
         "summary": "Máximo: {{max}} a las {{time}}.",
         "tableCaption": "{{metric}} por grupo en las últimas 24 horas",
         "now": "Ahora",
@@ -3910,6 +3912,7 @@
       },
       "footnote": {
         "terms": "En RAM es el conjunto de trabajo: lo que está en RAM ahora. Confirmada son los bytes privados: la memoria que un proceso ha confirmado para sí, parte de la cual puede estar paginada. Gráficos es la memoria dedicada de la tarjeta gráfica. CPU es el % de un núcleo. Las sumas cuentan la memoria que comparten los procesos una vez por proceso.",
+        "termsBasic": "En RAM es el conjunto de trabajo: lo que está en RAM ahora. CPU es el % de un núcleo. Las sumas cuentan la memoria que comparten los procesos una vez por proceso.",
         "log": "Una instantánea de esta tabla va al registro cada 30 minutos, y a Copiar diagnóstico.",
         "copy": "Copiar como texto",
         "copyFailed": "No se pudo copiar la tabla."
@@ -3959,8 +3962,7 @@
           "name": "Servicio de captura de video",
           "what": "El servicio de cámara de Chromium. OpenWhispr nunca abre una cámara.",
           "why": {
-            "default": "OpenWhispr enumera tus micrófonos, y Chromium enumera las cámaras en la misma llamada e inicia este servicio para hacerlo.",
-            "cameras": "OpenWhispr enumera tus micrófonos, y Chromium enumera las cámaras en la misma llamada (encontró {{cameras}}) e inicia este servicio para hacerlo."
+            "default": "OpenWhispr enumera tus micrófonos, y Chromium enumera las cámaras en la misma llamada e inicia este servicio para hacerlo."
           },
           "goesAway": {
             "default": "No por sí solo: Chromium lo mantiene el resto de la sesión."
@@ -4056,7 +4058,7 @@
         },
         "copilotRuntime": {
           "name": "Entorno de ejecución de GitHub Copilot",
-          "what": "Envía solicitudes a GitHub Copilot: limpieza, chat y el Asistente de voz.",
+          "what": "Envía solicitudes a GitHub Copilot: limpieza, estilos, traducción y formato de notas.",
           "why": {
             "default": "Se inició para una solicitud a GitHub Copilot.",
             "busy": "Hay una solicitud a GitHub Copilot en curso."
@@ -4235,7 +4237,7 @@
       },
       "copy": {
         "label": "Copiar diagnóstico",
-        "description": "Versiones, compilación, sistema operativo, modo gráfico, ajustes de registro y recuento de problemas recientes, listos para un informe de errores. Sin claves, sin texto dictado, sin líneas de registro.",
+        "description": "Versiones, compilación, sistema operativo, modo gráfico, ajustes de registro, recuento de problemas recientes y los procesos de OpenWhispr, listos para un informe de errores. Sin claves, sin texto dictado, sin líneas de registro.",
         "button": "Copiar…",
         "dialogTitle": "Copiar diagnóstico",
         "dialogDescription": "Esto es exactamente lo que se copiará, en inglés para un informe de errores. Tu nombre de usuario no aparece en las rutas."

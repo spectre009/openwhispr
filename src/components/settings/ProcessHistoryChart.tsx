@@ -236,7 +236,7 @@ export function ProcessHistoryChart({
         )}
       </div>
       <p className="text-[11px] leading-relaxed text-muted-foreground/80">
-        {t(`${P}.history.note`)}
+        {t(windowsNumbers ? `${P}.history.note` : `${P}.history.noteBasic`)}
       </p>
     </div>
   );
