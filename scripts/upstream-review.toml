@@ -1,0 +1,294 @@
+# How `git upstream report` reads OpenWhispr/openwhispr for this fork (Cortex gitpush, upstreamreport.ts).
+# Read from the working tree, so an edit shows in the next report.
+
+name = "OpenWhispr"
+platform = "windows"
+version_file = "package.json"
+version_pattern = '"version":\s*"([^"]+)"'
+release_tags = "v*"
+# Never user-facing on their own: CI, docs, examples, the mobile app (this fork ships the desktop app only), build
+# scripts and tests.
+internal_paths = [".github/", ".oss-scanner/", "docs/", "examples/", "openwhispr-mobile/", "scripts/", "test/", "*.md"]
+
+# Conventional-commit scopes and top-level folders, by the name a user knows them.
+[areas]
+agent = "Voice Assistant"
+assistant = "Voice Assistant"
+selection = "Voice Assistant"
+chat = "Chat"
+chats = "Chat"
+ai = "Chat"
+mobile = "Mobile app"
+openwhispr-mobile = "Mobile app"
+connectors = "Connectors"
+integrations = "Connectors"
+slack = "Connectors"
+notes = "Notes"
+meetings = "Meetings"
+calendar = "Meetings"
+sync = "Sync"
+auth = "Account"
+billing = "Account"
+workspaces = "Workspaces"
+spaces = "Workspaces"
+teams = "Workspaces"
+guests = "Workspaces"
+policy = "Enterprise"
+enterprise = "Enterprise"
+dictation = "Dictation"
+hotkeys = "Hotkeys"
+transcription = "Speech-to-text"
+streaming = "Speech-to-text"
+whisper = "Speech-to-text"
+deepgram = "Speech-to-text"
+orukeet = "Speech-to-text"
+tinfoil = "Speech-to-text"
+reasoning = "Cleanup"
+tone-style = "Cleanup"
+llama = "Local models"
+models = "Models"
+groq = "Models"
+dictionary = "Dictionary"
+settings = "Settings"
+onboarding = "Onboarding"
+permissions = "Onboarding"
+ui = "Look and feel"
+window = "Look and feel"
+linux = "Linux"
+nix = "Linux"
+macos = "macOS"
+windows = "Windows"
+deps = "Dependencies"
+release = "Release"
+changelog = "Release"
+security = "Security"
+startup = "Startup"
+native = "Native helpers"
+resources = "Native helpers"
+src = "App"
+
+# Title words win, first match first; then the folder with the most changed lines.
+[[area]]
+name = "Meetings"
+words = ["meeting", "meetings", "speaker", "speakers", "Speaker ID", "diarization"]
+
+[[area]]
+name = "Notes"
+words = ["AI Summary", "Detailed Notes", "note", "notes"]
+
+[[area]]
+name = "Speech-to-text"
+words = ["Orukeet", "Parakeet", "speech-to-text", "transcription provider"]
+
+[[area]]
+name = "Voice Assistant"
+words = ["Voice Assistant", "assistant panel", "modal pill"]
+
+[[area]]
+name = "Mobile app"
+paths = ["openwhispr-mobile/"]
+
+[[area]]
+name = "Connectors"
+paths = ["src/helpers/connectors/"]
+
+# What this fork changed in upstream code, and how to tell it still works after a merge. A feature's files are the
+# upstream files its commits modified; its symbols are the functions those commits changed (each commit's own hunk
+# headers), less names so central that upstream changes them every few days. New fork work: add its feature here.
+
+[[feature]]
+name = "Self-hosting and build info (our 54d560e, e83ad4e)"
+files = ["preload.js", "scripts/afterPack.js", "scripts/build-windows-fast-paste.js", "scripts/build-windows-key-listener.js", "scripts/build-windows-text-monitor.js", "src/components/SettingsPage.tsx", "src/helpers/autoStart.js", "src/helpers/autoStartPolicy.js", "src/helpers/debugLogger.js", "src/helpers/ipcHandlers.js", "src/helpers/windowConfig.js", "src/hooks/useUpdater.ts", "src/types/electron.ts", "src/updater.js", "test/helpers/autoStartPolicy.test.js", "test/helpers/connectors/connectorManager.test.js", "test/helpers/connectors/linearRelay.test.js", "test/helpers/oauthLoopbackFlow.test.js", "test/helpers/updater.test.js"]
+symbols = ["checkForUpdates", "checkForUpdatesOnStartup", "downloadUpdate", "getLoginItemArgs", "getRelaunchWaiter", "getUpdateStatus", "initializeFileLogging", "installUpdate", "readArgLogLevel", "readLoginItemSettings", "resolveConsoleLogging", "resolveHorizontalWindowDirection", "setupAutoUpdater", "tryCompile", "verifyUnpackedBinaries", "writeLoginItem"]
+check = "node scripts/selfhost.js check, then ship: the installed build-info.json names the commit and Settings > System > This build shows it"
+
+[[feature]]
+name = "Logs you control (our 2d60c94, 4200336, 13fbdfe)"
+files = ["main.js", "preload.js", "resources/windows-key-listener.c", "src/components/SettingsPage.tsx", "src/helpers/appleCalendarManager.js", "src/helpers/assemblyAiStreaming.js", "src/helpers/audioManager.js", "src/helpers/calendarReminderScheduler.js", "src/helpers/clipboard.js", "src/helpers/debugLogger.js", "src/helpers/deepgramStreaming.js", "src/helpers/environment.js", "src/helpers/geminiLiveStreaming.js", "src/helpers/ipcHandlers.js", "src/helpers/llamaServer.js", "src/helpers/meetingDetectionEngine.js", "src/helpers/modelManagerBridge.js", "src/helpers/openaiRealtimeStreaming.js", "src/helpers/parakeetWsServer.js", "src/helpers/textEditMonitor.js", "src/helpers/whisper.js", "src/helpers/whisperServer.js", "src/helpers/windowManager.js", "src/helpers/windowsKeyManager.js", "src/hooks/useAudioRecording.js", "src/services/ReasoningService.ts", "src/services/ai/inferenceProviders/gemini.ts", "src/services/ai/inferenceProviders/openai.ts", "src/services/localReasoningBridge.js", "src/types/electron.ts", "src/utils/dictationCues.js", "src/utils/logger.ts", "src/utils/parseTranscriptSegments.ts", "test/components/directionalContentPolicy.test.js", "test/helpers/debugLoggerConsolePolicy.test.js", "test/helpers/whisperGpuUpgradeReset.test.js"]
+symbols = ["clearAllPersistedData", "clearGithubCopilotToken", "ensureFileLogging", "fatal", "formatMeta", "getLevel", "initializeFileLogging", "logEntry", "logProcessOutput", "logProcessStart", "openLogFile", "pruneLogs", "readArgLogLevel", "readSelfBuiltCommit", "refreshLogLevel", "resolveConsoleLogging", "resolveLogLevel", "rotateLogFile", "shouldLog"]
+check = "Storage > Logs: switch Problems only / Everything / Off and dictate; the level follows and Clear logs works. node --import tsx --test test/helpers/logTextCanary.test.js: no dictated text in any log line, upstream's new ones included"
+
+[[feature]]
+name = "Bluetooth start cue (our 2582c67)"
+files = ["src/hooks/useAudioRecording.js", "src/utils/dictationCues.js"]
+symbols = ["onTranslationFallback", "playCue", "scheduleTone"]
+check = "With Bluetooth headphones idle, start a dictation: the start cue is heard in full"
+
+[[feature]]
+name = "Floating icon placement (our 79c292d)"
+files = ["main.js", "preload.js", "src/App.jsx", "src/components/SettingsPage.tsx", "src/components/dictation/PillCommandMenu.tsx", "src/components/dictation/PillTooltip.tsx", "src/components/ui/Toast.tsx", "src/helpers/environment.js", "src/helpers/ipcHandlers.js", "src/helpers/mainWindowPlacementCoordinator.js", "src/helpers/voicePillPresentation.js", "src/helpers/windowConfig.js", "src/helpers/windowManager.js", "src/hooks/useSettings.ts", "src/stores/settingsStore.ts", "src/styles/dictation-panel.css", "src/types/electron.ts", "src/utils/mainWindowResizeCoordinator.ts", "test/components/pillCommandMenu.test.js", "test/helpers/mainWindowPlacementCoordinator.test.js", "test/helpers/mainWindowResizeCoordinator.test.js", "test/helpers/voicePillPresentation.test.js", "test/helpers/windowPositionClamp.test.js"]
+symbols = ["_enqueueMainWindowMutation", "_getMainWindowDisplayFor", "_performActiveDisplayReposition", "_performMainWindowResize", "_repositionToActiveDisplay", "_resolveActiveDisplay", "calculateWindowAnchorCompensation", "closeEnough", "createMainWindow", "getMainWindowHorizontalDirection", "getMainWindowPosition", "getPanelStartPosition", "hideDictationPanel", "resetManualPosition", "resolveHorizontalWindowDirection", "resolveVoiceHorizontalDirection", "resolveVoicePillDock", "savePanelStartPosition", "setPanelStartPosition", "setWhisperVadSamplesOverlap", "showDictationPanel", "stopWindowDrag", "theme", "useSettingsInternal"]
+check = "Settings > Floating Icon: lock to a monitor and a grid spot; dictate with the mouse on another monitor, the pill stays put; sleep a monitor, it comes back"
+
+[[feature]]
+name = "Recording look, edge strip and tray badge (our bf28e6f, c1189f1, 5b6f156, bef2f90)"
+files = ["main.js", "preload.js", "src/App.jsx", "src/components/SettingsPage.tsx", "src/components/dictation/AgentDictationPillOverlay.tsx", "src/components/dictation/LiquidCancelButton.tsx", "src/components/dictation/VoicePill.tsx", "src/helpers/ipcHandlers.js", "src/helpers/tray.js", "src/helpers/voicePillPresentation.js", "src/helpers/windowConfig.js", "src/helpers/windowManager.js", "src/hooks/useAudioRecording.js", "src/hooks/useSettings.ts", "src/stores/settingsStore.ts", "src/styles/dictation-panel.css", "src/types/electron.ts", "test/components/fieldDirectionPolicy.test.js", "test/helpers/liquidCancelFusion.test.js", "test/helpers/preloadAuthBridge.test.js", "test/helpers/trayPlacement.test.js", "test/helpers/trayQuickActions.test.js", "test/helpers/voicePillPresentation.test.js", "test/helpers/windowManagerAssistantPanel.test.js", "test/helpers/windowSizeLadder.test.js"]
+symbols = ["_recordingIndicatorWanted", "_resetDictationLifecycle", "_scheduleTopologyReconcile", "_sendDictationToggle", "_setPlacedBounds", "_tooltip", "boundsWithin", "createMainWindow", "createTray", "fitDictationErrorWindowToWorkArea", "getAgentDictationPillState", "initializeAutoUpdatesDefault", "onTranslationFallback", "setDictationLifecycleState", "setFloatingIconDisplay", "setRecordingEdgeStripDisplays", "setRecordingIndicatorColor", "setRecordingIndicatorSettings", "stopWindowDrag", "theme", "updateRecordingIndicator", "updateTrayMenu", "useSettingsInternal"]
+check = "Beacon red, Full frame and tray badge on: dictate; the pill, frame and tray dot show red while recording and go at stop and cancel; REC shows the time"
+
+[[feature]]
+name = "OpenWhispr account & Cloud switch (our 89be0f8)"
+files = ["main.js", "preload.js", "src/AppRouter.jsx", "src/components/AuthenticationStep.tsx", "src/components/ControlPanel.tsx", "src/components/ControlPanelSidebar.tsx", "src/components/InsightsView.tsx", "src/components/IntegrationsView.tsx", "src/components/MeetingRecordingMount.tsx", "src/components/SettingsModal.tsx", "src/components/SettingsPage.tsx", "src/components/chat/useChatStreaming.ts", "src/components/integrations/IntegrationsNav.tsx", "src/components/integrations/integrationsSections.ts", "src/components/notes/UploadAudioView.tsx", "src/components/onboarding/SetupChoiceStep.tsx", "src/components/settings/MeetingSettings.tsx", "src/components/ui/MicrophoneSettings.tsx", "src/components/ui/SupportDropdown.tsx", "src/config/agentCapabilities.ts", "src/helpers/assemblyAiStreaming.js", "src/helpers/cloudConfigRequest.js", "src/helpers/connectors/oauthResultPage.js", "src/helpers/cortiStreaming.js", "src/helpers/deepgramStreaming.js", "src/helpers/environment.js", "src/helpers/externalUrlOpener.js", "src/helpers/geminiLiveStreaming.js", "src/helpers/googleCalendarOAuth.js", "src/helpers/ipcHandlers.js", "src/helpers/microsoftCalendarOAuth.js", "src/helpers/openaiRealtimeStreaming.js", "src/helpers/orukeetStreaming.js", "src/helpers/tinfoilRealtimeStreaming.js", "src/helpers/urlAudioDownloader.js", "src/hooks/usePolicy.ts", "src/lib/auth.ts", "src/lib/authRequestContext.ts", "src/types/electron.ts", "src/utils/requestSignIn.ts", "test/components/authenticationStep.test.js"]
+symbols = ["applySessionTokenAndRefresh", "authContextFetch", "connectorResultPage", "createCloudConfigRequestHandler", "describeOne", "downloadDirect", "handleInvitationDeepLink", "handleOAuthDeepLink", "httpRequest", "isGetSessionRequest", "migrateCookieToBearerToken", "openExternalUrl", "requestSignIn", "resolveAuthUrl", "resolveUnavailableCapabilities", "saveStartMinimized", "sectionMeta", "startOAuthFlow", "usePolicyModeOptions"]
+check = "Privacy & Data: turn Cloud off; no request reaches openwhispr.com (log shows [cloud-off] blocked), no account surfaces show, local dictation works"
+
+[[feature]]
+name = "GitHub Copilot provider (our 5a317eb, 655b9a1, 5a45572)"
+files = ["electron-builder.json", "main.js", "package-lock.json", "package.json", "preload.js", "scripts/afterPack.js", "src/components/ReasoningModelSelector.tsx", "src/components/chat/useChatStreaming.ts", "src/components/onboarding/ProviderSetupStep.tsx", "src/components/onboarding/SetupChoiceStep.tsx", "src/components/settings/InferenceConfigEditor.tsx", "src/components/ui/PromptStudio.tsx", "src/helpers/audioManager.js", "src/helpers/chatRouting.js", "src/helpers/environment.js", "src/helpers/ipcHandlers.js", "src/helpers/providerHttpErrors.js", "src/helpers/sidecarReaper.js", "src/hooks/useAudioRecording.js", "src/models/ModelRegistry.ts", "src/models/modelRegistryData.json", "src/services/ReasoningService.ts", "src/services/ai/inferenceProviders/index.ts", "src/services/ai/providers.ts", "src/stores/settingsStore.ts", "src/types/electron.ts", "src/utils/providerIcons.ts", "test/helpers/chatRouting.test.js", "test/helpers/inferenceProviderIds.test.js", "test/helpers/policyRules.test.js", "test/helpers/providerHttpErrors.test.js"]
+symbols = ["beginStepHistoryRun", "buildClassification", "canonicalTranscriptionBaseUrl", "codeForStatus", "electronNetError", "getModelProvider", "getOpenAiApiConfig", "getProviderIcon", "getTinfoilCloudProvider", "isAvailable", "providerHttpError", "reconcileLocalModelSelections", "reconcileRetiredCloudModelSelections", "registerSidecars", "resolveChatRoute", "saveOpenWhisprCloudDisabled", "selectPolicyEffectiveSettings", "toByokStreamProvider", "translationChainReachable", "verifyUnpackedBinaries", "verifyWindowsKeyListener"]
+check = "Cleanup on GitHub Copilot: dictate twice; the log shows 'Copilot runtime prewarmed' and 'Copilot request finished' under 6 s, the cleaned text pastes"
+
+[[feature]]
+name = "Glossary corrections (our b6c9ce0)"
+files = ["preload.js", "src/components/ControlPanel.tsx", "src/components/DictionaryView.tsx", "src/helpers/audioManager.js", "src/helpers/database.js", "src/helpers/ipcHandlers.js", "src/helpers/selectionManager.js", "src/hooks/useAudioRecording.js", "src/services/BaseReasoningService.ts", "src/services/ReasoningService.ts", "src/stores/settingsStore.ts", "src/types/electron.ts", "src/utils/snippets.ts", "test/helpers/audioManagerCloudFallbackPolicy.test.js", "test/helpers/audioManagerCustomUpload.test.js", "test/helpers/audioManagerDictionaryPromptCap.test.js", "test/helpers/audioManagerDictionaryPromptRecovery.test.js", "test/helpers/audioManagerPreviewFinalization.test.js", "test/helpers/audioManagerProviderErrors.test.js", "test/helpers/audioManagerRawWav.test.js", "test/helpers/audioManagerTranscriptionKeywords.test.js", "test/services/cleanupOutputValidation.test.js"]
+symbols = ["_getDictionarySafe", "_processCorrections", "expandSnippets", "finalizeChineseScript", "getCustomPrompt", "getDictionary", "getDictionaryHintWords", "getEffectiveOutputLanguage", "getKeyterms", "getWinTarget", "isReasoningAvailable", "onCleanupError", "onSnippetsUpdated", "onUnchangedTranslate", "processTranscription", "runTranslationChain", "setVoiceAgentRequested"]
+check = "Add a glossary rule (e.g. 'little body' -> 'Little Buddy'), dictate the spelling; the pasted text and View steps show the rule fired"
+
+[[feature]]
+name = "Prompt library and test set (our 4e0739a, 8479b17)"
+files = ["preload.js", "src/components/ControlPanel.tsx", "src/components/settings/ChatAgentSettings.tsx", "src/components/ui/PromptStudio.tsx", "src/components/ui/TranscriptionItem.tsx", "src/config/prompts.ts", "src/config/prompts/index.ts", "src/helpers/audioManager.js", "src/helpers/database.js", "src/helpers/ipcHandlers.js", "src/helpers/modelManagerBridge.js", "src/helpers/retentionSettings.js", "src/helpers/windowManager.js", "src/hooks/useSettings.ts", "src/services/BaseReasoningService.ts", "src/services/ReasoningService.ts", "src/services/ai/inferenceProviders/openwhispr.ts", "src/services/ai/inferenceProviders/types.ts", "src/services/localReasoningBridge.js", "src/stores/settingsStore.ts", "src/types/electron.ts", "test/components/fieldDirectionPolicy.test.js", "test/helpers/retentionSettings.test.js", "test/services/cleanupOutputValidation.test.js", "test/services/openwhisprReasonPurpose.test.js", "test/services/promptStudioAgentPurpose.test.js"]
+symbols = ["applyRetentionSettings", "choosePath", "createMeetingNotificationFolder", "deleteAccountData", "dictationAgentMode", "getCleanupSystemPrompt", "getStepHistoryExport", "getSystemPrompt", "getUiLanguage", "migrateCustomPrompts", "processText", "providerContextFor", "reconcileRetiredCloudModelSelections", "resolvePrompt", "runInference", "setCustomPrompt", "setDictationLifecycleState", "sweepRetiredCustomPrompts", "useSettingsInternal"]
+check = "Prompt Studio: switch prompts, edit and save a draft, run the test set A vs B; the prompt in use is what a dictation sends"
+
+[[feature]]
+name = "Step history and the History view (our 97f52cc, 4999528, 042d889, 616ead3, 3184e26, 368e6ac)"
+files = ["main.js", "preload.js", "scripts/sync-nucleo-icons.js", "src/App.jsx", "src/components/CleanupFailureToastListener.tsx", "src/components/ControlPanel.tsx", "src/components/HistoryView.tsx", "src/components/SettingsPage.tsx", "src/components/chat/useChatStreaming.ts", "src/components/controlPanelNav.ts", "src/components/icons/index.ts", "src/components/icons/primitives.tsx", "src/components/ui/TranscriptionItem.tsx", "src/components/ui/toastActionIcons.ts", "src/components/ui/useToast.ts", "src/helpers/audioManager.js", "src/helpers/database.js", "src/helpers/environment.js", "src/helpers/gnomeShortcut.js", "src/helpers/hotkeyManager.js", "src/helpers/hyprlandShortcut.js", "src/helpers/ipcHandlers.js", "src/helpers/providerHttpErrors.js", "src/helpers/tray.js", "src/helpers/windowManager.js", "src/hooks/useAudioRecording.js", "src/services/BaseReasoningService.ts", "src/services/ReasoningService.ts", "src/stores/cleanupFailureStore.ts", "src/stores/settingsStore.ts", "src/types/electron.ts", "src/utils/describeProviderError.ts", "test/components/fieldDirectionPolicy.test.js", "test/helpers/audioManagerStreamingFinalization.test.js", "test/helpers/cleanupFailureToast.test.js", "test/helpers/hyprlandShortcut.test.js", "test/helpers/providerHttpErrors.test.js", "test/helpers/retryTranscriptionHandler.test.js", "test/helpers/trayQuickActions.test.js", "test/helpers/useAudioRecordingCleanupFallback.test.js", "test/helpers/useAudioRecordingClipboardPersistence.test.js", "test/helpers/useAudioRecordingPasteRecovery.test.js", "test/helpers/useChatStreamingTools.test.js", "test/services/cleanupOutputValidation.test.js", "test/utils/describeProviderError.test.js"]
+symbols = ["_deleteTranscriptionSteps", "_ensureHistoryFold", "_resetDictationLifecycle", "buildClassification", "clearAudioFlags", "clearTranscriptions", "consumePendingReviewRequest", "contactSource", "deleteAccountData", "deleteTranscription", "deleteTranscriptionsExpiredBefore", "enterpriseTranscriptionSetupMode", "getStepHistoryExport", "getTranscriptionEndpoint", "isDictationActive", "isReasoningAvailable", "onNoAudio", "onSuccess", "onUnchangedTranslate", "openProviderSettings", "providerContextFor", "providerErrorActions", "registerKeybinding", "registerSlot", "resendFailedRecording", "saveMeetingKey", "setMeetingKey", "setTranslationCallback", "setVoiceAgentRequested", "startManualMeeting", "updateTranscriptionAudio", "updateTranscriptionStatus", "updateTranscriptionText", "upsertTranscriptionFromCloud", "useControlPanelNavItems"]
+check = "Dictate, open History: the row shows its steps, 👎 opens the review side by side with the player, Re-run cleanup replaces the text, the review hotkey opens the last dictation"
+
+[[feature]]
+name = "Dictation styles and style hotkeys (our b7314cc, 195aaec)"
+files = ["main.js", "preload.js", "src/App.jsx", "src/components/ControlPanel.tsx", "src/components/SettingsModal.tsx", "src/components/SettingsPage.tsx", "src/components/ui/PromptStudio.tsx", "src/components/ui/TranscriptionItem.tsx", "src/helpers/audioManager.js", "src/helpers/database.js", "src/helpers/environment.js", "src/helpers/hotkeyList.js", "src/helpers/hotkeyManager.js", "src/helpers/ipcHandlers.js", "src/helpers/windowManager.js", "src/hooks/useAudioRecording.js", "src/services/BaseReasoningService.ts", "src/services/ReasoningService.ts", "src/services/ai/inferenceProviders/anthropic.ts", "src/services/ai/inferenceProviders/enterprise.ts", "src/services/ai/inferenceProviders/gemini.ts", "src/services/ai/inferenceProviders/local.ts", "src/services/ai/inferenceProviders/openai.ts", "src/services/ai/inferenceProviders/tinfoil.ts", "src/services/ai/inferenceProviders/types.ts", "src/types/electron.ts", "src/utils/hotkeyValidation.ts", "test/components/fieldDirectionPolicy.test.js"]
+symbols = ["_ensureSlot", "_findSlotConflict", "_initPromptTestCases", "_registerSingleHotkey", "_sendDictationToggle", "_shouldBlockDictationInput", "_startRecordingSpool", "choosePath", "createHotkeyCallback", "currentHotkey", "deletePromptTestCase", "findSlotByHotkey", "getMacRequiredModifiers", "getStepHistoryExport", "insertPromptTestCase", "isDictationProcessing", "isDictionaryEcho", "isReasoningAvailable", "notifyTranslationFallback", "onSuccess", "onTranslationFallback", "onUnchangedTranslate", "safePaste", "saveDictationKey", "saveDiscardedTranscription", "saveFailedTranscription", "sendOpenAssistantPanel", "sendPrepareDictation", "sendStartDictation", "sendStopDictation", "serializeHotkeyList", "startWindowsPushToTalk", "unregisterAll", "unregisterSlot", "updateHotkey", "updatePromptTestCase", "validateHotkeyForSlot"]
+check = "Turn a style on with a hotkey; dictate with it: the badge shows, the text is restyled, View steps shows the style step"
+
+[[feature]]
+name = "Settings layer, pages and search (our 5bdceae, 8f19d0d, e265357, e44c006, 91a2e0e, cf152fb)"
+files = ["src/components/CommandSearch.tsx", "src/components/ControlPanel.tsx", "src/components/ControlPanelSidebar.tsx", "src/components/ReasoningModelSelector.tsx", "src/components/SettingsModal.tsx", "src/components/SettingsPage.tsx", "src/components/settings/ChatAgentSettings.tsx", "src/components/settings/DictationAgentSettings.tsx", "src/components/settings/DictationTranslationSettings.tsx", "src/components/settings/InferenceConfigEditor.tsx", "src/components/settings/MeetingSettings.tsx", "src/components/settings/ProfileSection.tsx", "src/components/settings/UploadSettings.tsx", "src/components/settings/WorkspaceSection.tsx", "src/components/ui/MicrophoneSettings.tsx", "src/components/ui/PermissionCard.tsx", "src/components/ui/PromptStudio.tsx", "src/components/ui/SettingsSection.tsx", "src/hooks/usePermissions.ts", "src/index.css", "src/types/electron.ts", "test/components/directionalContentPolicy.test.js", "test/components/fieldDirectionPolicy.test.js", "test/hooks/usePermissionsAccessibilityGate.test.js", "test/services/promptStudioAgentPurpose.test.js"]
+symbols = ["VADLabelWithInfo", "describeMicError", "onSuccess", "useSubTab"]
+check = "Open Settings: every page in the menu renders, search ('hotkey', 'logs') lands on the row, Esc leaves, the view underneath keeps running"
+
+[[feature]]
+name = "AI Connections, model pickers and connection checks (our b792f1c, 6501a60, b1b4773, a44dac3, 6f43147, 33a15ca)"
+files = ["preload.js", "src/components/OpenAICompatiblePanel.tsx", "src/components/ReasoningModelSelector.tsx", "src/components/SettingsModal.tsx", "src/components/SettingsPage.tsx", "src/components/chat/useChatStreaming.ts", "src/components/settings/InferenceConfigEditor.tsx", "src/components/settings/MeetingSettings.tsx", "src/components/settings/UploadSettings.tsx", "src/components/ui/ApiKeyInput.tsx", "src/components/ui/SearchableModelList.tsx", "src/helpers/audioManager.js", "src/helpers/cortiAuth.js", "src/helpers/database.js", "src/helpers/dictationAgentInference.js", "src/helpers/environment.js", "src/helpers/ipcHandlers.js", "src/helpers/providerConnectionTest.js", "src/lib/auth.ts", "src/services/BaseReasoningService.ts", "src/services/ReasoningService.ts", "src/stores/settingsStore.ts", "src/types/electron.ts", "test/components/directionalContentPolicy.test.js", "test/components/fieldDirectionPolicy.test.js", "test/components/gpuFailureReasonCard.test.js", "test/components/orukeetOrganization.test.js", "test/helpers/policyRules.test.js", "test/helpers/settingsStoreUploadTranscription.test.js", "test/stores/policyEffectiveVisionOverride.test.js"]
+symbols = ["_removeKeyLine", "_saveKey", "assertValidTarget", "clearAllPersistedData", "clearGithubCopilotToken", "debouncedPersistToEnv", "debouncedSaveSecret", "getCortiToken", "invalidateApiKeyCaches", "persistSecret", "resolveDictationAgentVisionInference", "saveCleanupCustomKey", "saveGithubCopilotToken", "scheduleSessionRefetch", "setCleanupCustomApiKey", "takePromptTestCases", "testProviderConnection"]
+check = "AI Connections: every saved connection checks green, the pickers on Cleanup and Recognition list each connection's models, a pick routes the next dictation there"
+
+[[feature]]
+name = "Storage page and recording quality (our 53f63d6)"
+files = ["preload.js", "src/components/SettingsPage.tsx", "src/helpers/audioManager.js", "src/helpers/audioStorage.js", "src/helpers/ffmpegUtils.js", "src/helpers/ipcHandlers.js", "src/helpers/recordingSpool.js", "src/stores/settingsStore.ts", "src/types/electron.ts", "test/helpers/audioSegmentMerge.test.js"]
+symbols = ["_finalizeBatchRecording", "_runRetentionCleanup", "_saveInterruptedRecording", "_startPreRollRecorder", "_startRecordingSpool", "addSegment", "choosePath", "cleanupExpiredAudio", "createBatchRecorder", "deleteAllAudio", "discardSession", "getEffectiveRetentionPreferences", "getStorageUsage", "mergeAudioSegments", "mergeRecordedSegments", "prepareMicCapture", "recoverInterruptedRecordings", "replaceActiveMic", "resetDiscardedBatchRecordingState", "setRecordingReminderMinutes", "splitAudioFile", "startRecording", "startStreamingFallbackRecorder", "takeDiscardedBatchSnapshot", "takeInterruptedRecordings", "theme"]
+check = "Settings > Storage: sizes measure, Recordings 'Smaller' records at 32 kbps (file size), Clear app cache works, Privacy & Data's summaries link here"
+
+[[feature]]
+name = "Transcription request deadline and retry (our 323f0d6)"
+files = ["preload.js", "src/App.jsx", "src/components/dictation/PillTooltip.tsx", "src/components/ui/Toast.tsx", "src/components/ui/useToast.ts", "src/helpers/audioManager.js", "src/helpers/ipcHandlers.js", "src/helpers/providerHttpErrors.js", "src/helpers/windowManager.js", "src/hooks/useAudioRecording.js", "src/types/electron.ts", "test/helpers/audioManagerProviderErrors.test.js", "test/helpers/harness/audioManager.js", "test/helpers/providerHttpErrors.test.js", "test/helpers/retryTranscriptionHandler.test.js"]
+symbols = ["asProviderError", "cancelProcessing", "getCloudUploadSession", "onStyleFallback", "safePaste", "saveFailedTranscription", "sendCancelActiveDictation", "shouldStreamTranscription"]
+check = "Point the custom endpoint at a server that never answers: 'Taking longer than usual · Esc to cancel' after 8 s, Esc cancels, Retry re-sends the recording"
+
+[[feature]]
+name = "Azure Speech MAI-Transcribe-2 (our 85a04c3)"
+files = ["preload.js", "src/components/ControlPanel.tsx", "src/components/DictionaryView.tsx", "src/components/chat/useVoiceDraft.ts", "src/components/notes/UploadAudioView.tsx", "src/components/onboarding/ProviderSetupStep.tsx", "src/components/onboarding/SetupChoiceStep.tsx", "src/components/onboarding/setupEligibility.ts", "src/components/ui/TranscriptionItem.tsx", "src/config/secretKeys.js", "src/helpers/audioManager.js", "src/helpers/ipcHandlers.js", "src/helpers/providerHttpErrors.js", "src/helpers/transcriptionRoute.ts", "src/hooks/useSettings.ts", "src/models/modelRegistryData.json", "src/services/fileTranscription.ts", "src/stores/settingsStore.ts", "src/types/electron.ts", "src/utils/audioContainer.ts", "src/utils/providerIcons.ts", "src/utils/urlUtils.ts", "test/components/fieldDirectionPolicy.test.js", "test/components/setupEligibility.test.js", "test/helpers/providerHttpErrors.test.js", "test/helpers/retryTranscriptionHandler.test.js", "test/helpers/transcriptionRouteModelAgreement.test.js"]
+symbols = ["byokFileSizeLimit", "codeForStatus", "debouncedPersistToEnv", "flushPendingSecretSave", "getAPIKey", "getDictionaryHints", "getTranscriptionApiKey", "getTranscriptionModel", "hasAvailableOnboardingSetup", "isAzureOpenAIEndpoint", "needsWavConversion", "providerHttpError", "providerSettingsTargetFor", "requestIdFrom", "resolveBatchRoute", "resolveFileTranscriptionRoute", "resolveTranscriptionRoute", "setCortiClientSecret", "transcribeFile", "updateApiKeys", "useSettingsInternal", "useVoiceDraft"]
+check = "Recognition on Azure Speech with a Foundry endpoint: dictate, it transcribes; Re-transcribe from History works"
+
+[[feature]]
+name = "Cleanup reply check (our 8a7a8e3)"
+files = ["src/helpers/audioManager.js", "src/services/ReasoningService.ts", "src/utils/cleanupOutput.ts", "test/utils/cleanupOutput.test.js"]
+symbols = ["assertValidCleanupOutput", "isReasoningAvailable"]
+check = "node --import tsx --test test/utils/cleanupOutput.test.js; a model reply that repeats the transcript and a 'Cleaned:' version pastes only the cleaned text"
+
+[[feature]]
+name = "Dictionary v2 (our a16ea57, 6ca5f92, d41bdf7, 9d098d6, 0fd61bf, 36d7f41, be53cf7)"
+files = ["preload.js", "scripts/check-i18n.js", "src/.prettierignore", "src/components/ControlPanel.tsx", "src/components/DictionaryView.tsx", "src/components/SettingsPage.tsx", "src/config/prompts.ts", "src/config/prompts/index.ts", "src/helpers/audioManager.js", "src/helpers/autoLearnSetting.js", "src/helpers/database.js", "src/helpers/ipcHandlers.js", "src/helpers/windowManager.js", "src/hooks/useMainProcessNotifications.tsx", "src/hooks/useSettings.ts", "src/services/BaseReasoningService.ts", "src/services/ReasoningService.ts", "src/stores/settingsStore.ts", "src/types/electron.ts", "src/utils/correctionLearner.js", "src/utils/dictionaryKeywords.js", "src/utils/snippets.ts", "test/components/directionalContentPolicy.test.js", "test/components/fieldDirectionPolicy.test.js", "test/helpers/autoLearnSetting.test.js", "test/helpers/ipcPasteOutcome.test.js", "test/helpers/retryTranscriptionHandler.test.js"]
+symbols = ["_cleanupTextEditMonitor", "_deleteDictationFeedback", "_dictionaryOwnerMaybeChanged", "_dictionaryWordState", "_ensureHistoryFold", "_getDictionarySafe", "_initDictionaryState", "_liveDictionaryKeys", "_moveDictionaryPin", "_moveDictionarySuggestion", "_processCorrections", "_pruneDictionaryPins", "_removeDictionaryWordsForTidy", "_setupTextEditMonitor", "_tidyMerge", "appendDictionarySuffix", "appendScreenContextSuffix", "applyAutoLearnSetting", "applyCustomDictionaryFromExternal", "applyDictionaryChanges", "applyDictionaryTidy", "applySubstitutions", "checkPlurals", "choosePath", "clearTranscriptions", "consumePendingHistoryItemRequest", "contactSource", "defaultCleanupDictionarySources", "deleteAccountData", "deleteTranscription", "deleteTranscriptionsExpiredBefore", "extractCorrections", "findSubstitutions", "getCleanupSystemPrompt", "getDictionary", "getDictionaryEntries", "getDictionaryHintWords", "getDictionaryPins", "getDictionaryUsageRows", "getDictionaryWordEvidence", "getHistoryContentRevision", "getPlaceholders", "getSnippetExpansions", "getUiLanguage", "hardDeleteDictionaryEntry", "initializeAutoUpdatesDefault", "isReasoningAvailable", "markDictionaryWordsTyped", "mergeDictionaryWords", "migrateMicrophoneSelectionMode", "normalizeCleanupDictionarySetting", "onCorrectionsLearned", "onSnippetsUpdated", "onUnchangedTranslate", "processTranscription", "selectCleanupDictionary", "setCleanupDictionaryWords", "setDictionary", "setDictionarySource", "setRecordingQuality", "syncAfterLocalWrite", "theme", "undoDictionaryTidy", "upsertDictionaryFromCloud", "useMainProcessNotifications", "useSettingsInternal", "useWideLayout", "usesTranscriptionKeywords"]
+check = "Dictionary: usage counts, coverage dots and pin order show; Tidy up applies and Undo restores; a learned word appears as a suggestion; Re-transcribe sends the hint list"
+
+[[feature]]
+name = "Graphics mode and tray warning (our 50c8790, b7c580b)"
+files = ["main.js", "preload.js", "src/App.jsx", "src/helpers/ipcHandlers.js", "src/helpers/tray.js", "src/helpers/windowManager.js", "src/hooks/useAudioRecording.js", "src/types/electron.ts", "test/helpers/trayPlacement.test.js", "test/helpers/trayQuickActions.test.js"]
+symbols = ["_badgedIcon", "_ensureAnalyticsHistoryBackfilled", "_resetDictationLifecycle", "_sendDictationToggle", "_stopTooltipTimer", "_surfaceMainWindow", "_tooltip", "boundsWithin", "buildContextMenuTemplate", "configureChannelUserDataPath", "handleWindowsPushKeyUp", "isDictationActive", "onStyleFallback", "sendPrepareDictation", "setDictationDeliveryState", "setDictationLifecycleState", "setWindowManager", "startWindowsPushToTalk", "updateRecordingIndicator"]
+check = "Start with --use-gl=desktop: 'Graphics mode' warns fallback, the tray shows the amber dot and Restart; a normal start logs hardware"
+
+[[feature]]
+name = "Quiet empty dictations (our bc86fe7)"
+files = ["src/App.jsx", "src/components/SettingsPage.tsx", "src/components/dictation/VoicePill.tsx", "src/helpers/audioManager.js", "src/helpers/transcriptionFailureOutcome.js", "src/helpers/voicePillPresentation.js", "src/hooks/useAssistantPanel.js", "src/hooks/useAudioRecording.js", "src/stores/settingsStore.ts", "src/styles/dictation-panel.css", "test/helpers/audioManagerStreamingFinalization.test.js", "test/helpers/retryTranscriptionHandler.test.js", "test/helpers/transcriptionFailureOutcome.test.js", "test/helpers/voicePillStructure.test.js"]
+symbols = ["_failStreamingRecording", "_finalizeBatchRecording", "micDeviceKey", "onNoAudio", "onStyleFallback", "resendFailedRecording", "resolveAgentModeActive", "resolveVoiceActivityPresentation", "setDictionaryHintOrder", "theme", "transcriptionFailureOutcome", "useAssistantPanel", "useReminderPulse"]
+check = "Start a dictation and say nothing for 2 s: the pill spins down red, no error card, no History row"
+
+[[feature]]
+name = "Processes & resources and console-free helpers (our b2436ff, 61366c2, 0ee4d7a, 4cfdfbc)"
+files = ["electron-builder.json", "main.js", "package.json", "preload.js", "resources/windows-fast-paste.c", "resources/windows-key-listener.c", "resources/windows-mic-listener.c", "resources/windows-system-audio-helper.c", "resources/windows-text-monitor.c", "scripts/afterPack.js", "scripts/build-windows-fast-paste.js", "src/components/SettingsPage.tsx", "src/helpers/ipcHandlers.js", "src/types/electron.ts"]
+symbols = ["console_ctrl_handler", "focused_has_selection", "reconcileNativeKeyListeners", "registerSidecars", "tryDownload", "verifyUnpackedBinaries", "verifyWindowsKeyListener", "writeBuildInfo"]
+check = "Settings > Processes & resources shows every process live; no conhost.exe under the key or mic listener; the Settings menu doesn't jump"
+
+[[feature]]
+name = "Upstream strings we reworded (all locales)"
+files = ["src/locales/ar/prompts.json", "src/locales/ar/translation.json", "src/locales/de/prompts.json", "src/locales/de/translation.json", "src/locales/en/prompts.json", "src/locales/en/translation.json", "src/locales/es/prompts.json", "src/locales/es/translation.json", "src/locales/fr/prompts.json", "src/locales/fr/translation.json", "src/locales/it/prompts.json", "src/locales/it/translation.json", "src/locales/ja/prompts.json", "src/locales/ja/translation.json", "src/locales/prompts.ts", "src/locales/pt/prompts.json", "src/locales/pt/translation.json", "src/locales/ru/prompts.json", "src/locales/ru/translation.json", "src/locales/zh-CN/prompts.json", "src/locales/zh-CN/translation.json", "src/locales/zh-TW/prompts.json", "src/locales/zh-TW/translation.json", "test/locales/translationCoverage.test.js"]
+symbols = ["addButton", "agentDefault", "agentDisabled", "apiRequests", "assemblyai_universal_3_5_pro", "audioProcessing", "audioRetention", "audioRetentionDescription", "audioRetentionDisabled", "audioStorageEmpty", "audioStorageFiles", "audioStorageUsage", "audioStorageUsageDescription", "autoLearnDescription", "autoLearnTitle", "cleanupEmptyReply", "clearAllAudio", "clearAllAudioConfirm", "clearCache", "copyFailed", "corti_corti_s1_mini", "currentLogFile", "customPrompt", "dataManagementDescription", "debugDisabled", "debugEnabled", "debugMode", "defaultPrompt", "defaultTestInputTranslate", "developerSection", "disabledDescription", "enabledDescription", "eraseDeviceDescription", "errorDetails", "ffmpegOperations", "interruptedRecordingRecovered", "keyMissing", "keyRequiredHint", "loadFailed", "modified", "openLogsFailed", "openLogsFolder", "performanceNote", "promptLimitNotice", "resetAppDataDescription", "retryTranslationMode", "saveDiscardedDescription", "slotConflict", "systemDiagnostics", "tipDescription", "transcriptionPipeline", "updateFailed", "viewTranscript", "waitingForMicrophone", "whatGetsLogged"]
+check = "npm run i18n:check passes; the Settings pages and pill read the same in English after the merge"
+
+[[feature]]
+name = "CLAUDE.md sections we rewrote"
+files = ["CLAUDE.md", "TROUBLESHOOTING.md"]
+symbols = ["FolderRounded", "InferenceProvider", "aecEnabled", "asProviderError", "chatIntelligence", "cleanup-app", "dictationAgent", "dictationAgentVision", "environment.js", "index.ts", "ipcHandlers.js", "lucide-react", "meetingAecEnabled", "meetingAecManager.js", "messageKey", "messageParams", "relaunch-app", "resolveChatStreamingInference", "safeStorage", "settingsTarget", "speechToText", "technicalDetails", "types.ts", "voiceAgent", "voiceAgentScreenContext", "windows-mic-listener.exe"]
+check = "CLAUDE.md keeps upstream's new sections and ours; nothing describes code that no longer exists"
+
+# What we track that isn't fork code: overlaps, wishes, open leads. Matches are evidence for the digest's For us table.
+[[watch]]
+name = "Account-scoped history and dictionary"
+issues = [2924]
+words = ["scope transcriptions", "scoped to the account", "account scoping"]
+note = "Our step history, reviews, test set and dictionary state are scoped to step history's owner; upstream now scopes transcriptions, chats, dictionary and snippets to the account, with a database migration"
+check = "After the merge, the dev copy migrates a copy of Stable's database; sign out and in: History, its steps and reviews, the Dictionary's pins and categories and the test set show the right account's rows"
+
+[[watch]]
+name = "OpenRouter speech-to-text"
+issues = [2105, 3016]
+words = ["OpenRouter"]
+note = "Upstream adds OpenRouter as a speech-to-text provider; our one speech-to-text picker and AI Connections must list it"
+check = "Recognition's picker lists OpenRouter's speech models; a dictation through one transcribes; AI Connections checks the key"
+
+[[watch]]
+name = "Workspaces, teams and guests in Settings"
+words = ["workspace", "workspaces", "teamspace", "teamspaces", "guests", "teams", "People page"]
+note = "Upstream adds People, Teams and Workspace settings; our Settings layer replaced the old sections, so each new section needs a page in settingsPages.ts and search entries"
+check = "Every new upstream settings section is reachable from our Settings menu and from search"
+
+[[watch]]
+name = "Microphone listing starts the video capture service"
+issues = [3098]
+words = ["default-mic", "enumerateDevices", "mic lookup", "microphone list"]
+note = "Listing microphones at startup starts Chromium's video capture service (68 MB private), which never exits; we'd like the listing deferred or done in main"
+check = "Settings > Processes & resources after a fresh start: is the Video capture service still listed?"
+
+[[watch]]
+name = "Toast and error card design"
+issues = [3051]
+words = ["toast", "toasts", "error card"]
+note = "Our dictation error cards stay until dismissed and offer Open in History and Retry; upstream redesigned every toast after the error card"
+check = "Fail a dictation (wrong key): the card stays, Open in History and Retry work"
+
+[[watch]]
+name = "Hold-to-talk start latency (Windows)"
+issues = [2977]
+words = ["push-to-talk", "hold to speak", "native listener", "native listeners", "start latency"]
+note = "We trace press to recording (13fbdfe) and run one key listener per style hotkey (195aaec); upstream changes when native listeners start"
+check = "Hold the dictation hotkey and a style hotkey: both record at once; the 'Dictation start trace' line shows press to recording under 300 ms"
+
+[[watch]]
+name = "Brand fonts download without network"
+files = ["scripts/download-brand-fonts.js"]
+note = "A network error fails the dev start; we'd like it to skip as it does without repo access"
+check = "With the network off, npm run dev starts"
+
+[[watch]]
+name = "Memory held while idle"
+words = ["memory leak", "memory usage", "renderer memory", "unload"]
+note = "Idle Stable holds about 1 GB private across 8 processes; the hidden control panel keeps its renderer (about 150 MB) and the GPU process keeps about 450 MB after a full-frame edge strip"
+check = "Settings > Processes & resources: compare In RAM and graphics memory with the last snapshot line in the log"
+
+[[watch]]
+name = "Copilot or Azure Speech upstream"
+words = ["GitHub Copilot", "Copilot SDK", "Azure Speech", "MAI-Transcribe"]
+note = "Our GitHub Copilot provider and Azure Speech (MAI-Transcribe-2) are fork features; if upstream adds either, take theirs or reconcile"
