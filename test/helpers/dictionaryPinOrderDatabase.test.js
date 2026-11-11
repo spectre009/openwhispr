@@ -225,6 +225,8 @@ test("cloud pulls: a rename keeps the place (the higher one when the key is pinn
   add("Kusto", "Aria", "SuperApp");
   pin("Kusto", "Aria", "SuperApp");
   const aria = db.db.prepare("SELECT * FROM custom_dictionary WHERE word = 'Aria'").get();
+  // Pushed first: a pull never rewrites a row still pending its push (upstream #2879).
+  db.markDictionaryEntrySynced(aria.id, "cloud-aria");
   db.upsertDictionaryFromCloud({
     id: "cloud-aria",
     client_dict_id: aria.client_dict_id,

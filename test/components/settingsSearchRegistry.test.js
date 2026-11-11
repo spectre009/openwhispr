@@ -45,7 +45,9 @@ function componentFiles(directory = COMPONENTS) {
 }
 
 // Editors take a base anchor and render these rows under it (InferenceConfigEditor).
-const DERIVED_ANCHOR_SUFFIXES = { InferenceConfigEditor: [".thinking", ".keepLoaded"] };
+const DERIVED_ANCHOR_SUFFIXES = {
+  InferenceConfigEditor: [".thinking", ".reasoningEffort", ".keepLoaded"],
+};
 
 /**
  * Anchors the markup renders: `data-setting-id="x"`, the string results of a

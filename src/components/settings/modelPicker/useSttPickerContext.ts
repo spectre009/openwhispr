@@ -6,6 +6,10 @@ import {
   type SettingsState,
 } from "../../../stores/settingsStore";
 import { usePolicyStore } from "../../../stores/policyStore";
+import {
+  getManagedScopeResolution,
+  useManagedScopeResolution,
+} from "../../../stores/enterpriseIdentityStore";
 import { usePolicySnapshot } from "../../../hooks/usePolicy";
 import {
   isOpenWhisprCloudDisabled,
@@ -38,15 +42,44 @@ export const STT_MODE_KEY = {
   fileTranscription: "uploadTranscriptionMode",
 } as const satisfies Record<SttSurface, keyof SettingsState>;
 
+/** The operation a surface's managed transcription runs: Live Recording streams. */
+const managedOperation = (surface: SttSurface) =>
+  surface === "liveRecording" ? ("realtime" as const) : ("batch" as const);
+
+/** Whether the organization's managed transcription would answer this surface if picked. */
+export function useSttManagedAvailable(surface: SttSurface): boolean {
+  return (
+    useManagedScopeResolution("transcription", "managed", managedOperation(surface)).kind ===
+    "managed"
+  );
+}
+
+/**
+ * The organization's managed transcription for a surface under the setup mode
+ * dictation, live recording and uploads share (#2989): Live Recording resolves
+ * the realtime deployment, the others the batch one.
+ */
+export function useSttManagedResolution(surface: SttSurface) {
+  const setupMode = useSettingsStore((s) => s.enterpriseTranscriptionSetupMode);
+  return useManagedScopeResolution("transcription", setupMode, managedOperation(surface));
+}
+
 /** The mode a surface's editor shows (policy-effective, as its mode cards reconciled it). */
 export function useSttEffectiveMode(surface: SttSurface): InferenceMode | null {
   const policy = usePolicySnapshot();
   const cloudDisabled = useOpenWhisprCloudDisabled();
   const isSignedIn = useSettingsStore((s) => s.isSignedIn);
   const storedMode = useSettingsStore((s) => s[STT_MODE_KEY[surface]]);
+  const managedAvailable = useSttManagedAvailable(surface);
   return useMemo(
-    () => sttEffectiveMode(surface, storedMode, { policy, cloudDisabled, isSignedIn }),
-    [surface, storedMode, policy, cloudDisabled, isSignedIn]
+    () =>
+      sttEffectiveMode(surface, storedMode, {
+        policy,
+        cloudDisabled,
+        isSignedIn,
+        managedAvailable,
+      }),
+    [surface, storedMode, policy, cloudDisabled, isSignedIn, managedAvailable]
   );
 }
 
@@ -114,6 +147,7 @@ export function useSttPickerContext(
   const isSignedIn = useSettingsStore((s) => s.isSignedIn);
   const keys = useSettingsStore(useShallow(sttKeyPresence));
   const effectiveMode = useSttEffectiveMode(surface);
+  const managedAvailable = useSttManagedAvailable(surface);
   const rememberedCustomModel = useSettingsStore(
     (s) => s.transcriptionModelByProvider?.[`${STT_SURFACE_CONTEXT[surface]}:custom`] ?? ""
   );
@@ -229,6 +263,7 @@ export function useSttPickerContext(
       sherpa,
       rememberedCustomModel,
       connection,
+      managedAvailable,
       current: { mode: effectiveMode, ...resolved },
     }),
     [
@@ -240,6 +275,7 @@ export function useSttPickerContext(
       sherpa,
       rememberedCustomModel,
       connection,
+      managedAvailable,
       effectiveMode,
       resolved,
     ]
@@ -258,6 +294,9 @@ export function useSttPickerContext(
       policy: livePolicy,
       cloudDisabled: isOpenWhisprCloudDisabled(),
       isSignedIn: settings.isSignedIn,
+      managedAvailable:
+        getManagedScopeResolution("transcription", "managed", managedOperation(surface)).kind ===
+        "managed",
     };
     const mode = sttEffectiveMode(surface, settings[STT_MODE_KEY[surface]], live);
     // The stored connection and its key as they are now, with who else sends the shared key.

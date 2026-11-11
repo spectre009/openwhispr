@@ -18,7 +18,7 @@ export const copilotProvider: InferenceProvider = {
     logger.logReasoning("COPILOT_START", { model, agentName, textLength: text.length });
     const startTime = Date.now();
 
-    const systemPrompt = config.systemPrompt || ctx.getSystemPrompt(agentName);
+    const systemPrompt = config.systemPrompt || ctx.getSystemPrompt(agentName, config.toneStyle);
     const userContent = config.systemPrompt
       ? text
       : (ctx.wrapCleanupTranscript ?? wrapCleanupTranscript)(text);

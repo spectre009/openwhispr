@@ -31,6 +31,14 @@ static BOOL g_altDown = FALSE;
 static BOOL g_shiftDown = FALSE;
 static BOOL g_leftWinDown = FALSE;
 static BOOL g_rightWinDown = FALSE;
+static BOOL g_altGrCtrlDown = FALSE;
+
+// On AltGr layouts (e.g. AZERTY) Windows sends a synthetic Left Ctrl before
+// every Right Alt press, marked by 0x200 in its scan code. It is not a Ctrl
+// press, so AltGr must not satisfy a Ctrl+Alt hotkey. See #2762.
+static BOOL IsAltGrCtrl(const KBDLLHOOKSTRUCT* kbd) {
+    return kbd->vkCode == VK_LCONTROL && (kbd->scanCode & 0x200);
+}
 
 static ULONGLONG EpochMsNow(void) {
     FILETIME ft;
@@ -104,8 +112,11 @@ static BOOL IsRequiredModifierEvent(DWORD vkCode) {
 // triggered the current hook callback, but accurate for all other keys.
 // This corrects stale state caused by missed key-up events (e.g. Win+L lock).
 static void SyncModifierState(DWORD currentVkCode) {
+    // GetAsyncKeyState reports AltGr's synthetic Left Ctrl as held, so it is
+    // read per side and Left Ctrl is ignored while that synthetic press is down.
     if (!IsCtrlVk(currentVkCode))
-        g_ctrlDown = (GetAsyncKeyState(VK_CONTROL) & 0x8000) != 0;
+        g_ctrlDown = (GetAsyncKeyState(VK_RCONTROL) & 0x8000) != 0 ||
+                     ((GetAsyncKeyState(VK_LCONTROL) & 0x8000) != 0 && !g_altGrCtrlDown);
     if (!IsAltVk(currentVkCode))
         g_altDown = (GetAsyncKeyState(VK_MENU) & 0x8000) != 0;
     if (!IsShiftVk(currentVkCode))
@@ -214,6 +225,13 @@ LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
         BOOL isKeyUp = (wParam == WM_KEYUP || wParam == WM_SYSKEYUP);
         BOOL isModifierEvent = IsCtrlVk(kbd->vkCode) || IsAltVk(kbd->vkCode) ||
                                IsShiftVk(kbd->vkCode) || IsWinVk(kbd->vkCode);
+
+        if (IsAltGrCtrl(kbd)) {
+            g_altGrCtrlDown = isKeyDown;
+            return CallNextHookEx(g_hook, nCode, wParam, lParam);
+        }
+        // A real Left Ctrl event clears a synthetic press whose key-up was missed.
+        if (kbd->vkCode == VK_LCONTROL) g_altGrCtrlDown = FALSE;
 
         if ((isKeyDown || isKeyUp) && isModifierEvent) {
             UpdateModifierState(kbd->vkCode, isKeyDown);

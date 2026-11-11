@@ -29,16 +29,6 @@ function parseKeyEventLine(line, receivedAt = Date.now()) {
   return { type: match[1], timing };
 }
 
-// eventToHookMs is Windows delivering the key to the hook; hookToMainMs is the
-// pipe plus this process's event loop.
-function describeKeyTiming(timing) {
-  if (timing.eventAt === undefined) return {};
-  return {
-    eventToHookMs: timing.hookAt - timing.eventAt,
-    hookToMainMs: timing.receivedAt - timing.hookAt,
-  };
-}
-
 class WindowsKeyManager extends EventEmitter {
   constructor() {
     super();
@@ -160,13 +150,11 @@ class WindowsKeyManager extends EventEmitter {
       return;
     }
 
+    // The press and release reach the debug log once, from main's dispatch
+    // (HotkeyManager.logHotkeyEvent, #2886), which is handed `timing` too.
     const keyEvent = parseKeyEventLine(line);
     if (keyEvent) {
       const { type, timing } = keyEvent;
-      debugLogger.debug(`[WindowsKeyManager] ${type} detected`, {
-        key,
-        ...describeKeyTiming(timing),
-      });
       this.emit(type === "KEY_DOWN" ? "key-down" : "key-up", key, timing);
       return;
     }

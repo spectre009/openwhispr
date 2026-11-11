@@ -1,3 +1,5 @@
+import { EnterpriseAudioSettings } from "./EnterpriseAudioSettings";
+import { ManagedTranscriptionCard } from "./ManagedTranscriptionCard";
 import { useTranslation } from "react-i18next";
 import { useSettingsStore } from "../../stores/settingsStore";
 import { usePolicySnapshot } from "../../hooks/usePolicy";
@@ -9,7 +11,11 @@ import { SettingsRow } from "../ui/SettingsSection";
 import { Toggle } from "../ui/toggle";
 import TranscriptionConfigEditor from "./TranscriptionConfigEditor";
 import { sttVisibleModes } from "./modelPicker/sttOptions";
-import { useSttEffectiveMode } from "./modelPicker/useSttPickerContext";
+import {
+  useSttEffectiveMode,
+  useSttManagedAvailable,
+  useSttManagedResolution,
+} from "./modelPicker/useSttPickerContext";
 
 export function MeetingSpeakerDetectionRow() {
   const { t } = useTranslation();
@@ -50,6 +56,9 @@ export function MeetingTranscriptionPanel() {
   const isSignedIn = useSettingsStore((s) => s.isSignedIn);
   const meetingTranscriptionMode = useSettingsStore((s) => s.meetingTranscriptionMode);
   const effectiveTranscriptionMode = useSttEffectiveMode("liveRecording");
+  const managedAvailable = useSttManagedAvailable("liveRecording");
+  // The managed setup (realtime) answers live recording instead of its own pick (#2989).
+  const managed = useSttManagedResolution("liveRecording");
 
   // Only true when the org's policy actually allows the enterprise
   // transcription mode — an empty list can also mean e.g. a self-hosted-only
@@ -58,25 +67,31 @@ export function MeetingTranscriptionPanel() {
     sttVisibleModes("liveRecording", meetingTranscriptionMode, {
       policy: policySnapshot,
       cloudDisabled,
+      managedAvailable,
     }).length === 0 && isModeAllowedByPolicy(policySnapshot, "transcription", "enterprise");
 
   return (
     <div data-setting-id="notes.recording.engine" className="space-y-3">
+      <EnterpriseAudioSettings />
+      <ManagedTranscriptionCard managed={managed} />
       {emptyListIsEnterpriseOnly && (
         <p className="text-sm text-muted-foreground">
           {t("settingsPage.transcription.meetingEnterpriseOnly")}
         </p>
       )}
-      <TranscriptionConfigEditor surface="liveRecording" />
+      {managed.kind === "manual" && <TranscriptionConfigEditor surface="liveRecording" />}
 
-      {effectiveTranscriptionMode === "openwhispr" && !isSignedIn && !cloudDisabled && (
-        <p className="text-sm text-muted-foreground">
-          {t("settingsPage.transcription.meetingCloudSignedOut")}{" "}
-          <Button variant="link" className="h-auto p-0" onClick={requestSignIn}>
-            {t("common.signIn")}
-          </Button>
-        </p>
-      )}
+      {managed.kind === "manual" &&
+        effectiveTranscriptionMode === "openwhispr" &&
+        !isSignedIn &&
+        !cloudDisabled && (
+          <p className="text-sm text-muted-foreground">
+            {t("settingsPage.transcription.meetingCloudSignedOut")}{" "}
+            <Button variant="link" className="h-auto p-0" onClick={requestSignIn}>
+              {t("common.signIn")}
+            </Button>
+          </p>
+        )}
       <MeetingSpeakerDetectionRow />
       <MeetingEchoCancellationRow />
     </div>

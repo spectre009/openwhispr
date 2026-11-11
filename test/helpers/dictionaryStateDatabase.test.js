@@ -121,7 +121,10 @@ test("a pin follows its word: deletes (hard and soft), replacements and cloud pu
   assert.deepEqual(db.getDictionaryPins(), ["epsilon"]);
 
   // A rename from another device (the cloud pull's in-place UPDATE) moves it.
+  // The row was pushed first: a pull never rewrites a row still pending its
+  // push (upstream #2879).
   const epsilon = db.db.prepare("SELECT * FROM custom_dictionary WHERE word = 'Epsilon'").get();
+  db.markDictionaryEntrySynced(epsilon.id, "cloud-eps");
   db.upsertDictionaryFromCloud({
     id: "cloud-eps",
     client_dict_id: epsilon.client_dict_id,

@@ -281,6 +281,7 @@ export async function rerunAfterSpeechToText(
             (dispatched) =>
               ReasoningService.processText(workingText, model, agentName, {
                 disableThinking: effective.cleanupDisableThinking,
+                reasoningEffort: effective.cleanupReasoningEffort,
                 requireCompleteOutput: true,
                 cleanupDictionary,
                 onDispatch: dispatched,

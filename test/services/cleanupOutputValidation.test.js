@@ -1,5 +1,9 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
+const vm = require("node:vm");
+const ts = require("typescript");
 const { createRendererServer, installBrowserGlobals } = require("../lib/rendererTestHarness");
 
 const RAW = "um so can you uh send me the report by friday";
@@ -101,7 +105,7 @@ test("cleanup validates completed provider output using the request's prompt set
     }
   );
 
-  await t.test("history retry keeps the raw row and reports rejected cleanup", async () => {
+  await t.test("history retry keeps the raw row on rejected cleanup, flags partials", async () => {
     setCustomPrompt("");
     useSettingsStore.setState({
       cleanupMode: "local",
@@ -140,5 +144,103 @@ test("cleanup validates completed provider output using the request's prompt set
       ),
       JSON.stringify(reported)
     );
+
+    // A clean retry confirms without a description. ControlPanel's Re-transcribe
+    // callback runs as written, without mounting the application shell: main's
+    // retry returns the row, then the rest runs through historyRerun as above.
+    const toasts = [];
+    const displayed = [];
+    const row = { id: 123, text: RAW, raw_text: RAW, route_kind: null };
+    window.electronAPI.retryTranscription = async () => ({ success: true, transcription: row });
+    window.electronAPI.processLocalReasoning = async () => ({ success: true, text: RAW });
+    const retry = await loadControlPanelRetry(vite, window, {
+      toast: (value) => toasts.push(value),
+      updateInStore: (value) => displayed.push(value),
+      rerunNotices: {
+        cleanupFailed: (error) => assert.fail(`cleanup failed: ${error?.message}`),
+        styleNotApplied: () => assert.fail("no style was involved"),
+      },
+      providerErrorToastProps,
+    });
+    await retry(row.id);
+    assert.deepEqual(displayed, [row]);
+    // Toasts are built in the vm's realm; copy them so deepEqual compares values.
+    const shown = () => toasts.map((toast) => ({ ...toast }));
+    assert.deepEqual(shown(), [{ title: "controlPanel.history.retrySuccess" }]);
+
+    // A partial result must say so, as dictation does, while still confirming the
+    // retry or recovery the user asked for.
+    window.electronAPI.retryTranscription = async () => ({
+      success: true,
+      transcription: row,
+      warning: "truncated",
+    });
+    for (const [options, title] of [
+      [undefined, "controlPanel.history.retrySuccess"],
+      [{ isRecover: true }, "controlPanel.history.discarded.recovered"],
+    ]) {
+      toasts.length = 0;
+      await retry(row.id, options);
+      assert.deepEqual(
+        shown(),
+        [{ title, description: "hooks.audioRecording.partialTranscription.description" }],
+        JSON.stringify(options)
+      );
+    }
   });
 });
+
+// ControlPanel's `retryTranscription` callback (Re-transcribe), compiled from
+// source and run with what it closes over: the real settings, dictionary and
+// history re-run modules, and the given toast, store and notice stand-ins.
+async function loadControlPanelRetry(vite, window, overrides) {
+  const source = fs.readFileSync(
+    path.resolve(__dirname, "../../src/components/ControlPanel.tsx"),
+    "utf8"
+  );
+  const parsed = ts.createSourceFile(
+    "ControlPanel.tsx",
+    source,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TSX
+  );
+  let callback;
+  const visit = (node) => {
+    if (ts.isVariableDeclaration(node) && node.name.getText(parsed) === "retryTranscription") {
+      callback = node.initializer.arguments[0].getText(parsed);
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(parsed);
+  assert.ok(callback, "the history retry callback must be present");
+  const code = ts.transpileModule(`const retry = ${callback};`, {
+    compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS },
+  }).outputText;
+  const [settings, historyRerun, sources, usage, hintOrder, glossary, echo] = await Promise.all([
+    vite.ssrLoadModule("/stores/settingsStore.ts"),
+    vite.ssrLoadModule("/services/historyRerun.ts"),
+    vite.ssrLoadModule("/stores/dictionarySourcesStore.ts"),
+    vite.ssrLoadModule("/stores/dictionaryUsageStore.ts"),
+    vite.ssrLoadModule("/utils/dictionaryHintOrder.ts"),
+    vite.ssrLoadModule("/utils/glossaryTerms.ts"),
+    vite.ssrLoadModule("/utils/dictionaryEchoFilter.js"),
+  ]);
+  return vm.runInNewContext(`${code}\nretry`, {
+    window,
+    getSettings: settings.getSettings,
+    getManagedTranscriptionResolution: () => null,
+    isTranscriptionContextAllowed: () => true,
+    usePolicyStore: { getState: () => ({}) },
+    targetAppFromSteps: historyRerun.targetAppFromSteps,
+    rerunAfterSpeechToText: historyRerun.rerunAfterSpeechToText,
+    getPinnedDictionaryKeys: sources.getPinnedDictionaryKeys,
+    getDictionaryHintScores: usage.getDictionaryHintScores,
+    hintScoresForDictionary: hintOrder.hintScoresForDictionary,
+    normalizeDictionaryHintOrder: hintOrder.normalizeDictionaryHintOrder,
+    getGlossaryCanonicalTerms: glossary.getGlossaryCanonicalTerms,
+    DICTIONARY_ECHO_CODE: echo.DICTIONARY_ECHO_CODE,
+    t: (key) => key,
+    ...overrides,
+  });
+}

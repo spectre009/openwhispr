@@ -1,9 +1,13 @@
 import type { ReasoningConfig } from "../../BaseReasoningService";
+import type { DictationToneStyle } from "../../../config/toneStyle";
 
 export interface ProviderContext {
   getApiKey(provider: string): Promise<string>;
-  /** The cleanup system prompt of this request (its cleanup prompt, substituted). */
-  getSystemPrompt(agentName: string | null): string;
+  /**
+   * The cleanup system prompt of this request (its cleanup prompt, substituted),
+   * with the tone-style instruction for the target app when one is given.
+   */
+  getSystemPrompt(agentName: string | null, toneStyle?: DictationToneStyle | null): string;
   /**
    * The request's unsubstituted cleanup prompt, or undefined for the built-in
    * default: what OpenWhispr Cloud takes as `customPrompt`.

@@ -19,6 +19,7 @@ import { Toggle } from "../ui/toggle";
 import { SettingsPanel, SettingsPanelRow, SettingsRow } from "../ui/SettingsSection";
 import { useSettingsLayout } from "../ui/useSettingsLayout";
 import { cn } from "../lib/utils";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import type { InferenceMode } from "../../types/electron";
 import {
   INFERENCE_SCOPES,
@@ -26,6 +27,8 @@ import {
   type InferenceScopeDefinition,
 } from "../../config/inferenceScopes";
 import { getCloudModel, getLocalModel, enterpriseProviderName } from "../../models/ModelRegistry";
+import { AUTO_REASONING_EFFORT, isReasoningEffortSupported } from "../../models/reasoningEffort";
+import { selectableReasoningEffort } from "../../services/ai/chatRequestBody";
 import { useManagedScopeResolution } from "../../stores/enterpriseIdentityStore";
 import { requestSignIn } from "../../utils/requestSignIn";
 import TestConnectionButton from "../TestConnectionButton";
@@ -72,6 +75,9 @@ const SCOPE_TITLE_KEYS: Record<InferenceScope, string> = {
   noteFormatting: SETTINGS_PAGES.noteFormatting.titleKey,
   chatIntelligence: SETTINGS_PAGES.chat.titleKey,
 };
+
+// Radix Select can't hold an empty value, so Auto ("") gets a sentinel.
+const AUTO_REASONING_EFFORT_VALUE = "__auto__";
 
 interface InferenceConfigEditorProps {
   scope: InferenceScope;
@@ -392,6 +398,12 @@ function LlmModelSettings({
         !!getCloudModel(config.model, config.provider)?.supportsThinking)) ||
     (effectiveMode === "local" && !!getLocalModel(config.model)?.supportsThinking);
 
+  // The reasoning effort this provider and model let the user pick for the scope (#2694).
+  const effortCapability =
+    effectiveMode === "providers"
+      ? selectableReasoningEffort(config.provider, config.model, config, config.cloudBaseUrl)
+      : null;
+
   const customCommitted = effectiveMode === "providers" && config.provider === "custom";
   // The connection's name field closes by itself if the connection goes away.
   const browsing = browse === "connection" && !picker.context.connection ? null : browse;
@@ -547,6 +559,7 @@ function LlmModelSettings({
               effectiveMode === "providers" && config.provider === "openrouter" ? config.model : ""
             }
             setModel={commitModel("openrouter")}
+            provider="openrouter"
             lockedBaseUrl
             hideApiKey
           />
@@ -591,6 +604,58 @@ function LlmModelSettings({
             description={t("reasoning.disableThinking.help")}
           >
             <Toggle checked={config.disableThinking} onChange={setField("disableThinking")} />
+          </SettingsRow>
+        </SettingsPanelRow>
+      )}
+
+      {effortCapability && (
+        <SettingsPanelRow data-setting-id={settingId && `${settingId}.reasoningEffort`}>
+          <SettingsRow
+            label={t("reasoning.effort.title")}
+            description={
+              effortCapability.defaultValue
+                ? t("reasoning.effort.descriptionWithDefault", {
+                    value: t(`reasoning.effort.options.${effortCapability.defaultValue}`),
+                  })
+                : t("reasoning.effort.description")
+            }
+          >
+            <Select
+              value={
+                isReasoningEffortSupported(effortCapability, config.reasoningEffort)
+                  ? config.reasoningEffort
+                  : AUTO_REASONING_EFFORT_VALUE
+              }
+              onValueChange={(value) =>
+                setField("reasoningEffort")(
+                  value === AUTO_REASONING_EFFORT_VALUE ? AUTO_REASONING_EFFORT : value
+                )
+              }
+            >
+              <SelectTrigger
+                aria-label={t("reasoning.effort.title")}
+                className="h-7 w-44 shrink-0 text-xs rounded-lg px-2.5 [&>svg]:h-3 [&>svg]:w-3"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem
+                  value={AUTO_REASONING_EFFORT_VALUE}
+                  className="text-xs py-1.5 ps-2.5 pe-7 rounded-md"
+                >
+                  {t("reasoning.effort.auto")}
+                </SelectItem>
+                {effortCapability.options.map((effort) => (
+                  <SelectItem
+                    key={effort}
+                    value={effort}
+                    className="text-xs py-1.5 ps-2.5 pe-7 rounded-md"
+                  >
+                    {t(`reasoning.effort.options.${effort}`)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </SettingsRow>
         </SettingsPanelRow>
       )}

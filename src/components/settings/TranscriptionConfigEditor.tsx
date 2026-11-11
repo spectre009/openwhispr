@@ -6,16 +6,13 @@ import {
   useSettingsStore,
   type SettingsState,
 } from "../../stores/settingsStore";
-import { filterByokProviderOptionsByPolicy } from "../../stores/policyRules";
 import { usePolicySnapshot } from "../../hooks/usePolicy";
-import { API_ENDPOINTS, normalizeBaseUrl } from "../../config/constants";
 import { createExternalLinkHandler } from "../../utils/externalLinks";
 import { requestSignIn } from "../../utils/requestSignIn";
 import type { InferenceMode } from "../../types/electron";
 import { AlertTriangle, ChevronRight } from "../icons";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
-import ApiKeyInput from "../ui/ApiKeyInput";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import { SettingsPanel, SettingsPanelRow } from "../ui/SettingsSection";
 import { useSettingsLayout } from "../ui/useSettingsLayout";
@@ -25,29 +22,24 @@ import ManageKeysLink from "./ManageKeysLink";
 import { useOpenSettingsLink } from "./settingsLink";
 import { SETTINGS_PAGES } from "./settingsPages";
 import WhisperGpuCard from "./WhisperGpuCard";
+import SttCustomEndpointFields from "./SttCustomEndpointFields";
 import ModelPicker from "./modelPicker/ModelPicker";
 import ConnectionModelField from "./modelPicker/ConnectionModelField";
 import type { PickerLink, PickerText, PickerUnavailable } from "./modelPicker/options";
 import { useConnectionHealthStore } from "../../stores/connectionHealthStore";
 import {
-  STT_SURFACE_CONTEXT,
   buildSttPickerOptions,
   describeSttSelection,
   selectedSttOptionId,
   sttOptionAdvice,
   sttSelectionIssue,
   sttInheritedFields,
-  sttSurfaceProviders,
   type SttFieldState,
   type SttPickerOption,
   type SttSurface,
 } from "./modelPicker/sttOptions";
 import { useSttPickerContext } from "./modelPicker/useSttPickerContext";
-import {
-  rawSttCloudProvider,
-  useSttConnectionSelection,
-  useSttSelection,
-} from "./modelPicker/selectStt";
+import { useSttConnectionSelection, useSttSelection } from "./modelPicker/selectStt";
 
 const TINFOIL_AUDIO_DOCS_URL = "https://docs.tinfoil.sh/models/audio";
 
@@ -316,7 +308,7 @@ export default function TranscriptionConfigEditor({
               onCancel={() => setBrowseCustom(false)}
             />
           )}
-          <CustomEndpointFields
+          <SttCustomEndpointFields
             surface={surface}
             inheritedUrl={current.cloudProvider === "custom" ? current.cloudBaseUrl : ""}
             inheritedModel={current.cloudProvider === "custom" ? current.cloudModel : ""}
@@ -490,136 +482,6 @@ function InheritedFields({
             </button>
           )}
         </p>
-      )}
-    </div>
-  );
-}
-
-/**
- * The custom endpoint's fields, as the old Custom tab had them: the URL (written
- * as typed; normalized on blur once the endpoint is picked, and switched to the
- * matching provider when it is one of theirs), the one key every speech-to-text
- * custom endpoint shares (replace-only, never shown), and the model, which
- * commits through the adapter.
- */
-function CustomEndpointFields({
-  surface,
-  inheritedUrl,
-  inheritedModel,
-  onModel,
-}: {
-  surface: SttSurface;
-  inheritedUrl: string;
-  inheritedModel: string;
-  onModel: (model: string) => void;
-}) {
-  const { t } = useTranslation();
-  const policy = usePolicySnapshot();
-  const upload = surface === "fileTranscription";
-  const rawUrl = useSettingsStore((s) =>
-    upload ? s.uploadCloudTranscriptionBaseUrl : s.cloudTranscriptionBaseUrl
-  );
-  const rawProvider = useSettingsStore((s) => rawSttCloudProvider(surface, s));
-  const rawModel = useSettingsStore((s) =>
-    upload ? s.uploadCloudTranscriptionModel : s.cloudTranscriptionModel
-  );
-  const setUrl = useSettingsStore((s) =>
-    upload ? s.setUploadCloudTranscriptionBaseUrl : s.setCloudTranscriptionBaseUrl
-  );
-  const switchProvider = useSettingsStore((s) => s.switchCloudTranscriptionProvider);
-  const apiKey = useSettingsStore((s) => s.customTranscriptionApiKey);
-  const setApiKey = useSettingsStore((s) => s.setCustomTranscriptionApiKey);
-  const url = rawUrl ?? "";
-  const model = rawProvider === "custom" ? rawModel : "";
-  const urlId = useId();
-  const modelId = useId();
-
-  const handleBlur = () => {
-    if (rawProvider !== "custom") return;
-    const trimmed = url.trim();
-    if (!trimmed) return;
-    const normalized = normalizeBaseUrl(trimmed);
-    if (normalized && normalized !== url) setUrl(normalized);
-    if (normalized) {
-      const allowed = filterByokProviderOptionsByPolicy(
-        sttSurfaceProviders(surface),
-        "transcription",
-        policy
-      );
-      for (const provider of allowed) {
-        if (normalized === normalizeBaseUrl(provider.baseUrl)) {
-          switchProvider(STT_SURFACE_CONTEXT[surface], provider.id);
-          break;
-        }
-      }
-    }
-  };
-
-  return (
-    <div className="space-y-2">
-      <div className="space-y-1.5">
-        <label htmlFor={urlId} className="block text-xs font-medium text-foreground">
-          {t("transcription.endpointUrl")}
-        </label>
-        <Input
-          id={urlId}
-          dir="ltr"
-          value={url}
-          onChange={(event) => setUrl(event.target.value)}
-          onBlur={handleBlur}
-          placeholder={
-            // Uploads with no URL of their own use Recognition's.
-            !url && inheritedUrl && inheritedUrl !== API_ENDPOINTS.TRANSCRIPTION_BASE
-              ? inheritedUrl
-              : "https://your-api.example.com/v1"
-          }
-          className="h-8 text-sm"
-        />
-      </div>
-
-      <div className="space-y-1.5">
-        <p className="text-xs font-medium text-foreground">{t("transcription.apiKeyOptional")}</p>
-        {/* Replace mode never shows the saved key, so clearing it is its own action. */}
-        <div className="flex items-start gap-1.5">
-          <ApiKeyInput
-            className="min-w-0 flex-1"
-            apiKey={apiKey}
-            setApiKey={setApiKey}
-            label=""
-            ariaLabel={t("transcription.apiKeyOptional")}
-            helpText={t("modelPicker.stt.custom.keyShared")}
-            replace
-          />
-          {apiKey && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="h-8 shrink-0 px-2 text-xs text-muted-foreground hover:text-destructive"
-              onClick={() => setApiKey("")}
-            >
-              {t("connections.actions.remove")}
-            </Button>
-          )}
-        </div>
-      </div>
-
-      <div className="space-y-1.5">
-        <label htmlFor={modelId} className="block text-xs font-medium text-foreground">
-          {t("common.model")}
-        </label>
-        <Input
-          id={modelId}
-          dir="ltr"
-          value={model}
-          onChange={(event) => onModel(event.target.value)}
-          placeholder={!model && inheritedModel ? inheritedModel : "whisper-1"}
-          className="h-8 text-sm"
-        />
-      </div>
-
-      {/azure\.com/i.test(url || inheritedUrl) && (
-        <p className="text-xs text-muted-foreground">{t("transcription.azureHint")}</p>
       )}
     </div>
   );

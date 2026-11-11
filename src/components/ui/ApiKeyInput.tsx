@@ -2,8 +2,8 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { Check, X, KeyRound } from "../icons";
 import { Input } from "./input";
+import { maskKey } from "../../utils/maskKey";
 import logger from "../../utils/logger";
-import { maskApiKey as maskKey } from "../../utils/maskApiKey";
 
 interface ApiKeyInputProps {
   apiKey: string;

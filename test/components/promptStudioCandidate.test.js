@@ -140,7 +140,10 @@ async function loadStudio(t) {
         export function usePolicySnapshot() { return { status: "unmanaged", policy: null }; }
       `,
       "/utils/languageSupport": "export function getLanguageLabel(value) { return value; }",
-      "/utils/snippets": `export function getDictionaryHintWords() { return ["Kubernetes"]; }`,
+      // LLM prompts take the capped list with snippet triggers (#2855's shared words included).
+      "/utils/snippets": `export function getLlmDictionaryWords(_settings, { includeTriggers }) {
+        return includeTriggers ? ["Kubernetes"] : [];
+      }`,
       "/helpers/dictationAgentInference": `
         export function resolveDictationAgentInference() {
           return { reachable: true, model: "gpt-4.1-mini", displayProvider: "openai",

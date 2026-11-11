@@ -154,6 +154,14 @@ function llmEditor(
       aliases: ["thinking", "reasoning", "think tokens", "chain of thought"],
       available,
     }),
+    // Shown for a provider and model with selectable efforts (#2694), which the context can't see.
+    row(`${base}.reasoningEffort`, location, "reasoning.effort.title", {
+      descriptionKey: "reasoning.effort.description",
+      anchor: `${base}.reasoningEffort`,
+      fallbackAnchor: base,
+      aliases: ["reasoning effort", "effort", "thinking level", "reasoning level", "low", "high"],
+      available,
+    }),
     row(`${base}.keepLoaded`, location, "reasoning.keepModelLoaded.label", {
       descriptionKey: "reasoning.keepModelLoaded.help",
       anchor: `${base}.keepLoaded`,
@@ -167,6 +175,7 @@ function llmEditor(
 const OVERVIEW = at("overview");
 const RECOGNITION = at("recognition");
 const CLEANUP = at("cleanup");
+const TONE_STYLE = at("toneStyle");
 const STYLES = at("styles");
 const OUTPUT = at("output");
 const ASSISTANT = at("assistant");
@@ -765,6 +774,24 @@ export const SETTINGS_SEARCH_DESCRIPTORS: readonly SettingDescriptor[] = [
       }
     )
   ),
+  // The organization's managed audio (Azure or a private gateway, #2989): this device's
+  // credentials and tests. Shown only while the organization's config has an audio record.
+  row("dictation.stt.enterpriseAudio", RECOGNITION, "enterprise.audio.title", {
+    descriptionKey: "enterprise.audio.description",
+    fallbackAnchor: "dictation.stt.engine",
+    aliases: [
+      "enterprise",
+      "organization",
+      "managed",
+      "gateway",
+      "proxy",
+      "credential",
+      "bootstrap",
+      "azure",
+    ],
+    aliasKeys: ["enterprise.audio.gateway"],
+    available: signedIn,
+  }),
   row("dictation.stt.gpu", RECOGNITION, "settingsPage.transcription.gpuDevice.title", {
     descriptionKey: "settingsPage.transcription.gpuDevice.description",
     fallbackAnchor: "dictation.stt.engine",
@@ -814,6 +841,9 @@ export const SETTINGS_SEARCH_DESCRIPTORS: readonly SettingDescriptor[] = [
   // ── Cleanup, Styles, Voice Assistant, Translation, Note Formatting, Chat ──
   page("page.llms.dictationCleanup", "cleanup", {
     aliases: ["cleanup", "llm", "ai cleanup", "language model"],
+  }),
+  page("page.toneStyle", "toneStyle", {
+    aliases: ["tone", "tone and style", "voice", "formal", "casual", "writing style", "per app"],
   }),
   page("page.styles", "styles", {
     aliases: ["styles", "style studio", "restyle", "tone"],
@@ -901,6 +931,21 @@ export const SETTINGS_SEARCH_DESCRIPTORS: readonly SettingDescriptor[] = [
   row("dictation.cleanup.prompt", CLEANUP, "settingsPage.prompts.title", {
     descriptionKey: "settingsPage.prompts.description",
     aliases: ["prompt studio", "system prompt", "instructions", "custom prompt", "test set"],
+  }),
+  // Upstream's Tone & Style (#2654): a tone per kind of app for cleanup, the assistant and chat.
+  row("dictation.toneStyle.enabled", TONE_STYLE, "toneStyle.settings.enabled", {
+    descriptionKey: "toneStyle.settings.enabledDescription",
+    aliases: ["tone", "tones", "voices", "tone and style", "standard tone", "writing style"],
+  }),
+  row("dictation.toneStyle.tones", TONE_STYLE, "settingsSearch.titles.toneStyleTones", {
+    descriptionKey: "toneStyle.description",
+    aliases: ["tone", "formal", "casual", "personal messages", "work messages", "email", "apps"],
+    aliasKeys: [
+      "toneStyle.categories.personal.title",
+      "toneStyle.categories.work.title",
+      "toneStyle.categories.email.title",
+      "toneStyle.categories.other.title",
+    ],
   }),
   row("dictation.styles", STYLES, "styles.section.title", {
     descriptionKey: "styles.section.description",
@@ -1592,6 +1637,8 @@ export const SETTINGS_SEARCH_DESCRIPTORS: readonly SettingDescriptor[] = [
     [
       ["calendars", ["calendar", "google calendar", "outlook", "meetings"], false],
       ["connectors", ["gmail", "email", "drafts", "connectors"], true],
+      // The assistant's Skills library (#2824): local files, so it stays while Cloud is off.
+      ["skills", ["skills", "skill library", "assistant skills", "playbook"], false],
       ["api", ["api key", "developer", "rest api"], true],
       ["mcp", ["mcp", "claude desktop", "model context protocol"], true],
       ["cli", ["terminal", "command line", "cli", "shell"], false],

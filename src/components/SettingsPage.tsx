@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect, useMemo, useRef } from "react";
+import { EnterpriseAudioSettings } from "./settings/EnterpriseAudioSettings";
 import { useTranslation } from "react-i18next";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -55,6 +56,8 @@ import {
 import { Alert, AlertTitle, AlertDescription } from "./ui/alert";
 import { useSettings } from "../hooks/useSettings";
 import { useDialogs } from "../hooks/useDialogs";
+import { useSignOut } from "../hooks/useSignOut";
+import { useAccountPlan } from "../hooks/useAccountPlan";
 import { useInsightsSyncOptIn } from "../hooks/useInsightsSyncOptIn";
 import { useLeaderboardParticipation } from "../hooks/useLeaderboardParticipation";
 import { useWhisper } from "../hooks/useWhisper";
@@ -108,6 +111,7 @@ import { OpenWhisprCloudSwitch } from "./settings/OpenWhisprCloudSwitch";
 import { useOpenWhisprCloudDisabled } from "../stores/openWhisprCloudStore";
 import { useSettingsLayout } from "./ui/useSettingsLayout";
 import { useSettingsVisible } from "./settings/useSettingsVisible";
+import { PanelVisibleProvider } from "./ui/usePanelVisible";
 import { useUsage } from "../hooks/useUsage";
 import { cn } from "./lib/utils";
 import { GRADIENT_CIRCLE } from "./ui/gradientCircle";
@@ -121,8 +125,7 @@ import {
 import { syncService } from "../services/SyncService.js";
 import { useSettingsStore, type HotkeyRegistrationResult } from "../stores/settingsStore";
 import { useWorkspaceStore } from "../stores/workspaceStore";
-import { highestPlan } from "../lib/usageStore";
-import { decideProPlanCardCta, resolveAccountPlan, storeSubscriptionsUrl } from "../lib/upsell";
+import { decideProPlanCardCta, storeSubscriptionsUrl } from "../lib/upsell";
 import {
   canChangeCloudBackupPreference,
   effectiveAudioRetentionDays,
@@ -132,7 +135,6 @@ import {
   lockedLocalHistoryValue,
 } from "../stores/policyRules";
 import { usePolicySnapshot } from "../hooks/usePolicy";
-import { stopRecording } from "../stores/meetingRecordingStore";
 import { requestSignIn } from "../utils/requestSignIn";
 import { canManageSystemAudioInApp } from "../utils/systemAudioAccess";
 import WorkspaceSection from "./settings/WorkspaceSection";
@@ -141,6 +143,7 @@ import WorkspaceBillingOverview from "./settings/WorkspaceBillingOverview";
 import EnterpriseCheckoutDialog from "./settings/EnterpriseCheckoutDialog";
 import CreateWorkspaceDialog from "./CreateWorkspaceDialog";
 import ProfileSection from "./settings/ProfileSection";
+import ToneStyleSection from "./settings/ToneStyleSection";
 import { formatAmount } from "../utils/formatAmount";
 import { enterpriseProviderName, getTranscriptionProvider } from "../models/ModelRegistry";
 import { useManagedScopeResolution } from "../stores/enterpriseIdentityStore";
@@ -600,6 +603,7 @@ function TranscriptionSection({
     <div data-setting-id="dictation.stt.engine" className="space-y-4">
       {errorCard}
       {managedCard}
+      <EnterpriseAudioSettings data-setting-id="dictation.stt.enterpriseAudio" />
       {!errorCard && !managedCard && (
         <>
           {enterpriseTranscriptionSetupMode === "manual" && managedAvailable.kind === "managed" && (
@@ -978,6 +982,7 @@ export default function SettingsPage({
     hasYdotool: boolean;
     hasYdotoold: boolean;
     hasWtype: boolean;
+    hasWlCopy: boolean;
     daemonRunning: boolean;
     hasService: boolean;
     hasUinput: boolean;
@@ -986,8 +991,7 @@ export default function SettingsPage({
     isKde: boolean;
     isWlroots: boolean;
     isCosmic: boolean;
-    hasXclip: boolean;
-    hasXsel: boolean;
+    requiresWlCopy: boolean;
     isNixOS: boolean;
   } | null>(null);
   const [ydotoolGuideKey, setYdotoolGuideKey] = useState<string | null>(null);
@@ -1016,23 +1020,8 @@ export default function SettingsPage({
   const enterpriseCta: EnterpriseTileCta = billingWorkspacesLoaded
     ? enterpriseTileCta(billingWorkspaces, activeWorkspaceId)
     : { action: "contactSales", ownerName: null };
-  const coveringWorkspaces = billingWorkspaces.filter((workspace) =>
-    usage?.entitledWorkspaceIds?.includes(workspace.id)
-  );
-  const coveringWorkspaceNames = coveringWorkspaces.map((workspace) => workspace.name);
-  // Reads the usage payload, not the workspace store, so the upgrade affordances
-  // stay hidden across the window where the store is still loading.
-  const isWorkspaceCovered =
-    !usage?.isPersonallySubscribed && (usage?.entitledWorkspaceIds?.length ?? 0) > 0;
-  // Null until the store resolves, so the label waits rather than guessing a tier.
-  const coveringPlanLabel =
-    isWorkspaceCovered && coveringWorkspaces.length
-      ? t(
-          `settingsPage.workspace.billing.planLabel.${highestPlan(
-            coveringWorkspaces.map((workspace) => workspace.plan)
-          )}`
-        )
-      : null;
+  const { accountPlan, isWorkspaceCovered, coveringWorkspaceNames, coveringPlanLabel, planLabel } =
+    useAccountPlan(usage);
   const hasShownApproachingToast = useRef(false);
   useEffect(() => {
     if (usage?.isApproachingLimit && !hasShownApproachingToast.current) {
@@ -1468,15 +1457,6 @@ export default function SettingsPage({
     isWorkspaceCovered,
   });
   const storeBilling = usage?.storeBilling ?? null;
-  const accountPlan = resolveAccountPlan({
-    isTrial: usage?.isTrial ?? false,
-    isPastDue: usage?.isPastDue ?? false,
-    isPersonallySubscribed: usage?.isPersonallySubscribed ?? false,
-    storeBilling,
-    isWorkspaceCovered,
-    hasPeriodEnd: Boolean(usage?.currentPeriodEnd),
-    hasCoveringWorkspaceNames: coveringWorkspaceNames.length > 0,
-  });
   const storeUrl = storeBilling?.store ? storeSubscriptionsUrl(storeBilling.store) : null;
   const periodEndDate = usage?.currentPeriodEnd
     ? new Date(usage.currentPeriodEnd).toLocaleDateString(i18n.language, {
@@ -1485,7 +1465,7 @@ export default function SettingsPage({
         year: "numeric",
       })
     : null;
-  const [isSigningOut, setIsSigningOut] = useState(false);
+  const { requestSignOut, isSigningOut } = useSignOut({ showConfirmDialog, showAlertDialog });
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   const [isDeleteAccountDialogOpen, setIsDeleteAccountDialogOpen] = useState(false);
   const [eraseDeviceData, setEraseDeviceData] = useState(false);
@@ -1568,28 +1548,6 @@ export default function SettingsPage({
     },
     [usage, toast, t]
   );
-
-  const handleSignOut = useCallback(async () => {
-    setIsSigningOut(true);
-    try {
-      // End a live meeting while its note is still in scope: signing out clears
-      // the account scope, and anything said after that could not be saved.
-      await stopRecording();
-      // Clear account-scoped renderer/session state before ending the session.
-      // Workspace-owned rows remain cached behind their membership boundary.
-      await syncService.purgeTeamSpacesForSignOut();
-      await signOut();
-      window.location.reload();
-    } catch (error) {
-      logger.error("Sign out failed", error, "auth");
-      showAlertDialog({
-        title: t("settingsPage.account.signOut.failedTitle"),
-        description: t("settingsPage.account.signOut.failedDescription"),
-      });
-    } finally {
-      setIsSigningOut(false);
-    }
-  }, [showAlertDialog, t]);
 
   const handleDeleteAccount = useCallback(() => {
     setEraseDeviceData(false);
@@ -1830,7 +1788,7 @@ export default function SettingsPage({
 
                 <div data-setting-id="account.signOut" className="flex justify-end">
                   <Button
-                    onClick={handleSignOut}
+                    onClick={requestSignOut}
                     variant="outline"
                     disabled={isSigningOut}
                     size="sm"
@@ -2002,18 +1960,7 @@ export default function SettingsPage({
 
                         <SettingsPanelRow>
                           <SettingsRow
-                            label={
-                              accountPlan.row === "trial"
-                                ? t("settingsPage.account.planLabels.trial")
-                                : accountPlan.row === "pastDue"
-                                  ? t("settingsPage.account.planLabels.free")
-                                  : accountPlan.row === "personal" || accountPlan.row === "store"
-                                    ? usage.plan === "business"
-                                      ? t("settingsPage.account.planLabels.business")
-                                      : t("settingsPage.account.planLabels.pro")
-                                    : (coveringPlanLabel ??
-                                      t("settingsPage.account.planLabels.free"))
-                            }
+                            label={planLabel ?? t("settingsPage.account.planLabels.free")}
                             description={
                               accountPlan.description === "trial"
                                 ? t("settingsPage.account.planDescriptions.trial", {
@@ -2106,6 +2053,9 @@ export default function SettingsPage({
                                   <span>{t("settingsPage.account.rollingWeeklyLimit")}</span>
                                 )}
                               </div>
+                              <p className="text-xs text-muted-foreground">
+                                {t("settingsPage.account.planDescriptions.byokUnlimited")}
+                              </p>
                             </div>
                           </SettingsPanelRow>
                         )}
@@ -3462,24 +3412,21 @@ EOF`,
                     },
                   ];
 
-                  if (ydotoolStatus.isKde) {
+                  if (ydotoolStatus.requiresWlCopy || ydotoolStatus.isKde) {
                     checks.push({
-                      key: "hasXclip",
-                      label: "xclip",
-                      ok: ydotoolStatus.hasXclip || ydotoolStatus.hasXsel || false,
-                      required: true,
-                      desc: t("settingsPage.general.waylandPaste.xclipDesc", {
-                        defaultValue: "Clipboard tool for KDE Wayland paste (xclip or xsel)",
-                      }),
+                      key: "hasWlCopy",
+                      label: "wl-copy",
+                      ok: ydotoolStatus.hasWlCopy,
+                      required: ydotoolStatus.requiresWlCopy || ydotoolStatus.isKde,
+                      desc: t("settingsPage.general.waylandPaste.wlCopyDesc"),
                       steps: [
                         {
-                          title: t("settingsPage.general.waylandPaste.guide.xclip.step1Title", {
-                            defaultValue: "Install xclip",
-                          }),
-                          cmds: [
-                            { cmd: "sudo dnf install xclip  # Fedora" },
-                            { cmd: "sudo apt install xclip  # Debian/Ubuntu" },
-                          ],
+                          title: t("settingsPage.general.waylandPaste.guide.wlCopy.step1Title"),
+                          cmds: getLinuxPasteInstallCommands(t, "wl-clipboard"),
+                        },
+                        {
+                          title: t("settingsPage.general.waylandPaste.guide.wlCopy.step2Title"),
+                          cmds: [{ cmd: "which wl-copy" }],
                         },
                       ],
                     });
@@ -4642,6 +4589,12 @@ EOF`,
           </div>
         );
 
+      case "toneStyle":
+        // Its page header holds the title; turning cleanup on without a model opens Cleanup.
+        return (
+          <ToneStyleSection hideHeader onOpenCleanupSettings={() => onNavigate?.("cleanup")} />
+        );
+
       case "assistant":
         return <DictationAgentSettings hideEnableToggle />;
 
@@ -4730,11 +4683,15 @@ EOF`,
       />
 
       {/* Each page mounts on its first visit and then stays mounted, hidden, so editor
-          drafts, model-download progress and IPC listeners survive page switches. */}
+          drafts, model-download progress and IPC listeners survive page switches. Only
+          the page shown while Settings is visible counts as shown, so a hidden page's
+          automatic connection checks wait (usePanelVisible). */}
       {SETTINGS_PAGE_IDS.filter((id) => visitedPages.has(id)).map((id) => (
         <div key={id} data-settings-page-id={id} className={id === page ? undefined : "hidden"}>
-          <SettingsPageHeader page={id} />
-          {renderPage(id)}
+          <PanelVisibleProvider value={id === page && settingsVisible}>
+            <SettingsPageHeader page={id} />
+            {renderPage(id)}
+          </PanelVisibleProvider>
         </div>
       ))}
     </>

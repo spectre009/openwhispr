@@ -27,9 +27,11 @@ import {
  * - a pick that changes the mode shown does what that surface's mode card did:
  *   the mode, the legacy local flag (`useLocalWhisper` / `meetingUseLocalWhisper`
  *   / `uploadUseLocalWhisper`; dictation also through
- *   `updateTranscriptionSettings`, as before), the cloud mode, and for the
- *   enterprise mode (Recognition, File Transcription) the transcription setup
- *   mode "managed"; `onModeChange` (Recognition's toast) fires only then;
+ *   `updateTranscriptionSettings`, as before) and the cloud mode;
+ *   `onModeChange` (Recognition's toast) fires only then;
+ * - the enterprise entry writes only the transcription setup mode "managed"
+ *   (shared by every surface; v1.11.0's cards did the same, #2989), leaving
+ *   the surface's own mode for "Use personal setup" to return to;
  * - a cloud model does what the provider tab's model list did:
  *   `switchCloudTranscriptionProvider` when the surface's stored provider (raw:
  *   live recording and uploads may inherit with "") is another one — which
@@ -103,7 +105,10 @@ function rawLocal(surface: SttSurface, s: SettingsState) {
   };
 }
 
-/** The mode card's writes (TranscriptionSection / MeetingTranscriptionPanel / UploadTranscriptionPanel). */
+/**
+ * The mode card's writes (TranscriptionSection / MeetingTranscriptionPanel / UploadTranscriptionPanel).
+ * Never the enterprise mode: picking it sets the shared setup mode instead (commitSttSelection).
+ */
 function writeMode(surface: SttSurface, s: SettingsState, mode: InferenceMode) {
   const local = mode === "local";
   const cloudMode = mode === "openwhispr" ? "openwhispr" : "byok";
@@ -113,7 +118,6 @@ function writeMode(surface: SttSurface, s: SettingsState, mode: InferenceMode) {
       s.setUseLocalWhisper(local);
       s.updateTranscriptionSettings({ useLocalWhisper: local });
       s.setCloudTranscriptionMode(cloudMode);
-      if (mode === "enterprise") s.setEnterpriseTranscriptionSetupMode("managed");
       return;
     case "liveRecording":
       s.setMeetingTranscriptionMode(mode);
@@ -124,7 +128,6 @@ function writeMode(surface: SttSurface, s: SettingsState, mode: InferenceMode) {
       s.setUploadTranscriptionMode(mode);
       s.setUploadUseLocalWhisper(local);
       s.setUploadCloudTranscriptionMode(cloudMode);
-      if (mode === "enterprise") s.setEnterpriseTranscriptionSetupMode("managed");
       return;
   }
 }
@@ -212,6 +215,19 @@ export function commitSttSelection(
       return { status: "signIn" };
     }
     return { status: "refused", reason: availability };
+  }
+
+  // Enterprise (#2989): only the setup mode dictation, live recording and uploads share
+  // turns to managed, which outranks the surface's own mode. That mode stays as the user
+  // left it, so "Use personal setup" returns to it.
+  if (pick.mode === "enterprise") {
+    const s = deps.store();
+    if (s.enterpriseTranscriptionSetupMode === "managed") {
+      return { status: "committed", modeChanged: false };
+    }
+    s.setEnterpriseTranscriptionSetupMode("managed");
+    deps.onModeChange?.(pick.mode);
+    return { status: "committed", modeChanged: true };
   }
 
   const modeChanged = pick.mode !== deps.effectiveMode;

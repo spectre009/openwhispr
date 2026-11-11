@@ -200,6 +200,8 @@ test("cloud pulls: a rename from another device moves the choice; a delete drops
     { word: "SuperApp", category: "work", source: "model" },
   ]);
   const aria = db.db.prepare("SELECT * FROM custom_dictionary WHERE word = 'Aria'").get();
+  // Pushed first: a pull never rewrites a row still pending its push (upstream #2879).
+  db.markDictionaryEntrySynced(aria.id, "cloud-aria");
   db.upsertDictionaryFromCloud({
     id: "cloud-aria",
     client_dict_id: aria.client_dict_id,

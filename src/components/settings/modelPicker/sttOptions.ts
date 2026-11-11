@@ -73,8 +73,9 @@ import {
  *
  * The filters are the old editors': the policy's modes and providers
  * (`filterModeOptionsByPolicy` with each surface's provider catalog,
- * `isProviderAllowedByPolicy`), the enterprise mode only for a managed policy
- * (`isEnterpriseTranscriptionOfferable`) and never for live recording, the
+ * `isProviderAllowedByPolicy`), the enterprise mode for a managed policy
+ * (`isEnterpriseTranscriptionOfferable`) or a managed deployment the surface
+ * can use (File Transcription; Live Recording only for a realtime one), the
  * streaming rule per surface (live recording runs only the streaming models
  * of the providers it can stream, `getMeetingStreamingTranscriptionProviders`,
  * and no custom endpoint; file transcription hides the live-only providers,
@@ -250,6 +251,12 @@ export interface SttPickerContext {
   rememberedCustomModel?: string;
   /** The custom connection, with its speech models; null when there is none. */
   connection?: SttPickerConnection | null;
+  /**
+   * The organization's managed transcription would answer this surface if
+   * picked (`useManagedScopeResolution("transcription", "managed")`, realtime
+   * for Live Recording), which offers the enterprise entry there (#2989).
+   */
+  managedAvailable?: boolean;
   current: SttCurrent;
 }
 
@@ -278,20 +285,37 @@ export const sttSurfaceOffersCustom = (surface: SttSurface) => surface !== "live
 
 function policyCatalog(surface: SttSurface) {
   return surface === "liveRecording"
-    ? { byokProviders: getMeetingStreamingTranscriptionProviders().map((provider) => provider.id) }
+    ? {
+        byokProviders: getMeetingStreamingTranscriptionProviders().map((provider) => provider.id),
+        enterpriseProviders: TRANSCRIPTION_ENTERPRISE_POLICY_PROVIDER_IDS,
+      }
     : {
         byokProviders: TRANSCRIPTION_POLICY_PROVIDER_IDS,
         enterpriseProviders: TRANSCRIPTION_ENTERPRISE_POLICY_PROVIDER_IDS,
       };
 }
 
-/** The mode cards each surface showed, before policy. */
+type SttModeContext = Pick<SttPickerContext, "policy" | "managedAvailable">;
+
+/**
+ * The mode cards each surface showed, before policy. Enterprise: Recognition
+ * under a policy that offers it; File Transcription also while a managed
+ * deployment is available; Live Recording only while a managed realtime
+ * deployment is (#2989), listed before its self-hosted card.
+ */
 export function sttModeCandidates(
   surface: SttSurface,
-  policy: PolicyDecisionSnapshot
+  policy: PolicyDecisionSnapshot,
+  managedAvailable = false
 ): InferenceMode[] {
+  if (surface === "liveRecording") {
+    return managedAvailable
+      ? ["openwhispr", "providers", "local", "enterprise", "self-hosted"]
+      : ["openwhispr", "providers", "local", "self-hosted"];
+  }
   const modes: InferenceMode[] = ["openwhispr", "providers", "local", "self-hosted"];
-  if (surface !== "liveRecording" && isEnterpriseTranscriptionOfferable(policy)) {
+  const offerable = isEnterpriseTranscriptionOfferable(policy);
+  if (offerable || (surface === "fileTranscription" && managedAvailable)) {
     modes.push("enterprise");
   }
   return modes;
@@ -300,11 +324,11 @@ export function sttModeCandidates(
 /** The modes policy lets a surface offer (as `usePolicyModeOptions` filtered the cards). */
 export function sttOfferedModes(
   surface: SttSurface,
-  ctx: Pick<SttPickerContext, "policy">
+  ctx: SttModeContext
 ): ReadonlySet<InferenceMode> {
   return new Set(
     filterModeOptionsByPolicy(
-      sttModeCandidates(surface, ctx.policy).map((id) => ({ id })),
+      sttModeCandidates(surface, ctx.policy, ctx.managedAvailable).map((id) => ({ id })),
       "transcription",
       ctx.policy,
       policyCatalog(surface)
@@ -314,9 +338,9 @@ export function sttOfferedModes(
 
 function modeCards(
   surface: SttSurface,
-  ctx: Pick<SttPickerContext, "policy" | "isSignedIn">
+  ctx: SttModeContext & Pick<SttPickerContext, "isSignedIn">
 ): Array<{ id: InferenceMode; disabled: boolean }> {
-  return sttModeCandidates(surface, ctx.policy).map((id) => ({
+  return sttModeCandidates(surface, ctx.policy, ctx.managedAvailable).map((id) => ({
     id,
     disabled:
       (id === "openwhispr" && !ctx.isSignedIn) ||
@@ -332,10 +356,16 @@ function modeCards(
 export function sttVisibleModes(
   surface: SttSurface,
   storedMode: InferenceMode,
-  ctx: Pick<SttPickerContext, "policy" | "cloudDisabled"> & { isSignedIn?: boolean }
+  ctx: Pick<SttPickerContext, "policy" | "cloudDisabled" | "managedAvailable"> & {
+    isSignedIn?: boolean;
+  }
 ): Array<{ id: InferenceMode; disabled: boolean }> {
   const switched = applyCloudSwitchToModeOptions(
-    modeCards(surface, { policy: ctx.policy, isSignedIn: ctx.isSignedIn ?? true }),
+    modeCards(surface, {
+      policy: ctx.policy,
+      managedAvailable: ctx.managedAvailable,
+      isSignedIn: ctx.isSignedIn ?? true,
+    }),
     ctx.cloudDisabled,
     storedMode,
     { badge: "", description: "" }
@@ -351,7 +381,7 @@ export function sttVisibleModes(
 export function sttEffectiveMode(
   surface: SttSurface,
   storedMode: InferenceMode,
-  ctx: Pick<SttPickerContext, "policy" | "cloudDisabled" | "isSignedIn">
+  ctx: Pick<SttPickerContext, "policy" | "cloudDisabled" | "isSignedIn" | "managedAvailable">
 ): InferenceMode | null {
   const status = ctx.policy.status;
   if (
@@ -492,7 +522,17 @@ export function sttPickAvailability(
       const data = sttSurfaceProviders(surface).find((entry) => entry.id === provider);
       if (!data) return null;
       if (!hasKey(ctx, provider)) return noKey(provider);
-      return data.models.some((entry) => entry.id === model) ? true : null;
+      const entry = data.models.find((candidate) => candidate.id === model);
+      if (!entry) return null;
+      // A legacy model (#2958) is listed only as the selection, and can't be picked again.
+      if (entry.legacy) {
+        const current =
+          ctx.current.mode === "providers" &&
+          ctx.current.cloudProvider === provider &&
+          ctx.current.cloudModel === model;
+        return current ? { reasonKey: "models.legacyHint" } : null;
+      }
+      return true;
     }
     default:
       return null;
@@ -600,7 +640,7 @@ function providerGroup(
             ...base,
             id: `provider:${provider}:${model.id}`,
             label: lit(model.name),
-            sub: modelDescription(model),
+            sub: model.legacy ? msg("models.legacy") : modelDescription(model),
             model: model.id,
             terms: [...terms, model.id, ...(model.streaming ? ["streaming", "realtime"] : [])],
           })
@@ -837,11 +877,12 @@ function enterpriseGroup(surface: SttSurface, ctx: SttPickerContext): SttPickerG
     id: "enterprise",
     icon: "enterprise",
     label: msg("modelPicker.stt.enterprise.label"),
-    sub: msg("modelPicker.stt.enterprise.sub"),
+    // Azure or the organization's private audio gateway (#2989).
+    sub: msg("settingsPage.transcription.modes.enterpriseDesc"),
     mode: "enterprise",
     provider: "",
     model: "",
-    terms: ["enterprise", "azure", "managed", "organization"],
+    terms: ["enterprise", "azure", "gateway", "managed", "organization"],
   });
   if (!entry) return null;
   return {

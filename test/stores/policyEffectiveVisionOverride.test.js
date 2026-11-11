@@ -154,10 +154,14 @@ test("the vision picker shows the override unset after policy clears its selecti
     );
 
   const visionMarkup = renderEditor("dictationAgentVision");
-  // The picker shows the override as unset, with what answers meanwhile.
+  // The picker shows the override as unset, with what answers meanwhile. (The
+  // fork's picker lists models only once opened, so upstream's check that
+  // legacy gpt-5-mini is listed only where it is the selection belongs to the
+  // picker's option tests, not this closed-trigger markup.)
   assert.ok(visionMarkup.includes(i18n.t("modelPicker.trigger.choose")), "the picker renders");
   assert.ok(visionMarkup.includes("Not set: screenshots go to the Voice Assistant"), "the unset override says what answers");
   assert.ok(!visionMarkup.includes("Gemini 2.5 Flash"), "the cleared pick isn't shown");
+  // gpt-5-mini is legacy (#2958) but, as the selection, still shows by name.
   assert.ok(renderEditor("dictationAgent").includes("GPT-5 Mini"));
 });
 

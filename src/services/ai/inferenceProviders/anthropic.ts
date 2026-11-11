@@ -17,7 +17,7 @@ export const anthropicProvider: InferenceProvider = {
 
     logger.logReasoning("ANTHROPIC_IPC_CALL", { model, textLength: text.length });
 
-    const systemPrompt = config.systemPrompt || ctx.getSystemPrompt(agentName);
+    const systemPrompt = config.systemPrompt || ctx.getSystemPrompt(agentName, config.toneStyle);
     const userContent = config.systemPrompt
       ? text
       : (ctx.wrapCleanupTranscript ?? wrapCleanupTranscript)(text);

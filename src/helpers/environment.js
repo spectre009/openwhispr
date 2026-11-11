@@ -28,6 +28,13 @@ const SECRET_KEYS = [
 
 const SECRET_KEY_SET = new Set(SECRET_KEYS);
 
+// Settings › Storage › Logs (saveLogSettings).
+const LOG_SETTING_KEYS = [
+  "OPENWHISPR_LOG_LEVEL",
+  "OPENWHISPR_LOG_RETENTION_DAYS",
+  "OPENWHISPR_LOG_TEXT",
+];
+
 const PERSISTED_KEYS = [
   ...SECRET_KEYS,
   "LOCAL_TRANSCRIPTION_PROVIDER",
@@ -77,9 +84,7 @@ const PERSISTED_KEYS = [
   // Debug logging (debugLogger.js, Settings › Storage › Logs): the level (off,
   // warn or debug), how many days logs are kept, and whether they may include
   // dictated text. Persisted so a full rewrite of .env keeps them.
-  "OPENWHISPR_LOG_LEVEL",
-  "OPENWHISPR_LOG_RETENTION_DAYS",
-  "OPENWHISPR_LOG_TEXT",
+  ...LOG_SETTING_KEYS,
 ];
 
 // Module-level so writes are serialized across all instances — hotkeyManager
@@ -618,13 +623,24 @@ class EnvironmentManager {
 
   // Storage › Logs, already validated (logPolicy.validateLogSettings). Awaited
   // like the cloud switch: what the page shows must still hold after a restart.
+  // A failed write puts the session values back, so a change the page reported
+  // as not saved never reaches .env with the next settings save.
   async saveLogSettings({ level, retentionDays, includeText } = {}) {
+    const previous = LOG_SETTING_KEYS.map((key) => [key, process.env[key]]);
     if (level !== undefined) this._saveKey("OPENWHISPR_LOG_LEVEL", level);
     if (retentionDays !== undefined) {
       this._saveKey("OPENWHISPR_LOG_RETENTION_DAYS", String(retentionDays));
     }
     if (includeText !== undefined) this._saveKey("OPENWHISPR_LOG_TEXT", includeText ? "true" : "");
-    await this.saveAllKeysToEnvFile();
+    try {
+      await this.saveAllKeysToEnvFile();
+    } catch (error) {
+      for (const [key, value] of previous) {
+        if (value === undefined) delete process.env[key];
+        else process.env[key] = value;
+      }
+      throw error;
+    }
     return { success: true };
   }
 
@@ -693,8 +709,8 @@ class EnvironmentManager {
 
   // Removes a single key's line from .env, preserving every other line
   // verbatim. saveAllKeysToEnvFile() would instead regenerate the file from
-  // PERSISTED_KEYS, dropping hand-added lines and
-  // materializing session/shell env values into the file.
+  // PERSISTED_KEYS, dropping hand-added lines and materializing session/shell
+  // env values into the file.
   removeKeyFromEnvFile(key) {
     const envPath = path.join(app.getPath("userData"), ".env");
     envWriteQueue = envWriteQueue.catch(() => {}).then(() => this._removeKeyLine(envPath, key));

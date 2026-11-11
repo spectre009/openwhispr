@@ -6,12 +6,14 @@ import { isDictationPanelWindow } from "../utils/windowContext";
 import { cleanupFailureActions, cleanupFailureReason } from "../utils/cleanupFailureCard";
 
 /**
- * Tells the user their dictation was pasted raw because AI cleanup failed:
- * why, and the fix. In the dictation window it takes the pill's error card
- * and stays until dismissed or the next dictation starts, with Open Settings
- * (when Settings can fix it) and Open in History (the dictation's own row,
- * where Re-run cleanup is). A failure from a dictation a newer one has
- * replaced is never shown over it.
+ * Tells the user their dictation went out raw because AI cleanup failed or
+ * can't run (no cleanup model set up, signed out of Cloud): why, and the fix.
+ * In the dictation window it takes the pill's error card and stays until
+ * dismissed or the next dictation starts, with Open Settings (when Settings
+ * can fix it) and Open in History (the dictation's own row, where Re-run
+ * cleanup is). A failure from a dictation a newer one has replaced is never
+ * shown over it. A paste that was held back shows its own card carrying the
+ * cleanup failure (useAudioRecording), so this card never covers it.
  */
 export default function CleanupFailureToastListener() {
   const { t } = useTranslation();
@@ -28,9 +30,10 @@ export default function CleanupFailureToastListener() {
     if (failure.dictation && !failure.dictation.isCurrent()) return;
     const actions = cleanupFailureActions(failure, t, { rowId: failure.dictation?.rowId });
     const reason = cleanupFailureReason(failure, t);
-    // Only a dictation window that knows its text wasn't pasted says so.
+    // Says the raw text was pasted only when it was; one that wasn't is in History.
+    const pasted = failure.dictation?.pasted ?? failure.pasted;
     const outcome = t(
-      failure.dictation?.pasted === false
+      pasted === false
         ? "app.toasts.cleanupFailed.descriptionNotPasted"
         : "app.toasts.cleanupFailed.description"
     );
@@ -43,8 +46,8 @@ export default function CleanupFailureToastListener() {
         description: [reason, outcome].filter(Boolean).join("\n"),
         ...(actions.length ? { actions } : {}),
         variant: "destructive",
-        // The dictation has already pasted, so the card takes the pill's place
-        // like a transcription failure does, until dismissed.
+        // The dictation has already been delivered, so the card takes the
+        // pill's place like a transcription failure does, until dismissed.
         presentation: "dictation-error",
         duration: 0,
         dismissible: true,

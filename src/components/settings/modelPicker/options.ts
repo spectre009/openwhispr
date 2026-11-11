@@ -19,6 +19,7 @@ import {
   modelRegistry,
 } from "../../../models/ModelRegistry";
 import { COPILOT_PROVIDER_ID, isCopilotScopeSupported } from "../../../config/copilot";
+import { isListedModel } from "../../../models/legacyModels";
 import {
   INFERENCE_SCOPES,
   type InferenceScope,
@@ -297,6 +298,8 @@ export type ModelPickerGroup = PickerGroup<ModelPickerOption>;
 export interface PickerModel {
   id: string;
   name: string;
+  /** Superseded (#2958): listed only while it is the selection (isListedModel). */
+  legacy?: boolean;
 }
 
 export interface PickerLocalModel {
@@ -423,8 +426,22 @@ function providerModels(provider: string, ctx: ModelPickerContext): PickerModel[
   return (REASONING_PROVIDERS[provider]?.models ?? []).map((model) => ({
     id: model.value,
     name: model.label,
+    ...(model.legacy ? { legacy: true } : {}),
   }));
 }
+
+/**
+ * A provider's models as its group lists them: a legacy model (#2958) only
+ * while it is the selection, where it can't be picked again.
+ */
+function listedProviderModels(provider: string, ctx: ModelPickerContext): PickerModel[] {
+  return providerModels(provider, ctx).filter((model) =>
+    isListedModel(model, isCurrent(ctx, provider, model.id))
+  );
+}
+
+/** A legacy model, listed only as the selection: shown, never picked again. */
+const LEGACY_MODEL: PickerUnavailable = { reasonKey: "models.legacyHint" };
 
 const isCurrent = (ctx: ModelPickerContext, provider: string, model: string) =>
   ctx.current.mode === "providers" &&
@@ -499,7 +516,15 @@ export function pickAvailability(
       return true;
     case "local": {
       const downloaded = ctx.localModels.some((model) => model.id === pick.model);
-      return downloaded && modelRegistry.getModel(pick.model) ? true : null;
+      const known = downloaded ? modelRegistry.getModel(pick.model) : null;
+      if (!known) return null;
+      // A legacy model (#2958) is listed only as the selection; AI Connections deletes it.
+      if (known.model.legacy) {
+        return ctx.current.mode === "local" && ctx.current.model === pick.model
+          ? LEGACY_MODEL
+          : null;
+      }
+      return true;
     }
     case "providers": {
       const { provider, model } = pick;
@@ -523,8 +548,9 @@ export function pickAvailability(
       } else {
         return null;
       }
-      const listed = providerModels(provider, ctx).some((entry) => entry.id === model);
-      return listed || (!!model && isCurrent(ctx, provider, model)) ? true : null;
+      const entry = providerModels(provider, ctx).find((candidate) => candidate.id === model);
+      if (entry?.legacy) return isCurrent(ctx, provider, model) ? LEGACY_MODEL : null;
+      return entry || (!!model && isCurrent(ctx, provider, model)) ? true : null;
     }
     default:
       return null;
@@ -722,11 +748,12 @@ function keyProviderGroup(
     ]);
   } else {
     options = compact(
-      withCurrent(provider, providerModels(provider, ctx), ctx).map((model) =>
+      withCurrent(provider, listedProviderModels(provider, ctx), ctx).map((model) =>
         option(scope, ctx, {
           ...base,
           id: `provider:${provider}:${model.id}`,
           label: lit(model.name),
+          ...(model.legacy ? { sub: msg("models.legacy") } : {}),
           model: model.id,
           terms: [...terms, model.id],
         })
@@ -830,7 +857,9 @@ function localGroup(scope: InferenceScope, ctx: ModelPickerContext): ModelPicker
         id: `local:${model.id}`,
         icon: known.provider.id,
         label: lit(known.model.name || model.name),
-        sub: lit([known.provider.name, model.size || known.model.size].filter(Boolean).join(" · ")),
+        sub: known.model.legacy
+          ? msg("models.legacy")
+          : lit([known.provider.name, model.size || known.model.size].filter(Boolean).join(" · ")),
         mode: "local",
         provider: known.provider.id,
         model: model.id,

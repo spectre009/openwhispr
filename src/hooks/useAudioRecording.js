@@ -47,6 +47,13 @@ const SELECTION_EDIT_DETAIL_KEY_BY_CODE = {
   selection_changed: "changed",
   session_expired: "expired",
   paste_failed: "pasteFailed",
+  wl_copy_missing: "wlCopyMissing",
+  wl_copy_failed: "wlCopyFailed",
+};
+// Pastes held back because Wayland apps can't read the text yet (#2621).
+const WAYLAND_CLIPBOARD_REASON_KEYS = {
+  "wl-copy-missing": "wlCopyMissing",
+  "wl-copy-failed": "wlCopyFailed",
 };
 const COMPANION_AUDIO_LEVEL_INTERVAL_MS = 80;
 const START_CUE_LOG_WAIT_MS = 2000;
@@ -122,6 +129,7 @@ export const useAudioRecording = (toast, options = {}) => {
   const wasRecordingRef = useRef(false);
   const pastesInFlightRef = useRef(0);
   const deliveriesInFlightRef = useRef(0);
+  const cancellingRef = useRef(false);
   const wasMicUnavailableRef = useRef(false);
   const demoKindRef = useRef("dictation");
   const onDemoEventRef = useRef(options.onDemoEvent);
@@ -252,8 +260,9 @@ export const useAudioRecording = (toast, options = {}) => {
         // device still opens exactly once.
         void audioManagerRef.current.prepareMicCapture?.({ trace });
 
-        // The floating dictation panel is non-focusable, so the foreground app is
-        // still the user's actual editing target here. Refresh it for recordings
+        // The floating dictation panel only takes focus while the assistant panel
+        // is open, so the foreground app is otherwise still the user's actual
+        // editing target here. Refresh it for recordings
         // started from the panel itself as well as from global hotkeys; otherwise
         // paste can reactivate a stale target from the preceding dictation.
         let targetFrozen = false;
@@ -326,6 +335,14 @@ export const useAudioRecording = (toast, options = {}) => {
         // round trip after transcription.
         if (voiceAgentRequested && !assistantSelectionContext) {
           audioManagerRef.current.beginSelectionCapture();
+        }
+
+        // Tone & Style names the app being dictated into while the user speaks,
+        // for cleanup and for an assistant answer typed or edited in place there.
+        // A styled recording is its own intent: its style, not the app's tone,
+        // decides how it reads, so it captures none.
+        if (getSettings().toneStyleEnabled && !translationRequested && !recordingStyle) {
+          audioManagerRef.current.beginToneStyleCapture();
         }
 
         // Retry STT config fetch if it wasn't loaded on mount (e.g. auth wasn't ready),
@@ -933,6 +950,7 @@ export const useAudioRecording = (toast, options = {}) => {
               selectedContext,
               deliverySessionId,
               deliveryAcceptsMarkdown,
+              deliveryAppCategory,
             } = result.assistantConversation;
             const command = {
               text: expandSnippets(transcript, getSettings().snippets),
@@ -958,6 +976,7 @@ export const useAudioRecording = (toast, options = {}) => {
                   autoPasteEnabled,
                   deliverySessionId,
                   acceptsMarkdown: deliveryAcceptsMarkdown,
+                  appCategory: deliveryAppCategory,
                   restoreClipboard: !keepTranscriptionInClipboard,
                   allowClipboardFallback: isAccessibilitySkipped(),
                 }),
@@ -1102,12 +1121,13 @@ export const useAudioRecording = (toast, options = {}) => {
             }
           };
 
-          // A paste held back because keys were still down keeps the transcript
-          // and says why it did not land. `onRetry`, when given, replaces the
+          // A paste held back (keys still down, or no Wayland clipboard written) keeps
+          // the transcript and says why it did not land. `onRetry`, when given, replaces the
           // pill's record-again Retry. `generation` is the pill
           // generation when the attempt began: if the next dictation started while
           // it waited, that recording owns the pill (and would dismiss this one at
           // once) and its live preview, so the transcript only stays on the clipboard.
+          let heldBehindNewerDictation = false;
           const reportHeldBackPaste = async (
             delivery,
             { title, description, descriptionClipboardFailed, onRetry },
@@ -1120,6 +1140,7 @@ export const useAudioRecording = (toast, options = {}) => {
                 { delivery, keptInClipboard },
                 "clipboard"
               );
+              heldBehindNewerDictation = true;
               return;
             }
             window.electronAPI?.hideDictationPreview?.();
@@ -1160,6 +1181,22 @@ export const useAudioRecording = (toast, options = {}) => {
                     "hooks.audioRecording.modifiersHeld.descriptionClipboardFailed"
                   ),
                   // The modifier wait runs again, so the kept text is safe to re-paste.
+                  onRetry: pasteTranscript,
+                },
+                generation
+              );
+            } else if (WAYLAND_CLIPBOARD_REASON_KEYS[pasteOutcome.reason]) {
+              // Wayland apps may not read the clipboard copy here either, so the text
+              // never claims to be on it. Retry writes and pastes the kept text again.
+              const description = t(
+                `hooks.audioRecording.waylandClipboard.${WAYLAND_CLIPBOARD_REASON_KEYS[pasteOutcome.reason]}`
+              );
+              await reportHeldBackPaste(
+                pasteOutcome.reason,
+                {
+                  title: t("hooks.audioRecording.waylandClipboard.title"),
+                  description,
+                  descriptionClipboardFailed: description,
                   onRetry: pasteTranscript,
                 },
                 generation
@@ -1253,14 +1290,29 @@ export const useAudioRecording = (toast, options = {}) => {
           }
 
           // The cleanup card, for a delivery that showed no card of its own: a
-          // paste that landed, or no paste at all (auto-paste off). A paste
-          // card of this dictation already carries it, and a newer
-          // dictation's pill is never covered by this one's card.
-          if (cleanupFailure && !pasteCardShown && isCurrentDictation()) {
-            recordCleanupFailure({
-              ...cleanupFailure,
-              dictation: { isCurrent: isCurrentDictation, rowId, pasted: cleanupTextPasted },
-            });
+          // paste that landed, or no paste at all (auto-paste off). Cleanup can
+          // be missing or can fail whether or not the paste landed (#2631,
+          // #1003), so the card is told which. A paste card of this dictation
+          // already carries it, and a newer dictation's pill is never covered by
+          // this one's card (nor by a paste held back behind it). The onboarding
+          // demo's paste is a no-op into its own text box, so it reports nothing
+          // there. An unconfigured-cleanup warning is used up only once a card
+          // showed it, so a dictation that showed none leaves it for the next.
+          if (cleanupFailure && !heldBehindNewerDictation) {
+            const cleanupCardShown =
+              !pasteCardShown &&
+              isCurrentDictation() &&
+              localStorage.getItem("onboardingCompleted") === "true";
+            if (cleanupCardShown) {
+              recordCleanupFailure({
+                ...cleanupFailure,
+                pasted: cleanupTextPasted,
+                dictation: { isCurrent: isCurrentDictation, rowId, pasted: cleanupTextPasted },
+              });
+            }
+            if (cleanupCardShown || pasteCardShown) {
+              audioManagerRef.current?.markCleanupNoticeShown?.(cleanupFailure);
+            }
           }
 
           if (result.source === "openai" && getSettings().useLocalWhisper) {
@@ -1484,7 +1536,16 @@ export const useAudioRecording = (toast, options = {}) => {
       // A streaming start in its mic-open phase is not yet `isStreaming`;
       // only the streaming cancel knows how to abandon it.
       if (state.isStreaming || state.isStreamingStartInProgress) {
-        return await audioManagerRef.current.cancelStreamingRecording();
+        // The streaming cancel reports processing while it tears the stream
+        // down; flagged first so the follow-up thinking effect doesn't read
+        // that as a command. A ref, so clearing it can't re-run that effect
+        // while a pending paste still reports processing.
+        cancellingRef.current = true;
+        try {
+          return await audioManagerRef.current.cancelStreamingRecording();
+        } finally {
+          cancellingRef.current = false;
+        }
       }
       return audioManagerRef.current.cancelRecording();
     }
@@ -1551,6 +1612,7 @@ export const useAudioRecording = (toast, options = {}) => {
       recordingStyleBadge && (isRecording || isProcessing || isPasting)
         ? recordingStyleBadge
         : null,
+    cancellingRef,
     isPreparing,
     isStopping,
     micCaptureStatus,

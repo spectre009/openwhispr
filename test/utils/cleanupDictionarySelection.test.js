@@ -195,3 +195,43 @@ test("grouping with a word set: the groups follow the set", () => {
   ]);
   assert.equal(groups.flatMap((entry) => entry.words).length, words.length);
 });
+
+// The shared team dictionary: teammates' words follow the user's own (and the
+// glossary and triggers) within the LLM prompts' shared cap, for every set but
+// None, and never bring back a personal word the set left out.
+test("teammates' words follow every set but None, and never undo the set", () => {
+  const shared = (cleanupDictionaryWords) => ({
+    ...settings(cleanupDictionaryWords),
+    sharedDictionaryHints: { space: ["Qdrant"], workspace: ["the", "Acme", "openwhispr"] },
+  });
+  const all = selectCleanupDictionary(shared("all"), SOURCES, GLOSSARY);
+  assert.deepEqual(all.words.slice(-2), ["Qdrant", "Acme"]);
+  assert.equal(all.scope.words, 6, "the scope counts the user's own words");
+
+  const typed = selectCleanupDictionary(shared("typedPinned"), SOURCES, GLOSSARY);
+  assert.deepEqual(typed.words, [
+    "OpenWhispr",
+    "Scout Web",
+    "Kusto",
+    "Little Buddy",
+    "cal link",
+    "Qdrant",
+    "Acme",
+  ]);
+  assert.ok(!typed.words.includes("the"), "a learned word left out stays out");
+
+  const none = selectCleanupDictionary(shared("none"), SOURCES, GLOSSARY);
+  assert.deepEqual(none.words, ["Little Buddy", "kusto", "cal link"]);
+});
+
+test("a moved word whose shared copies the member hid leaves the selection", () => {
+  const { words } = selectCleanupDictionary(
+    {
+      ...settings("all"),
+      sharedDictionaryHints: { space: [], workspace: [], suppressedPersonal: ["ENGHUB"] },
+    },
+    SOURCES,
+    GLOSSARY
+  );
+  assert.ok(!words.includes("EngHub"));
+});

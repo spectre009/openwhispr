@@ -48,3 +48,14 @@ test("the same message without the code is still a failure", async () => {
   assert.equal(outcome.noAudio, false);
   assert.equal(outcome.report.title, "Transcription Error");
 });
+
+test("a transcript that outlived the failure reaches the pill", async () => {
+  const { transcriptionFailureOutcome } = await load();
+  const error = Object.assign(new Error("Selection edit failed"), {
+    selectionEditFatal: true,
+    code: "SELECTION_EDIT_CAPTURE_FAILED",
+  });
+  assert.equal("transcript" in transcriptionFailureOutcome(error).report, false);
+  Object.defineProperty(error, "transcript", { value: "kept text" });
+  assert.equal(transcriptionFailureOutcome(error).report.transcript, "kept text");
+});

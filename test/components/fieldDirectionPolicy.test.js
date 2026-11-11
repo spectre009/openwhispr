@@ -69,10 +69,10 @@ const EXPECTED_SHARED_FIELD_DIRECTIONS = {
   "src/components/AuthenticationStep.tsx": ["ltr", "auto", "ltr", "ltr", "ltr"],
   "src/components/CreateTeamDialog.tsx": ["auto"],
   "src/components/CreateWorkspaceDialog.tsx": ["auto"],
-  "src/components/DictionaryView.tsx": ["auto", "auto"],
-  // A word's new spelling, in the list and in its detail: a word in any script.
+  // Bulk import: words in any script.
+  "src/components/DictionaryView.tsx": ["auto"],
+  // A word's new spelling, in its detail: a word in any script.
   "src/components/dictionary/DictionaryWordDetail.tsx": ["auto"],
-  "src/components/dictionary/DictionaryWordList.tsx": ["auto"],
   "src/components/EnterpriseProviderConfig.tsx": ["ltr", "ltr", "ltr", "ltr", "ltr", "ltr"],
   "src/components/ForgotPasswordView.tsx": ["ltr"],
   // Canonical form and spellings are words in any script; the app is an exe name.
@@ -84,17 +84,21 @@ const EXPECTED_SHARED_FIELD_DIRECTIONS = {
   "src/components/history/HistoryReview.tsx": ["auto", "auto", "auto"],
   "src/components/InviteTeammateDialog.tsx": ["ltr"],
   "src/components/LeaderboardSection.tsx": ["ltr"],
-  "src/components/OpenAICompatiblePanel.tsx": ["ltr"],
-  "src/components/SelfHostedPanel.tsx": ["ltr", "ltr"],
   "src/components/SettingsPage.tsx": ["ltr", "ltr", "ltr", "ltr", "ltr", "ltr"],
   "src/components/SnippetsView.tsx": ["auto", "auto", "auto", "auto"],
+  "src/components/dictionary/DictionaryAddField.tsx": ["auto"],
+  "src/components/dictionary/DictionaryToolbar.tsx": ["auto"],
+  // A word's new spelling: the team-list rows' rename, then Dictionary v2's
+  // in-list rename. Words in any script.
+  "src/components/dictionary/DictionaryWordList.tsx": ["auto", "auto"],
   "src/components/notes/ActionManagerDialog.tsx": ["auto", "auto", "auto"],
   "src/components/notes/DeleteSpaceDialog.tsx": ["auto"],
+  "src/components/notes/FolderNotesPopover.tsx": ["auto"],
   "src/components/notes/UploadAudioView.tsx": ["auto"],
-  "src/components/onboarding/ProviderSetupStep.tsx": ["ltr", "ltr", "ltr", "ltr", "ltr", "ltr"],
   // The draft of a saved Chat prompt (the built-in one shows as read-only text).
   "src/components/settings/ChatAgentSettings.tsx": ["auto"],
   "src/components/settings/DictationAgentSettings.tsx": ["auto"],
+  "src/components/settings/EnterpriseAudioSettings.tsx": ["ltr"],
   "src/components/settings/EnterpriseCheckoutDialog.tsx": ["inherit"],
   // The model picker's filter: model and provider names, typed in any script.
   "src/components/settings/modelPicker/ModelPicker.tsx": ["auto"],
@@ -103,12 +107,16 @@ const EXPECTED_SHARED_FIELD_DIRECTIONS = {
   // The custom connection: a replacement key, its name (any script) and its endpoint URL.
   "src/components/settings/CustomConnectionCard.tsx": ["ltr", "auto", "ltr"],
   "src/components/settings/ProfileSection.tsx": ["auto", "ltr", "ltr", "ltr"],
-  // A speech-to-text custom endpoint's URL and model id, and Corti's tenant id.
-  "src/components/settings/TranscriptionConfigEditor.tsx": ["ltr", "ltr", "ltr"],
+  // Corti's tenant id. The custom endpoint's URL and model id moved to
+  // SttCustomEndpointFields, on upstream's ProviderCheckField.
+  "src/components/settings/TranscriptionConfigEditor.tsx": ["ltr"],
   // Azure Speech's resource endpoint (a URL).
   "src/components/settings/AiConnectionsPage.tsx": ["ltr"],
   "src/components/settings/WorkspaceDeveloperTab.tsx": ["auto"],
   "src/components/settings/WorkspaceSection.tsx": ["auto"],
+  // A skill's name and the skills search accept text in any script.
+  "src/components/skills/CreateSkillScreen.tsx": ["auto"],
+  "src/components/skills/SkillSearchInput.tsx": ["auto"],
   "src/components/ui/ApiKeyInput.tsx": ["ltr"],
   "src/components/ui/CustomModelInput.tsx": ["ltr"],
   // A saved prompt's name: prose in any script.
@@ -117,6 +125,7 @@ const EXPECTED_SHARED_FIELD_DIRECTIONS = {
   // A test case's label and checks are prose in any script; the target app is an exe name,
   // and a style case's bullet and numbered-item counts are numbers.
   "src/components/ui/PromptTestSet.tsx": ["auto", "ltr", "auto", "auto", "ltr"],
+  "src/components/ui/ProviderCheckField.tsx": ["ltr"],
   "src/components/ui/SearchableModelList.tsx": ["ltr"],
   // A style's emoji, name and instruction, and the Test input: user text in any script.
   "src/components/ui/StyleStudio.tsx": ["auto", "auto", "auto", "auto"],
@@ -125,8 +134,6 @@ const EXPECTED_SHARED_FIELD_DIRECTIONS = {
 const EXPECTED_NATIVE_FIELD_DIRECTIONS = {
   "src/components/ApiKeysSection.tsx": ["inherit"],
   "src/components/CommandSearch.tsx": ["auto"],
-  // The Dictionary's word filter: words in any script.
-  "src/components/DictionaryView.tsx": ["auto"],
   // Folder names and search accept user text in any script.
   "src/components/MeetingNotificationFolderPicker.tsx": ["auto", "auto"],
   "src/components/MemberPickList.tsx": ["auto"],
@@ -138,6 +145,10 @@ const EXPECTED_NATIVE_FIELD_DIRECTIONS = {
   "src/components/chat/EmailApprovalFields.tsx": ["auto", "auto", "auto", "auto"],
   // Title and description, or a comment: prose in any script.
   "src/components/chat/IssueApprovalFields.tsx": ["auto", "auto"],
+  // A proposed skill's name and when it's used, and an update's description: prose.
+  "src/components/chat/SkillApprovalCard.tsx": ["auto", "auto", "auto", "auto", "auto", "auto"],
+  // The Dictionary's word filter (Dictionary v2, the personal list): words in any script.
+  "src/components/dictionary/PersonalDictionaryView.tsx": ["auto"],
   // The player's "Back 2 s on resume" checkbox: no text.
   "src/components/history/HistoryAudioPlayer.tsx": ["inherit"],
   // The History search: dictated words in any script.
@@ -146,6 +157,7 @@ const EXPECTED_NATIVE_FIELD_DIRECTIONS = {
   "src/components/notes/AddNotesToFolderDialog.tsx": ["auto"],
   "src/components/notes/MeetingTranscriptChat.tsx": ["ltr", "auto"],
   "src/components/notes/NoteEditor.tsx": ["auto", "auto"],
+  "src/components/notes/NoteEventPicker.tsx": ["auto"],
   "src/components/notes/NoteParticipants.tsx": ["auto"],
   "src/components/notes/NotesOnboarding.tsx": ["auto", "auto", "auto"],
   "src/components/notes/ShareNoteDialog.tsx": ["auto"],
@@ -160,8 +172,13 @@ const EXPECTED_NATIVE_FIELD_DIRECTIONS = {
   "src/components/settings/RecordingIndicatorRows.tsx": ["inherit"],
   // The settings search query: words in any script.
   "src/components/settings/search/SettingsSearchField.tsx": ["auto"],
+  // A skill's description is prose; the file pickers are hidden.
+  "src/components/skills/CreateSkillScreen.tsx": ["auto", "inherit"],
+  "src/components/skills/UploadSkillsScreen.tsx": ["inherit"],
   "src/components/ui/EmojiPicker.tsx": ["auto"],
   "src/components/ui/LanguageSelector.tsx": ["auto"],
+  // A skill's instructions: Markdown prose in any script.
+  "src/components/ui/LineNumberedTextarea.tsx": ["auto"],
 };
 
 test("shared field primitives inherit unless a consumer declares its content direction", async (t) => {
@@ -232,12 +249,12 @@ test("representative prose, identity, secret, and rich-editor surfaces keep thei
     /<Input\s+dir="ltr"\s+type="password"/
   );
   assert.match(
-    source("src/components/onboarding/ProviderSetupStep.tsx"),
-    /<Input\s+dir="ltr"\s+type="password"/
+    source("src/components/ui/ProviderCheckField.tsx"),
+    /<Input\s+dir="ltr"\s+\{\.\.\.inputProps\}/
   );
   assert.match(
-    source("src/components/DictionaryView.tsx"),
-    /<Input\s+dir="auto"\s+ref=\{addInputRef\}/
+    source("src/components/dictionary/DictionaryAddField.tsx"),
+    /<Input\s+dir="auto"\s+ref=\{inputRef\}/
   );
   assert.match(
     source("src/components/notes/UploadAudioView.tsx"),

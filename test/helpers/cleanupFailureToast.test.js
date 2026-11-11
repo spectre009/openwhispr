@@ -111,7 +111,19 @@ test("technical AWS details use the selected UI language", async (t) => {
   assert.match(markup, /aria-label="Copiar detalles técnicos"/);
 });
 
-async function recordClassifiedCleanupFailure(t, { dictationWindow, dictation, openHistoryItem }) {
+const CLASSIFIED_FAILURE = {
+  message: "OpenAI rejected your API key.",
+  surface: "llm",
+  messageKey: "providerErrors.authFailed",
+  messageParams: { provider: "OpenAI" },
+  settingsTarget: "llms",
+  technicalDetails: { provider: "OpenAI", status: 401 },
+};
+
+async function recordCleanupFailureToast(
+  t,
+  { dictationWindow, failure = CLASSIFIED_FAILURE, dictation, openHistoryItem }
+) {
   let root = null;
   t.after(async () => {
     if (root) await React.act(async () => root.unmount());
@@ -149,21 +161,13 @@ async function recordClassifiedCleanupFailure(t, { dictationWindow, dictation, o
   await React.act(async () => root.render(React.createElement(CleanupFailureToastListener)));
 
   await React.act(async () =>
-    recordCleanupFailure({
-      message: "OpenAI rejected your API key.",
-      surface: "llm",
-      messageKey: "providerErrors.authFailed",
-      messageParams: { provider: "OpenAI" },
-      settingsTarget: "llms",
-      technicalDetails: { provider: "OpenAI", status: 401 },
-      ...(dictation ? { dictation } : {}),
-    })
+    recordCleanupFailure({ ...failure, ...(dictation ? { dictation } : {}) })
   );
   return globalThis.__cleanupFailureToasts.at(-1);
 }
 
 test("a classified cleanup failure says why, then that the dictation went in raw, with Open Settings and Copy details", async (t) => {
-  const toastProps = await recordClassifiedCleanupFailure(t, { dictationWindow: false });
+  const toastProps = await recordCleanupFailureToast(t, { dictationWindow: false });
   assert.equal(toastProps.title, "Cleanup failed");
   assert.equal(
     toastProps.description,
@@ -182,7 +186,7 @@ test("a classified cleanup failure says why, then that the dictation went in raw
 });
 
 test("in the dictation window a cleanup failure takes the pill's error card and stays", async (t) => {
-  const toastProps = await recordClassifiedCleanupFailure(t, { dictationWindow: true });
+  const toastProps = await recordCleanupFailureToast(t, { dictationWindow: true });
   assert.equal(toastProps.presentation, "dictation-error");
   assert.equal(
     toastProps.duration,
@@ -204,7 +208,7 @@ test("Open in History opens the dictation's own saved row, and leaves the card u
   const rowId = new Promise((resolve) => {
     resolveRow = resolve;
   });
-  const toastProps = await recordClassifiedCleanupFailure(t, {
+  const toastProps = await recordCleanupFailureToast(t, {
     dictationWindow: true,
     dictation: { isCurrent: () => true, rowId },
     openHistoryItem: async (id) => {
@@ -225,7 +229,7 @@ test("Open in History opens the dictation's own saved row, and leaves the card u
 });
 
 test("a cleanup failure of a dictation a newer one replaced never takes the pill", async (t) => {
-  const toastProps = await recordClassifiedCleanupFailure(t, {
+  const toastProps = await recordCleanupFailureToast(t, {
     dictationWindow: true,
     dictation: { isCurrent: () => false, rowId: Promise.resolve(7) },
   });
@@ -233,12 +237,93 @@ test("a cleanup failure of a dictation a newer one replaced never takes the pill
 });
 
 test("a dictation that wasn't pasted says it's in History, not that it was pasted", async (t) => {
-  const toastProps = await recordClassifiedCleanupFailure(t, {
+  const toastProps = await recordCleanupFailureToast(t, {
     dictationWindow: true,
     dictation: { isCurrent: () => true, rowId: Promise.resolve(7), pasted: false },
   });
   assert.equal(
     toastProps.description,
     "OpenAI rejected your API key.\nSaved to History without AI cleanup."
+  );
+});
+
+test("a classified failure that wasn't pasted says it's in History, not that it was pasted", async (t) => {
+  // A paste held back shows its own card carrying the cleanup failure
+  // (useAudioRecording), so a failure reaching this card unpasted went to
+  // History (and the clipboard) only, with no card of its own to keep.
+  const toastProps = await recordCleanupFailureToast(t, {
+    dictationWindow: true,
+    failure: { ...CLASSIFIED_FAILURE, pasted: false },
+  });
+  assert.equal(toastProps.title, "Cleanup failed");
+  assert.equal(
+    toastProps.description,
+    "OpenAI rejected your API key.\nSaved to History without AI cleanup."
+  );
+  assert.equal(toastProps.presentation, "dictation-error");
+});
+
+// The shape cleanupUnconfiguredNotice returns (pinned in dictationRouting.test.js).
+const UNCONFIGURED_NOTICE = {
+  message: "AI cleanup is on, but no cleanup model is set up.",
+  messageKey: "hooks.audioRecording.cleanupUnconfigured",
+  surface: "llm",
+  settingsTarget: "llms",
+  setupKey: "unconfigured\0providers\0",
+};
+
+test("an unconfigured-cleanup notice takes the pill's error card with Open Settings", async (t) => {
+  const toastProps = await recordCleanupFailureToast(t, {
+    dictationWindow: true,
+    failure: { ...UNCONFIGURED_NOTICE, pasted: true },
+  });
+  assert.equal(toastProps.title, "Cleanup failed");
+  assert.equal(
+    toastProps.description,
+    "AI cleanup is on, but no cleanup model is set up.\nOriginal dictation pasted without AI cleanup."
+  );
+  assert.deepEqual(
+    toastProps.actions.map(({ label }) => label),
+    ["Open Settings"]
+  );
+  assert.equal(toastProps.presentation, "dictation-error");
+});
+
+test("an unconfigured-cleanup notice for a dictation that was not pasted claims no paste", async (t) => {
+  const toastProps = await recordCleanupFailureToast(t, {
+    dictationWindow: true,
+    failure: { ...UNCONFIGURED_NOTICE, pasted: false },
+  });
+  assert.equal(
+    toastProps.description,
+    "AI cleanup is on, but no cleanup model is set up.\nSaved to History without AI cleanup."
+  );
+  assert.deepEqual(
+    toastProps.actions.map(({ label }) => label),
+    ["Open Settings"]
+  );
+  assert.equal(toastProps.presentation, "dictation-error");
+});
+
+test("a signed-out Cloud cleanup notice says the fix is signing in", async (t) => {
+  const toastProps = await recordCleanupFailureToast(t, {
+    dictationWindow: false,
+    failure: {
+      message: "AI cleanup uses OpenWhispr Cloud, but you're signed out.",
+      messageKey: "hooks.audioRecording.cleanupSignedOut",
+      surface: "llm",
+      settingsTarget: "llms",
+      setupKey: "signedOut\0openwhispr\0",
+      pasted: true,
+    },
+  });
+  assert.equal(toastProps.title, "Cleanup failed");
+  assert.equal(
+    toastProps.description,
+    "AI cleanup uses OpenWhispr Cloud, but you're signed out.\nOriginal dictation pasted without AI cleanup."
+  );
+  assert.deepEqual(
+    toastProps.actions.map(({ label }) => label),
+    ["Open Settings"]
   );
 });

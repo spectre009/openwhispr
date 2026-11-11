@@ -80,6 +80,8 @@ async function mount(t, extraOptions = {}) {
     },
   });
   const container = installHookDom(t);
+  // A finished onboarding: its demo's dictation reports no cleanup card (#2631).
+  localStorage.setItem("onboardingCompleted", "true");
   const vite = await createRendererServer(t, {
     cachePrefix: "openwhispr-failure-cards-hook-",
     mockModules: {

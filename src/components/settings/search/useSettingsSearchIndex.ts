@@ -6,7 +6,7 @@ import { useStyleStore } from "../../../stores/styleStore";
 import { useWorkspaceStore } from "../../../stores/workspaceStore";
 import { useOpenWhisprCloudDisabled } from "../../../stores/openWhisprCloudStore";
 import { usePolicySnapshot } from "../../../hooks/usePolicy";
-import { canManageWorkspace } from "../../../lib/spacePermissions";
+import { workspaceCan } from "../../../lib/capabilities";
 import { getAgentName } from "../../../utils/agentName";
 import { getCachedPlatform } from "../../../utils/platform";
 import { SETTINGS_SEARCH_DESCRIPTORS } from "./registry";
@@ -68,7 +68,8 @@ export function useSettingsSearchIndex(active: boolean): SettingsSearchEntry[] |
     const workspace =
       state.workspaces.find((candidate) => candidate.id === state.activeWorkspaceId) ??
       state.workspaces[0];
-    return canManageWorkspace(workspace?.role);
+    // As Workspace shows its Developer tab: the server's capabilities (#2921), the role as fallback.
+    return workspaceCan(workspace, "manage_settings");
   });
   const env = useSettingsSearchEnvironment(active);
   const language = i18n.language;

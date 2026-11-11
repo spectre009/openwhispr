@@ -22,6 +22,13 @@ export interface CleanupFailure {
     /** Whether the uncleaned text was pasted; false: it's only in History (and the clipboard). */
     pasted?: boolean;
   };
+  /**
+   * False when the raw dictation never reached the cursor (clipboard or History
+   * only). The dictation window sets it with `dictation.pasted`, which wins.
+   */
+  pasted?: boolean;
+  /** Names the broken setup an unconfigured-cleanup notice warns about. */
+  setupKey?: string;
 }
 
 interface CleanupFailureState {

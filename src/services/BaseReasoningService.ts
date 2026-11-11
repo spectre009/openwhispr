@@ -1,9 +1,10 @@
 import { getCleanupSystemPrompt, type CleanupPromptOverride } from "../config/prompts";
 import { getSettings } from "../stores/settingsStore";
 import { resolveCleanupLanguage } from "../utils/chineseScript";
-import { getDictionaryHintWords, type CleanupDictionarySelection } from "../utils/snippets";
+import { getLlmDictionaryWords, type CleanupDictionarySelection } from "../utils/snippets";
 import type { CleanupDictionaryGroup } from "../utils/dictionaryCategories";
 import type { InferenceScope } from "../config/inferenceScopes";
+import type { DictationToneStyle } from "../config/toneStyle";
 import type { ConnectionOutcomeFeature, ScreenContextImage } from "../types/electron";
 
 export interface ReasoningConfig {
@@ -16,8 +17,11 @@ export interface ReasoningConfig {
   customApiKey?: string;
   provider?: string;
   disableThinking?: boolean;
+  reasoningEffort?: string;
   /** Screenshot attached to voice-agent requests when screen context is on. */
   screenContext?: ScreenContextImage;
+  /** Dictation cleanup only: the Tone & Style tone for the app being dictated into. */
+  toneStyle?: DictationToneStyle | null;
   /** Suffix-free prompt used when a screenshot-carrying request is retried text-only. */
   textOnlySystemPrompt?: string;
   language?: string;
@@ -31,7 +35,10 @@ export interface ReasoningConfig {
    * it still lets the allowance shrink to fit, where that flag alone refuses.
    */
   refuseClippedByWindow?: boolean;
-  /** Local models only: tags the request so `cancelLocalReasoning` can abort it. */
+  /**
+   * Tags the request so a cancel can abort it: `cancelLocalReasoning` for local
+   * models, `cancelRequest` (ai/requestCancellation) for the renderer's HTTP routes.
+   */
   requestId?: string;
   requiresAgent?: boolean;
   inferenceScope?: InferenceScope;
@@ -138,7 +145,7 @@ export abstract class BaseReasoningService {
   protected isProcessing = false;
 
   protected getCustomDictionary(): string[] {
-    return getDictionaryHintWords(getSettings());
+    return getLlmDictionaryWords(getSettings(), { includeTriggers: true });
   }
 
   // Auto must remain auto here: zh-CN/zh-TW instructions make cleanup write its
@@ -153,11 +160,14 @@ export abstract class BaseReasoningService {
   }
 
   /**
+   * `toneStyle` (Tone & Style, dictation cleanup only) appends the tone for
+   * the app being dictated into, last, as Cloud does.
    * `cleanupTemplate` is the request's cleanup prompt ("" = built-in); omitted, the saved one.
    * `inputs`, when given, replaces the dictionary and languages read from settings.
    */
   protected getSystemPrompt(
     agentName: string | null,
+    toneStyle?: DictationToneStyle | null,
     cleanupTemplate?: string,
     inputs?: CleanupPromptInputs
   ): string {
@@ -166,6 +176,7 @@ export abstract class BaseReasoningService {
       inputs ? inputs.customDictionary : this.getCustomDictionary(),
       inputs ? inputs.preferredLanguage : this.getPreferredLanguage(),
       inputs ? inputs.uiLanguage : this.getUiLanguage(),
+      toneStyle,
       cleanupTemplate,
       inputs?.groups
     );

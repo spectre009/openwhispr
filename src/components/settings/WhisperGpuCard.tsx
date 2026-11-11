@@ -52,7 +52,7 @@ function GpuWarningRow({
 }
 
 /**
- * whisper.cpp's GPU acceleration pack (CUDA on NVIDIA, Vulkan elsewhere): offer
+ * whisper.cpp's GPU acceleration pack (CUDA on NVIDIA, Vulkan elsewhere, named in its lines): offer
  * the pack this GPU can run, show its download, whether the running server is
  * actually on the GPU (never inferred from a download), a GPU→CPU fallback and
  * the whisper-server error line main saved with it (#1736), and Remove. Shown
@@ -89,6 +89,8 @@ export default function WhisperGpuCard() {
   const [gpuActivating, setGpuActivating] = useState(false);
   // Live truth from the running server; "active" is never inferred from a download
   const [gpuActive, setGpuActive] = useState(false);
+  // The pack's backend, named in every status line (#1982)
+  const gpuBackendName = gpuBackend === "cuda" ? "CUDA" : "Vulkan";
 
   const readGpuStatus = useCallback(async () => {
     try {
@@ -302,18 +304,22 @@ export default function WhisperGpuCard() {
                     <>
                       <span className="inline-block w-1.5 h-1.5 rounded-full shrink-0 bg-primary animate-pulse" />
                       <span className="text-xs font-medium text-foreground">
-                        {t("gpu.activating")}
+                        {t("gpu.activatingBackend", { backend: gpuBackendName })}
                       </span>
                     </>
                   ) : gpuActive ? (
                     <>
                       <Check size={13} className="text-success" />
-                      <span className="text-xs font-medium text-foreground">{t("gpu.active")}</span>
+                      <span className="text-xs font-medium text-foreground">
+                        {t("gpu.activeBackend", { backend: gpuBackendName })}
+                      </span>
                     </>
                   ) : (
                     <>
                       <span className="inline-block w-1.5 h-1.5 rounded-full shrink-0 bg-primary" />
-                      <span className="text-xs font-medium text-foreground">{t("gpu.ready")}</span>
+                      <span className="text-xs font-medium text-foreground">
+                        {t("gpu.readyBackend", { backend: gpuBackendName })}
+                      </span>
                     </>
                   )}
                 </div>
@@ -342,6 +348,9 @@ export default function WhisperGpuCard() {
                 <p className="text-xs font-medium text-foreground">
                   {t("gpu.transcriptionBanner")}
                 </p>
+                <p className="mt-0.5 text-xs leading-snug text-muted-foreground">
+                  {t(gpuBackend === "cuda" ? "gpu.cudaDescription" : "gpu.vulkanDescription")}
+                </p>
                 <div className="flex items-center gap-2 mt-1.5">
                   <Button
                     onClick={handleGpuDownload}
@@ -349,7 +358,7 @@ export default function WhisperGpuCard() {
                     variant="default"
                     className="h-6 px-2.5 text-xs"
                   >
-                    {t("gpu.enableButton")}
+                    {t("gpu.enableBackend", { backend: gpuBackendName })}
                   </Button>
                   <button
                     onClick={() => setGpuDismissed(true)}

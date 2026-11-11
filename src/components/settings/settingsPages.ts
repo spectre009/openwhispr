@@ -21,6 +21,7 @@ export type SettingsPageId =
   | "overview"
   | "recognition"
   | "cleanup"
+  | "toneStyle"
   | "styles"
   | "output"
   | "assistant"
@@ -56,6 +57,7 @@ export type SettingsIconName =
   | "Network"
   | "AudioLines"
   | "Wand2"
+  | "SquareSparkle"
   | "Pencil"
   | "ClipboardCheck"
   | "Sparkles"
@@ -163,6 +165,9 @@ export const SETTINGS_PAGES: Readonly<Record<SettingsPageId, SettingsPageDef>> =
     icon: "Wand2",
     feature: { scope: "dictationCleanup", prompt: "cleanup" },
   },
+  // Upstream's Tone & Style section (#2654): the tone cleanup, the assistant and chat
+  // write in for each kind of app.
+  toneStyle: { ...sectionKeys("toneStyle"), icon: "SquareSparkle" },
   styles: {
     titleKey: "styles.section.title",
     descriptionKey: "styles.section.description",
@@ -290,7 +295,7 @@ export const SETTINGS_NAV: readonly SettingsNavGroupDef[] = [
         id: "dictation",
         titleKey: "settingsNav.parents.dictation",
         icon: "Mic",
-        pages: ["overview", "recognition", "cleanup", "styles", "output"],
+        pages: ["overview", "recognition", "cleanup", "toneStyle", "styles", "output"],
       },
       { kind: "page", page: "assistant" },
       { kind: "page", page: "translation" },

@@ -21,6 +21,8 @@ export function buildDictationCleanupConfig(settings: SettingsState) {
   return {
     inferenceScope: "dictationCleanup" as const,
     disableThinking: settings.cleanupDisableThinking,
+    // The cleanup scope's reasoning effort (#2694).
+    reasoningEffort: settings.cleanupReasoningEffort,
     temperature,
     requireCompleteOutput: true,
     cleanupDictionary: selectCleanupDictionary(settings),

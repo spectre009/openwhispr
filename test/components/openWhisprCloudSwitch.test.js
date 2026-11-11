@@ -68,17 +68,21 @@ test("the OpenWhispr Cloud mode disappears, unless it is the one selected", asyn
   assert.equal(isModeAllowedWithCloudSwitch("local", true), true);
 });
 
-test("Integrations keeps only Calendars while off", async () => {
+// Skills (upstream #2824) are a local library (files under the user data
+// folder, no account calls), so they stay while Cloud is off.
+test("Integrations keeps only Calendars and Skills while off", async () => {
   const integrations = await import("../../src/components/integrations/integrationsSections.ts");
-  assert.deepEqual(integrations.visibleIntegrationsSections(true), ["calendars"]);
+  assert.deepEqual(integrations.visibleIntegrationsSections(true), ["calendars", "skills"]);
   assert.deepEqual(integrations.visibleIntegrationsSections(false), [
     "calendars",
     "connectors",
+    "skills",
     "api",
     "mcp",
     "cli",
   ]);
   assert.equal(integrations.shownIntegrationsSection("mcp", true), "calendars");
+  assert.equal(integrations.shownIntegrationsSection("skills", true), "skills");
   assert.equal(integrations.shownIntegrationsSection("mcp", false), "mcp");
 });
 

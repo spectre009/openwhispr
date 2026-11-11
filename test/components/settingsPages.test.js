@@ -146,9 +146,11 @@ test("provider-error targets (main's allow-list) land on their pages", async () 
       /"([^"]+)"/g
     ),
   ].map((match) => match[1]);
-  assert.deepEqual(targets.sort(), ["llms", "speechToText"]);
+  // noteFormatting: a note action's provider error opens Note Formatting (#2670), a page id.
+  assert.deepEqual(targets.sort(), ["llms", "noteFormatting", "speechToText"]);
+  const pages = { ...LEGACY_PAGES, noteFormatting: "noteFormatting" };
   for (const target of targets) {
-    assert.equal(resolveSettingsDestination(target, { ctx: ALL }).page, LEGACY_PAGES[target]);
+    assert.equal(resolveSettingsDestination(target, { ctx: ALL }).page, pages[target]);
   }
 });
 
@@ -573,7 +575,15 @@ test("Dictation › Overview comes first; Overview, Styles and Hotkeys lay out w
   const dictation = SETTINGS_NAV.flatMap((group) => group.items).find(
     (item) => item.kind === "parent" && item.id === "dictation"
   );
-  assert.deepEqual(dictation.pages, ["overview", "recognition", "cleanup", "styles", "output"]);
+  // Tone & Style (upstream's section, #2654) sits after Cleanup, whose output it shapes.
+  assert.deepEqual(dictation.pages, [
+    "overview",
+    "recognition",
+    "cleanup",
+    "toneStyle",
+    "styles",
+    "output",
+  ]);
   assert.equal(firstSettingsPageOf("dictation", ALL), "overview");
   assert.equal(firstSettingsPageOf("dictation", CLOUD_OFF), "overview");
   assert.equal(settingsPageParent("overview"), "dictation");

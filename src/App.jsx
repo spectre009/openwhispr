@@ -7,7 +7,7 @@ import { formatHotkeyListLabel } from "./utils/hotkeys";
 import { useWindowDrag } from "./hooks/useWindowDrag";
 import { useLinuxPillInteractivity } from "./hooks/useLinuxPillInteractivity";
 import { useAudioRecording } from "./hooks/useAudioRecording";
-import { useAssistantPanel } from "./hooks/useAssistantPanel";
+import { useAssistantFollowUpThinking, useAssistantPanel } from "./hooks/useAssistantPanel";
 import { useOnboardingAssistantDemo } from "./hooks/useOnboardingAssistantDemo";
 import { useLiveTranscriptPanel } from "./hooks/useLiveTranscriptPanel";
 import { useMainWindowSizeOwner } from "./hooks/useMainWindowSizeOwner";
@@ -22,6 +22,7 @@ import { isAgentAllowed } from "./stores/policyRules";
 import { usePolicyStore } from "./stores/policyStore";
 import { useTranscriptionContextAllowed } from "./hooks/usePolicy";
 import { useTrayQuickActions } from "./hooks/useTrayQuickActions";
+import { meetingStartRefusalKey } from "./helpers/trayActionPolicy";
 import { VoicePill } from "./components/dictation/VoicePill";
 import { StyleBadge } from "./components/dictation/StyleBadge";
 import { AssistantPanel } from "./components/dictation/AssistantPanel";
@@ -294,23 +295,7 @@ export default function App() {
     }
   }, [assistantOpenRef, setWindowInteractivity]);
 
-  const {
-    isRecording,
-    isProcessing,
-    isAssistantVoice,
-    isPreparing,
-    isStopping,
-    micCaptureStatus,
-    toggleListening,
-    cancelRecording,
-    cancelProcessing,
-    getAudioLevel,
-    recordingInputKind,
-    recordingStartedAt,
-    dictationStyle,
-    slowProcessingHint,
-    nothingHeardSeq,
-  } = useAudioRecording(toast, {
+  const recording = useAudioRecording(toast, {
     onToggle: handleDictationToggle,
     onDemoEvent: publishOnboardingDemoEvent,
     onAssistantCommand: assistant.handleCommand,
@@ -330,6 +315,23 @@ export default function App() {
     },
     assistantOpenRef,
   });
+  const {
+    isRecording,
+    isProcessing,
+    isAssistantVoice,
+    isPreparing,
+    isStopping,
+    micCaptureStatus,
+    toggleListening,
+    cancelRecording,
+    cancelProcessing,
+    getAudioLevel,
+    recordingInputKind,
+    recordingStartedAt,
+    dictationStyle,
+    slowProcessingHint,
+    nothingHeardSeq,
+  } = recording;
   const isVisuallyProcessing = isProcessing || isPreparing || isStopping;
   // With "Color by mode" on, the pill takes the color of the recording's mode.
   const { recordingStyle, recordingShowElapsed, recordingVars } =
@@ -377,12 +379,7 @@ export default function App() {
     );
   }, [mainWindowHorizontalDirection, panelStartPosition, voiceDirectionLocked]);
 
-  const { beginThinking: beginAssistantThinking } = assistant;
-  useEffect(() => {
-    if (isAssistantVoice && isProcessing && assistantOpenRef.current) {
-      beginAssistantThinking();
-    }
-  }, [isAssistantVoice, isProcessing, assistantOpenRef, beginAssistantThinking]);
+  useAssistantFollowUpThinking(recording, assistant);
 
   // While the Agent panel is open, plain dictation renders on the
   // opposite-edge companion pill — neither its recording nor its processing
@@ -535,6 +532,13 @@ export default function App() {
     openAssistantPanel,
     refuse,
   });
+
+  // The meeting hotkey and tray item start in main, which refuses under policy.
+  useEffect(
+    () =>
+      window.electronAPI?.onMeetingStartRefused?.((code) => refuse(meetingStartRefusalKey(code))),
+    [refuse]
+  );
 
   // Auto-hide the floating icon when idle (setting enabled or dictation cycle completed)
   useEffect(() => {
@@ -940,7 +944,16 @@ export default function App() {
               }}
               onStartMeeting={() => {
                 setIsCommandMenuOpen(false);
-                void window.electronAPI?.startManualMeeting?.();
+                // Main refuses under policy before the start reaches the
+                // engine, so it never sends meeting-start-refused for this.
+                void window.electronAPI?.startManualMeeting?.().then((result) => {
+                  if (
+                    result?.code === "POLICY_MEETING_RECORDING_DISABLED" ||
+                    result?.code === "POLICY_UNRESOLVABLE"
+                  ) {
+                    refuse(meetingStartRefusalKey(result.code));
+                  }
+                });
               }}
               onHide={() => {
                 setIsCommandMenuOpen(false);
@@ -976,6 +989,9 @@ export default function App() {
             onCommandSettled={assistant.handleCommandSettled}
             initialConversationId={assistant.conversationId}
             onConversationIdChange={assistant.setConversationId}
+            skillChoice={assistant.skillChoice}
+            onSkillChoiceChange={assistant.setSkillChoice}
+            canPasteIntoApp={assistant.canPasteIntoApp}
             voiceState={assistantVoiceState}
             thinking={assistant.thinking && assistant.open}
             open={assistant.open}

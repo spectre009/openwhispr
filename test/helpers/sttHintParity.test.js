@@ -120,6 +120,23 @@ Module._load = function loadWithMocks(request, parent, isMain) {
       };
     }
     if (request === "./windowBroadcast") return { broadcastToWindows: () => {} };
+    // Managed Azure: the prompt its executor gets is the `prompt` field it
+    // sends. A Re-transcribe reaches it through transcribeManagedAudio
+    // (upstream #2989), which first resolves the workspace's audio profile.
+    if (request === "./managedTranscriptionExecutor") {
+      return {
+        createManagedTranscriptionExecutor: () => async (_event, _route, options) => {
+          managedPrompt = options.prompt;
+          return TEXT;
+        },
+      };
+    }
+    if (request === "./enterpriseAudioRuntime") {
+      return {
+        ...originalLoad.call(this, request, parent, isMain),
+        createEnterpriseAudioRequestResolver: () => async () => ({}),
+      };
+    }
     if (request === "./ffmpegUtils") {
       const real = originalLoad.call(this, request, parent, isMain);
       return {
@@ -271,10 +288,13 @@ test.before(() => {
   target._learnedDictionaryWords = IPCHandlers.prototype._learnedDictionaryWords;
   IPCHandlers.prototype.setupHandlers.call(fakeThis);
   retryHandler = handlers.get("retry-transcription");
-  // Managed Azure: the prompt its executor gets is the `prompt` field it sends.
-  target.executeManagedTranscription = async (_event, _route, options) => {
-    managedPrompt = options.prompt;
-    return TEXT;
+  // The workspace's managed audio as resolved for a batch request: the
+  // identity and its audio profile agree with the request's context.
+  target.enterpriseIdentityManager = {
+    resolveProvider: async () => ({ managed: true }),
+  };
+  target.enterpriseAudioRuntime = {
+    resolve: async () => ({ model: "whisper", section: {} }),
   };
 });
 

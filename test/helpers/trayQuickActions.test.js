@@ -21,7 +21,10 @@ Module._load = function loadTrayWithStubs(request, parent, isMain) {
 const TrayManager = require("../../src/helpers/tray");
 Module._load = originalLoad;
 
-function createTrayManager(calls, { dictating = false, reviewKey = null } = {}) {
+function createTrayManager(
+  calls,
+  { dictating = false, reviewKey = null, meetingRefusal = null } = {}
+) {
   const trayManager = new TrayManager();
   trayManager.windowManager = {
     isDictationPanelVisible: () => false,
@@ -32,6 +35,7 @@ function createTrayManager(calls, { dictating = false, reviewKey = null } = {}) 
     startManualMeeting: () => calls.push("meeting"),
     reviewLastDictation: async () => calls.push("review"),
     hotkeyManager: { getSlotHotkey: (slot) => (slot === "review" ? reviewKey : null) },
+    getMeetingRecordingRefusal: () => meetingRefusal,
   };
   return trayManager;
 }
@@ -208,4 +212,13 @@ test("a click on a stale menu checks again and restarts nothing while busy", () 
     ],
     ["Tray restart skipped", { item: "menu", busy: "meeting", graphics: "software (fallback)" }],
   ]);
+});
+
+test("the tray's meeting item is disabled while the org refuses meeting recording", () => {
+  const meetingItem = (meetingRefusal) =>
+    createTrayManager([], { meetingRefusal }).buildContextMenuTemplate()[2];
+
+  assert.equal(meetingItem(null).enabled, true);
+  assert.equal(meetingItem({ code: "POLICY_MEETING_RECORDING_DISABLED" }).enabled, false);
+  assert.equal(meetingItem({ code: "POLICY_UNRESOLVABLE" }).enabled, false);
 });

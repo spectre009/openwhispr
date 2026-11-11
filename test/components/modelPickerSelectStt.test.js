@@ -267,17 +267,33 @@ function fixtures() {
   return { daily, local, cloud };
 }
 
-// ── The old editors' handlers, as they were before the picker ─────────────────
+// ── The old editors' handlers, as upstream v1.11.0 has them (#2989 included) ─────
 
-/** The mode cards each surface had (TranscriptionSection / MeetingTranscriptionPanel / UploadTranscriptionPanel). */
-function oldModeCards(surface, policy, isSignedIn) {
+/**
+ * The mode cards each surface had (TranscriptionSection / MeetingTranscriptionPanel /
+ * UploadTranscriptionPanel). No managed deployment resolves in these fixtures, so Live
+ * Recording offers no enterprise card and File Transcription only a policy's.
+ */
+function oldModeCards(surface, policy, isSignedIn, managedAvailable = false) {
+  if (surface === "liveRecording") {
+    return [
+      { id: "openwhispr", disabled: !isSignedIn },
+      { id: "providers" },
+      { id: "local" },
+      ...(managedAvailable ? [{ id: "enterprise" }] : []),
+      { id: "self-hosted", disabled: true },
+    ];
+  }
   const cards = [
     { id: "openwhispr", disabled: !isSignedIn },
     { id: "providers" },
     { id: "local" },
-    { id: "self-hosted", ...(surface === "liveRecording" ? { disabled: true } : {}) },
+    { id: "self-hosted" },
   ];
-  if (surface !== "liveRecording" && env.rules.isEnterpriseTranscriptionOfferable(policy)) {
+  if (
+    env.rules.isEnterpriseTranscriptionOfferable(policy) ||
+    (surface === "fileTranscription" && managedAvailable)
+  ) {
     cards.push({ id: "enterprise" });
   }
   return cards;
@@ -287,6 +303,7 @@ function oldCatalog(surface) {
   if (surface === "liveRecording") {
     return {
       byokProviders: env.registry.getMeetingStreamingTranscriptionProviders().map((p) => p.id),
+      enterpriseProviders: env.store.TRANSCRIPTION_ENTERPRISE_POLICY_PROVIDER_IDS,
     };
   }
   return {
@@ -337,13 +354,20 @@ const OLD = {
       OLD.calls.signIn += 1;
       return;
     }
+    // Only the explicit enterprise controls change the shared setup mode; the surface's
+    // own mode stays as the user left it (#2989).
+    if (mode === "enterprise") {
+      if (surface === "dictation" && s.enterpriseTranscriptionSetupMode === "managed") return;
+      s.setEnterpriseTranscriptionSetupMode("managed");
+      if (surface === "dictation") OLD.calls.toasts.push(mode);
+      return;
+    }
     if (mode === oldEffectiveMode(surface, policy)) return;
     if (surface === "dictation") {
       s.setTranscriptionMode(mode);
       s.setUseLocalWhisper(mode === "local");
       s.updateTranscriptionSettings({ useLocalWhisper: mode === "local" });
       s.setCloudTranscriptionMode(mode === "openwhispr" ? "openwhispr" : "byok");
-      if (mode === "enterprise") s.setEnterpriseTranscriptionSetupMode("managed");
       OLD.calls.toasts.push(mode);
     } else if (surface === "liveRecording") {
       s.setMeetingTranscriptionMode(mode);
@@ -353,7 +377,6 @@ const OLD = {
       s.setUploadTranscriptionMode(mode);
       s.setUploadUseLocalWhisper(mode === "local");
       s.setUploadCloudTranscriptionMode(mode === "openwhispr" ? "openwhispr" : "byok");
-      if (mode === "enterprise") s.setEnterpriseTranscriptionSetupMode("managed");
     }
   },
   /** The provider tab browsed, then a model clicked (or the custom model field typed into). */
@@ -1210,7 +1233,10 @@ test("the shared key is copied, and read back, before anything else is written",
   const { result } = await pending;
   assert.equal(result.status, "committed");
   assert.ok(writes.length > 0);
-  assert.ok(writes.every((write) => write.main === "apply:end"), "every write after main's copy");
+  assert.ok(
+    writes.every((write) => write.main === "apply:end"),
+    "every write after main's copy"
+  );
   assert.equal(writes[0].key, LB_KEY, "the key comes first");
   const firstUrl = writes.findIndex((write) => write.url === LB_ORIGIN);
   assert.ok(firstUrl > 0);

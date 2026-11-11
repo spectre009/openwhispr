@@ -207,6 +207,34 @@ test("policy hides modes and providers as the mode cards and provider tabs did",
   // Unmanaged users never see the enterprise mode (it can't resolve without an org).
   assert.equal(find(buildSttPickerOptions("dictation", context()), "enterprise"), undefined);
 
+  // A managed deployment the surface can use offers it (#2989): uploads with a batch one,
+  // live recording with a realtime one, even without a managed policy; Recognition only
+  // under a policy that offers it, as its mode cards did.
+  const available = context({ managedAvailable: true });
+  assert.equal(
+    find(buildSttPickerOptions("fileTranscription", available), "enterprise").available,
+    true
+  );
+  assert.equal(
+    find(buildSttPickerOptions("liveRecording", available), "enterprise").available,
+    true
+  );
+  assert.deepEqual(groupIds(buildSttPickerOptions("liveRecording", available)).slice(-2), [
+    "selfHosted",
+    "enterprise",
+  ]);
+  assert.equal(find(buildSttPickerOptions("dictation", available), "enterprise"), undefined);
+  assert.deepEqual(
+    groupIds(
+      buildSttPickerOptions(
+        "liveRecording",
+        context({ policy: enterprise, managedAvailable: true })
+      )
+    ),
+    ["selfHosted", "enterprise"],
+    "live recording's enterprise lane follows the realtime deployment and the policy's providers"
+  );
+
   // A policy still loading offers nothing yet.
   const loading = { status: "loading", policy: null, appVersion: "1.10.3" };
   assert.deepEqual(buildSttPickerOptions("dictation", context({ policy: loading })), []);
