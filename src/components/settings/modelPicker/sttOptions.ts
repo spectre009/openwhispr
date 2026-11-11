@@ -6,9 +6,12 @@ import {
   type SettingsState,
 } from "../../../stores/settingsStore";
 import {
+  acceptsUnlistedTranscriptionModel,
   filterModeOptionsByPolicy,
   isEnterpriseTranscriptionOfferable,
+  isLocalModelAllowedByPolicy,
   isProviderAllowedByPolicy,
+  localModelRowRefusal,
   reconcilePolicyModeSelection,
   type PolicyDecisionSnapshot,
   type TranscriptionPolicyContext,
@@ -16,12 +19,14 @@ import {
 import {
   PARAKEET_MODEL_INFO,
   WHISPER_MODEL_INFO,
+  getDictationTranscriptionProviders,
   getMeetingStreamingTranscriptionProviders,
   getTranscriptionProvider,
   getTranscriptionProviders,
   type TranscriptionModelDefinition,
   type TranscriptionProviderData,
 } from "../../../models/ModelRegistry";
+import { isUploadOnlyTranscriptionModel } from "../../../models/appTranscriptionProviders.js";
 import { STREAMING_ONLY_PROVIDERS } from "../../../helpers/transcriptionRoute";
 import {
   LOCAL_ASR_ORGANIZATIONS,
@@ -168,6 +173,7 @@ export const STT_PICKER_PROVIDERS = [
   "tinfoil",
   "deepgram",
   "assemblyai",
+  "openrouter",
   "azure-speech",
 ] as const;
 
@@ -185,6 +191,7 @@ type SttKeyFields = Pick<
   | "tinfoilApiKey"
   | "deepgramApiKey"
   | "assemblyaiApiKey"
+  | "openrouterApiKey"
   | "azureSpeechApiKey"
   | "azureSpeechEndpoint"
 >;
@@ -206,6 +213,7 @@ export function sttKeyPresence(settings: SttKeyFields): Record<SttKeyProvider, b
     tinfoil: has(settings.tinfoilApiKey),
     deepgram: has(settings.deepgramApiKey),
     assemblyai: has(settings.assemblyaiApiKey),
+    openrouter: has(settings.openrouterApiKey),
     "azure-speech":
       has(settings.azureSpeechApiKey) && isAzureSpeechEndpoint(settings.azureSpeechEndpoint),
   };
@@ -257,6 +265,11 @@ export interface SttPickerContext {
    * for Live Recording), which offers the enterprise entry there (#2989).
    */
   managedAvailable?: boolean;
+  /**
+   * The model catalog's version (useRegistryVersion): a signed publication can
+   * change the providers' models in place, and this is what rebuilds the list.
+   */
+  registryVersion?: number;
   current: SttCurrent;
 }
 
@@ -273,11 +286,12 @@ export interface SttPickerConnection extends PickerConnection {
 export function sttSurfaceProviders(surface: SttSurface): TranscriptionProviderData[] {
   // Live recording streams, and only through the providers main can stream notes with.
   if (surface === "liveRecording") return getMeetingStreamingTranscriptionProviders();
-  const providers = getTranscriptionProviders();
+  // Recognition leaves out upload-only models (OpenRouter's Nova-3, which gets no dictionary).
+  if (surface === "dictation") return getDictationTranscriptionProviders();
   // Uploads are batch: the live-only providers have no batch route (transcriptionRoute fails them closed).
-  return surface === "fileTranscription"
-    ? providers.filter((provider) => !STREAMING_ONLY_PROVIDERS.has(provider.id))
-    : providers;
+  return getTranscriptionProviders().filter(
+    (provider) => !STREAMING_ONLY_PROVIDERS.has(provider.id)
+  );
 }
 
 /** Live recording has no custom-endpoint lane (it streams). */
@@ -460,6 +474,22 @@ function sherpaUnavailable(ctx: SttPickerContext): PickerUnavailable {
     : { reasonKey: "modelPicker.stt.reasons.localUnavailable" };
 }
 
+/**
+ * Whether the organization's allow list refuses a local speech model (#3056). A verdict
+ * still loading flags nothing: main's gate waits for it anyway.
+ */
+function localModelBlocked(ctx: SttPickerContext, modelId: string): boolean {
+  return (
+    ctx.policy.status !== "loading" &&
+    !isLocalModelAllowedByPolicy(ctx.policy, "transcription", modelId)
+  );
+}
+
+/** Why the organization refuses a local speech model here (its hint, as the old model cards showed it). */
+function localPolicyRefusal(ctx: SttPickerContext): PickerUnavailable {
+  return { reasonKey: localModelRowRefusal(ctx.policy, "transcription").hintKey };
+}
+
 /** Whether a provider's credentials are saved (the custom endpoint's key is optional). */
 const hasKey = (ctx: SttPickerContext, provider: string) => !!ctx.keys[provider as SttKeyProvider];
 
@@ -510,6 +540,10 @@ export function sttPickAvailability(
       if (entry.engine === "sherpa" && ctx.sherpa?.supported === false) {
         return sherpaUnavailable(ctx);
       }
+      // A model on disk the organization doesn't approve stays listed, with why (#3056).
+      if (localModelBlocked(ctx, entry.id)) {
+        return localPolicyRefusal(ctx);
+      }
       return true;
     }
     case "providers": {
@@ -523,7 +557,20 @@ export function sttPickAvailability(
       if (!data) return null;
       if (!hasKey(ctx, provider)) return noKey(provider);
       const entry = data.models.find((candidate) => candidate.id === model);
-      if (!entry) return null;
+      if (!entry) {
+        // OpenRouter's catalog moves faster than releases: a vendor-prefixed id outside
+        // the shortlist stays usable as the selection (acceptsUnlistedTranscriptionModel),
+        // but never an upload-only one where this surface leaves it out.
+        const current =
+          ctx.current.mode === "providers" &&
+          ctx.current.cloudProvider === provider &&
+          ctx.current.cloudModel === model;
+        return current &&
+          acceptsUnlistedTranscriptionModel(provider, model) &&
+          !(surface !== "fileTranscription" && isUploadOnlyTranscriptionModel(provider, model))
+          ? true
+          : null;
+      }
       // A legacy model (#2958) is listed only as the selection, and can't be picked again.
       if (entry.legacy) {
         const current =
@@ -624,6 +671,14 @@ function cloudGroup(surface: SttSurface, ctx: SttPickerContext): SttPickerGroup 
   };
 }
 
+// OpenRouter brokers other vendors' models, so a model's prefix ("mistralai/…",
+// "nvidia/…") names it better than OpenRouter's own mark: "openrouter:<vendor>",
+// which PickerIcon draws with the vendor's icon, or OpenRouter's when it has none.
+function modelIcon(provider: string, modelId: string): string {
+  const slash = provider === "openrouter" ? modelId.indexOf("/") : -1;
+  return slash > 0 ? `${provider}:${modelId.slice(0, slash)}` : provider;
+}
+
 function providerGroup(
   surface: SttSurface,
   ctx: SttPickerContext,
@@ -631,24 +686,45 @@ function providerGroup(
 ): SttPickerGroup | null {
   const provider = data.id;
   const name = sttProviderName(provider);
-  const base = { icon: provider, mode: "providers" as const, provider };
+  const base = { mode: "providers" as const, provider };
   const terms = [provider, name];
+  // A selection the shortlist doesn't list (an OpenRouter id) shows as itself, first.
+  const { current } = ctx;
+  const unlisted =
+    current.mode === "providers" &&
+    current.cloudProvider === provider &&
+    !!current.cloudModel &&
+    !data.models.some((model) => model.id === current.cloudModel)
+      ? current.cloudModel
+      : "";
   const options = hasKey(ctx, provider)
-    ? compact(
-        data.models.map((model) =>
+    ? compact([
+        unlisted
+          ? option(surface, ctx, {
+              ...base,
+              icon: modelIcon(provider, unlisted),
+              id: `provider:${provider}:${unlisted}`,
+              label: lit(unlisted),
+              model: unlisted,
+              terms: [...terms, unlisted],
+            })
+          : null,
+        ...data.models.map((model) =>
           option(surface, ctx, {
             ...base,
+            icon: modelIcon(provider, model.id),
             id: `provider:${provider}:${model.id}`,
             label: lit(model.name),
             sub: model.legacy ? msg("models.legacy") : modelDescription(model),
             model: model.id,
             terms: [...terms, model.id, ...(model.streaming ? ["streaming", "realtime"] : [])],
           })
-        )
-      )
+        ),
+      ])
     : compact([
         option(surface, ctx, {
           ...base,
+          icon: provider,
           id: `provider:${provider}:addKey`,
           label: msg("modelPicker.provider.notConnected"),
           model: "",
@@ -669,7 +745,8 @@ function providerGroup(
 
 /**
  * A URL that points at a custom endpoint: set, and neither the default OpenAI
- * URL nor a known provider's (the old Custom tab's `hasCustomUrl`).
+ * URL nor a known provider's (the old Custom tab's `hasCustomUrl`). OpenRouter's
+ * URL stays custom: Custom endpoints on it predate its own entry.
  */
 export function isCustomTranscriptionUrl(url: string | undefined): boolean {
   const normalized = normalizeBaseUrl(url || "");
@@ -677,7 +754,7 @@ export function isCustomTranscriptionUrl(url: string | undefined): boolean {
     return false;
   }
   return !getTranscriptionProviders().some(
-    (provider) => normalizeBaseUrl(provider.baseUrl) === normalized
+    (provider) => provider.id !== "openrouter" && normalizeBaseUrl(provider.baseUrl) === normalized
   );
 }
 
@@ -1017,9 +1094,12 @@ export function sttSelectionIssue(
             link: { kind: "signIn", labelKey: "modelPicker.links.signIn" },
           };
     case "local": {
-      if (!ctx.localModels) return undefined;
       const provider = current.localProvider;
       const model = current.localModel || LOCAL_STT_DEFAULT_MODELS[provider] || "";
+      // The organization's refusal comes first: downloading a model it doesn't approve
+      // wouldn't help (#3056).
+      if (model && localModelBlocked(ctx, model)) return localPolicyRefusal(ctx);
+      if (!ctx.localModels) return undefined;
       const entry = ctx.localModels.find(
         (candidate) => candidate.id === model && localSttProvider(candidate) === provider
       );
@@ -1054,6 +1134,12 @@ export function sttSelectionIssue(
         if (provider && !streams) return { reasonKey: "modelPicker.stt.reasons.needsStreaming" };
       } else if (surface === "fileTranscription" && STREAMING_ONLY_PROVIDERS.has(provider)) {
         return { reasonKey: "modelPicker.stt.reasons.liveOnly" };
+      } else if (
+        surface === "dictation" &&
+        isUploadOnlyTranscriptionModel(provider, current.cloudModel)
+      ) {
+        // Deepgram via OpenRouter gets no dictionary, so only uploads offer it.
+        return { reasonKey: "modelPicker.stt.reasons.uploadOnly" };
       }
       if (
         (STT_PICKER_PROVIDERS as readonly string[]).includes(provider) &&

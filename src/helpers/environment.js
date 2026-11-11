@@ -85,6 +85,8 @@ const PERSISTED_KEYS = [
   // warn or debug), how many days logs are kept, and whether they may include
   // dictated text. Persisted so a full rewrite of .env keeps them.
   ...LOG_SETTING_KEYS,
+  // "bundled" turns off model catalog updates (Settings privacy toggle, or managed installs)
+  "OPENWHISPR_MODEL_REGISTRY_MODE",
 ];
 
 // Module-level so writes are serialized across all instances — hotkeyManager
@@ -688,6 +690,16 @@ class EnvironmentManager {
     await this._writeEnvFileAtomic(envPath);
     require("dotenv").config({ path: envPath });
     return { success: true, path: envPath };
+  }
+
+  // Off keeps the app on its bundled model catalog: no cached update, no network check.
+  saveModelRegistryUpdates(enabled) {
+    if (enabled) {
+      delete process.env.OPENWHISPR_MODEL_REGISTRY_MODE;
+      return this.removeKeyFromEnvFile("OPENWHISPR_MODEL_REGISTRY_MODE");
+    }
+    process.env.OPENWHISPR_MODEL_REGISTRY_MODE = "bundled";
+    return this._writeEnvFileAtomic(path.join(app.getPath("userData"), ".env"));
   }
 
   async clearAllPersistedData() {

@@ -21,6 +21,7 @@ import {
 } from "../../utils/snippets";
 import type { CleanupScopeCount } from "../../types/electron";
 import type { DictionaryCoverage } from "./useDictionaryCoverage";
+import { speechDictionaryNoticeText } from "./speechDictionaryNotice";
 import {
   CLEANUP_SET_KEYS,
   approxTokens,
@@ -221,6 +222,10 @@ export default function DictionaryWhereItGoes({
   const cutText =
     coverage.notSent > 0 ? t("dictionary.where.speech.cut", { count: coverage.notSent }) : null;
   const setName = t(CLEANUP_SET_KEYS[cleanup.applied]);
+  // OpenRouter and a local model that ignores the dictionary get none of it;
+  // Orukeet takes it as hotwords, up to a cap, in its own order.
+  const noticeText = coverage.notice ? speechDictionaryNoticeText(coverage.notice, t) : null;
+  const hotwords = coverage.notice?.kind === "localModelHotwords";
 
   const cell = "min-w-0 px-4 py-3";
   const cellLabel = "text-[11px] text-muted-foreground";
@@ -288,6 +293,15 @@ export default function DictionaryWhereItGoes({
         </div>
       </div>
 
+      {noticeText && (
+        <p
+          data-where-speech-notice={coverage.notice?.kind}
+          className="border-t border-border/60 px-4 py-2 text-[11.5px] leading-snug text-muted-foreground dark:border-white/10"
+        >
+          {noticeText}
+        </p>
+      )}
+
       <div className="border-t border-border/60 dark:border-white/10">
         <button
           type="button"
@@ -332,7 +346,8 @@ export default function DictionaryWhereItGoes({
                 {coverage.budget.unit ? (
                   <>
                     <li>{t("dictionary.where.speech.bias")}</li>
-                    <li>{t("dictionary.where.speech.order")}</li>
+                    {/* Orukeet's order is the notice's: personal, teamspaces, workspace. */}
+                    {!hotwords && <li>{t("dictionary.where.speech.order")}</li>}
                     {readText && <li>{t("dictionary.where.speech.tail")}</li>}
                     {cutText && <li>{cutText}</li>}
                   </>

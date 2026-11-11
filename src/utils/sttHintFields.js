@@ -43,6 +43,7 @@ import {
 import {
   WHISPER_DECODER_PROMPT_CHARS,
   dictionaryPromptLimit,
+  dictionaryReachesTranscriptionModel,
   trimDictionaryPrompt,
 } from "./dictionaryPromptCap.js";
 import {
@@ -296,6 +297,11 @@ export function buildSttHintFields(
     const modelName = typeof model === "string" ? model : "";
     const providerId = provider || "openai";
     const endpointUrl = typeof endpoint === "string" ? endpoint : "";
+    // OpenRouter drops `prompt` (dictionaryPromptCap): live dictation sends nothing
+    // there, script bias included, and runs no echo check.
+    if (!dictionaryReachesTranscriptionModel(endpointUrl)) {
+      return finish(fields, noneCoverage(plan(dictionary, {})), NO_BUDGET);
+    }
     const maxChars = dictionaryPromptLimit({
       provider: providerId,
       endpoint: endpointUrl,

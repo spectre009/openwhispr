@@ -40,6 +40,7 @@ const ALL_KEYS = {
   tinfoil: true,
   deepgram: true,
   assemblyai: true,
+  openrouter: true,
   "azure-speech": true,
 };
 
@@ -111,6 +112,7 @@ test("a full setup offers every connection the surface can run, in order", async
     "provider:tinfoil",
     "provider:deepgram",
     "provider:assemblyai",
+    "provider:openrouter",
     "provider:azure-speech",
     "custom",
     "local",
@@ -163,6 +165,7 @@ test("a full setup offers every connection the surface can run, in order", async
     "provider:gemini",
     "provider:corti",
     "provider:tinfoil",
+    "provider:openrouter",
     "provider:azure-speech",
     "custom",
     "local",
@@ -430,6 +433,89 @@ test("local lists downloaded models only, named and grouped by organization", as
       "local:orukeet-v0.1.0"
     ).available,
     { reasonKey: "modelPicker.stt.reasons.localUnavailable" }
+  );
+});
+
+// Upstream's picker filtered its local tabs by the organization's allow list (#3056,
+// transcriptionModelPickerCheck.test.js upstream). This picker lists downloaded models
+// only, so the same rules read: an approved model picks; one on disk the organization
+// doesn't approve stays listed (AI Connections still deletes it) and says why; a saved
+// selection it doesn't approve warns with that reason; and nothing is written on open.
+test("an organization's local model allow list (#3056)", async (t) => {
+  const { buildSttPickerOptions, sttSelectionIssue } = await load(t);
+  const allowList = (allowedLocalModels) =>
+    managedPolicy({
+      allowedModes: ["local", "providers"],
+      allowedByokProviders: [],
+      allowedLocalModels,
+    });
+  const blocked = { reasonKey: "models.policy.modelBlocked" };
+
+  // A restricted member: Whisper Base picks, Parakeet on disk stays listed with why.
+  for (const surface of ["dictation", "fileTranscription"]) {
+    const groups = buildSttPickerOptions(surface, context({ policy: allowList(["base"]) }));
+    assert.equal(find(groups, "local:base").available, true, surface);
+    assert.deepEqual(find(groups, "local:parakeet-tdt-0.6b-v3").available, blocked, surface);
+    assert.deepEqual(find(groups, "local:orukeet-v0.1.0").available, blocked, surface);
+  }
+
+  // A saved selection with nothing approved warns on every surface, before "download it":
+  // downloading a model the organization refuses wouldn't help.
+  const savedOruk = (policy, localModels = []) =>
+    context({
+      policy,
+      localModels,
+      current: { mode: "local", localProvider: "nvidia", localModel: "orukeet-v0.1.0" },
+    });
+  for (const surface of ["dictation", "liveRecording", "fileTranscription"]) {
+    assert.deepEqual(sttSelectionIssue(surface, savedOruk(allowList(["base"]))), blocked, surface);
+  }
+  // Approved, the usual rules apply again.
+  assert.deepEqual(sttSelectionIssue("dictation", savedOruk(allowList(["orukeet-v0.1.0"]))), {
+    reasonKey: "modelPicker.stt.reasons.noLocalModel",
+    reasonParams: { engine: "Oruk" },
+    link: {
+      kind: "settings",
+      destination: "connections#connections.localModels",
+      labelKey: "modelPicker.links.openLocalModels",
+    },
+  });
+
+  // A guest, an unmanaged user, and a verdict still loading flag nothing.
+  for (const policy of [UNMANAGED, { status: "loading", policy: null, appVersion: "1.10.3" }]) {
+    const groups = buildSttPickerOptions("dictation", context({ policy }));
+    assert.ok(
+      options(groups)
+        .filter((option) => option.mode === "local" && option.model)
+        .every((option) => option.available === true),
+      policy.status
+    );
+    assert.equal(sttSelectionIssue("dictation", savedOruk(policy, DOWNLOADED)), undefined);
+  }
+
+  // An unsupported Mac: a blank sherpa selection warns (this picker never moves a saved
+  // selection on open), and a refused one names the organization's reason first.
+  const oldMac = { supported: false, minimumMacOSVersion: "15.5" };
+  assert.deepEqual(
+    sttSelectionIssue(
+      "dictation",
+      context({
+        sherpa: oldMac,
+        current: { mode: "local", localProvider: "nvidia", localModel: "" },
+      })
+    ),
+    { reasonKey: "modelPicker.stt.reasons.requiresMacOS", reasonParams: { version: "15.5" } }
+  );
+  assert.deepEqual(
+    sttSelectionIssue(
+      "dictation",
+      context({
+        policy: allowList(["base"]),
+        sherpa: oldMac,
+        current: { mode: "local", localProvider: "nvidia", localModel: "parakeet-tdt-0.6b-v3" },
+      })
+    ),
+    blocked
   );
 });
 

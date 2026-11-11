@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import logger from "../utils/logger";
 import { dictionaryWordKey } from "../utils/dictionaryWordKey.js";
-import { useSettingsStore } from "./settingsStore";
+import { subscribeListsOwner, useSettingsStore } from "./settingsStore";
 import { useDictionarySourcesStore } from "./dictionarySourcesStore";
 import { dictionaryRevision, parseDictionaryReviewReply } from "../utils/dictionaryReview";
 import type { ReviewRequest, ReviewSuggestion } from "../utils/dictionaryReview";
@@ -215,6 +215,27 @@ export function loadCommonWords(): Promise<void> {
 // ─── Applying, and Undo ───
 
 let nextUndoId = 1;
+// Bumped when the personal lists start belonging to another account: Undo
+// steps, kept items and a model's suggestions were made on the previous
+// account's list, and main writes an Undo into the active account's.
+let session = 0;
+
+/** Starts Tidy up's session over: no Undo, summary, kept items or model review. */
+export function resetTidySession(): void {
+  session += 1;
+  cancelModelReview();
+  setState({
+    undo: [],
+    summary: null,
+    refusal: null,
+    kept: new Set<string>(),
+    keptSinceSummary: 0,
+    review: { status: "idle" },
+  });
+}
+
+// A settings store without account scoping (a test's stand-in) has no owner to follow.
+if (typeof subscribeListsOwner === "function") subscribeListsOwner(resetTidySession);
 
 // What main applied, by what it did, whatever kind of choice asked for it: a
 // respell that folded into an existing word is a merge, a removal a removal.
@@ -269,8 +290,11 @@ export async function applyTidy(
     return summary;
   }
   setState({ busy: true, refusal: null });
+  const startedIn = session;
   try {
     const result = await useSettingsStore.getState().applyDictionaryTidy([...ops]);
+    // The lists changed hands meanwhile: nothing here is this session's.
+    if (startedIn !== session) return null;
     const kept = getState().keptSinceSummary;
     if (result.success === false) {
       const summary = { ...summarize([], kept, skipped), failed: ops.length };
@@ -309,6 +333,7 @@ export async function applyTidy(
     return summary;
   } catch (error) {
     logger.warn("Tidy up not applied", { error: (error as Error)?.message }, "settings");
+    if (startedIn !== session) return null;
     const summary = {
       ...summarize([], getState().keptSinceSummary, skipped),
       failed: ops.length,
@@ -326,8 +351,10 @@ export async function undoLastTidy(): Promise<boolean> {
   const entry = undo.at(-1);
   if (!entry || busy) return false;
   setState({ busy: true, refusal: null });
+  const startedIn = session;
   try {
     const result = await useSettingsStore.getState().undoDictionaryTidy(entry.steps);
+    if (startedIn !== session) return false;
     if (result.success === true) {
       setState({
         undo: getState().undo.filter((candidate) => candidate.id !== entry.id),
@@ -347,6 +374,7 @@ export async function undoLastTidy(): Promise<boolean> {
     return false;
   } catch (error) {
     logger.warn("Tidy up undo failed", { error: (error as Error)?.message }, "settings");
+    if (startedIn !== session) return false;
     setState({ refusal: { code: "FAILED" } });
     return false;
   } finally {

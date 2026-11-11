@@ -285,3 +285,23 @@ export function resolveRecordingChromeStyle({
   if (integratedWithPanel || liquidFused) return null;
   return normalized;
 }
+
+/**
+ * The assistant's pill (the agent window) while its take records: the
+ * floating icon's style, and the elapsed time when REC or "Show recording
+ * time" asks for it (REC with its blinking dot). Nothing while it doesn't
+ * record. The time sits beside the waveform, so a pill showing it needs the
+ * wider window.
+ */
+export function resolveAgentPillRecordingLook({ style, showElapsed = false, recording }) {
+  const chromeStyle = resolveRecordingChromeStyle({
+    style,
+    state: recording ? "recording" : "idle",
+  });
+  const rec = chromeStyle === "rec";
+  return {
+    chromeStyle,
+    showTime: Boolean(recording) && (rec || showElapsed === true),
+    recDot: rec,
+  };
+}

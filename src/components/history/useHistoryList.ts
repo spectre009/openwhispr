@@ -309,6 +309,9 @@ export function useHistoryList({
       }),
       api?.onTranscriptionDeleted?.(({ id }) => remove(id)),
       api?.onTranscriptionsCleared?.(() => load()),
+      // Another account's History is in view now (the database's account
+      // scope moved): its rows, and the owner's marks on them.
+      api?.onDatabaseAccountScopeChanged?.(() => load()),
       // A review saved or deleted: the row's rating (and the Flagged filter's answer).
       api?.onHistoryFeedbackChanged?.(({ id }) => refreshRow(id)),
       api?.onDictionaryUpdated?.(() => dictionaryChanged()),

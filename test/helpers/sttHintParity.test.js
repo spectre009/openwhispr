@@ -254,6 +254,7 @@ const target = {
     getCortiClientId: () => "corti-id",
     getCortiClientSecret: () => "corti-secret",
     getAzureSpeechKey: () => "az-key",
+    getOpenrouterKey: () => "or-openrouter",
   },
   whisperManager: {
     serverManager: { isAvailable: () => true },
@@ -738,6 +739,18 @@ test("OpenAI-compatible routes: prompt or keywords[], as live sends them", async
     runBatch,
     { check: (side) => assert.deepEqual(side.requests[0].fields, []) }
   );
+  // OpenRouter's speech models drop a prompt and keywords (#2105): neither side sends them.
+  await assertParity(
+    t,
+    "OpenRouter: no dictionary",
+    baseSettings({
+      cloudTranscriptionProvider: "openrouter",
+      cloudTranscriptionModel: "mistralai/voxtral-mini-transcribe-3-0",
+      cloudTranscriptionBaseUrl: "https://openrouter.ai/api/v1",
+    }),
+    runBatch,
+    { check: (side) => assert.deepEqual(side.requests[0].fields, []) }
+  );
 });
 
 test("Azure Speech: the phrase list, ≤ 199 in head order; a one-word result is kept", async (t) => {
@@ -1169,7 +1182,10 @@ test("pin order and evidence order: live, Re-transcribe and the page agree, head
 
   // More pins than the decoder reads, under Groq's cap: the budget keeps the
   // top pins, and the tail ends with #1, inside the window.
-  const many = Array.from({ length: 50 }, (_, i) => `PinnedProduct${String(i).padStart(2, "0")}Name`);
+  const many = Array.from(
+    { length: 50 },
+    (_, i) => `PinnedProduct${String(i).padStart(2, "0")}Name`
+  );
   setDictionary({
     words: [...many, "Typed Missed"],
     pinned: many.map((pin) => pin.toLowerCase()),

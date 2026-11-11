@@ -38,6 +38,7 @@ const R = {
   localModelOnly: "settingsSearch.reasons.localModelOnly",
   streamingOnly: "settingsSearch.reasons.streamingOnly",
   managerOnly: "settingsSearch.reasons.managerOnly",
+  workspaceOnly: "settingsSearch.reasons.workspaceOnly",
 } as const;
 
 /** Reason keys a descriptor may return, for the locale check. */
@@ -57,6 +58,13 @@ const cloudOn: Rule = (ctx) =>
   ctx.cloudDisabled ? { reason: R.hiddenWhileOff, prerequisite: "privacy.cloud" } : true;
 const signedIn: Rule = all(cloudOn, (ctx) =>
   ctx.isSignedIn ? true : { reason: R.signIn, prerequisite: "account.signIn" }
+);
+// A workspace's own pages show once one is chosen (General offers choosing or creating one).
+const workspaceChosen: Rule = all(signedIn, (ctx) =>
+  ctx.hasWorkspace ? true : { reason: R.workspaceOnly, prerequisite: "workspace.general" }
+);
+const workspaceManager: Rule = all(workspaceChosen, (ctx) =>
+  ctx.canManageWorkspace ? true : { reason: R.managerOnly }
 );
 const agentAllowed: Rule = (ctx) => (ctx.agentAllowed ? true : { reason: R.managedByOrg });
 const requires =
@@ -299,28 +307,96 @@ export const SETTINGS_SEARCH_DESCRIPTORS: readonly SettingDescriptor[] = [
     available: cloudOn,
   }),
 
-  // ── Workspace ────────────────────────────────────────────────────────────
-  page("page.workspace", "workspace", {
-    aliases: ["team", "organization", "org", "company"],
+  // ── Workspace (General, People, Teamspaces, Developer; upstream #2959) ───
+  parent("page.workspace", "settingsModal.groups.workspace", "workspaceGeneral", {
+    descriptionKey: "settingsPage.workspace.description",
+    aliases: ["workspace", "team", "organization", "org", "company"],
     available: signedIn,
   }),
-  ...(["members", "teams", "general", "developer"] as const).map((tab) =>
-    row(`workspace.${tab}`, at("workspace", tab), `settingsPage.workspace.tab.${tab}`, {
-      anchor: "workspace.tabs",
-      fallbackAnchor: "workspace",
+  page("page.workspaceGeneral", "workspaceGeneral", {
+    aliases: ["workspace settings", "workspace general"],
+    available: signedIn,
+  }),
+  row("workspace.general", at("workspaceGeneral"), "settingsPage.workspace.general.nameLabel", {
+    descriptionKey: "settingsPage.workspace.general.subtitleView",
+    aliases: [
+      "workspace name",
+      "rename workspace",
+      "workspace icon",
+      "role",
+      "switch workspace",
+      "choose workspace",
+      "create workspace",
+      "personal",
+    ],
+    available: signedIn,
+  }),
+  row("workspace.owner", at("workspaceGeneral"), "settingsPage.workspace.general.ownerTitle", {
+    descriptionKey: "settingsPage.workspace.general.ownerDescription",
+    anchor: "workspace.general",
+    aliases: ["transfer ownership", "owner", "new owner"],
+    available: workspaceChosen,
+  }),
+  row("workspace.leave", at("workspaceGeneral"), "settingsPage.workspace.general.leaveTitle", {
+    descriptionKey: "settingsPage.workspace.general.leaveDescription",
+    anchor: "workspace.general",
+    aliases: ["leave workspace", "quit workspace"],
+    available: workspaceChosen,
+  }),
+  row("workspace.delete", at("workspaceGeneral"), "settingsPage.workspace.general.dangerTitle", {
+    descriptionKey: "settingsPage.workspace.general.dangerDescription",
+    anchor: "workspace.general",
+    aliases: ["delete workspace", "remove workspace"],
+    available: workspaceChosen,
+  }),
+  page("page.workspacePeople", "workspacePeople", {
+    aliases: ["people", "members", "teammates"],
+    available: workspaceChosen,
+  }),
+  // People's tabs land on the page with their tab chosen (WorkspacePeopleSection's list).
+  ...(["members", "invitations", "guests", "teams"] as const).map((tab) =>
+    row(`workspace.${tab}`, at("workspacePeople", tab), `settingsPage.workspace.tab.${tab}`, {
+      anchor: "workspace.people",
       aliases:
         tab === "members"
-          ? ["invite", "teammates", "users", "people", "seats"]
-          : tab === "teams"
-            ? ["team spaces", "shared notes", "groups"]
-            : tab === "developer"
-              ? ["api keys", "developer", "tokens"]
-              : ["workspace name", "rename workspace", "leave workspace", "delete workspace"],
+          ? ["invite", "teammates", "users", "people", "seats", "roles", "remove member"]
+          : tab === "invitations"
+            ? ["invites", "pending", "resend invite", "cancel invite"]
+            : tab === "guests"
+              ? ["guests", "shared notes", "external", "outside collaborators"]
+              : ["teams", "groups", "create team"],
       available:
-        tab === "developer"
-          ? all(signedIn, (ctx) => (ctx.canManageWorkspace ? true : { reason: R.managerOnly }))
-          : signedIn,
+        tab === "invitations"
+          ? all(workspaceChosen, (ctx) => (ctx.canManageMembers ? true : { reason: R.managerOnly }))
+          : workspaceChosen,
     })
+  ),
+  page("page.workspaceTeamspaces", "workspaceTeamspaces", {
+    aliases: ["teamspaces", "team spaces", "spaces", "shared notes"],
+    available: workspaceChosen,
+  }),
+  row(
+    "workspace.teamspaces",
+    at("workspaceTeamspaces"),
+    "settingsModal.sections.workspaceTeamspaces.description",
+    {
+      descriptionKey: "settingsPage.workspace.teamspaces.subtitleView",
+      aliases: ["create teamspace", "join teamspace", "team spaces", "teamspace members"],
+      available: workspaceChosen,
+    }
+  ),
+  page("page.workspaceDeveloper", "workspaceDeveloper", {
+    aliases: ["api keys", "developer", "tokens"],
+    available: workspaceManager,
+  }),
+  row(
+    "workspace.developer",
+    at("workspaceDeveloper"),
+    "settingsModal.sections.workspaceDeveloper.description",
+    {
+      aliases: ["api keys", "developer", "tokens", "workspace api key"],
+      available: workspaceManager,
+    }
   ),
 
   // ── App & Controls (the old Preferences, split into pages) ───────────────
@@ -1229,6 +1305,11 @@ export const SETTINGS_SEARCH_DESCRIPTORS: readonly SettingDescriptor[] = [
     descriptionKey: "settingsPage.privacy.usageAnalyticsDescription",
     aliases: ["telemetry", "analytics", "tracking", "usage data"],
     available: cloudOn,
+  }),
+  // The signed model catalog (#3081) comes from GitHub, so it stays with Cloud off.
+  row("privacy.modelListUpdates", PRIVACY, "settingsPage.privacy.modelListUpdates", {
+    descriptionKey: "settingsPage.privacy.modelListUpdatesDescription",
+    aliases: ["model list", "model catalog", "model registry", "new models", "retired models"],
   }),
   row("privacy.history", PRIVACY, "settingsPage.privacy.dataRetention", {
     descriptionKey: "settingsPage.privacy.dataRetentionDescription",

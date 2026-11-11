@@ -75,7 +75,7 @@ const ROLE_SPECS = Object.freeze({
         : ["afterMinutes", { minutes: Math.round(p.releaseAfterSec / 60) }];
     },
   },
-  companionPill: { group: "windows" },
+  agentWindow: { group: "windows" },
   meetingOverlay: { group: "windows" },
   permissionGuide: { group: "windows" },
   keyListener: {

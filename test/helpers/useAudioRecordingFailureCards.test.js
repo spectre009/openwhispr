@@ -66,7 +66,7 @@ async function mount(t, extraOptions = {}) {
           previewHides.push(true);
         },
         completeDictationPreview: async () => {},
-        dictationLifecycleStateChanged: () => {},
+        dictationLifecycleStateChanged: async () => true,
         dictationDeliveryStateChanged: () => {},
         openHistoryItem: async (id) => {
           opened.push(id);
@@ -219,13 +219,11 @@ test("no audio stays a short notice", async (t) => {
 // "End empty dictations quietly": the audio manager says how an empty
 // dictation ends (emptyDictation.js); the window shows it.
 async function mountEmpty(t) {
-  const quiet = [];
   const demo = [];
   const h = await mount(t, {
-    onQuietEmptyDictation: (detail) => quiet.push(detail),
     onDemoEvent: (event) => demo.push(event),
   });
-  return { ...h, quiet, demo };
+  return { ...h, demo };
 }
 
 test("a short empty dictation ends quietly: no card, the pill's spin-down", async (t) => {
@@ -236,7 +234,6 @@ test("a short empty dictation ends quietly: no card, the pill's spin-down", asyn
   );
   assert.deepEqual(h.toasts, [], "no card, no toast");
   assert.equal(h.recording().nothingHeardSeq, 1, "the pill plays its spin-down");
-  assert.deepEqual(h.quiet, [{ recoverAssistant: false }]);
   assert.equal(h.previewHides.length, 1, "the preview hides");
   assert.deepEqual(
     h.demo.filter((event) => event.status === "error").map((event) => event.message),
@@ -257,7 +254,6 @@ test("a longer empty dictation says \u201cWe didn\u2019t catch that\u201d for a 
   assert.equal(card.duration, undefined, "transient, never the persistent card");
   assert.equal(card.dismissible, undefined);
   assert.equal(h.recording().nothingHeardSeq, 0);
-  assert.deepEqual(h.quiet, []);
   assert.equal(h.demo.filter((event) => event.status === "error").length, 1);
 });
 
@@ -286,12 +282,14 @@ test("an empty result ends the same way, by what the audio manager decided", asy
   assert.equal(h.toasts.length, 2);
 });
 
-test("a quiet voice command tells the assistant panel its thinking is over", async (t) => {
+// The assistant's own takes record in the agent window (agentWindowVoiceTake);
+// the onboarding demo's voice command is the one left here.
+test("a quiet voice command ends quietly too: no card, the pill's spin-down", async (t) => {
   const h = await mountEmpty(t);
   h.manager.voiceAgentRequested = true;
   await React.act(async () => h.manager.callbacks.onNoAudio({ durationMs: 900, outcome: "quiet" }));
-  assert.deepEqual(h.quiet, [{ recoverAssistant: true }]);
   assert.deepEqual(h.toasts, []);
+  assert.equal(h.recording().nothingHeardSeq, 1);
 });
 
 test("a cleanup failure rides on its dictation's paste-failure card, so both show", async (t) => {

@@ -174,10 +174,10 @@ test("busy while a dictation is prepared, recorded, processed or still delivered
   const { manager } = managerFor();
   assert.equal(manager.isDictationBusy(), false);
   for (const state of ["preparing", "recording", "processing"]) {
-    manager.setDictationLifecycleState(state, "dictation");
+    manager.setDictationLifecycleState(state, undefined, { inputKind: "dictation" });
     assert.equal(manager.isDictationBusy(), true, state);
   }
-  manager.setDictationLifecycleState("idle", "dictation");
+  manager.setDictationLifecycleState("idle", undefined, { inputKind: "dictation" });
   assert.equal(manager.isDictationBusy(), false);
   // Main's lifecycle is idle before the paste and the save that follow it.
   manager.setDictationDeliveryState(true);
@@ -197,16 +197,16 @@ test("the delivery report is forgotten when the dictation window goes away", () 
     ["close", (win) => win.emit("closed")],
   ]) {
     const { manager } = managerFor();
-    const win = fakeWindow();
+    const win = manager.mainWindow;
     manager._registerDictationLifecycleReset(win);
-    manager.setDictationLifecycleState("processing", "dictation");
+    manager.setDictationLifecycleState("processing", undefined, { inputKind: "dictation" });
     manager.setDictationDeliveryState(true);
     goAway(win);
     assert.equal(manager.isDictationBusy(), false, reason);
   }
   // Also when the lifecycle itself was already idle.
   const { manager } = managerFor();
-  const win = fakeWindow();
+  const win = manager.mainWindow;
   manager._registerDictationLifecycleReset(win);
   manager.setDictationDeliveryState(true);
   win.webContents.emit("render-process-gone", {}, { reason: "oom" });
@@ -226,7 +226,7 @@ test("a change of the delivery report is announced like the lifecycle's", () => 
   assert.equal(announced, 2);
 
   // A dictation window gone mid-paste ends the delivery, and says so.
-  const win = fakeWindow();
+  const win = manager.mainWindow;
   manager._registerDictationLifecycleReset(win);
   manager.setDictationDeliveryState(true);
   win.emit("closed");
@@ -238,9 +238,9 @@ test("pressed during a dictation it says why on the pill and does nothing else",
   const panel = fakeWindow();
   const { manager, calls, owners } = managerFor({ panel });
   for (const busy of [
-    () => manager.setDictationLifecycleState("recording", "dictation"),
+    () => manager.setDictationLifecycleState("recording", undefined, { inputKind: "dictation" }),
     () => {
-      manager.setDictationLifecycleState("idle", "dictation");
+      manager.setDictationLifecycleState("idle", undefined, { inputKind: "dictation" });
       manager.setDictationDeliveryState(true);
     },
   ]) {
@@ -301,7 +301,7 @@ test("a card's Open in History opens that row with no review, never refused as b
   const panel = fakeWindow();
   const { manager, calls, owners } = managerFor({ panel });
   // A newer dictation is being recorded and the last one still delivered.
-  manager.setDictationLifecycleState("recording", "dictation");
+  manager.setDictationLifecycleState("recording", undefined, { inputKind: "dictation" });
   manager.setDictationDeliveryState(true);
   assert.equal(manager.isDictationBusy(), true);
 

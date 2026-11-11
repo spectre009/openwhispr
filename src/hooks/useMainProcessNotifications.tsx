@@ -1,6 +1,5 @@
 import { useEffect } from "react";
 import type { TFunction } from "i18next";
-import { ToastActionButton } from "../components/ui/Toast";
 import type { ToastContextType } from "../components/ui/useToast";
 
 /**
@@ -44,20 +43,21 @@ export function useMainProcessNotifications({
         title: t("app.toasts.gpuFallback.title"),
         description: t("app.toasts.gpuFallback.description"),
         duration: 10000,
-        action: (
-          <ToastActionButton
-            onClick={async () => {
+        actions: [
+          {
+            label: t("app.toasts.gpuFallback.retry"),
+            icon: "retry",
+            dismissOnClick: false,
+            onClick: async () => {
               try {
                 const result = await window.electronAPI?.whisperGpuRetry?.();
                 if (result?.success) dismiss(toastId);
               } catch {
                 // silently fail — toast stays up for another attempt
               }
-            }}
-          >
-            {t("app.toasts.gpuFallback.retry")}
-          </ToastActionButton>
-        ),
+            },
+          },
+        ],
       });
     };
     const unsubscribeCudaFallback =
@@ -73,27 +73,20 @@ export function useMainProcessNotifications({
           title: t("app.toasts.addedToDict", { words: wordList }),
           variant: "success",
           duration: 6000,
-          action: (
-            <button
-              onClick={async () => {
+          actions: [
+            {
+              label: t("app.toasts.undo"),
+              dismissOnClick: false,
+              onClick: async () => {
                 try {
                   const result = await window.electronAPI?.undoLearnedCorrections?.(words);
-                  if (result?.success) {
-                    dismiss(toastId);
-                  }
+                  if (result?.success) dismiss(toastId);
                 } catch {
                   // silently fail — word stays in dictionary
                 }
-              }}
-              className="text-[10px] font-medium px-2.5 py-1 rounded-sm whitespace-nowrap
-                text-emerald-100/90 hover:text-white
-                bg-emerald-500/15 hover:bg-emerald-500/25
-                border border-emerald-400/20 hover:border-emerald-400/35
-                transition-all duration-150"
-            >
-              {t("app.toasts.undo")}
-            </button>
-          ),
+              },
+            },
+          ],
         });
       }
     });
@@ -108,30 +101,26 @@ export function useMainProcessNotifications({
       toastId = toast({
         title: t("app.toasts.suggestedForDict", { words }),
         duration: 8000,
-        action: (
-          <div className="flex items-center gap-1.5">
-            <ToastActionButton
-              onClick={() => {
-                void window.electronAPI?.openDictionarySuggestions?.();
-                dismiss(toastId);
-              }}
-            >
-              {t("app.toasts.reviewSuggestions")}
-            </ToastActionButton>
-            <ToastActionButton
-              onClick={async () => {
-                try {
-                  const result = await window.electronAPI?.acceptDictionarySuggestions?.(ids);
-                  if (result?.success) dismiss(toastId);
-                } catch {
-                  // The suggestion stays in the inbox.
-                }
-              }}
-            >
-              {t("app.toasts.addSuggested")}
-            </ToastActionButton>
-          </div>
-        ),
+        actions: [
+          {
+            label: t("app.toasts.reviewSuggestions"),
+            onClick: () => {
+              void window.electronAPI?.openDictionarySuggestions?.();
+            },
+          },
+          {
+            label: t("app.toasts.addSuggested"),
+            dismissOnClick: false,
+            onClick: async () => {
+              try {
+                const result = await window.electronAPI?.acceptDictionarySuggestions?.(ids);
+                if (result?.success) dismiss(toastId);
+              } catch {
+                // The suggestion stays in the inbox.
+              }
+            },
+          },
+        ],
       });
     });
 

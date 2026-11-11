@@ -16,6 +16,7 @@ import {
   useOpenWhisprCloudDisabled,
 } from "../../../stores/openWhisprCloudStore";
 import { LOCAL_MODELS_CHANGED_EVENT } from "../../../hooks/useModelDownload";
+import { useRegistryVersion } from "../../../hooks/useRegistryVersion";
 import { WHISPER_MODEL_INFO, PARAKEET_MODEL_INFO } from "../../../models/ModelRegistry";
 import type { InferenceMode } from "../../../types/electron";
 import { formatBytes } from "../../../utils/formatBytes";
@@ -155,6 +156,7 @@ export function useSttPickerContext(
     useShallow((s) => sttCurrentFrom(surface, selectPolicyEffectiveSettings(s, policy)))
   );
   const visible = useSettingsVisible();
+  const registryVersion = useRegistryVersion();
 
   const [lists, setLists] = useState<LocalLists>({ whisper: null, sherpa: null });
   const [sherpa, setSherpa] = useState<SttPickerContext["sherpa"]>(undefined);
@@ -264,6 +266,7 @@ export function useSttPickerContext(
       rememberedCustomModel,
       connection,
       managedAvailable,
+      registryVersion,
       current: { mode: effectiveMode, ...resolved },
     }),
     [
@@ -276,6 +279,7 @@ export function useSttPickerContext(
       rememberedCustomModel,
       connection,
       managedAvailable,
+      registryVersion,
       effectiveMode,
       resolved,
     ]

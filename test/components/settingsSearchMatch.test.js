@@ -198,7 +198,8 @@ test("breadcrumbs follow the nav tree: parent, page and block", async () => {
     "Notifications",
   ]);
   assert.deepEqual(byId("assistant.model").path, ["Voice Assistant"]);
-  assert.deepEqual(byId("workspace.members").path, ["Workspace", "Members"]);
+  // Workspace is a parent of pages now (#2959): People holds the Members tab.
+  assert.deepEqual(byId("workspace.members").path, ["Workspace", "People", "Members"]);
   // A page shows its parent; a top-level page and a parent show nothing.
   assert.deepEqual(byId("page.speechToText.dictation").path, ["Dictation"]);
   assert.deepEqual(byId("page.llms.dictationAgent").path, []);

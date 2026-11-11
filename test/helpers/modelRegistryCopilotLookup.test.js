@@ -1,7 +1,9 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
-const modelRegistryData = require("../../src/models/modelRegistryData.json");
+// The catalog the app reads: the signed registry's plus the fork's providers
+// (forkCatalogProviders.js), retired models left out.
+const { registryData: modelRegistryData } = require("../../src/models/registryData.js");
 
 const load = () => import("../../src/models/ModelRegistry.ts");
 

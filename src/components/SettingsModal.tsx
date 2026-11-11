@@ -1,12 +1,17 @@
 import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useShallow } from "zustand/react/shallow";
 import { usePolicyStore } from "../stores/policyStore";
 import { isAgentAllowed } from "../stores/policyRules";
 import { useConnectionHealthStore } from "../stores/connectionHealthStore";
+import { useWorkspaceStore } from "../stores/workspaceStore";
 import { ShieldCheck } from "./icons";
 import SettingsLayer, { type SettingsNavGroup } from "./settings/SettingsLayer";
-import SettingsPage, { AccountAvatar } from "./SettingsPage";
+import SettingsPage from "./SettingsPage";
+import WorkspaceSwitcher from "./WorkspaceSwitcher";
 import { useAuth } from "../hooks/useAuth";
+import { workspaceCan } from "../lib/capabilities";
+import { settingsWorkspace } from "../lib/workspaceSwitcher";
 import { useOpenWhisprCloudDisabled } from "../stores/openWhisprCloudStore";
 import {
   SETTINGS_PAGES,
@@ -66,6 +71,8 @@ interface SettingsModalProps {
   onOpenSearch: () => void;
   /** A nav link or search result that lives outside Settings (Dictionary, Integrations). */
   onOpenElsewhere?: (location: ElsewhereLocation) => void;
+  /** Takes the user to a teamspace in Notes; the host leaves Settings. */
+  onOpenTeamspace?: (localSpaceId: number) => void;
   returnFocusRef?: React.RefObject<HTMLElement | null>;
   getFallbackFocus?: () => HTMLElement | null;
 }
@@ -79,26 +86,60 @@ export default function SettingsModal({
   onSelectView,
   onOpenSearch,
   onOpenElsewhere,
+  onOpenTeamspace,
   returnFocusRef,
   getFallbackFocus,
 }: SettingsModalProps) {
   const { t } = useTranslation();
-  const { isSignedIn, user } = useAuth();
+  const { isSignedIn } = useAuth();
   const cloudDisabled = useOpenWhisprCloudDisabled();
   const agentAllowed = usePolicyStore(isAgentAllowed);
   const policyManaged = usePolicyStore((s) => s.managed);
   // AI Connections' dot: set by its page from its last checks (connectionHealth.ts).
   const connectionsFlag = useConnectionHealthStore((s) => s.flag);
-  // What decides which pages show: account pages need Cloud (Workspace also a
-  // sign-in), the voice assistant and chat need the organization's policy.
-  const pageCtx: SettingsPageContext = useMemo(
-    () => ({ cloudDisabled, isSignedIn: !!isSignedIn, agentAllowed }),
-    [cloudDisabled, isSignedIn, agentAllowed]
+  const { workspaces, activeWorkspaceId, personalSelected, workspacesLoaded } = useWorkspaceStore(
+    useShallow((s) => ({
+      workspaces: s.workspaces,
+      activeWorkspaceId: s.activeWorkspaceId,
+      personalSelected: s.personalSelected,
+      workspacesLoaded: s.loaded,
+    }))
   );
+  const signedIn = Boolean(isSignedIn);
+  // The workspace Settings manages; none while in Personal, so its pages never show another one.
+  const activeWorkspace = settingsWorkspace(workspaces, activeWorkspaceId, personalSelected);
+  const hasWorkspace = activeWorkspace !== null;
+  const canManageWorkspace = activeWorkspace
+    ? workspaceCan(activeWorkspace, "manage_settings")
+    : false;
+  // What decides which pages show: account pages need Cloud (Workspace also a
+  // sign-in, its People, Teamspaces and Developer a chosen workspace, Developer
+  // its manage_settings), the voice assistant and chat need the organization's policy.
+  const navCtx: SettingsPageContext = useMemo(
+    () => ({
+      cloudDisabled,
+      isSignedIn: signedIn,
+      agentAllowed,
+      hasWorkspace,
+      canManageWorkspace,
+    }),
+    [cloudDisabled, signedIn, agentAllowed, hasWorkspace, canManageWorkspace]
+  );
+  // Until the workspace list loads, which workspace pages exist is unknown: a
+  // destination naming one waits for the list instead of falling back to General.
+  const navKnown = !signedIn || workspacesLoaded;
+  const pageCtx: SettingsPageContext = useMemo(
+    () =>
+      navKnown ? navCtx : { ...navCtx, hasWorkspace: undefined, canManageWorkspace: undefined },
+    [navKnown, navCtx]
+  );
+  // The workspace picker at the top of the nav; General's "Choose workspace" opens it too.
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const showWorkspaceSwitcher = signedIn && !cloudDisabled;
 
   const navGroups: SettingsNavGroup<SettingsPageId>[] = useMemo(
     () =>
-      visibleSettingsNav(pageCtx).map((group) => ({
+      visibleSettingsNav(navCtx).map((group) => ({
         id: group.id,
         label: t(group.labelKey),
         items: group.items.map((item) => {
@@ -141,7 +182,7 @@ export default function SettingsModal({
           };
         }),
       })),
-    [t, pageCtx, onOpenElsewhere, connectionsFlag]
+    [t, navCtx, onOpenElsewhere, connectionsFlag]
   );
 
   // Settings stays mounted between opens: each named request navigates once,
@@ -178,8 +219,9 @@ export default function SettingsModal({
     [pageCtx]
   );
   // A page that's hidden now (the account & Cloud switch turned off while an
-  // account page is open, a sign-out, the agent policy) shows its fallback,
-  // without forgetting what was asked for.
+  // account page is open, a sign-out, the agent policy, the workspace left or
+  // its manage_settings revoked) shows its fallback, without forgetting what
+  // was asked for.
   const shownPage = shownSettingsPage(current.page, pageCtx);
 
   // ── Settings search ────────────────────────────────────────────────────────
@@ -330,19 +372,20 @@ export default function SettingsModal({
           />
         ) : undefined
       }
+      // Who is signed in shows on the Account page; the nav's top picks the workspace.
       header={
-        isSignedIn && user ? (
-          <div className="flex flex-col items-center gap-2 pb-2 text-center">
-            <AccountAvatar image={user.image} name={user.name || t("settingsPage.account.user")} />
-            <div className="min-w-0 w-full">
-              <p dir="auto" className="text-[13px] font-semibold text-foreground truncate">
-                {user.name || t("settingsPage.account.user")}
-              </p>
-              <p className="text-xs text-muted-foreground truncate">
-                <bdi dir="ltr">{user.email}</bdi>
-              </p>
-            </div>
-          </div>
+        showWorkspaceSwitcher ? (
+          <WorkspaceSwitcher placement="settings" open={pickerOpen} onOpenChange={setPickerOpen} />
+        ) : undefined
+      }
+      compactHeader={
+        showWorkspaceSwitcher ? (
+          <WorkspaceSwitcher
+            placement="settings"
+            compact
+            open={pickerOpen}
+            onOpenChange={setPickerOpen}
+          />
         ) : undefined
       }
       notice={
@@ -362,6 +405,8 @@ export default function SettingsModal({
           onOpenElsewhere={onOpenElsewhere}
           initialSubTab={current.subTab}
           subTabRequestId={current.navigationId}
+          onChooseWorkspace={() => setPickerOpen(true)}
+          onOpenTeamspace={onOpenTeamspace}
         />
       </SettingsLinkContext.Provider>
     </SettingsLayer>

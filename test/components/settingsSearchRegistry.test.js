@@ -139,24 +139,25 @@ test("settings land on an anchor, pages and app pages navigate", async () => {
   }
 });
 
-test("every location is a real page (and Workspace tab)", async () => {
-  const { SETTINGS_SEARCH_DESCRIPTORS, WORKSPACE_SUB_TABS } = await load();
+test("every location is a real page (and People tab)", async () => {
+  const { SETTINGS_SEARCH_DESCRIPTORS, PEOPLE_SUB_TABS } = await load();
   const { SETTINGS_PAGE_IDS } = await loadPages();
-  // The Workspace tab list mirrors the one WorkspaceSection renders.
+  // The People tab list mirrors the one WorkspacePeopleSection renders.
   const read = (file) => fs.readFileSync(path.join(COMPONENTS, file), "utf8");
   const list = (text, pattern) =>
     [...(text.match(pattern)?.[1] ?? "").matchAll(/"([^"]+)"/g)].map((m) => m[1]);
-  assert.deepEqual(list(read("settings/WorkspaceSection.tsx"), /const SUB_TABS = \[([^\]]*)\]/), [
-    ...WORKSPACE_SUB_TABS,
-  ]);
+  assert.deepEqual(
+    list(read("settings/WorkspacePeopleSection.tsx"), /const PEOPLE_TABS = \[([^\]]*)\]/),
+    [...PEOPLE_SUB_TABS]
+  );
 
   for (const { id, location } of SETTINGS_SEARCH_DESCRIPTORS) {
     if (!location) continue;
     assert.ok(SETTINGS_PAGE_IDS.includes(location.page), `${id}: ${location.page}`);
     assert.ok(!("section" in location), `${id} names a page, not a section`);
     if (location.subTab) {
-      assert.equal(location.page, "workspace", `${id}: only Workspace has tabs`);
-      assert.ok(WORKSPACE_SUB_TABS.includes(location.subTab), `${id}: ${location.subTab}`);
+      assert.equal(location.page, "workspacePeople", `${id}: only People has tabs`);
+      assert.ok(PEOPLE_SUB_TABS.includes(location.subTab), `${id}: ${location.subTab}`);
     }
   }
 });
@@ -272,7 +273,14 @@ const CONTEXTS = [
     ),
     localLlm: { dictationCleanup: false },
   }),
-  makeContext({ platform: "linux", isWayland: true, canManageWorkspace: false }),
+  makeContext({
+    platform: "linux",
+    isWayland: true,
+    canManageWorkspace: false,
+    canManageMembers: false,
+  }),
+  // Signed in while in Personal: the workspace's own pages wait for a chosen workspace.
+  makeContext({ hasWorkspace: false, canManageWorkspace: false, canManageMembers: false }),
 ];
 
 test("every unavailable result names a reason and an existing prerequisite", async () => {
@@ -406,6 +414,40 @@ test("platform, mode and parent rows explain themselves", async () => {
   assert.equal(
     reason("dictation.stt.gpu").reason,
     "Shown on computers with more than one NVIDIA GPU."
+  );
+});
+
+test("workspace results: People's tabs land on their tab, and wait for a chosen workspace", async () => {
+  const { findSettingDescriptor, settingsSearchAction } = await load();
+  // The ids the single Workspace page had still open their place.
+  assert.deepEqual(settingsSearchAction({ id: "workspace.members" }), {
+    kind: "navigate",
+    location: { page: "workspacePeople", subTab: "members" },
+    settingId: "workspace.members",
+    destination: "#workspace.members",
+  });
+  assert.equal(findSettingDescriptor("workspace.general").location.page, "workspaceGeneral");
+  assert.equal(findSettingDescriptor("workspace.developer").location.page, "workspaceDeveloper");
+
+  const personal = await searchIndex(
+    makeContext({ hasWorkspace: false, canManageWorkspace: false, canManageMembers: false })
+  );
+  const entry = (id) => personal.index.find((candidate) => candidate.id === id);
+  for (const id of ["workspace.members", "workspace.guests", "page.workspaceTeamspaces"]) {
+    assert.equal(entry(id).unavailable?.prerequisite, "workspace.general", id);
+  }
+  assert.equal(entry("workspace.general").unavailable, undefined, "General is where to choose one");
+
+  const member = await searchIndex(makeContext({ canManageWorkspace: false, canManageMembers: false }));
+  const memberEntry = (id) => member.index.find((candidate) => candidate.id === id);
+  assert.equal(memberEntry("workspace.members").unavailable, undefined);
+  assert.equal(
+    memberEntry("workspace.invitations").unavailable?.reason,
+    "Shown to workspace owners and admins."
+  );
+  assert.equal(
+    memberEntry("page.workspaceDeveloper").unavailable?.reason,
+    "Shown to workspace owners and admins."
   );
 });
 

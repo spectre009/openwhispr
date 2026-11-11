@@ -121,18 +121,28 @@ test("the cold-start drain opens the waiting destination; a bare show keeps the 
   calls.length = 0;
   await drainPendingSettingsSection(() => undefined, open, true);
   assert.deepEqual(calls, [[]], "a preload without the IPC still opens Settings");
+
+  // An Integrations section is a view, not a Settings page (upstream's open-settings-section).
+  calls.length = 0;
+  const integrations = [];
+  const openIntegrations = (section) => integrations.push(section);
+  await drainPendingSettingsSection(async () => "integrations.calendars", open, false, openIntegrations);
+  assert.deepEqual(integrations, ["calendars"]);
+  assert.deepEqual(calls, [], "Settings stays closed");
+  await drainPendingSettingsSection(async () => "privacyData", open, false, openIntegrations);
+  assert.deepEqual(calls, [["privacyData"]]);
 });
 
-// SettingsPage is too large to render here: Workspace re-applies its tab on
+// SettingsPage is too large to render here: People re-applies its tab on
 // every navigation id, and Hotkeys → a style asks Style Studio for focus
 // before opening Styles.
-test("SettingsPage re-applies a Workspace tab on every navigation; Hotkeys opens Styles", () => {
+test("SettingsPage re-applies a People tab on every navigation; Hotkeys opens Styles", () => {
   const fs = require("node:fs");
   const path = require("node:path");
   const read = (file) => fs.readFileSync(path.join(__dirname, "../../src", file), "utf8");
   const page = read("components/SettingsPage.tsx");
   assert.equal(page.match(/requestId=\{subTabRequestId\}/g)?.length, 1);
-  assert.match(page, /initialSubTab=\{page === "workspace" \? initialSubTab : undefined\}/);
+  assert.match(page, /initialSubTab=\{page === "workspacePeople" \? initialSubTab : undefined\}/);
   assert.match(
     page,
     /requestStyleFocus\(styleId \?\? STYLE_LIST_FOCUS\);\s*onNavigate\?\.\("styles"\);/
@@ -209,8 +219,8 @@ test("a search result inside Settings navigates with the setting to land on", as
   // The same result again is a new navigation, so it lands again.
   state = navigateWithinSettings(state, "assistant", undefined, "assistant.screenContext");
   assert.equal(state.navigationId, id + 1);
-  // A Workspace tab is carried.
-  state = navigateWithinSettings(state, "workspace", "members", "workspace.members");
+  // A People tab is carried.
+  state = navigateWithinSettings(state, "workspacePeople", "members", "workspace.members");
   assert.equal(state.subTab, "members");
 });
 

@@ -12,6 +12,7 @@ import { useManagedScopeResolution } from "../../../stores/enterpriseIdentitySto
 import { useCopilotModels } from "../../../hooks/useCopilotModels";
 import { useTinfoilModels } from "../../../hooks/useTinfoilModels";
 import { LOCAL_MODELS_CHANGED_EVENT } from "../../../hooks/useModelDownload";
+import { useRegistryVersion } from "../../../hooks/useRegistryVersion";
 import { isCopilotScopeSupported } from "../../../config/copilot";
 import type { InferenceScope } from "../../../config/inferenceScopes";
 import type { InferenceMode, LocalLLMModelStatus } from "../../../types/electron";
@@ -70,6 +71,7 @@ export function useLlmPickerContext(
   const enterpriseSetupMode = useSettingsStore((s) => s.enterpriseSetupMode);
   const managedResolution = useManagedScopeResolution(scope, "managed");
   const visible = useSettingsVisible();
+  const registryVersion = useRegistryVersion();
 
   const copilotSupported = isCopilotScopeSupported(scope);
   const copilotStatus = useCopilotStore((state) => state.status);
@@ -152,6 +154,7 @@ export function useLlmPickerContext(
           ? { provider: managedProvider, model: managedModel }
           : null,
       connection,
+      registryVersion,
     }),
     [
       policy,
@@ -170,6 +173,7 @@ export function useLlmPickerContext(
       managedProvider,
       managedModel,
       connection,
+      registryVersion,
     ]
   );
 

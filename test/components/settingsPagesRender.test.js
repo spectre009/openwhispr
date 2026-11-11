@@ -199,14 +199,11 @@ test(
     assert.deepEqual(shown(), ["cleanup"], "used once: the default page now");
 
     // Every page, by its id; each keeps the ones before it mounted.
+    // Signed out with Cloud on, the workspace pages fall back to Profile.
+    const isWorkspacePage = (page) => page.startsWith("workspace");
     for (const page of SETTINGS_PAGE_IDS) {
       await render({ section: page, id: id++ });
-      const expected = ["account", "plansBilling", "workspace"].includes(page)
-        ? // Signed out with Cloud on: Workspace falls back to Profile.
-          page === "workspace"
-          ? "account"
-          : page
-        : page;
+      const expected = isWorkspacePage(page) ? "account" : page;
       assert.deepEqual(shown(), [expected], `${page} shows alone`);
       assert.ok(
         body(expected).querySelector("[data-settings-page-header] h2"),
@@ -215,7 +212,7 @@ test(
       assert.ok(body(expected).textContent.trim().length > 0, `${page} has a body`);
     }
     for (const page of SETTINGS_PAGE_IDS) {
-      if (page === "workspace") continue;
+      if (isWorkspacePage(page)) continue;
       assert.ok(body(page), `${page} stayed mounted`);
     }
 
@@ -291,7 +288,7 @@ test(
       "page",
       "the parent row stands in for its hidden page"
     );
-    await render({ section: "uploadTranscription", id: id++ });
+    await render({ section: "uploadTranscription", id });
     assert.deepEqual(shown(), ["fileTranscription"]);
     assert.equal(toggle("notes").getAttribute("aria-expanded"), "true");
     assert.equal(

@@ -59,6 +59,34 @@ const ALLOWED_SCROLLERS = [
       'className="max-h-[min(420px,var(--radix-popover-content-available-height))] overflow-y-auto pb-1"',
     why: "the model picker's menu, a popup portaled outside the page",
   },
+  // Upstream's team settings (#3110), all inside the Team settings dialog or a popup.
+  {
+    file: "settings/TeamSettingsDialog.tsx",
+    snippet: 'className="max-h-[85vh] max-w-md gap-5 overflow-y-auto rounded-[28px] p-5"',
+    why: "a dialog",
+  },
+  {
+    file: "settings/TeamMembersPanel.tsx",
+    snippet: 'const ROWS_SCROLLER = "max-h-[clamp(9rem,calc(85vh-25rem),22rem)] overflow-y-auto";',
+    why: "the members table inside the Team settings dialog",
+  },
+  {
+    file: "settings/TeamSpacesPanel.tsx",
+    snippet:
+      'className="max-h-64 overflow-y-auto outline-none focus-visible:ring-2 focus-visible:ring-ring/40"',
+    why: "the teamspaces table inside the Team settings dialog",
+  },
+  {
+    file: "settings/TeamSpacesPanel.tsx",
+    snippet:
+      'className="max-h-[min(18rem,var(--radix-popover-content-available-height))] w-[var(--radix-popover-trigger-width)] min-w-0 overflow-y-auto rounded-xl p-1.5"',
+    why: "the add-teamspace search's popup",
+  },
+  {
+    file: "settings/WorkspaceGuestsTab.tsx",
+    snippet: 'className="max-h-72 w-72 overflow-y-auto p-1.5"',
+    why: "a guest's invite-to menu, a popup portaled outside the page",
+  },
 ];
 
 const VERTICAL_SCROLL = /\boverflow-(?:y-)?(?:auto|scroll)\b|overflowY:\s*["'](?:auto|scroll)["']/;

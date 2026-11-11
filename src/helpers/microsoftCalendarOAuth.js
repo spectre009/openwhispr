@@ -36,13 +36,14 @@ class MicrosoftCalendarOAuth {
     return process.env.MICROSOFT_CALENDAR_CLIENT_ID;
   }
 
-  startOAuthFlow() {
+  startOAuthFlow({ signal } = {}) {
     if (!this.getClientId()) {
       // Fail fast instead of opening the browser on a client_id=undefined URL
       // and hanging until the loopback flow times out.
       throw new Error("MICROSOFT_CALENDAR_CLIENT_ID is not configured");
     }
     return runOAuthLoopbackFlow({
+      signal,
       errorParam: "mcal_error",
       renderResultPage: calendarResultPage("Outlook Calendar"),
       buildAuthUrl: (redirectUri, state, codeChallenge) => {
@@ -61,7 +62,8 @@ class MicrosoftCalendarOAuth {
         return `${MICROSOFT_AUTH_URL}?${params.toString()}`;
       },
       handleCallback: async (code, redirectUri, codeVerifier) => {
-        const tokenData = await this.exchangeCodeForTokens(code, redirectUri, codeVerifier);
+        const tokenData = await this.exchangeCodeForTokens(code, redirectUri, codeVerifier, signal);
+        signal?.throwIfAborted();
 
         if (tokenData.error) {
           throw new OAuthFlowError(
@@ -70,7 +72,8 @@ class MicrosoftCalendarOAuth {
           );
         }
 
-        const email = await this._resolveEmail(tokenData);
+        const email = await this._resolveEmail(tokenData, signal);
+        signal?.throwIfAborted();
         if (!email) {
           throw new OAuthFlowError(
             "no_email",
@@ -84,7 +87,7 @@ class MicrosoftCalendarOAuth {
     });
   }
 
-  async exchangeCodeForTokens(code, redirectUri, codeVerifier) {
+  async exchangeCodeForTokens(code, redirectUri, codeVerifier, signal) {
     const body = new URLSearchParams({
       code,
       client_id: this.getClientId(),
@@ -93,7 +96,7 @@ class MicrosoftCalendarOAuth {
       code_verifier: codeVerifier,
     }).toString();
 
-    return this._httpsPost(MICROSOFT_TOKEN_URL, body);
+    return this._httpsPost(MICROSOFT_TOKEN_URL, body, signal);
   }
 
   async refreshAccessToken(refreshToken) {
@@ -158,7 +161,7 @@ class MicrosoftCalendarOAuth {
 
   // Work accounts often omit the id_token "email" claim; fall back to
   // preferred_username, then Graph /me.
-  async _resolveEmail(tokenData) {
+  async _resolveEmail(tokenData, signal) {
     const payload = decodeIdToken(tokenData.id_token);
     if (payload?.email) return payload.email;
     if (payload?.preferred_username?.includes("@")) return payload.preferred_username;
@@ -166,7 +169,9 @@ class MicrosoftCalendarOAuth {
     try {
       const response = await net.fetch("https://graph.microsoft.com/v1.0/me", {
         headers: { Authorization: `Bearer ${tokenData.access_token}` },
-        signal: AbortSignal.timeout(10000),
+        signal: signal
+          ? AbortSignal.any([signal, AbortSignal.timeout(10000)])
+          : AbortSignal.timeout(10000),
         useSessionCookies: false,
       });
       const me = await response.json();
@@ -176,12 +181,14 @@ class MicrosoftCalendarOAuth {
     }
   }
 
-  async _httpsPost(urlString, body) {
+  async _httpsPost(urlString, body, signal) {
     const response = await net.fetch(urlString, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body,
-      signal: AbortSignal.timeout(10000),
+      signal: signal
+        ? AbortSignal.any([signal, AbortSignal.timeout(10000)])
+        : AbortSignal.timeout(10000),
       useSessionCookies: false,
     });
     const text = await response.text();

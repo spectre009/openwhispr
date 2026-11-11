@@ -137,6 +137,22 @@ test("connection checks, the renderer's model", { timeout: 60000 }, async (t) =>
     // Saved but unused: checked too, with no models to compare.
     assert.deepEqual(descriptorOf(plan, "provider:gemini").models, []);
     assert.equal(descriptorOf(plan, "provider:openrouter").route, "https://openrouter.ai/api/v1");
+    // OpenRouter for speech-to-text (#2105): its check compares the speech models in use too.
+    const openrouterStt = setup(lib, {
+      cleanupProvider: "openrouter",
+      cleanupModel: "anthropic/claude-haiku-5.5",
+      cloudTranscriptionProvider: "openrouter",
+      cloudTranscriptionModel: "mistralai/voxtral-mini-transcribe-3-0",
+    });
+    assert.deepEqual([...descriptorOf(openrouterStt.plan, "provider:openrouter").models].sort(), [
+      "anthropic/claude-haiku-5.5",
+      "mistralai/voxtral-mini-transcribe-3-0",
+    ]);
+    assert.ok(
+      byOwner(openrouterStt.plan, "openrouter")[0].uses.some(
+        (use) => use.feature === "recognition" && use.active
+      )
+    );
     assert.equal(descriptorOf(plan, "provider:tinfoil").slot, "TINFOIL_API_KEY");
     // Corti: two halves on one card.
     assert.deepEqual(

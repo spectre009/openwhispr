@@ -447,3 +447,59 @@ test("Where it goes and the suggestions' mirror", { timeout: 90000 }, async (t) 
   assert.ok(dom.calls.some(([name]) => name === "clearDismissedDictionarySuggestions"));
   assert.deepEqual(view.consoleOutput.errors, []);
 });
+
+test(
+  "Where it goes: OpenRouter gets no words, Orukeet takes the first 100 as hotwords",
+  { timeout: 90000 },
+  async (t) => {
+    words = [...BASE_WORDS, ...PHRASES];
+    const view = await mount(t);
+    const { doc, useSettingsStore } = view;
+    const notice = () => doc.querySelector("[data-where-speech-notice]");
+    const speech = () => doc.querySelector('[data-where-cell="speech"]');
+    const count = (id) =>
+      Number(
+        doc.querySelector(`[data-dictionary-filter="${id}"]`).querySelector("span").textContent
+      );
+    assert.equal(notice(), null, "Azure Speech reads the phrase list");
+
+    await view.act(() =>
+      useSettingsStore.setState({
+        cloudTranscriptionProvider: "openrouter",
+        cloudTranscriptionModel: "openai/gpt-transcribe",
+      })
+    );
+    assert.equal(notice().getAttribute("data-where-speech-notice"), "openRouterIgnored");
+    assert.match(notice().textContent, /OpenRouter doesn't pass your dictionary/);
+    assert.match(speech().textContent, /No dictionary hints/);
+    assert.equal(count("notSent"), 206);
+
+    // Orukeet: personal words in stored order, up to 100, from its server's start.
+    await view.act(() =>
+      useSettingsStore.setState({
+        useLocalWhisper: true,
+        localTranscriptionProvider: "nvidia",
+        parakeetModel: "orukeet-v0.1.0",
+      })
+    );
+    assert.equal(notice().getAttribute("data-where-speech-notice"), "localModelHotwords");
+    assert.match(notice().textContent, /Orukeet uses up to 100 dictionary entries/);
+    assert.match(speech().textContent, /100 of 100 terms/);
+    assert.match(speech().textContent, /106 aren't sent/);
+    assert.equal(count("notSent"), 106);
+    assert.equal(
+      doc.querySelector('[data-dictionary-row="Phrase93"]').getAttribute("data-coverage"),
+      "read"
+    );
+    assert.equal(
+      doc.querySelector('[data-dictionary-row="Phrase94"]').getAttribute("data-coverage"),
+      "notSent"
+    );
+
+    // A model that ignores the dictionary says so.
+    await view.act(() => useSettingsStore.setState({ parakeetModel: "parakeet-tdt-0.6b-v3" }));
+    assert.equal(notice().getAttribute("data-where-speech-notice"), "localModelIgnored");
+    assert.equal(count("notSent"), 206);
+    assert.deepEqual(view.consoleOutput.errors, []);
+  }
+);

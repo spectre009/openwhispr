@@ -121,7 +121,10 @@ test("a hold: probe after the prepare, then the pill, its entrance and the frame
   t.mock.timers.tick(150);
   manager.setDictationLifecycleState("preparing");
   t.mock.timers.tick(250);
-  manager.setDictationLifecycleState("recording", "dictation", Date.now());
+  manager.setDictationLifecycleState("recording", undefined, {
+    inputKind: "dictation",
+    startedAt: Date.now(),
+  });
   // The strip reports through the callback main wires into it.
   manager._startVisuals.frameShown({ window: "new", at: Date.now() + 140 });
   assert.deepEqual(lines, [], "the entrance hasn't ended");
@@ -178,7 +181,10 @@ test("a toggle's start: main stamps the press, prepare and toggle carry it, the 
   assert.equal(typeof toggled.trace.startSentAt, "number");
 
   manager.handleStartVisualMark({ pressId: NOW, mark: "pillPainted", at: NOW + 16 });
-  manager.setDictationLifecycleState("recording", "dictation", Date.now());
+  manager.setDictationLifecycleState("recording", undefined, {
+    inputKind: "dictation",
+    startedAt: Date.now(),
+  });
   // Strip off: the frame isn't awaited; the entrance still is.
   manager.handleStartVisualMark({ pressId: NOW, mark: "pillSettled", at: NOW + 700 });
   assert.equal(lines.length, 1);
@@ -229,14 +235,16 @@ test("a hold released before anything showed writes nothing; after the pill show
 test("a software fallback warns; onboarding begins nothing; marks from another press are ignored", (t) => {
   const fallback = { mode: "software", reason: "fallback" };
   const { manager } = setup(t, { strip: "off", graphics: fallback });
-  manager._assistantPanelOpen = false;
   manager.startWindowsPushToTalk("F8");
   const pressId = manager._startVisuals.pendingPressId;
   manager.handleStartVisualMark({ pressId: pressId + 1, mark: "pillPainted", at: Date.now() });
   manager.handleStartVisualMark(null);
   manager.handleStartVisualMark({ pressId, mark: "pillPainted", at: Date.now() + 12 });
   t.mock.timers.tick(150);
-  manager.setDictationLifecycleState("recording", "dictation", Date.now());
+  manager.setDictationLifecycleState("recording", undefined, {
+    inputKind: "dictation",
+    startedAt: Date.now(),
+  });
   manager.handleStartVisualMark({ pressId, mark: "pillSettled", at: Date.now() + 560 });
   assert.equal(lines.length, 1);
   assert.equal(lines[0].level, "warn");
@@ -245,15 +253,9 @@ test("a software fallback warns; onboarding begins nothing; marks from another p
   assert.equal(lines[0].meta.graphicsReason, "fallback");
 
   manager.setDictationLifecycleState("idle");
-  // Under the open assistant panel only the assistant's own recording runs the
-  // pill's entrance in this window.
-  manager._assistantPanelOpen = true;
+  // The assistant has its own window now: every start in this one runs the
+  // pill's entrance, so each line waits for it to settle.
   manager._beginStartVisuals({ pressId: 2, keyAt: Date.now(), keyTimeSource: "main" });
-  assert.equal(manager._startVisuals._start.expectSettle, false);
-  manager._beginStartVisuals(
-    { pressId: 3, keyAt: Date.now(), keyTimeSource: "main" },
-    { inputKind: "assistant" }
-  );
   assert.equal(manager._startVisuals._start.expectSettle, true);
   manager._startVisuals.dispose();
 

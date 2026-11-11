@@ -112,6 +112,9 @@ export default function SttCustomEndpointFields({
       );
       for (const provider of allowed) {
         if (normalized === normalizeBaseUrl(provider.baseUrl)) {
+          // Custom endpoints on OpenRouter predate its own entry and keep their key
+          // slot, model id and WAV re-encode, so they are never moved onto it.
+          if (provider.id === "openrouter") continue;
           switchProvider(STT_SURFACE_CONTEXT[surface], provider.id);
           break;
         }

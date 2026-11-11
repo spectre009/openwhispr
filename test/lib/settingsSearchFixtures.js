@@ -38,7 +38,9 @@ function makeContext(overrides = {}) {
     visionOverrideAllowed: true,
     isWayland: false,
     gpuCount: 1,
+    hasWorkspace: true,
     canManageWorkspace: true,
+    canManageMembers: true,
     on: {
       cleanup: true,
       assistant: true,

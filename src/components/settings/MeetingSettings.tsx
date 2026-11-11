@@ -1,5 +1,6 @@
 import { EnterpriseAudioSettings } from "./EnterpriseAudioSettings";
 import { ManagedTranscriptionCard } from "./ManagedTranscriptionCard";
+import { useRegistryVersion } from "../../hooks/useRegistryVersion";
 import { useTranslation } from "react-i18next";
 import { useSettingsStore } from "../../stores/settingsStore";
 import { usePolicySnapshot } from "../../hooks/usePolicy";
@@ -50,6 +51,7 @@ function MeetingEchoCancellationRow() {
 }
 
 export function MeetingTranscriptionPanel() {
+  useRegistryVersion();
   const { t } = useTranslation();
   const policySnapshot = usePolicySnapshot();
   const cloudDisabled = useOpenWhisprCloudDisabled();

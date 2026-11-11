@@ -70,7 +70,7 @@ test("a recording start prewarms Copilot once, beside the step-history run, with
         captureDictationTarget: async () => {},
         completeDictationPreview: async () => {},
         hideDictationPreview: async () => {},
-        dictationLifecycleStateChanged: () => {},
+        dictationLifecycleStateChanged: async () => true,
       },
     },
   });

@@ -82,11 +82,11 @@
             "afterMinutes": "{{minutes}} minutes after the last recording ends."
           }
         },
-        "companionPill": {
-          "name": "Companion pill",
-          "what": "The small pill that shows a dictation while the assistant panel is open.",
-          "why": { "default": "The assistant panel is open." },
-          "goesAway": { "default": "When the assistant panel closes." }
+        "agentWindow": {
+          "name": "Assistant window",
+          "what": "The assistant's own window: its pill, the conversation and its voice commands.",
+          "why": { "default": "The assistant has been opened since OpenWhispr started." },
+          "goesAway": { "default": "When you quit. Closing the assistant only hides it." }
         },
         "meetingOverlay": {
           "name": "Meeting prompt",

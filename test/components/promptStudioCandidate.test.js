@@ -88,6 +88,8 @@ async function loadStudio(t) {
       "/hooks/usePromptLibraryEditor": `
         export function usePromptLibraryEditor() { return globalThis.__studio.editor; }
       `,
+      // Upstream's #3081: the studio re-renders when the signed model catalog changes.
+      "/hooks/useRegistryVersion": "export function useRegistryVersion() { return 0; }",
       "/utils/agentName": `export function useAgentName() { return { agentName: "Jarvis" }; }`,
       "/services/ReasoningService": `
         export default {

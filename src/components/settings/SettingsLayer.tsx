@@ -12,6 +12,7 @@ import { ChevronDown, ChevronLeft, ChevronRight, ExternalLink, Search, Settings 
 import WindowControls from "../WindowControls";
 import { cn } from "../lib/utils";
 import { SettingsLayoutProvider } from "../ui/useSettingsLayout";
+import { escapeClearsTarget } from "../ui/escapeClears";
 import { getCachedPlatform } from "../../utils/platform";
 import type { ControlPanelNavItem, ControlPanelView } from "../controlPanelNav";
 import { SettingsVisibleProvider } from "./useSettingsVisible";
@@ -92,8 +93,13 @@ export interface SettingsLayerProps<T extends string> {
   navigationKey: number;
   /** The page lays out wider than the reading width (up to 1240 px instead of 920). */
   wide?: boolean;
-  /** Above the nav (hidden while the nav shows icons only), e.g. account identity. */
+  /** Above the nav (hidden while the nav shows icons only), e.g. the workspace picker. */
   header?: React.ReactNode;
+  /**
+   * In `header`'s place while the nav shows icons only. It takes the same slot, so when both are
+   * the same component it keeps its state across the switch.
+   */
+  compactHeader?: React.ReactNode;
   /** Account-level notice, e.g. an organization-managed policy. */
   notice?: { icon: React.ReactNode; label: string; description: string };
   /** The top of the Settings nav, for the settings search field. */
@@ -150,6 +156,7 @@ export default function SettingsLayer<T extends string>({
   navigationKey,
   wide = false,
   header,
+  compactHeader,
   notice,
   navTop,
   searchActive = false,
@@ -249,7 +256,9 @@ export default function SettingsLayer<T extends string>({
     const act = (event: KeyboardEvent) => {
       const context = contexts.get(event);
       if (!context) return;
-      const action = decideSettingsEscape({ ...context, handled: event.defaultPrevented });
+      // A field that clears on Esc (a table's search) keeps it, as it did in the old dialog.
+      const handled = event.defaultPrevented || escapeClearsTarget(event);
+      const action = decideSettingsEscape({ ...context, handled });
       if (action === "none") return;
       event.preventDefault();
       if (action === "dismissPopup") dismissTopPopup(document, rootRef.current);
@@ -471,7 +480,11 @@ export default function SettingsLayer<T extends string>({
                     )}
                   </button>
 
-                  {header && !navIconsOnly && <div className="px-2 pt-4 pb-1">{header}</div>}
+                  {(navIconsOnly ? compactHeader : header) && (
+                    <div className={navIconsOnly ? "flex justify-center pt-3" : "px-2 pt-4 pb-1"}>
+                      {navIconsOnly ? compactHeader : header}
+                    </div>
+                  )}
                   {notice && (
                     <div className={cn("flex justify-center", navIconsOnly ? "pt-3" : "px-2 pt-1")}>
                       <span

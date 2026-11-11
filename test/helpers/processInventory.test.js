@@ -715,7 +715,7 @@ test("window roles: each of main's windows by its renderer's PID, the dictation 
     windowManager: {
       mainWindow: win(10),
       controlPanelWindow: panel,
-      agentDictationPillWindow: win(0),
+      agentWindow: { window: win(0) },
       notificationWindow: win(30, { destroyed: true }),
       permissionGuide: { window: null },
       recordingEdgeStrip: {

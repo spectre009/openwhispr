@@ -35,7 +35,7 @@ export async function getAIModel(
   model: string,
   apiKey: string,
   baseURL?: string,
-  opts?: { disableThinking?: boolean; reasoningEffort?: string }
+  opts?: { disableThinking?: boolean; reasoningEffort?: string; fetch?: typeof fetch }
 ): Promise<LanguageModel> {
   switch (provider) {
     case "openai":
@@ -43,8 +43,7 @@ export async function getAIModel(
     case "groq":
       return createGroq({ apiKey })(model);
     case "anthropic":
-      // The assistant panel runs in the pill window, which keeps Chromium's
-      // default webSecurity (the deleted agent overlay disabled it). Anthropic
+      // The agent window keeps Chromium's default webSecurity. Anthropic
       // only answers browser-origin requests that opt in with this header;
       // the dictation path avoids the issue by going through IPC.
       return createAnthropic({
@@ -80,7 +79,11 @@ export async function getAIModel(
       }).chat(model);
     }
     case "local":
-      return createOpenAI({ apiKey: apiKey || "no-key", baseURL }).chat(model);
+      return createOpenAI({
+        apiKey: apiKey || "no-key",
+        baseURL,
+        ...(opts?.fetch ? { fetch: opts.fetch } : {}),
+      }).chat(model);
     case COPILOT_PROVIDER_ID:
       // Copilot runs in main and answers plain text only; it has no chat model.
       throw copilotUnsupportedRequestError("chat");

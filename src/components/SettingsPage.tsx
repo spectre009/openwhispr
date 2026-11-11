@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { EnterpriseAudioSettings } from "./settings/EnterpriseAudioSettings";
 import { useTranslation } from "react-i18next";
+import { LocalOffInstalledModels } from "./settings/LocalOffInstalledModels";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { BIDI_VALUE_TOKEN, BidiInterpolatedText } from "./ui/BidiInterpolatedText";
@@ -31,10 +32,12 @@ import {
   Info,
 } from "./icons";
 import { useAuth } from "../hooks/useAuth";
+import { resetForAccountChange as resetChatForAccountChange } from "../stores/chatTurnStore";
 import { AUTH_URL, signOut } from "../lib/auth";
 import { deleteAccount } from "../lib/accountDeletionRequest";
 import { executeAccountDeletion } from "../lib/accountDeletionFlow";
 import { getValidatedAuthGeneration } from "../lib/authRequestContext";
+import { checkoutErrorDescriptionKey } from "../lib/billingPortalError";
 import { useBillingPortal } from "../hooks/useBillingPortal";
 import MicPermissionWarning from "./ui/MicPermissionWarning";
 import MicrophoneSettings from "./ui/MicrophoneSettings";
@@ -137,7 +140,10 @@ import {
 import { usePolicySnapshot } from "../hooks/usePolicy";
 import { requestSignIn } from "../utils/requestSignIn";
 import { canManageSystemAudioInApp } from "../utils/systemAudioAccess";
-import WorkspaceSection from "./settings/WorkspaceSection";
+import WorkspaceGeneralSection from "./settings/WorkspaceGeneralSection";
+import WorkspacePeopleSection from "./settings/WorkspacePeopleSection";
+import WorkspaceTeamspacesSection from "./settings/WorkspaceTeamspacesSection";
+import WorkspaceDeveloperSection from "./settings/WorkspaceDeveloperSection";
 import { enterpriseTileCta, type EnterpriseTileCta } from "../lib/workspaceBilling";
 import WorkspaceBillingOverview from "./settings/WorkspaceBillingOverview";
 import EnterpriseCheckoutDialog from "./settings/EnterpriseCheckoutDialog";
@@ -163,14 +169,15 @@ import type { ElsewhereLocation } from "./settings/search/types";
 import {
   SETTINGS_PAGE_IDS,
   SETTINGS_PAGES,
+  isSettingsPageId,
   type PreferencesBlockId,
   type SettingsPageId,
 } from "./settings/settingsPages";
 
-export type SettingsSectionType =
+/** The old sections whose bodies pages still render (see renderPage). */
+type SettingsSectionType =
   | "account"
   | "plansBilling"
-  | "workspace"
   | "general"
   | "hotkeys"
   | "speechToText"
@@ -189,10 +196,14 @@ interface SettingsPageProps {
   onNavigate?: (page: SettingsPageId, subTab?: string) => void;
   /** Leaves Settings for an app page (the Dictation overview's Dictionary & glossary step). */
   onOpenElsewhere?: (location: ElsewhereLocation) => void;
-  /** The Workspace tab a destination named. */
+  /** The People tab a destination named. */
   initialSubTab?: string;
   /** Changes with each navigation, so `initialSubTab` re-applies even when it's unchanged. */
   subTabRequestId?: number;
+  /** Opens the workspace picker in the Settings nav (owned by SettingsModal). */
+  onChooseWorkspace?: () => void;
+  /** Takes the user to a teamspace in Notes (owned by the control panel, which leaves Settings). */
+  onOpenTeamspace?: (localSpaceId: number) => void;
 }
 
 const UI_LANGUAGE_OPTIONS: import("./ui/LanguageSelector").LanguageOption[] = [
@@ -795,6 +806,8 @@ export default function SettingsPage({
   onOpenElsewhere,
   initialSubTab,
   subTabRequestId,
+  onChooseWorkspace,
+  onOpenTeamspace,
 }: SettingsPageProps) {
   const { isCompact } = useSettingsLayout();
   // Settings stays mounted while hidden: OS queries pause and refresh on reopen.
@@ -1212,6 +1225,22 @@ export default function SettingsPage({
 
   const platform = getCachedPlatform();
 
+  const [modelListUpdates, setModelListUpdates] = useState(true);
+  useEffect(() => {
+    window.electronAPI
+      ?.getModelRegistryUpdates?.()
+      .then(setModelListUpdates)
+      .catch(() => {});
+  }, []);
+  const updateModelListUpdates = async (enabled: boolean) => {
+    setModelListUpdates(enabled);
+    const result = await window.electronAPI?.setModelRegistryUpdates?.(enabled);
+    if (result && !result.success) {
+      setModelListUpdates(!enabled);
+      logger.error("Failed to save model list updates", { error: result.error }, "settings");
+    }
+  };
+
   const [autoStartEnabled, setAutoStartEnabled] = useState(false);
   const [autoStartNeedsApproval, setAutoStartNeedsApproval] = useState(false);
   const [autoStartLoading, setAutoStartLoading] = useState(true);
@@ -1384,7 +1413,7 @@ export default function SettingsPage({
     });
   };
 
-  const { isSignedIn, isLoaded, user, refetch } = useAuth();
+  const { isSignedIn, isLoaded, user, refetch, isOfflineAccount } = useAuth();
   const {
     canToggleSync: canToggleInsightsSync,
     disableInsightsSync,
@@ -1494,8 +1523,7 @@ export default function SettingsPage({
         if (!preview.success) {
           toast({
             title: t("settingsPage.account.checkout.couldNotOpenTitle"),
-            description:
-              preview.error || t("settingsPage.account.checkout.couldNotOpenDescription"),
+            description: preview.error || t(checkoutErrorDescriptionKey(preview.code)),
           });
           return;
         }
@@ -1529,7 +1557,7 @@ export default function SettingsPage({
     } else {
       toast({
         title: t("settingsPage.account.checkout.couldNotOpenTitle"),
-        description: result.error || t("settingsPage.account.checkout.couldNotOpenDescription"),
+        description: result.error || t(checkoutErrorDescriptionKey(result.code)),
       });
     }
   }, [switchPreview, usage, toast, t]);
@@ -1542,7 +1570,7 @@ export default function SettingsPage({
       if (!result.success) {
         toast({
           title: t("settingsPage.account.checkout.couldNotOpenTitle"),
-          description: t("settingsPage.account.checkout.couldNotOpenDescription"),
+          description: t(checkoutErrorDescriptionKey(result.code)),
         });
       }
     },
@@ -1565,6 +1593,8 @@ export default function SettingsPage({
       return;
     }
 
+    // A background answer must not write under an account whose data is about to go.
+    resetChatForAccountChange();
     setIsDeletingAccount(true);
     try {
       const result = await executeAccountDeletion({
@@ -1580,6 +1610,7 @@ export default function SettingsPage({
             if (!cleanup?.success) {
               throw new Error(cleanup?.error ?? "Could not remove local account data");
             }
+            syncService.forgetAccount(accountId);
           },
           clearWorkspaceSessionState: () => syncService.purgeTeamSpacesForSignOut(),
           signOut,
@@ -1779,8 +1810,35 @@ export default function SettingsPage({
             ) : isLoaded && isSignedIn && user ? (
               <>
                 <SectionHeader title={t("settingsPage.account.title")} />
+                <div className="flex items-center gap-3">
+                  <AccountAvatar
+                    image={user.image}
+                    name={user.name || t("settingsPage.account.user")}
+                  />
+                  <div className="min-w-0">
+                    <p dir="auto" className="truncate text-[13px] font-semibold text-foreground">
+                      {user.name || t("settingsPage.account.user")}
+                    </p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      <bdi dir="ltr">{user.email}</bdi>
+                    </p>
+                  </div>
+                </div>
+                {isOfflineAccount && (
+                  <SettingsPanel>
+                    <SettingsPanelRow>
+                      <SettingsRow
+                        label={t("settingsPage.account.offlineAccount.title")}
+                        description={t("settingsPage.account.offlineAccount.description")}
+                      >
+                        <Badge variant="outline">{t("settingsPage.account.offline")}</Badge>
+                      </SettingsRow>
+                    </SettingsPanelRow>
+                  </SettingsPanel>
+                )}
                 <ProfileSection
                   name={user.name || ""}
+                  readOnly={isOfflineAccount}
                   onSessionRefresh={() => {
                     void refetch();
                   }}
@@ -1810,7 +1868,7 @@ export default function SettingsPage({
                       <Button
                         onClick={handleDeleteAccount}
                         variant="outline"
-                        disabled={isDeletingAccount}
+                        disabled={isDeletingAccount || isOfflineAccount}
                         size="sm"
                         className="text-destructive border-destructive/30 hover:bg-destructive/10 hover:border-destructive"
                       >
@@ -2116,9 +2174,7 @@ export default function SettingsPage({
                                 if (!result.success) {
                                   toast({
                                     title: t("settingsPage.account.checkout.couldNotOpenTitle"),
-                                    description: t(
-                                      "settingsPage.account.checkout.couldNotOpenDescription"
-                                    ),
+                                    description: t(checkoutErrorDescriptionKey(result.code)),
                                     variant: "destructive",
                                   });
                                 }
@@ -2616,16 +2672,6 @@ export default function SettingsPage({
                 </SettingsPanel>
               </>
             )}
-          </div>
-        );
-
-      case "workspace":
-        return (
-          <div data-setting-id="workspace">
-            <WorkspaceSection
-              initialSubTab={page === "workspace" ? initialSubTab : undefined}
-              requestId={subTabRequestId}
-            />
           </div>
         );
 
@@ -4063,6 +4109,21 @@ EOF`,
                   </SettingsPanelRow>
                 </SettingsPanel>
               )}
+
+              {/* The signed model catalog (#3081) comes from GitHub, not OpenWhispr's servers. */}
+              <SettingsPanel className="mt-4">
+                <SettingsPanelRow data-setting-id="privacy.modelListUpdates">
+                  <SettingsRow
+                    label={t("settingsPage.privacy.modelListUpdates")}
+                    description={t("settingsPage.privacy.modelListUpdatesDescription")}
+                  >
+                    <Toggle
+                      checked={modelListUpdates}
+                      onChange={(enabled) => void updateModelListUpdates(enabled)}
+                    />
+                  </SettingsRow>
+                </SettingsPanelRow>
+              </SettingsPanel>
             </div>
 
             {/* Data Retention (recordings and logs are managed on Storage; summarized here) */}
@@ -4434,6 +4495,7 @@ EOF`,
                             title: t("settingsPage.developer.resetAll.title"),
                             description: t("settingsPage.developer.resetAll.description"),
                             onConfirm: async () => {
+                              resetChatForAccountChange();
                               try {
                                 try {
                                   await signOut();
@@ -4502,11 +4564,48 @@ EOF`,
     switch (pageId) {
       case "account":
       case "plansBilling":
-      case "workspace":
       case "hotkeys":
       case "privacyData":
       case "system":
         return renderSectionContent(pageId);
+
+      // Upstream's workspace pages (#2959), each anchored for search.
+      case "workspaceGeneral":
+        return (
+          <div data-setting-id="workspace.general">
+            <WorkspaceGeneralSection
+              onNavigateToSection={(section, subTab) => {
+                if (isSettingsPageId(section)) onNavigate?.(section, subTab);
+              }}
+              onChooseWorkspace={onChooseWorkspace}
+            />
+          </div>
+        );
+
+      case "workspacePeople":
+        return (
+          <div data-setting-id="workspace.people">
+            <WorkspacePeopleSection
+              initialSubTab={page === "workspacePeople" ? initialSubTab : undefined}
+              requestId={subTabRequestId}
+              onOpenTeamspace={onOpenTeamspace}
+            />
+          </div>
+        );
+
+      case "workspaceTeamspaces":
+        return (
+          <div data-setting-id="workspace.teamspaces">
+            <WorkspaceTeamspacesSection onOpenTeamspace={onOpenTeamspace} />
+          </div>
+        );
+
+      case "workspaceDeveloper":
+        return (
+          <div data-setting-id="workspace.developer">
+            <WorkspaceDeveloperSection />
+          </div>
+        );
 
       case "overview":
         return <DictationOverview onNavigate={onNavigate} onOpenElsewhere={onOpenElsewhere} />;
@@ -4528,6 +4627,8 @@ EOF`,
               </SettingsPanelRow>
             </SettingsPanel>
             {renderLocalWhisperVad()}
+            {/* With Local off by policy the picker lists no local model to delete (#3056). */}
+            <LocalOffInstalledModels scope="transcription" />
           </div>
         );
 
@@ -4579,6 +4680,8 @@ EOF`,
               />
               <PromptStudio />
             </div>
+            {/* With Local off by policy the picker lists no local model to delete (#3056). */}
+            <LocalOffInstalledModels scope="llm" />
           </div>
         );
 

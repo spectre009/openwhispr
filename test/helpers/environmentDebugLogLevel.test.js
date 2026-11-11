@@ -120,8 +120,9 @@ function trackSaves(environmentManager) {
 
 // Settings › Storage › Logs changes the level through set-log-settings
 // (logIpc.js): validated, saved by EnvironmentManager.saveLogSettings, then
-// applied. The fork's page replaced upstream's set-debug-logging toggle.
-function loadLogSettingsHandler(environmentManager) {
+// applied and announced to every window (upstream's set-debug-logging toggle
+// announced log-level-changed the same way). The fork's page replaced that toggle.
+function loadLogSettingsHandler(environmentManager, onBroadcast = () => {}) {
   const { createLogHandlers } = require("../../src/helpers/logIpc");
   const logger = {
     refreshed: 0,
@@ -135,6 +136,7 @@ function loadLogSettingsHandler(environmentManager) {
   const handlers = createLogHandlers({
     logger,
     environmentManager,
+    broadcast: onBroadcast,
     mask: (folder) => folder,
     system: () => ({}),
   });
@@ -192,19 +194,35 @@ test("a saved level persists as written; never set writes no line", async (t) =>
 
 test("Storage › Logs creates a missing settings file", async (t) => {
   const { EnvironmentManager, envPath } = setup(t);
-  const { setLogSettings, logger } = loadLogSettingsHandler(new EnvironmentManager());
+  const notifications = [];
+  const { setLogSettings, logger } = loadLogSettingsHandler(
+    new EnvironmentManager(),
+    (channel, state) => {
+      notifications.push({
+        channel,
+        savedLevel: parseDotenv(fs.readFileSync(envPath, "utf8")).OPENWHISPR_LOG_LEVEL,
+        level: state.level,
+      });
+    }
+  );
 
   await setLogSettings({ level: "debug" });
 
   assert.equal(parseDotenv(fs.readFileSync(envPath, "utf8")).OPENWHISPR_LOG_LEVEL, "debug");
   assert.equal(logger.refreshed, 1, "the new level is applied once saved");
+  assert.deepEqual(notifications, [
+    { channel: "log-settings-changed", savedLevel: "debug", level: "debug" },
+  ]);
 });
 
 test("a failed log level save reports failure, leaks nothing, and the next change persists", async (t) => {
   const { EnvironmentManager, envPath } = setup(t);
   process.env.OPENWHISPR_LOG_LEVEL = "warn";
   const environmentManager = new EnvironmentManager();
-  const { setLogSettings, logger } = loadLogSettingsHandler(environmentManager);
+  const notifications = [];
+  const { setLogSettings, logger } = loadLogSettingsHandler(environmentManager, (_, state) =>
+    notifications.push(state.level)
+  );
   t.mock.method(
     fsPromises,
     "writeFile",
@@ -218,6 +236,7 @@ test("a failed log level save reports failure, leaks nothing, and the next chang
   assert.equal(fs.existsSync(envPath), false);
   assert.equal(process.env.OPENWHISPR_LOG_LEVEL, "warn", "the session keeps the saved level");
   assert.equal(logger.refreshed, 0, "nothing was applied");
+  assert.deepEqual(notifications, [], "failed saves must not notify windows");
 
   // The next settings save writes the level that was saved, not the refused one.
   await environmentManager.saveAllKeysToEnvFile();
@@ -225,6 +244,7 @@ test("a failed log level save reports failure, leaks nothing, and the next chang
 
   await setLogSettings({ level: "off" });
   assert.equal(parseDotenv(fs.readFileSync(envPath, "utf8")).OPENWHISPR_LOG_LEVEL, "off");
+  assert.deepEqual(notifications, ["off"]);
 });
 
 for (const level of ["off", "debug"]) {

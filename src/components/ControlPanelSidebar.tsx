@@ -21,6 +21,7 @@ const rowButtonClass =
 
 interface ControlPanelSidebarProps {
   activeView: ControlPanelView;
+  chatNeedsAttention?: boolean;
   onViewChange: (view: ControlPanelView) => void;
   onOpenSettings: () => void;
   onOpenReferrals?: () => void;
@@ -29,10 +30,13 @@ interface ControlPanelSidebarProps {
   isSignedIn?: boolean;
   upsell: UpsellDecision;
   updateAction?: React.ReactNode;
+  /** False while another modal (Settings) is open, so the workspace intro waits. */
+  workspaceIntroAllowed?: boolean;
 }
 
 export default function ControlPanelSidebar({
   activeView,
+  chatNeedsAttention = false,
   onViewChange,
   onOpenSettings,
   onOpenReferrals,
@@ -41,6 +45,7 @@ export default function ControlPanelSidebar({
   isSignedIn,
   upsell,
   updateAction,
+  workspaceIntroAllowed = false,
 }: ControlPanelSidebarProps) {
   const { t } = useTranslation();
   // With the OpenWhispr account & Cloud switch off there is no account to show.
@@ -98,6 +103,14 @@ export default function ControlPanelSidebar({
               >
                 {item.label}
               </span>
+              {item.id === "chat" && chatNeedsAttention && (
+                <span
+                  role="status"
+                  aria-label={t("agentWindow.waitingForAnswer")}
+                  title={t("agentWindow.waitingForAnswer")}
+                  className="ms-auto size-1.5 shrink-0 rounded-full bg-primary"
+                />
+              )}
             </button>
           );
         })}
@@ -204,7 +217,7 @@ export default function ControlPanelSidebar({
         {/* With the OpenWhispr account & Cloud switch off there is no account or workspace to show. */}
         {showAccountRow && (
           <div className="pt-1">
-            <WorkspaceSwitcher />
+            <WorkspaceSwitcher introAllowed={workspaceIntroAllowed} />
           </div>
         )}
       </div>

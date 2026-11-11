@@ -411,7 +411,7 @@ function collectWindowRoles({ windowManager, visibility = null } = {}) {
   };
   add(windowManager?.mainWindow, "dictationWindow");
   add(windowManager?.controlPanelWindow, "controlPanel");
-  add(windowManager?.agentDictationPillWindow, "companionPill");
+  add(windowManager?.agentWindow?.window, "agentWindow");
   add(windowManager?.notificationWindow, "meetingOverlay");
   add(windowManager?.permissionGuide?.window, "permissionGuide");
   let strips = [];

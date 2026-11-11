@@ -3,7 +3,9 @@ const assert = require("node:assert/strict");
 const fs = require("fs");
 const path = require("path");
 
-const modelData = require("../../src/models/modelRegistryData.json");
+// The bundled catalog the app starts from: the signed registry's plus the
+// providers the app adds itself (OpenRouter, and the fork's GitHub Copilot).
+const { bundledRegistryData: modelData } = require("../../src/models/registryData.js");
 
 // PROVIDER_REGISTRY is TypeScript, so node --test can't require it. Parse its
 // keys from source the way secretKeys.test.js mirrors preload's inlined list.

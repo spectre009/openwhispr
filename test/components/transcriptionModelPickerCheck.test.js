@@ -199,3 +199,7 @@ test("a hidden page sends nothing until it is shown, then asks again", async (t)
   await panel.wait(0);
   assert.equal(panel.requests().length, 2, "a shown page asks again");
 });
+
+// Upstream's local tabs filtered by the organization's allow list (#3056). This picker lists
+// downloaded models only; the same rules are tested on its options in
+// modelPickerSttOptions.test.js ("an organization's local model allow list").

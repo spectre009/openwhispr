@@ -24,6 +24,7 @@ import {
 import { Input } from "../../ui/input";
 import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from "../../ui/popover";
 import { ProviderIcon } from "../../ui/ProviderIcon";
+import { getRemoteProviderIcon } from "../../../utils/providerIcons";
 import { cn } from "../../lib/utils";
 import {
   resolvePickerText,
@@ -47,6 +48,22 @@ export function PickerIcon({ icon, className = "h-4 w-4" }: { icon: string; clas
   if (icon === "enterprise") return <Building2 aria-hidden="true" className={glyph} />;
   if (icon === "connection") {
     return <Link aria-hidden="true" className={cn(className, "shrink-0 text-primary")} />;
+  }
+  // "openrouter:mistralai": a brokered model, drawn with its vendor's icon when there is one.
+  const brokered = /^([^:]+):(.+)$/.exec(icon);
+  if (brokered) {
+    const vendor = getRemoteProviderIcon(brokered[2]);
+    if (!vendor.icon) {
+      return <ProviderIcon provider={brokered[1]} className={cn(className, "shrink-0")} />;
+    }
+    return (
+      <img
+        src={vendor.icon}
+        alt=""
+        aria-hidden="true"
+        className={cn(className, "shrink-0", vendor.invertInDark && "icon-monochrome")}
+      />
+    );
   }
   return <ProviderIcon provider={icon} className={cn(className, "shrink-0")} />;
 }

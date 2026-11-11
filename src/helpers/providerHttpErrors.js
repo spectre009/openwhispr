@@ -31,8 +31,14 @@ export const PROVIDER_ERROR_CODES = Object.freeze({
 
 const C = PROVIDER_ERROR_CODES;
 
-// "noteFormatting" opens Language Models on its Note Formatting tab.
-const PROVIDER_SETTINGS_TARGETS = Object.freeze(["speechToText", "llms", "noteFormatting"]);
+// "noteFormatting" opens the Note Formatting page and "noteRecording" the Live
+// Recording page (resolveSettingsDestination in settings/settingsPages.ts).
+const PROVIDER_SETTINGS_TARGETS = Object.freeze([
+  "speechToText",
+  "llms",
+  "noteFormatting",
+  "noteRecording",
+]);
 
 export const isProviderSettingsTarget = (value) => PROVIDER_SETTINGS_TARGETS.includes(value);
 

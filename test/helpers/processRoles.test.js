@@ -35,7 +35,7 @@ test("Electron's processes map by type, service name and the window a renderer h
     "controlPanel",
     "dictationWindow",
     "edgeStrip",
-    "companionPill",
+    "agentWindow",
     "meetingOverlay",
     "permissionGuide",
   ]) {

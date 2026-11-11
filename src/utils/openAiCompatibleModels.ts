@@ -5,16 +5,27 @@ export interface OpenAiCompatibleModel {
   label: string;
   description?: string;
   ownedBy?: string;
+  /** Set only when `isEligible` was given: whether the caller's feature can use it. */
+  eligibleForScope?: boolean;
 }
 
 /**
  * An OpenAI-compatible endpoint's `{base}/models` list (its `data`, or
  * `models`). A key, when given, goes as a bearer token. An answer that isn't OK
- * throws with its status and the start of its body.
+ * throws with its status and the start of its body. `isEligible` reads each
+ * raw catalog entry (OpenRouter's `supported_parameters`, for one).
  */
 export async function fetchOpenAiCompatibleModels(
   base: string,
-  { apiKey, describeOwner }: { apiKey?: string; describeOwner: (owner: string) => string }
+  {
+    apiKey,
+    describeOwner,
+    isEligible,
+  }: {
+    apiKey?: string;
+    describeOwner: (owner: string) => string;
+    isEligible?: (item: Record<string, unknown>) => boolean;
+  }
 ): Promise<OpenAiCompatibleModel[]> {
   const headers: Record<string, string> = {};
   if (apiKey) {
@@ -51,7 +62,13 @@ export async function fetchOpenAiCompatibleModels(
           : ownedBy
             ? describeOwner(ownedBy)
             : undefined;
-      return { value, label: value, description, ownedBy } as OpenAiCompatibleModel;
+      return {
+        value,
+        label: value,
+        description,
+        ownedBy,
+        ...(isEligible ? { eligibleForScope: isEligible(item) } : {}),
+      } as OpenAiCompatibleModel;
     })
     .filter(Boolean) as OpenAiCompatibleModel[];
 }

@@ -6,6 +6,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type ReactElement,
   type ReactNode,
   type RefObject,
 } from "react";
@@ -47,7 +48,7 @@ import { useDictionaryTidy } from "./useDictionaryTidy";
 import { CLEANUP_SET_KEYS, type CleanupInclusion } from "./dictionaryLabels";
 import { CATEGORY_DOT_CLASS, CATEGORY_NAME_KEYS } from "./categoryStyles";
 import { useDictionaryCoverage } from "./useDictionaryCoverage";
-import { getSettings, useSettingsStore } from "../../stores/settingsStore";
+import { getListsOwnerRevision, getSettings, useSettingsStore } from "../../stores/settingsStore";
 import {
   reorderDictionaryPins,
   setDictionaryPin,
@@ -100,10 +101,13 @@ import type { DictionarySpeechVariant, GlossaryRuleInput } from "../../types/ele
 // the open list holds only the user's own words (Personal, or All words
 // without teammates' words; the whole page without the shared dictionary).
 // DictionaryView owns the page around it: the list picker, the add field and
-// bulk import (passed in, laid out here), the share popover, the Clear all
-// dialog and the actions on the stored dictionary (Undo for a bulk removal,
-// "a list still has it"). Auto-learn's suggestions, where the dictionary goes
-// and what it costs, then the list: search, filters with counts, five sorts (send order
+// bulk import (passed in, laid out here), the import menu (Import a list,
+// Import from Dragon) its toolbar's Import opens, the share popover, the Clear
+// all dialog and the actions on the stored dictionary (Undo for a bulk removal,
+// "a list still has it"). The page remounts it when the lists change hands
+// (listsOwner), and a handler from before does nothing. Auto-learn's
+// suggestions, where the dictionary goes and what it costs, then the list:
+// search, filters with counts, five sorts (send order
 // shows where the speech model stops), selection with bulk actions, inline
 // renames that keep a word's source, date and pin, and a word's detail beside
 // the list (over it below 900 px). Coverage is what the current speech setup
@@ -176,6 +180,11 @@ export interface PersonalDictionaryViewProps {
   onAddFirstWord: () => void;
   /** Opens the bulk import. */
   onImport: () => void;
+  /**
+   * Wraps the toolbar's Import button in the page's import menu (Import a
+   * list, Import from Dragon); without it the button opens the bulk import.
+   */
+  importMenu?: (trigger: ReactElement) => ReactNode;
   /** Exports the personal dictionary. */
   onExport: () => void;
   /** Asks to clear the whole list (the page's confirm dialog). */
@@ -190,6 +199,12 @@ export interface PersonalDictionaryViewProps {
   shareOpen?: boolean;
   /** Opens Settings at a destination (`page#settingId`): "Sort into categories" links there. */
   onOpenSettings?: (destination: string) => void;
+  /**
+   * The lists owner (getListsOwnerRevision) the page opened under. Main writes
+   * renames, merges, pins and categories into the active account's list, so a
+   * handler from before the lists changed hands does nothing.
+   */
+  listsOwner?: number;
 }
 
 export default function PersonalDictionaryView({
@@ -198,12 +213,14 @@ export default function PersonalDictionaryView({
   bulkImport,
   onAddFirstWord,
   onImport,
+  importMenu,
   onExport,
   onClearAll,
   onRemoveWords,
   onShare,
   shareOpen = false,
   onOpenSettings,
+  listsOwner,
 }: PersonalDictionaryViewProps) {
   const { t, i18n } = useTranslation();
   const customDictionary = useSettingsStore((s) => s.customDictionary);
@@ -430,6 +447,12 @@ export default function PersonalDictionaryView({
   }, [closeDetail]);
 
   // ─── Changes ───
+  // A handler from before the lists changed hands (the page remounts this
+  // view then) does nothing: main would write into the next account's list.
+  const ownsLists = useCallback(
+    () => listsOwner === undefined || getListsOwnerRevision() === listsOwner,
+    [listsOwner]
+  );
   const followRename = useCallback((from: string, to: string) => {
     setSelected((current) => {
       if (!current.has(from)) return current;
@@ -445,6 +468,7 @@ export default function PersonalDictionaryView({
 
   const rename = useCallback(
     async (from: string, to: string): Promise<boolean> => {
+      if (!ownsLists()) return false;
       movingRef.current.set(from, to.trim());
       const result = await renameDictionaryWord(from, to)
         .catch(() => null)
@@ -462,11 +486,12 @@ export default function PersonalDictionaryView({
       toast({ title: t("dictionary.rename.failed"), variant: "destructive" });
       return false;
     },
-    [renameDictionaryWord, followRename, toast, t]
+    [ownsLists, renameDictionaryWord, followRename, toast, t]
   );
 
   const merge = useCallback(
     async (from: string, into: string) => {
+      if (!ownsLists()) return;
       movingRef.current.set(from, into);
       const result = await mergeDictionaryWords(from, into)
         .catch(() => null)
@@ -478,7 +503,7 @@ export default function PersonalDictionaryView({
         toast({ title: t("dictionary.merge.failed"), variant: "destructive" });
       }
     },
-    [mergeDictionaryWords, followRename, toast, t]
+    [ownsLists, mergeDictionaryWords, followRename, toast, t]
   );
 
   const removeWords = useCallback(
@@ -493,17 +518,27 @@ export default function PersonalDictionaryView({
 
   const markTyped = useCallback(
     async (words: string[]) => {
+      if (!ownsLists()) return;
       const learnedOnes = words.filter((word) => itemsByWord.get(word)?.source === "learned");
       if (learnedOnes.length === 0) return;
       const changed = await markDictionaryWordsTyped(learnedOnes).catch(() => 0);
       if (changed > 0) toast({ title: t("dictionary.actions.markedTyped", { count: changed }) });
     },
-    [itemsByWord, markDictionaryWordsTyped, toast, t]
+    [ownsLists, itemsByWord, markDictionaryWordsTyped, toast, t]
   );
 
-  const setPinned = useCallback((word: string, next: boolean) => {
-    void setDictionaryPin(word, next);
-  }, []);
+  const setPinned = useCallback(
+    (word: string, next: boolean) => {
+      if (ownsLists()) void setDictionaryPin(word, next);
+    },
+    [ownsLists]
+  );
+  const pinWords = useCallback(
+    (words: string[], next: boolean) => {
+      if (ownsLists()) void setDictionaryPins(words, next);
+    },
+    [ownsLists]
+  );
 
   // ─── Pin order ("Always sent first") ───
   // A screen reader hears where a moved word went; the same text twice is
@@ -517,6 +552,7 @@ export default function PersonalDictionaryView({
   // hidden name, if pinned, keeps its own place in the order main stores.
   const movePinned = useCallback(
     async (word: string, index: number) => {
+      if (!ownsLists()) return;
       const { items: shown, pinnedCount } = viewRef.current;
       const section = [...new Set(shown.slice(0, pinnedCount ?? 0).map((item) => item.key))];
       const key = itemsByWordRef.current.get(word)?.key;
@@ -538,7 +574,7 @@ export default function PersonalDictionaryView({
         toast({ title: t("dictionary.pins.reorderFailed"), variant: "destructive" });
       }
     },
-    [announce, t, toast]
+    [ownsLists, announce, t, toast]
   );
   // "+ Pin a word": pinning is the row's ☆; this takes the keyboard to the
   // first word that isn't pinned.
@@ -746,13 +782,14 @@ export default function PersonalDictionaryView({
   // Automatic removes it.
   const setCategory = useCallback(
     (word: string, category: DictionaryCategory | null) => {
+      if (!ownsLists()) return;
       void setDictionaryCategories([{ word, category, source: "user" }]).then((result) => {
         if (!result.success) {
           toast({ title: t("dictionary.categories.setFailed"), variant: "destructive" });
         }
       });
     },
-    [toast, t]
+    [ownsLists, toast, t]
   );
 
   const showSendOrder = useCallback(() => {
@@ -850,7 +887,7 @@ export default function PersonalDictionaryView({
   const anySelectedPinned = selectedWords.some((word) => itemsByWord.get(word)?.pinned);
   // "Set category" for the selection: the user's choice (Automatic: removed).
   const setSelectedCategory = async (category: DictionaryCategory | null) => {
-    if (selectedWords.length === 0) return;
+    if (selectedWords.length === 0 || !ownsLists()) return;
     const result = await setDictionaryCategories(
       selectedWords.map((word) => ({ word, category, source: "user" as const }))
     );
@@ -972,10 +1009,20 @@ export default function PersonalDictionaryView({
             </span>
           )}
         </Button>
-        <Button size="sm" variant="outline" onClick={onImport}>
-          <Upload size={12} />
-          {t("dictionary.importWords")}
-        </Button>
+        {importMenu ? (
+          importMenu(
+            <Button size="sm" variant="outline" data-dictionary-import-menu>
+              <Upload size={12} />
+              {t("dictionary.importMenu")}
+              <ChevronDown size={11} aria-hidden="true" />
+            </Button>
+          )
+        ) : (
+          <Button size="sm" variant="outline" onClick={onImport}>
+            <Upload size={12} />
+            {t("dictionary.importWords")}
+          </Button>
+        )}
         <Button
           size="sm"
           variant="outline"
@@ -1133,7 +1180,7 @@ export default function PersonalDictionaryView({
           size="sm"
           variant="outline"
           disabled={!anySelectedUnpinned}
-          onClick={() => void setDictionaryPins(selectedWords, true)}
+          onClick={() => pinWords(selectedWords, true)}
         >
           {t("dictionary.actions.pin")}
         </Button>
@@ -1141,7 +1188,7 @@ export default function PersonalDictionaryView({
           size="sm"
           variant="outline"
           disabled={!anySelectedPinned}
-          onClick={() => void setDictionaryPins(selectedWords, false)}
+          onClick={() => pinWords(selectedWords, false)}
         >
           {t("dictionary.actions.unpin")}
         </Button>

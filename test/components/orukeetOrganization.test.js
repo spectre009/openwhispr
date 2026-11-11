@@ -1,11 +1,8 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const React = require("react");
 const path = require("node:path");
-const { renderToStaticMarkup } = require("react-dom/server");
 const { createRendererServer, installBrowserGlobals } = require("../lib/rendererTestHarness");
 
-const noop = () => {};
 async function renderer(t) {
   installBrowserGlobals(t, {
     window: { location: { search: "" }, electronAPI: { getPlatform: () => "darwin" } },
@@ -18,31 +15,6 @@ async function renderer(t) {
     },
   });
 }
-
-async function render(vite, element) {
-  const { ToastProvider } = await vite.ssrLoadModule("/components/ui/Toast.tsx");
-  return renderToStaticMarkup(React.createElement(ToastProvider, null, element));
-}
-
-test("onboarding restores an Oruk draft without mixing NVIDIA models", async (t) => {
-  const vite = await renderer(t);
-  const { LocalModelSetupStep } = await vite.ssrLoadModule(
-    "/components/onboarding/ProviderSetupStep.tsx"
-  );
-  const markup = await render(
-    vite,
-    React.createElement(LocalModelSetupStep, {
-      stepId: "local-dictation",
-      resumeState: { provider: "oruk", modelId: "orukeet-v0.1.0" },
-      onReadinessChange: noop,
-      onProceed: noop,
-      onSkip: noop,
-    })
-  );
-  assert.match(markup, />Oruk</);
-  assert.match(markup, />Orukeet</);
-  assert.doesNotMatch(markup, />Parakeet TDT/);
-});
 
 // The speech-to-text pickers list downloaded local models under their
 // organization: Orukeet (Oruk) and stock Parakeet (NVIDIA) both run as the

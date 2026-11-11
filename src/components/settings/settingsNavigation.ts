@@ -28,11 +28,11 @@ export function nextSettingsRequest(
 /** What Settings shows, and which request it last answered. */
 export interface SettingsNavigation {
   page: SettingsPageId;
-  /** The Workspace page's tab, when a destination named one. */
+  /** The People page's tab, when a destination named one. */
   subTab?: string;
   /** A setting to scroll to and flash once this navigation renders (search results). */
   settingId?: string;
-  /** Bumps on every navigation, so a Workspace tab re-applies even when it's unchanged. */
+  /** Bumps on every navigation, so a People tab re-applies even when it's unchanged. */
   navigationId: number;
   requestId: number;
   /** Retired saved tabs not used yet; a bare `llms` / `speechToText` uses its one once. */
@@ -111,16 +111,23 @@ export function navigateWithinSettings(
   return next;
 }
 
+/** open-settings-section names an Integrations section as "integrations.<section>". */
+export const INTEGRATIONS_TARGET_PREFIX = "integrations.";
+
 /**
  * A named destination waits in main (it can outrace the listener on a cold
  * start); a bare request (the app menu's Settings item) keeps Settings where it is.
+ * An Integrations section is a view, not a Settings page: it goes to `openIntegrations`.
  */
 export async function drainPendingSettingsSection(
   readPending: () => Promise<string | null | undefined> | undefined,
   openSettings: (section?: string) => void,
-  showAnyway: boolean
+  showAnyway: boolean,
+  openIntegrations?: (section: string) => void
 ): Promise<void> {
   const section = await readPending();
-  if (section) openSettings(section);
+  if (section && openIntegrations && section.startsWith(INTEGRATIONS_TARGET_PREFIX)) {
+    openIntegrations(section.slice(INTEGRATIONS_TARGET_PREFIX.length));
+  } else if (section) openSettings(section);
   else if (showAnyway) openSettings();
 }

@@ -112,6 +112,8 @@ async function mountSettings(t, { page: initialPage = "recognition", layerWidth 
       "div",
       null,
       h("input", { id: "field", defaultValue: "" }),
+      // A table's search marks itself while it has a query, so Esc clears it (#2959).
+      h("input", { id: "clearing-field", defaultValue: "query", "data-escape-clears": "" }),
       h(
         Popover,
         { open: popoverOpen, onOpenChange: setPopoverOpen },
@@ -203,6 +205,8 @@ async function mountSettings(t, { page: initialPage = "recognition", layerWidth 
             returnFocusRef: settings.returnFocusRef,
             getFallbackFocus: () => happyWindow.document.getElementById("opener"),
             navTop: h("input", { id: "search-field" }),
+            header: h("div", { id: "nav-header" }, "Workspace picker"),
+            compactHeader: h("div", { id: "nav-compact-header" }, "W"),
             searchActive: !!search,
             onClearSearch: () => setSearch(null),
             onFocusSearch: () => happyWindow.document.getElementById("search-field")?.focus(),
@@ -369,6 +373,40 @@ test("Esc leaves a text field first, and does nothing during a hotkey capture", 
   await s.act(() => s.api.setCapturing(false));
   await s.act(() => s.pressEscape());
   assert.equal(s.api.settings.open, false);
+});
+
+test("Esc in a field that clears on Esc is left to the field: Settings neither blurs nor closes", async (t) => {
+  // Upstream's SidebarModal test (#2959) for the Settings layer: Radix saw Esc on the
+  // document before the field's own handler; the layer asks the field the same way.
+  const s = await mountSettings(t);
+  await s.open();
+  s.byId("clearing-field").focus();
+  await s.act(() => s.pressEscape());
+  assert.equal(s.doc.activeElement, s.byId("clearing-field"), "focus stays in the field");
+  assert.equal(s.api.settings.open, true);
+
+  // An unmarked field still gives up focus, and the next Esc leaves Settings.
+  s.byId("field").focus();
+  await s.act(() => s.pressEscape());
+  assert.notEqual(s.doc.activeElement, s.byId("field"));
+  assert.equal(s.api.settings.open, true);
+  await s.act(() => s.pressEscape());
+  assert.equal(s.api.settings.open, false);
+});
+
+test("the nav's header shows above the pages, and its compact form in the icon nav", async (t) => {
+  const wide = await mountSettings(t);
+  await wide.open();
+  assert.ok(wide.layer().querySelector("#nav-header"));
+  assert.equal(wide.layer().querySelector("#nav-compact-header"), null);
+});
+
+test("the icon nav shows the compact header in the header's place", async (t) => {
+  const narrow = await mountSettings(t, { layerWidth: 800 });
+  await narrow.open();
+  await narrow.act(() => {});
+  assert.equal(narrow.layer().querySelector("#nav-header"), null);
+  assert.ok(narrow.layer().querySelector("#nav-compact-header"));
 });
 
 test("focus moves into Settings on open and back to the opener on close", async (t) => {

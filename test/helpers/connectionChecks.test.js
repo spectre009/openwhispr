@@ -205,34 +205,64 @@ test("Groq and Mistral: bearer model lists; Mistral's aliases count", async () =
   assert.deepEqual(mistralResult.models, { "voxtral-mini-latest": "offered" });
 });
 
-test("OpenRouter: /key only (never /credits), management keys, a key's own limit, the public list", async (t) => {
-  const keyInfo = (data) => (url) =>
-    url.endsWith("/key")
-      ? reply(200, { data })
-      : url.endsWith("/models")
-        ? reply(200, list("anthropic/claude-sonnet-4.5", "openai/gpt-5-mini"))
-        : reply(500, "unexpected");
+test("OpenRouter: /key only (never /credits), management keys, a key's own limit, the public lists", async (t) => {
+  const SPEECH_LIST = "/models?output_modalities=transcription";
+  const keyInfo =
+    (data, { speech = reply(200, list("mistralai/voxtral-mini-transcribe-3-0")) } = {}) =>
+    (url) =>
+      url.endsWith("/key")
+        ? reply(200, { data })
+        : url.endsWith("/models")
+          ? reply(200, list("anthropic/claude-sonnet-4.5", "openai/gpt-5-mini"))
+          : url.endsWith(SPEECH_LIST)
+            ? speech
+            : reply(500, "unexpected");
 
-  await t.test("unlimited key: no limit shown, models from the public list", async () => {
+  await t.test("unlimited key: no limit shown, models from the public lists", async () => {
     const { check, requests } = createHarness({
       route: keyInfo({ label: "sk-or-v1-abc", limit: null, limit_remaining: null, usage: 12 }),
     });
     const result = await check(D.openrouter(["openai/gpt-5-mini", "gone/model"]));
     assert.deepEqual(
       requests.map((request) => request.url),
-      ["https://openrouter.ai/api/v1/key", "https://openrouter.ai/api/v1/models"]
+      [
+        "https://openrouter.ai/api/v1/key",
+        "https://openrouter.ai/api/v1/models",
+        `https://openrouter.ai/api/v1${SPEECH_LIST}`,
+      ]
     );
     assert.ok(!requests.some((request) => request.url.includes("/credits")), "never /credits");
     assert.equal(headerOf(requests[0], "authorization"), `Bearer ${KEYS.OPENROUTER_API_KEY}`);
-    assert.equal(
-      headerOf(requests[1], "authorization"),
-      null,
-      "the public list goes without the key"
-    );
+    for (const request of requests.slice(1)) {
+      assert.equal(headerOf(request, "authorization"), null, "the public lists go without the key");
+    }
     assert.equal(result.credentials, "accepted");
     assert.equal(result.code, "OK");
     assert.equal(result.limit, undefined);
     assert.deepEqual(result.models, { "openai/gpt-5-mini": "offered", "gone/model": "missing" });
+  });
+  // Speech-to-text models are listed only by output modality (#2105).
+  await t.test("speech-to-text models come from the transcription list", async () => {
+    const used = await createHarness({ route: keyInfo({ limit: null }) }).check(
+      D.openrouter(["openai/gpt-5-mini", "mistralai/voxtral-mini-transcribe-3-0"])
+    );
+    assert.deepEqual(used.models, {
+      "openai/gpt-5-mini": "offered",
+      "mistralai/voxtral-mini-transcribe-3-0": "offered",
+    });
+    // Every used model on the text list: the speech list isn't asked for.
+    const textOnly = createHarness({ route: keyInfo({ limit: null }) });
+    await textOnly.check(D.openrouter(["openai/gpt-5-mini"]));
+    assert.equal(textOnly.requests.length, 2);
+    // A speech list that can't be read leaves what it might name unknown, never missing.
+    const unread = await createHarness({
+      route: keyInfo({ limit: null }, { speech: reply(503, "down") }),
+    }).check(D.openrouter(["openai/gpt-5-mini", "mistralai/voxtral-mini-transcribe-3-0"]));
+    assert.deepEqual(unread.models, {
+      "openai/gpt-5-mini": "offered",
+      "mistralai/voxtral-mini-transcribe-3-0": "unknown",
+    });
+    assert.equal(unread.credentials, "accepted");
   });
   await t.test("a limited key: what's left; spent is a warning", async () => {
     const left = await createHarness({ route: keyInfo({ limit: 20, limit_remaining: 4.5 }) }).check(

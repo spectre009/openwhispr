@@ -28,15 +28,17 @@ export interface ToastProps {
   secondaryDescription?: string;
   copyCommand?: string;
   technicalDetails?: TechnicalErrorDetailsData;
-  action?: React.ReactNode;
   actions?: ToastActionConfig[];
-  /** Which side of a standard toast its `actions` row sits on; start by default. */
-  actionsAlign?: "start" | "end";
   presentation?: ToastPresentation;
   variant?: "default" | "destructive" | "success";
   duration?: number;
   onClose?: () => void;
-  /** Called once when the toast leaves for any reason: its timer, a close, a newer dictation error replacing it. */
+  /**
+   * Called once when the toast goes away, however it went: timed out, closed,
+   * dismissed, or replaced by a newer dictation error.
+   */
+  onSettled?: () => void;
+  /** The same moment as `onSettled`; the dictation error card's kept recording is released on it. */
   onRemoved?: () => void;
   dismissible?: boolean;
 }

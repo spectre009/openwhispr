@@ -116,9 +116,9 @@ function managerWithStripSpy() {
 
 test("the strip follows the main process's recording state and mode", () => {
   const { manager, calls } = managerWithStripSpy();
-  manager.setDictationLifecycleState("recording", "assistant");
-  manager.setDictationLifecycleState("processing", "assistant");
-  manager.setDictationLifecycleState("recording", "translation");
+  manager.setDictationLifecycleState("recording", undefined, { inputKind: "assistant" });
+  manager.setDictationLifecycleState("processing", undefined, { inputKind: "assistant" });
+  manager.setDictationLifecycleState("recording", undefined, { inputKind: "translation" });
   manager.setDictationLifecycleState("idle");
   assert.deepEqual(
     calls.filter(([kind]) => kind === "setRecording").map(([, value, mode]) => [value, mode]),
@@ -168,6 +168,26 @@ test("in-page and subframe navigations leave a recording alone", () => {
   win.webContents.emit("did-start-navigation", { isMainFrame: true, isSameDocument: true });
   win.webContents.emit("did-start-navigation", { isMainFrame: false, isSameDocument: false });
   assert.equal(manager.isDictating(), true);
+});
+
+test("a replaced dictation window's late events leave its successor's recording alone", () => {
+  const { manager, calls } = managerWithStripSpy();
+  const released = [];
+  manager.recordingEdgeStrip.release = () => released.push("release");
+  const old = fakeDictationWindow();
+  manager.mainWindow = old;
+  manager._registerDictationLifecycleReset(old);
+  manager.mainWindow = fakeDictationWindow();
+  manager.setDictationLifecycleState("recording");
+  old.webContents.emit("render-process-gone", {}, { reason: "crashed" });
+  old.webContents.emit("did-start-navigation", { isMainFrame: true, isSameDocument: false });
+  old.emit("closed");
+  assert.equal(manager.isDictating(), true);
+  assert.deepEqual(released, []);
+  assert.equal(
+    calls.filter(([kind, recording]) => kind === "setRecording" && !recording).length,
+    0
+  );
 });
 
 test("a dragged pill takes the strip along; a click without movement doesn't", async () => {
@@ -270,7 +290,10 @@ test("main keeps the renderer's start time only when it is near the present", (t
     [undefined, NOW],
   ]) {
     const { manager } = managerWithStripSpy();
-    manager.setDictationLifecycleState("recording", "dictation", reported);
+    manager.setDictationLifecycleState("recording", undefined, {
+      inputKind: "dictation",
+      startedAt: reported,
+    });
     assert.equal(manager.getRecordingStartedAt(), kept, `reported ${reported}`);
   }
 });
@@ -314,26 +337,54 @@ test("the control panel follows the dictation lifecycle, so the test set can giv
 test("the start time is set once per recording and cleared when it ends", (t) => {
   t.mock.timers.enable({ apis: ["Date", "setTimeout"], now: NOW });
   const { manager } = managerWithStripSpy();
-  manager.setDictationLifecycleState("recording", "dictation", NOW - 1000);
+  manager.setDictationLifecycleState("recording", undefined, {
+    inputKind: "dictation",
+    startedAt: NOW - 1000,
+  });
   t.mock.timers.tick(3000);
-  manager.setDictationLifecycleState("recording", "assistant", Date.now());
+  manager.setDictationLifecycleState("recording", undefined, {
+    inputKind: "assistant",
+    startedAt: Date.now(),
+  });
   assert.equal(manager.getRecordingStartedAt(), NOW - 1000, "a mode change keeps the start");
-  manager.setDictationLifecycleState("processing", "assistant");
+  manager.setDictationLifecycleState("processing", undefined, { inputKind: "assistant" });
   assert.equal(manager.getRecordingStartedAt(), null);
   assert.equal(manager.getDictationInputKind(), "assistant");
 });
 
-test("the companion pill learns when its dictation started", (t) => {
+// The renderer reports the lifecycle with its attempt (the microphone's
+// reservation against the agent window) and the recording's mode and start.
+test("the attempt's report carries its mode and start; an older attempt's changes nothing", (t) => {
   t.mock.timers.enable({ apis: ["Date", "setTimeout"], now: NOW });
-  const { manager } = managerWithStripSpy();
-  manager.setDictationLifecycleState("recording", "dictation", NOW - 800);
-  assert.equal(manager.getAgentDictationPillState().startedAt, NOW - 800);
-  manager.setDictationLifecycleState("recording", "assistant");
+  const { manager, calls } = managerWithStripSpy();
   assert.equal(
-    manager.getAgentDictationPillState().startedAt,
-    null,
-    "an assistant recording isn't the companion's"
+    manager.setDictationLifecycleState("preparing", "a1", { inputKind: "assistant" }),
+    true
   );
+  assert.equal(
+    manager.setDictationLifecycleState("recording", "a1", {
+      inputKind: "assistant",
+      startedAt: NOW - 800,
+    }),
+    true
+  );
+  assert.equal(manager.getRecordingStartedAt(), NOW - 800);
+  assert.equal(manager.getDictationInputKind(), "assistant");
+  assert.deepEqual(calls.filter(([kind]) => kind === "setRecording").at(-1), [
+    "setRecording",
+    true,
+    "assistant",
+  ]);
+  const before = calls.length;
+  assert.equal(
+    manager.setDictationLifecycleState("idle", "a0", { inputKind: "dictation" }),
+    false,
+    "another attempt can't end this recording"
+  );
+  assert.equal(calls.length, before);
+  assert.equal(manager.isDictating(), true);
+  assert.equal(manager.setDictationLifecycleState("idle", "a1"), true);
+  assert.equal(manager.getRecordingStartedAt(), null);
 });
 
 test("reminders fire at each whole interval from the start until the recording stops", (t) => {
@@ -342,7 +393,10 @@ test("reminders fire at each whole interval from the start until the recording s
   const main = pillWindow();
   manager.mainWindow = main;
   manager.setRecordingIndicatorSettings({ reminderMinutes: 2 });
-  manager.setDictationLifecycleState("recording", "translation", NOW - 8000);
+  manager.setDictationLifecycleState("recording", undefined, {
+    inputKind: "translation",
+    startedAt: NOW - 8000,
+  });
   const reminders = () => main.sent.filter(([channel]) => channel === "recording-reminder");
 
   t.mock.timers.tick(111_999);
@@ -354,7 +408,7 @@ test("reminders fire at each whole interval from the start until the recording s
   t.mock.timers.tick(120_000);
   assert.equal(reminders().length, 2);
 
-  manager.setDictationLifecycleState("processing", "translation");
+  manager.setDictationLifecycleState("processing", undefined, { inputKind: "translation" });
   t.mock.timers.tick(600_000);
   assert.equal(reminders().length, 2, "none after the recording stops");
 });
@@ -364,7 +418,10 @@ test("changing or clearing the interval reschedules a running recording's remind
   const { manager } = managerWithStripSpy();
   const main = pillWindow();
   manager.mainWindow = main;
-  manager.setDictationLifecycleState("recording", "dictation", NOW);
+  manager.setDictationLifecycleState("recording", undefined, {
+    inputKind: "dictation",
+    startedAt: NOW,
+  });
   t.mock.timers.tick(150_000);
   manager.setRecordingIndicatorSettings({ reminderMinutes: 2 });
   t.mock.timers.tick(89_999);
@@ -376,27 +433,30 @@ test("changing or clearing the interval reschedules a running recording's remind
   assert.equal(main.sent.length, 1);
 });
 
-test("a dictation shown on the companion pill gets its reminders there", (t) => {
+// The dictation window's assistant panel and its companion pill are gone (the
+// assistant has its own window): every dictation shows on the dictation pill.
+test("every dictation's reminders go to the dictation window's pill", (t) => {
   t.mock.timers.enable({ apis: ["Date", "setTimeout"], now: NOW });
   const { manager } = managerWithStripSpy();
   const main = pillWindow();
-  const companion = pillWindow();
   manager.mainWindow = main;
-  manager.agentDictationPillWindow = companion;
-  manager._agentDictationPillReady = true;
-  manager._assistantPanelOpen = true;
   manager.setRecordingIndicatorSettings({ reminderMinutes: 2 });
-  manager.setDictationLifecycleState("recording", "dictation", NOW);
+  manager.setDictationLifecycleState("recording", undefined, {
+    inputKind: "dictation",
+    startedAt: NOW,
+  });
   t.mock.timers.tick(120_000);
-  assert.equal(companion.sent.filter(([c]) => c === "recording-reminder").length, 1);
-  assert.equal(main.sent.filter(([c]) => c === "recording-reminder").length, 0);
+  assert.equal(main.sent.filter(([c]) => c === "recording-reminder").length, 1);
 
   manager.setDictationLifecycleState("idle");
-  manager.setDictationLifecycleState("recording", "assistant", Date.now());
+  manager.setDictationLifecycleState("recording", undefined, {
+    inputKind: "assistant",
+    startedAt: Date.now(),
+  });
   t.mock.timers.tick(120_000);
   assert.equal(
     main.sent.filter(([c]) => c === "recording-reminder").length,
-    1,
-    "the assistant's own recording shows on the main pill"
+    2,
+    "the onboarding demo's assistant recording too"
   );
 });

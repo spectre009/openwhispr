@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
@@ -7,7 +7,12 @@ import { Check, ChevronRight, Copy, FolderOpen, RefreshCw, Trash2 } from "../ico
 import { SettingsPanel, SettingsPanelRow, SettingsRow } from "../ui/SettingsSection";
 import { formatBytes } from "../../utils/formatBytes";
 import { useCopyFeedback } from "../../hooks/useCopyFeedback";
-import { clearMissingLocalModelSelections } from "../../stores/settingsStore";
+import { useRegistryVersion } from "../../hooks/useRegistryVersion";
+import {
+  clearMissingLocalModelSelections,
+  selectedLocalSpeechModelIds,
+} from "../../stores/settingsStore";
+import { discardPendingLocalSetup } from "../onboarding/pendingLocalModels";
 import type {
   HistoryDatabaseCounts,
   StorageInventoryItem,
@@ -464,6 +469,7 @@ function RemoveModelsButton({
       } else {
         // Every local model is gone, so no local selection can still resolve.
         clearMissingLocalModelSelections(() => false);
+        discardPendingLocalSetup();
         window.dispatchEvent(new Event("openwhispr-models-cleared"));
         setAlert({
           title: t("settingsPage.developer.removeModels.successTitle"),
@@ -515,6 +521,80 @@ function RemoveModelsButton({
         onOk={() => setAlert(null)}
       />
     </span>
+  );
+}
+
+/**
+ * Models the signed catalog no longer offers but that are still on disk (#3081), shown only
+ * while there are some; the speech models a feature still selects are never listed.
+ */
+function RetiredModelsRow({ onDone }: { onDone: () => void }) {
+  const { t } = useTranslation();
+  const registryVersion = useRegistryVersion();
+  const [models, setModels] = useState<Array<{ name: string }>>([]);
+  const [confirming, setConfirming] = useState(false);
+  const [failed, setFailed] = useState(false);
+
+  const refresh = useCallback(async () => {
+    setModels(
+      (await window.electronAPI?.listRetiredLocalModels?.(selectedLocalSpeechModelIds())) ?? []
+    );
+  }, []);
+
+  useEffect(() => {
+    void refresh().catch(() => {});
+  }, [refresh, registryVersion]);
+
+  const remove = async () => {
+    const result = await window.electronAPI
+      ?.deleteRetiredLocalModels?.(selectedLocalSpeechModelIds())
+      .catch(() => null);
+    await refresh().catch(() => {});
+    if (!result?.success) setFailed(true);
+    onDone();
+  };
+
+  if (models.length === 0 && !failed) return null;
+  return (
+    <>
+      {models.length > 0 && (
+        <SettingsPanelRow>
+          <SettingsRow
+            label={t("settingsPage.developer.retiredModels.label")}
+            description={t("settingsPage.developer.retiredModels.description", {
+              models: models.map(({ name }) => name).join(", "),
+            })}
+          >
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs text-destructive hover:text-destructive"
+              onClick={() => setConfirming(true)}
+            >
+              <Trash2 className="me-1.5 h-3.5 w-3.5" />
+              {t("settingsPage.developer.retiredModels.remove")}
+            </Button>
+          </SettingsRow>
+        </SettingsPanelRow>
+      )}
+      <ConfirmDialog
+        open={confirming}
+        onOpenChange={setConfirming}
+        title={t("settingsPage.developer.retiredModels.confirmTitle")}
+        description={t("settingsPage.developer.retiredModels.confirmDescription")}
+        confirmText={t("settingsPage.developer.removeModels.confirmText")}
+        cancelText={t("common.cancel")}
+        variant="destructive"
+        onConfirm={() => void remove()}
+      />
+      <AlertDialog
+        open={failed}
+        onOpenChange={(open) => !open && setFailed(false)}
+        title={t("settingsPage.developer.removeModels.failedTitle")}
+        description={t("settingsPage.developer.retiredModels.failedDescription")}
+        onOk={() => setFailed(false)}
+      />
+    </>
   );
 }
 
@@ -582,6 +662,7 @@ export function EverythingElseSection({ inventory }: { inventory: StorageInvento
         >
           <RemoveModelsButton item={models} onDone={() => void inventory.refresh()} />
         </InventoryRow>
+        <RetiredModelsRow onDone={() => void inventory.refresh()} />
         <InventoryRow
           id="searchIndex"
           inventory={inventory}

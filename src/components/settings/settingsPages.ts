@@ -17,7 +17,10 @@ import type { PromptKind } from "../../config/prompts/registry";
 export type SettingsPageId =
   | "account"
   | "plansBilling"
-  | "workspace"
+  | "workspaceGeneral"
+  | "workspacePeople"
+  | "workspaceTeamspaces"
+  | "workspaceDeveloper"
   | "overview"
   | "recognition"
   | "cleanup"
@@ -44,7 +47,7 @@ export type SettingsPageId =
   | "system";
 
 /** Nav items that hold sub-pages; opening one opens its first visible sub-page. */
-export type SettingsParentId = "dictation" | "notes" | "app";
+export type SettingsParentId = "workspace" | "dictation" | "notes" | "app";
 
 export type SettingsNavGroupId = "account" | "features" | "setup" | "data" | "elsewhere";
 
@@ -53,6 +56,9 @@ export type SettingsIconName =
   | "UserCircle"
   | "CreditCard"
   | "Users"
+  | "Settings"
+  | "FolderRounded"
+  | "Key"
   | "Mic"
   | "Network"
   | "AudioLines"
@@ -109,6 +115,13 @@ export interface SettingsPageContext {
   isSignedIn: boolean;
   /** The organization allows the voice assistant and chat (isAgentAllowed). */
   agentAllowed: boolean;
+  /**
+   * A workspace is chosen (not Personal): People, Teamspaces and Developer show.
+   * Undefined while the workspace list loads, which shows them so a destination waits.
+   */
+  hasWorkspace?: boolean;
+  /** The chosen workspace's manage_settings (its Developer page); undefined while loading. */
+  canManageWorkspace?: boolean;
 }
 
 /** An AI feature page: its header shows the scope's provider · model and the prompt in use. */
@@ -134,6 +147,13 @@ export interface SettingsPageDef {
 
 const cloudOn = (ctx: SettingsPageContext) => !ctx.cloudDisabled;
 const agentOn = (ctx: SettingsPageContext) => ctx.agentAllowed;
+const workspaceSignedIn = (ctx: SettingsPageContext) => cloudOn(ctx) && ctx.isSignedIn;
+// Upstream's workspace pages (#2959): General for anyone signed in (it offers creating or
+// choosing a workspace), People and Teamspaces once one is chosen, Developer to its managers.
+const workspaceChosen = (ctx: SettingsPageContext) =>
+  workspaceSignedIn(ctx) && ctx.hasWorkspace !== false;
+const workspaceManaged = (ctx: SettingsPageContext) =>
+  workspaceChosen(ctx) && ctx.canManageWorkspace !== false;
 
 const pageKeys = (id: string) => ({
   titleKey: `settingsNav.pages.${id}.title`,
@@ -147,11 +167,29 @@ const sectionKeys = (section: string) => ({
 export const SETTINGS_PAGES: Readonly<Record<SettingsPageId, SettingsPageDef>> = {
   account: { ...sectionKeys("account"), icon: "UserCircle", visible: cloudOn },
   plansBilling: { ...sectionKeys("plansBilling"), icon: "CreditCard", visible: cloudOn },
-  workspace: {
-    ...sectionKeys("workspace"),
-    icon: "Users",
-    visible: (ctx) => cloudOn(ctx) && ctx.isSignedIn,
+  workspaceGeneral: {
+    ...sectionKeys("workspaceGeneral"),
+    icon: "Settings",
+    visible: workspaceSignedIn,
     fallback: "account",
+  },
+  workspacePeople: {
+    ...sectionKeys("workspacePeople"),
+    icon: "Users",
+    visible: workspaceChosen,
+    fallback: "workspaceGeneral",
+  },
+  workspaceTeamspaces: {
+    ...sectionKeys("workspaceTeamspaces"),
+    icon: "FolderRounded",
+    visible: workspaceChosen,
+    fallback: "workspaceGeneral",
+  },
+  workspaceDeveloper: {
+    ...sectionKeys("workspaceDeveloper"),
+    icon: "Key",
+    visible: workspaceManaged,
+    fallback: "workspaceGeneral",
   },
   overview: { ...pageKeys("overview"), icon: "Network", wide: true },
   recognition: {
@@ -283,7 +321,13 @@ export const SETTINGS_NAV: readonly SettingsNavGroupDef[] = [
     items: [
       { kind: "page", page: "account" },
       { kind: "page", page: "plansBilling" },
-      { kind: "page", page: "workspace" },
+      {
+        kind: "parent",
+        id: "workspace",
+        titleKey: "settingsModal.groups.workspace",
+        icon: "Users",
+        pages: ["workspaceGeneral", "workspacePeople", "workspaceTeamspaces", "workspaceDeveloper"],
+      },
     ],
   },
   {
@@ -460,7 +504,7 @@ export function defaultSettingsPage(ctx: SettingsPageContext): SettingsPageId {
 /** The page actually shown: a hidden one (Cloud off, signed out, agent policy) falls back. */
 export function shownSettingsPage(page: SettingsPageId, ctx: SettingsPageContext): SettingsPageId {
   let current = page;
-  // Fallbacks chain at most once or twice (workspace → account → default).
+  // Fallbacks chain at most a few times (Developer → General → Profile → default).
   for (let step = 0; step < 4 && !isSettingsPageVisible(current, ctx); step++) {
     current = SETTINGS_PAGES[current].fallback ?? defaultSettingsPage(ctx);
   }
@@ -510,7 +554,8 @@ export type LegacySettingsSection =
 const LEGACY_SECTION_PAGES: Readonly<Record<LegacySettingsSection, SettingsPageId>> = {
   account: "account",
   plansBilling: "plansBilling",
-  workspace: "workspace",
+  // Also the Workspace parent, which opens its first page that shows.
+  workspace: "workspaceGeneral",
   // Preferences' first block.
   general: "appearance",
   hotkeys: "hotkeys",
@@ -551,6 +596,8 @@ export const SECTION_ALIASES: Readonly<Record<string, LegacySettingsSection>> = 
   prompts: "llms",
   transcription: "speechToText",
   uploadTranscription: "speechToText",
+  // A meeting's provider error (#3056): Speech-to-Text's Note Recording tab, now Live Recording.
+  noteRecording: "speechToText",
   softwareUpdates: "system",
   privacy: "privacyData",
   permissions: "privacyData",
@@ -560,6 +607,7 @@ export const SECTION_ALIASES: Readonly<Record<string, LegacySettingsSection>> = 
 export const LEGACY_SUB_TAB: Readonly<Record<string, string>> = {
   transcription: "dictation",
   uploadTranscription: "upload",
+  noteRecording: "noteRecording",
   dictationAgent: "dictationAgent",
   meetings: "noteFormatting",
   intelligence: "dictationCleanup",
@@ -663,7 +711,7 @@ export function writeOpenNavParents(
 
 // ── Destinations ───────────────────────────────────────────────────────────
 
-/** Where a setting lives. `subTab` is the Workspace page's tab. */
+/** Where a setting lives. `subTab` is the People page's tab. */
 export interface SettingsLocation {
   page: SettingsPageId;
   subTab?: string;
@@ -721,7 +769,7 @@ function pageForName(
 
 /**
  * Where a destination lands: a visible page (hidden ones fall back), the
- * Workspace tab when a setting names one, and the setting to reveal.
+ * People tab when a setting names one, and the setting to reveal.
  */
 export function resolveSettingsDestination(
   destination: string | undefined,

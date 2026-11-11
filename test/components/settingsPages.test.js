@@ -30,7 +30,8 @@ const LEGACY_PAGES = {
   // The nine sections.
   account: "account",
   plansBilling: "plansBilling",
-  workspace: "workspace",
+  // The Workspace parent now: its first page (#2959 split it into General, People, ...).
+  workspace: "workspaceGeneral",
   general: "appearance",
   hotkeys: "hotkeys",
   speechToText: "recognition",
@@ -47,6 +48,7 @@ const LEGACY_PAGES = {
   prompts: "cleanup",
   transcription: "recognition",
   uploadTranscription: "fileTranscription",
+  noteRecording: "liveRecording",
   softwareUpdates: "system",
   privacy: "privacyData",
   permissions: "privacyData",
@@ -146,8 +148,9 @@ test("provider-error targets (main's allow-list) land on their pages", async () 
       /"([^"]+)"/g
     ),
   ].map((match) => match[1]);
-  // noteFormatting: a note action's provider error opens Note Formatting (#2670), a page id.
-  assert.deepEqual(targets.sort(), ["llms", "noteFormatting", "speechToText"]);
+  // noteFormatting: a note action's provider error opens Note Formatting (#2670), a page id;
+  // noteRecording: a meeting's opens Live Recording (#3056).
+  assert.deepEqual(targets.sort(), ["llms", "noteFormatting", "noteRecording", "speechToText"]);
   const pages = { ...LEGACY_PAGES, noteFormatting: "noteFormatting" };
   for (const target of targets) {
     assert.equal(resolveSettingsDestination(target, { ctx: ALL }).page, pages[target]);
@@ -194,9 +197,9 @@ test("page ids, parents and settings resolve; a setting's page wins over the nam
     settingId: "gone.setting",
   });
   assert.deepEqual(resolve("hotkeys#gone.setting"), { page: "hotkeys", settingId: "gone.setting" });
-  // A Workspace tab comes along.
+  // A People tab comes along (the old Workspace page's ids still land there).
   assert.deepEqual(resolve("#workspace.members"), {
-    page: "workspace",
+    page: "workspacePeople",
     subTab: "members",
     settingId: "workspace.members",
   });
@@ -218,6 +221,20 @@ test("hidden pages fall back to a visible one", async () => {
   const signedOut = { ...ALL, isSignedIn: false };
   assert.equal(resolve("workspace", signedOut), "account");
   assert.equal(resolve("#workspace.members", signedOut), "account");
+  for (const name of ["workspacePeople", "workspaceTeamspaces", "workspaceDeveloper"]) {
+    assert.equal(resolve(name, signedOut), "account", name);
+  }
+  // In Personal (no workspace chosen): its own pages fall back to General, which offers one.
+  const personal = { ...ALL, hasWorkspace: false, canManageWorkspace: false };
+  for (const name of ["workspacePeople", "workspaceTeamspaces", "#workspace.members"]) {
+    assert.equal(resolve(name, personal), "workspaceGeneral", name);
+  }
+  // A member without manage_settings: Developer falls back to General; People stays.
+  const member = { ...ALL, hasWorkspace: true, canManageWorkspace: false };
+  assert.equal(resolve("workspaceDeveloper", member), "workspaceGeneral");
+  assert.equal(resolve("#workspace.members", member), "workspacePeople");
+  // While the workspace list loads, nothing is known yet: a destination waits on its page.
+  assert.equal(resolve("workspaceDeveloper", ALL), "workspaceDeveloper");
   // Agent policy off: the voice assistant and chat fall back to Cleanup (as LlmsTabs did).
   const noAgent = { ...ALL, agentAllowed: false };
   for (const name of ["assistant", "chat", "dictationAgent", "agentMode", "#assistant.enabled"]) {
@@ -254,7 +271,20 @@ test("the nav hides what the context hides, and lists every page once", async ()
   assert.deepEqual(pagesIn(visibleSettingsNav(ALL)), all);
   const cloudOff = visibleSettingsNav(CLOUD_OFF);
   assert.ok(!cloudOff.some((group) => group.id === "account"), "the Account group is gone");
-  assert.ok(!pagesIn(visibleSettingsNav({ ...ALL, isSignedIn: false })).includes("workspace"));
+  const signedOutPages = pagesIn(visibleSettingsNav({ ...ALL, isSignedIn: false }));
+  assert.ok(!signedOutPages.some((page) => page.startsWith("workspace")));
+  const personalPages = pagesIn(
+    visibleSettingsNav({ ...ALL, hasWorkspace: false, canManageWorkspace: false })
+  );
+  assert.deepEqual(
+    personalPages.filter((page) => page.startsWith("workspace")),
+    ["workspaceGeneral"],
+    "in Personal only General shows"
+  );
+  const memberPages = pagesIn(
+    visibleSettingsNav({ ...ALL, hasWorkspace: true, canManageWorkspace: false })
+  );
+  assert.ok(memberPages.includes("workspacePeople") && !memberPages.includes("workspaceDeveloper"));
   const noAgent = pagesIn(visibleSettingsNav({ ...ALL, agentAllowed: false }));
   assert.ok(!noAgent.includes("assistant") && !noAgent.includes("chat"));
   assert.ok(noAgent.includes("translation"));

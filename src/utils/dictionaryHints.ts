@@ -36,6 +36,7 @@ import {
   TRANSCRIBE_PROMPT_CHARS,
   WHISPER_DECODER_PROMPT_CHARS,
   dictionaryPromptLimit,
+  dictionaryReachesTranscriptionModel,
 } from "./dictionaryPromptCap.js";
 import { usesTranscriptionKeywords } from "./dictionaryKeywords.js";
 import { dictionaryWordKey } from "./dictionaryWordKey.js";
@@ -293,6 +294,11 @@ export function resolveHintTarget({
   // OpenWhispr Cloud picks its model server-side; Groq's request cap is the
   // tightest it may apply, so everything sent survives whatever it keeps.
   if (engine === "cloud") return whisperTail(GROQ_PROMPT_CHARS);
+  // OpenRouter's speech-to-text endpoint drops `prompt`, so nothing is sent there
+  // (its tab or a Custom endpoint on its host; dictionaryReachesTranscriptionModel).
+  if (!dictionaryReachesTranscriptionModel(endpoint)) {
+    return { channel: "none", order: "head", maxChars: 0, readChars: 0 };
+  }
   // Azure Speech's phrase list counts entries (at most 199), not characters.
   if (provider === AZURE_SPEECH_PROVIDER_ID) {
     return {

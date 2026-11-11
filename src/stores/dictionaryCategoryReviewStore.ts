@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import logger from "../utils/logger";
-import { useSettingsStore } from "./settingsStore";
+import { subscribeListsOwner, useSettingsStore } from "./settingsStore";
 import { effectiveCategory } from "./dictionaryCategoriesStore";
 import {
   dictionaryCategoryRevision,
@@ -156,3 +156,12 @@ export function markCategoryProposalsAccepted(ids: readonly string[]): void {
   if (ids.length === 0) return;
   setState({ accepted: new Set([...getState().accepted, ...ids]) });
 }
+
+/** Forgets the review: proposals for another account's list don't carry over. */
+export function resetCategoryReview(): void {
+  cancelCategoryReview();
+  setState({ review: { status: "idle" }, dismissed: new Set(), accepted: new Set() });
+}
+
+// A settings store without account scoping (a test's stand-in) has no owner to follow.
+if (typeof subscribeListsOwner === "function") subscribeListsOwner(resetCategoryReview);

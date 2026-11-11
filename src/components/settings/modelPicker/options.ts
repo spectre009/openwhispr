@@ -6,7 +6,9 @@ import {
 } from "../../../stores/settingsStore";
 import {
   filterModeOptionsByPolicy,
+  isLocalModelAllowedByPolicy,
   isProviderAllowedByPolicy,
+  localModelRowRefusal,
   type PolicyDecisionSnapshot,
 } from "../../../stores/policyRules";
 import {
@@ -376,6 +378,11 @@ export interface ModelPickerContext {
   managedDeployment?: { provider: string; model: string } | null;
   /** The custom connection, with its language models; null when there is none. */
   connection?: LlmPickerConnection | null;
+  /**
+   * The model catalog's version (useRegistryVersion): a signed publication can
+   * change the providers' models in place, and this is what rebuilds the list.
+   */
+  registryVersion?: number;
 }
 
 /** An OpenAI-compatible connection's own `/models` list, read while the menu is open. */
@@ -523,6 +530,14 @@ export function pickAvailability(
         return ctx.current.mode === "local" && ctx.current.model === pick.model
           ? LEGACY_MODEL
           : null;
+      }
+      // A model on disk the organization doesn't approve stays listed, with why (#3056).
+      // A verdict still loading flags nothing: main's gate waits for it anyway.
+      if (
+        ctx.policy.status !== "loading" &&
+        !isLocalModelAllowedByPolicy(ctx.policy, "llm", pick.model)
+      ) {
+        return { reasonKey: localModelRowRefusal(ctx.policy, "llm").hintKey };
       }
       return true;
     }

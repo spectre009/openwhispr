@@ -252,6 +252,8 @@ export default function HistoryBrowser({
         setHistoryDetailOpen(false);
       }),
       api?.onTranscriptionsCleared?.(() => selectHistoryItem(null)),
+      // Another account's History: the shown row may not be in view anymore.
+      api?.onDatabaseAccountScopeChanged?.(() => selectHistoryItem(null)),
     ];
     return () => disposers.forEach((dispose) => dispose?.());
   }, []);

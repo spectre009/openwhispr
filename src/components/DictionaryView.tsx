@@ -1,12 +1,36 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactElement,
+  type ReactNode,
+} from "react";
 import { useTranslation } from "react-i18next";
-import { NotebookPen, PanelRight, Plus, Sparkles, Wand2 } from "./icons";
+import {
+  ChevronDown,
+  FileText,
+  NotebookPen,
+  PanelRight,
+  Plus,
+  Sparkles,
+  Upload,
+  Wand2,
+} from "./icons";
 import { Textarea } from "./ui/textarea";
 import { Button } from "./ui/button";
 import { PAGE_CONTENT_WIDTH_CLASS } from "./ui/pageWidth";
 import { cn } from "./lib/utils";
 import { CARD_SURFACE_CLASS } from "./ui/surfaces";
 import { ConfirmDialog } from "./ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "./ui/dropdown-menu";
+import { useToast } from "./ui/useToast";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "./ui/tabs";
 import SnippetsView from "./SnippetsView";
 import GlossaryView from "./GlossaryView";
@@ -41,15 +65,49 @@ import {
   SORT_LABEL_KEYS,
   type SortKey,
 } from "./dictionary/dictionaryViewModel";
+import {
+  speechDictionaryNoticeText,
+  useSpeechDictionaryNotice,
+} from "./dictionary/speechDictionaryNotice";
+import { useListsOwnerRevision } from "../hooks/useListsOwnerRevision";
 import { useWorkspace } from "../hooks/useWorkspace";
 import { useAuth } from "../hooks/useAuth";
 import { useSharedDictionaryStore, type ListKey } from "../stores/sharedDictionaryStore";
-import { useSettingsStore } from "../stores/settingsStore";
+import { getListsOwnerRevision, getSettings, useSettingsStore } from "../stores/settingsStore";
 import { getAgentName } from "../utils/agentName";
 import { parseDictionaryImportText } from "../helpers/dictionaryImport";
+import {
+  DICTIONARY_MAX_WORDS,
+  DICTIONARY_WORD_MAX_LENGTH,
+  decodeDragonExport,
+  parseDragonWordList,
+  planDragonImport,
+} from "../helpers/dragonImport";
 import { dictionaryWordKey } from "../utils/snippets";
 import { useDictionaryWordRequest } from "../utils/openDictionaryWord";
 import { workspaceCan } from "../lib/capabilities";
+
+interface DragonImportScope {
+  workspaceId: string | null;
+  userId: string | null;
+  isSignedIn: boolean;
+}
+
+interface DragonFile {
+  scope: DragonImportScope;
+  fileName: string;
+  words: string[];
+  unreadableLines: number;
+  tooLong: number;
+  propertiesIgnored: boolean;
+}
+
+// Read and parse error codes → copy. Anything else falls through to "generic".
+const DRAGON_ERROR_KEYS: Record<string, string> = {
+  EMPTY_FILE: "dictionary.dragonImport.error.emptyFile",
+  UNSUPPORTED_XML: "dictionary.dragonImport.error.unsupportedXml",
+  FILE_TOO_LARGE: "dictionary.dragonImport.error.fileTooLarge",
+};
 
 const SORT_STORAGE_KEY = "dictionarySort";
 const ADD_TARGET_STORAGE_KEY = "dictionaryAddTarget";
@@ -114,8 +172,8 @@ type DictionaryTab = "dictionary" | "snippets" | "glossary";
 // (Dictionary v2: PersonalDictionaryView), with its usage, pins, categories,
 // Tidy up and a word's detail; the lists with teammates' words (All words
 // with shared words, All shared, a team list, Hidden) are DictionaryWordList's
-// rows. The add field, bulk import, share popover, Clear all dialog and every
-// action on a word are this page's, for both.
+// rows. The add field, bulk import, Import from Dragon, share popover, Clear
+// all dialog and every action on a word are this page's, for both.
 interface DictionaryViewProps {
   // Opens Plans & Billing from a Shared list's upsell.
   onUpgrade?: () => void;
@@ -125,18 +183,50 @@ interface DictionaryViewProps {
 
 const noUpgrade = (): void => {};
 
+// Remounted when the personal lists start belonging to another account, which
+// closes any open editor, selection, word detail or Tidy up; an edit from the
+// old instance carries its owner and is refused.
 export default function DictionaryView({
   onUpgrade = noUpgrade,
   onOpenSettings,
 }: DictionaryViewProps = {}): ReactElement {
-  const { t } = useTranslation();
+  const listsOwner = useListsOwnerRevision();
+  return (
+    <DictionaryPage
+      key={listsOwner}
+      listsOwner={listsOwner}
+      onUpgrade={onUpgrade}
+      onOpenSettings={onOpenSettings}
+    />
+  );
+}
+
+function DictionaryPage({
+  onUpgrade,
+  onOpenSettings,
+  listsOwner,
+}: DictionaryViewProps & { onUpgrade: () => void; listsOwner: number }): ReactElement {
+  const { t, i18n } = useTranslation();
   // Read from the store itself, as the personal dictionary does, so the page
   // renders wherever the store is (no SettingsProvider needed).
   const customDictionary = useSettingsStore((state) => state.customDictionary);
-  const updateCustomDictionary = useSettingsStore((state) => state.updateCustomDictionary);
+  const updateStoredDictionary = useSettingsStore((state) => state.updateCustomDictionary);
+  const updateCustomDictionary = useCallback(
+    (changes: { add?: string[]; remove?: string[] }): void =>
+      updateStoredDictionary(changes, listsOwner),
+    [updateStoredDictionary, listsOwner]
+  );
   // Renames in place, so a word keeps its source, date, pin and category.
+  // Main renames in the active account's list, so an edit opened under
+  // another account is refused here as the store refuses its writes.
   const renameDictionaryWord = useSettingsStore((state) => state.renameDictionaryWord);
-  const { active: workspace } = useWorkspace();
+  const renamePersonalWord = useCallback(
+    async (from: string, to: string): Promise<boolean> =>
+      getListsOwnerRevision() === listsOwner &&
+      (await renameDictionaryWord(from, to)).success === true,
+    [renameDictionaryWord, listsOwner]
+  );
+  const { active: workspace, personalSelected } = useWorkspace();
   const { isSignedIn, user } = useAuth();
   const workspaceId = workspace?.id ?? null;
   const workspaceName = workspace?.name ?? "";
@@ -147,6 +237,7 @@ export default function DictionaryView({
   const currentSharingScope = useRef(sharingScope);
   currentSharingScope.current = sharingScope;
   const agentName = getAgentName();
+  const { toast } = useToast();
 
   const status = useSharedDictionaryStore((state) => state.status);
   const snapshot = useSharedDictionaryStore((state) => state.snapshot);
@@ -187,6 +278,24 @@ export default function DictionaryView({
   // The list whose checkboxes show with nothing ticked yet ("Share from Personal").
   const [selectModeList, setSelectModeList] = useState<ListKey | null>(null);
   const addInputRef = useRef<HTMLInputElement>(null);
+  const [dragonFile, setDragonFile] = useState<DragonFile | null>(null);
+  const dragonPreview = useMemo(
+    () =>
+      dragonFile?.scope === sharingScope
+        ? {
+            ...dragonFile,
+            total: dragonFile.words.length,
+            ...planDragonImport(dragonFile.words, customDictionary),
+          }
+        : null,
+    [dragonFile, customDictionary, sharingScope]
+  );
+  // Guards double-clicks: the handler reads stale closure state, so state
+  // alone can't stop a second picker opening in the same frame.
+  const dragonPickInFlight = useRef(false);
+  const bulkImportChosen = useRef(false);
+  const bulkTextareaRef = useRef<HTMLTextAreaElement>(null);
+
   const scrollRef = useRef<HTMLDivElement>(null);
   const getScrollElement = useCallback((): HTMLElement | null => scrollRef.current, []);
 
@@ -243,11 +352,17 @@ export default function DictionaryView({
     status,
     signedIn: isSignedIn,
     workspace,
+    personalSelected,
     serverPaused: snapshot?.meta?.paused ?? null,
     hasWords:
       (snapshot?.entries.length ?? 0) > 0 ||
       (snapshot?.meta?.scopes ?? []).some((scope) => scope.word_count > 0),
   });
+
+  // When dictation's speech model gets none (or only part) of the dictionary.
+  // The personal dictionary says it in "Where it goes", beside its coverage;
+  // the lists with teammates' words say it under the list.
+  const speechNotice = useSpeechDictionaryNotice();
 
   // Same membership rule as agentNameDictionaryChanges: a stored spelling that
   // differs only by case is still the agent name's entry, so keep it hidden.
@@ -326,6 +441,7 @@ export default function DictionaryView({
 
   useEffect(() => {
     setShareRequest(null);
+    setDragonFile(null);
     clearSelection();
   }, [sharingScope, clearSelection]);
 
@@ -391,7 +507,7 @@ export default function DictionaryView({
     userWords,
     agentName,
     updateCustomDictionary,
-    renamePersonalWord: async (from, to) => (await renameDictionaryWord(from, to)).success === true,
+    renamePersonalWord,
     movedPersonal,
     snapshot,
     access,
@@ -415,6 +531,130 @@ export default function DictionaryView({
       setImporting(false);
     }
   };
+
+  const handleDragonImport = useCallback(async (): Promise<void> => {
+    if (dragonPickInFlight.current) return;
+    dragonPickInFlight.current = true;
+    const importScope = currentSharingScope.current;
+    const showError = (code?: string): void => {
+      toast({
+        title: t("dictionary.dragonImport.failedTitle"),
+        description: t(DRAGON_ERROR_KEYS[code ?? ""] ?? "dictionary.dragonImport.error.generic"),
+        variant: "destructive",
+      });
+    };
+    try {
+      const result = await window.electronAPI?.dragonImportPickFile?.();
+      if (importScope !== currentSharingScope.current) return;
+      if (!result || result.canceled) return;
+      if (!result.success || !result.bytes) {
+        showError(result.error);
+        return;
+      }
+      const parsed = parseDragonWordList(decodeDragonExport(result.bytes).text);
+      if (parsed.ok === false) {
+        showError(parsed.error.code);
+        return;
+      }
+      const countWarnings = (...codes: string[]): number =>
+        parsed.warnings.filter((w) => codes.includes(w.code)).length;
+      setDragonFile({
+        scope: importScope,
+        fileName: result.fileName ?? "",
+        words: parsed.words,
+        unreadableLines: countWarnings("AMBIGUOUS_BACKSLASH", "UNREADABLE_CHARACTERS"),
+        tooLong: countWarnings("TOO_LONG"),
+        propertiesIgnored: countWarnings("XML_PROPERTIES_IGNORED") > 0,
+      });
+    } catch {
+      if (importScope === currentSharingScope.current) showError();
+    } finally {
+      dragonPickInFlight.current = false;
+    }
+  }, [toast, t]);
+
+  const confirmDragonImport = useCallback((): void => {
+    if (!dragonPreview || dragonPreview.scope !== currentSharingScope.current) return;
+    // A sync broadcast may update the store before React renders the new preview.
+    const { add } = planDragonImport(dragonPreview.add, getSettings().customDictionary);
+    if (add.length === 0) return;
+    updateCustomDictionary({ add });
+    toast({ title: t("dictionary.dragonImport.done", { count: add.length }) });
+  }, [dragonPreview, updateCustomDictionary, toast, t]);
+
+  // All in the description, not children: with children the dialog leaves
+  // focus on Cancel, and Enter would dismiss instead of import.
+  const dragonDescription = useMemo(() => {
+    if (!dragonPreview) return null;
+    const { add, skippedExisting, overLimit, unreadableLines, tooLong } = dragonPreview;
+    const sentences = [
+      t("dictionary.dragonImport.found", {
+        count: dragonPreview.total,
+        fileName: dragonPreview.fileName,
+      }),
+    ];
+    if (skippedExisting > 0) {
+      sentences.push(
+        add.length === 0 && overLimit === 0
+          ? t("dictionary.dragonImport.nothingNew")
+          : t("dictionary.dragonImport.alreadyPresent", { count: skippedExisting })
+      );
+    }
+    if (overLimit > 0) {
+      sentences.push(
+        t("dictionary.dragonImport.overLimit", {
+          count: overLimit,
+          max: DICTIONARY_MAX_WORDS.toLocaleString(i18n.language),
+        })
+      );
+    }
+    const notes = [
+      unreadableLines > 0 && t("dictionary.dragonImport.unreadable", { count: unreadableLines }),
+      tooLong > 0 &&
+        t("dictionary.dragonImport.tooLong", { count: tooLong, max: DICTIONARY_WORD_MAX_LENGTH }),
+      dragonPreview.propertiesIgnored && t("dictionary.dragonImport.propertiesIgnored"),
+    ].filter(Boolean);
+    return (
+      <>
+        {sentences.join(" ")}
+        {notes.length > 0 && (
+          <span className="mt-2 block text-xs text-foreground/45">{notes.join(" ")}</span>
+        )}
+      </>
+    );
+  }, [dragonPreview, t, i18n.language]);
+
+  const renderImportMenu = (trigger: ReactNode, align: "start" | "end"): ReactNode => (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>{trigger}</DropdownMenuTrigger>
+      <DropdownMenuContent
+        align={align}
+        onCloseAutoFocus={(event) => {
+          // The menu's focus trap is still up when the bulk-import box mounts,
+          // so its autoFocus is lost; focus it here instead of the trigger.
+          if (!bulkImportChosen.current) return;
+          bulkImportChosen.current = false;
+          event.preventDefault();
+          bulkTextareaRef.current?.focus();
+        }}
+      >
+        <DropdownMenuItem
+          className="gap-2.5"
+          onSelect={() => {
+            bulkImportChosen.current = true;
+            setShowBulkImport(true);
+          }}
+        >
+          <Upload size={14} className="shrink-0 opacity-70" />
+          {t("dictionary.importList")}
+        </DropdownMenuItem>
+        <DropdownMenuItem className="gap-2.5" onSelect={handleDragonImport}>
+          <FileText size={14} className="shrink-0 opacity-70" />
+          {t("dictionary.importFromDragon")}
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
 
   const wordListSelection: WordListSelection | undefined = selectable
     ? {
@@ -526,6 +766,21 @@ export default function DictionaryView({
       isHiddenInTarget={(word) => actions.isHiddenInTarget(addTarget, word)}
       onUnhide={(word) => actions.unhideInTarget(addTarget, word)}
       onImport={() => setShowBulkImport(true)}
+      importMenu={
+        !readOnlyList && addTarget === "personal"
+          ? renderImportMenu(
+              <button
+                type="button"
+                aria-label={t("dictionary.importWords")}
+                className="flex h-6 shrink-0 items-center gap-1 rounded-[5px] px-1 text-foreground/45 transition-colors hover:bg-foreground/5 hover:text-foreground/70"
+              >
+                <Upload size={13} />
+                <ChevronDown size={11} />
+              </button>,
+              "end"
+            )
+          : undefined
+      }
       inputRef={addInputRef}
     />
   );
@@ -534,6 +789,7 @@ export default function DictionaryView({
   const bulkImport = showBulkImport && !readOnlyList && (
     <div className="rounded-md border border-primary/30 dark:border-primary/40 px-3 pt-2.5 pb-2">
       <Textarea
+        ref={bulkTextareaRef}
         dir="auto"
         autoFocus
         value={bulkText}
@@ -650,6 +906,7 @@ export default function DictionaryView({
 
   return (
     <Tabs
+      dir={i18n.dir()}
       value={tab}
       onValueChange={(value) => setTab(value as DictionaryTab)}
       className="@container/dictionary flex flex-col h-full"
@@ -675,6 +932,21 @@ export default function DictionaryView({
         cancelText={t("common.cancel")}
         onConfirm={actions.confirmDelete}
         variant="destructive"
+      />
+
+      <ConfirmDialog
+        open={dragonPreview !== null}
+        onOpenChange={(open) => {
+          if (!open) setDragonFile(null);
+        }}
+        title={t("dictionary.dragonImport.title")}
+        description={dragonDescription}
+        confirmText={t("dictionary.dragonImport.confirm", {
+          count: dragonPreview?.add.length ?? 0,
+        })}
+        cancelText={t("common.cancel")}
+        confirmDisabled={!dragonPreview || dragonPreview.add.length === 0}
+        onConfirm={confirmDragonImport}
       />
 
       <ShareWordsPopover
@@ -747,6 +1019,7 @@ export default function DictionaryView({
             bulkImport={bulkImport}
             onAddFirstWord={() => addInputRef.current?.focus()}
             onImport={() => setShowBulkImport(true)}
+            importMenu={readOnlyList ? undefined : (trigger) => renderImportMenu(trigger, "end")}
             onExport={() => void actions.exportPersonal()}
             onClearAll={() => setConfirmClear(true)}
             onRemoveWords={actions.deletePersonalWords}
@@ -760,6 +1033,7 @@ export default function DictionaryView({
             }
             shareOpen={liveShareRequest !== null}
             onOpenSettings={onOpenSettings}
+            listsOwner={listsOwner}
           />
         </TabsContent>
       ) : (
@@ -843,6 +1117,16 @@ export default function DictionaryView({
                     />
                   )}
                 </>
+              )}
+
+              {/* ─── What dictation's speech model gets of the dictionary ─── */}
+              {speechNotice && (
+                <p
+                  data-dictionary-speech-notice={speechNotice.kind}
+                  className="text-xs text-foreground/45 leading-relaxed"
+                >
+                  {speechDictionaryNoticeText(speechNotice, t)}
+                </p>
               )}
             </div>
           </div>

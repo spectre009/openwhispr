@@ -7,6 +7,7 @@ import { useWorkspaceStore } from "../../../stores/workspaceStore";
 import { useOpenWhisprCloudDisabled } from "../../../stores/openWhisprCloudStore";
 import { usePolicySnapshot } from "../../../hooks/usePolicy";
 import { workspaceCan } from "../../../lib/capabilities";
+import { settingsWorkspace } from "../../../lib/workspaceSwitcher";
 import { getAgentName } from "../../../utils/agentName";
 import { getCachedPlatform } from "../../../utils/platform";
 import { SETTINGS_SEARCH_DESCRIPTORS } from "./registry";
@@ -64,13 +65,22 @@ export function useSettingsSearchIndex(active: boolean): SettingsSearchEntry[] |
     )
   );
   const cloudDisabled = useOpenWhisprCloudDisabled();
-  const workspaceManager = useWorkspaceStore((state) => {
-    const workspace =
-      state.workspaces.find((candidate) => candidate.id === state.activeWorkspaceId) ??
-      state.workspaces[0];
-    // As Workspace shows its Developer tab: the server's capabilities (#2921), the role as fallback.
-    return workspaceCan(workspace, "manage_settings");
-  });
+  // As Settings shows the workspace pages: the workspace Settings manages (none in Personal), and
+  // the server's capabilities on it (#2921), the role as fallback.
+  const workspaceAccess = useWorkspaceStore(
+    useShallow((state) => {
+      const workspace = settingsWorkspace(
+        state.workspaces,
+        state.activeWorkspaceId,
+        state.personalSelected
+      );
+      return {
+        hasWorkspace: workspace !== null,
+        canManageWorkspace: workspace ? workspaceCan(workspace, "manage_settings") : false,
+        canManageMembers: workspace ? workspaceCan(workspace, "manage_members") : false,
+      };
+    })
+  );
   const env = useSettingsSearchEnvironment(active);
   const language = i18n.language;
   const tEn = useMemo(() => i18n.getFixedT("en") as unknown as Translate, [i18n]);
@@ -84,14 +94,14 @@ export function useSettingsSearchIndex(active: boolean): SettingsSearchEntry[] |
       styleBindings: styles.bindings,
       platform: getCachedPlatform(),
       cloudDisabled,
-      canManageWorkspace: workspaceManager,
+      ...workspaceAccess,
       env,
       agentName: getAgentName(),
       t: t as unknown as Translate,
     });
     // `language` rebuilds the translated values when the UI language changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [settings, policy, styles, cloudDisabled, workspaceManager, env, t, language]);
+  }, [settings, policy, styles, cloudDisabled, workspaceAccess, env, t, language]);
 
   return useMemo(
     () =>

@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useRef, useState } from "react";
+import { useRegistryVersion } from "../../hooks/useRegistryVersion";
 import { useShallow } from "zustand/react/shallow";
 import { useTranslation } from "react-i18next";
 import { ShieldCheck, AlertTriangle } from "../icons";
@@ -97,13 +98,14 @@ export default function InferenceConfigEditor({
   allowedModes,
   "data-setting-id": settingId,
 }: InferenceConfigEditorProps) {
+  useRegistryVersion();
   const { t } = useTranslation();
   const policyState = usePolicySnapshot();
+  const definition: InferenceScopeDefinition = INFERENCE_SCOPES[scope];
   const config = useSettingsStore(
     useShallow((settings): ResolvedLLMConfig => {
       const effective = selectPolicyEffectiveSettings(settings, policyState);
       const resolved = selectResolvedLLMConfig(effective, scope);
-      const definition: InferenceScopeDefinition = INFERENCE_SCOPES[scope];
       // Inherited runtime defaults are not an explicit selection in an optional picker.
       return definition.optional
         ? { ...resolved, model: effective[definition.storeKeys.model] as string }
@@ -562,6 +564,7 @@ function LlmModelSettings({
             provider="openrouter"
             lockedBaseUrl
             hideApiKey
+            modelNeeds={(INFERENCE_SCOPES[scope] as InferenceScopeDefinition).modelNeeds}
           />
         </SettingsPanelRow>
       )}

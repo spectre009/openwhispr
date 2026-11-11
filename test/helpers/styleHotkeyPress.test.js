@@ -256,10 +256,9 @@ test("a press during processing does nothing, for a style key as for the dictati
 test("a blocked start behaves exactly as it does for the dictation key, and carries no style", (t) => {
   const run = (key) => {
     const { manager, keys, events, tick } = harness(t);
-    // The assistant panel is open and its companion pill isn't up: dictation
-    // input is blocked (windowManager._shouldBlockDictationInput).
-    manager._assistantPanelOpen = true;
-    manager._agentDictationPillReady = false;
+    // The assistant's own take holds the microphone: dictation input is
+    // blocked (windowManager._shouldBlockDictationInput).
+    manager.agentWindow = { isRecording: () => true };
     keys.onKeyDown(key);
     tick(150);
     keys.onKeyUp(key);

@@ -52,7 +52,9 @@ export interface SettingsSearchContextInput {
   styleBindings: readonly StyleHotkeyBinding[];
   platform: Platform;
   cloudDisabled: boolean;
+  hasWorkspace: boolean;
   canManageWorkspace: boolean;
+  canManageMembers: boolean;
   env: SettingsSearchEnvironment;
   agentName: string;
   t: Translate;
@@ -319,7 +321,9 @@ export function buildSettingsSearchContext(
     visionOverrideAllowed: isModeAllowedByPolicy(policy, "llm", "providers"),
     isWayland: input.platform === "linux" ? input.env.isWayland : false,
     gpuCount: input.env.gpuCount,
+    hasWorkspace: input.hasWorkspace,
     canManageWorkspace: input.canManageWorkspace,
+    canManageMembers: input.canManageMembers,
     on: {
       cleanup: effective.useCleanupModel,
       assistant: effective.useDictationAgent,

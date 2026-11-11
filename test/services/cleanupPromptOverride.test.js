@@ -250,7 +250,20 @@ for (const [name, provider] of Object.entries(PROVIDERS)) {
         })
       );
 
-      assert.deepEqual(tested.request, active.request, `${candidate.label}: same request`);
+      // Same request, apart from how long a dictation waits for a busy local
+      // model before it fails (#3112's busyWaitMs, dictation's scheduling only:
+      // a test-set run gives the model up to a dictation instead).
+      const withoutBusyWait = (request) => {
+        if (!request?.config || !("busyWaitMs" in request.config)) return request;
+        const config = { ...request.config };
+        delete config.busyWaitMs;
+        return { ...request, config };
+      };
+      assert.deepEqual(
+        withoutBusyWait(tested.request),
+        withoutBusyWait(active.request),
+        `${candidate.label}: same request`
+      );
       assert.deepEqual(tested.result, active.result, `${candidate.label}: same validation`);
       assert.equal(dispatched.length, 1, "the provenance hook still fires");
 

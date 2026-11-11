@@ -10,22 +10,27 @@ globalThis.React = require("react");
 test("Settings drops the account pages and opens on Dictation › Recognition while off", async () => {
   const mod = await import("../../src/components/settings/settingsPages.ts");
   const pages = mod.default ?? mod;
+  // Workspace is a parent of pages now (#2959): General, People, Teamspaces, Developer.
+  const ACCOUNT_PAGES = [
+    "account",
+    "plansBilling",
+    "workspaceGeneral",
+    "workspacePeople",
+    "workspaceTeamspaces",
+    "workspaceDeveloper",
+  ];
   const accountPages = (ctx) =>
     pages
       .visibleSettingsNav(ctx)
       .flatMap((group) => group.items)
-      .filter((item) => item.kind === "page")
-      .map((item) => item.page)
-      .filter((page) => ["account", "plansBilling", "workspace"].includes(page));
+      .flatMap((item) => (item.kind === "page" ? [item.page] : (item.pages ?? [])))
+      .filter((page) => ACCOUNT_PAGES.includes(page));
 
   const on = { cloudDisabled: false, isSignedIn: false, agentAllowed: true };
   const off = { cloudDisabled: true, isSignedIn: false, agentAllowed: true };
   assert.deepEqual(accountPages(on), ["account", "plansBilling"]);
-  assert.deepEqual(accountPages({ ...on, isSignedIn: true }), [
-    "account",
-    "plansBilling",
-    "workspace",
-  ]);
+  // Signed in, while the workspace list loads (no hasWorkspace yet), every page shows.
+  assert.deepEqual(accountPages({ ...on, isSignedIn: true }), ACCOUNT_PAGES);
   assert.deepEqual(accountPages(off), []);
 
   const resolve = (destination, ctx) => pages.resolveSettingsDestination(destination, { ctx }).page;
@@ -34,8 +39,14 @@ test("Settings drops the account pages and opens on Dictation › Recognition wh
   assert.equal(resolve("plansBilling", off), "recognition");
   assert.equal(resolve("account", off), "recognition");
   assert.equal(resolve("privacy", off), "privacyData");
-  assert.equal(pages.shownSettingsPage("workspace", off), "recognition");
-  assert.equal(pages.shownSettingsPage("workspace", { ...on, isSignedIn: true }), "workspace");
+  assert.equal(pages.shownSettingsPage("workspaceGeneral", off), "recognition");
+  assert.equal(
+    pages.shownSettingsPage("workspaceGeneral", { ...on, isSignedIn: true }),
+    "workspaceGeneral"
+  );
+  // The old Workspace page's destination opens General.
+  assert.equal(resolve("workspace", { ...on, isSignedIn: true }), "workspaceGeneral");
+  assert.equal(resolve("workspace", off), "recognition");
 });
 
 test("the OpenWhispr Cloud mode disappears, unless it is the one selected", async () => {

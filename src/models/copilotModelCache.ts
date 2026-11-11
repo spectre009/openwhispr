@@ -1,5 +1,5 @@
 import type { CloudModelDefinition } from "./ModelRegistry";
-import modelRegistryData from "./modelRegistryData.json";
+import { FORK_CLOUD_PROVIDERS } from "./forkCatalogProviders.js";
 
 // A leaf like tinfoilModelCache: it imports only a type from ModelRegistry, so
 // the settings store can read the live GitHub Copilot list without reopening
@@ -19,13 +19,14 @@ export interface CachedCopilotModels {
 const EMPTY: CachedCopilotModels = { models: [], fetchedAt: 0 };
 
 /**
- * The registry's shipped list, kept apart because a live list replaces the
- * registry entry's models: shown while signed out or before the first fetch.
+ * The shipped list (forkCatalogProviders.js), kept apart because a live list
+ * replaces the catalog entry's models: shown while signed out or before the
+ * first fetch.
  */
 export const COPILOT_FALLBACK_MODELS: readonly CloudModelDefinition[] = Object.freeze([
-  ...((
-    modelRegistryData.cloudProviders as Array<{ id: string; models: CloudModelDefinition[] }>
-  ).find((provider) => provider.id === "copilot")?.models ?? []),
+  ...((FORK_CLOUD_PROVIDERS as ReadonlyArray<{ id: string; models: CloudModelDefinition[] }>).find(
+    (provider) => provider.id === "copilot"
+  )?.models ?? []),
 ]);
 
 export function readCachedCopilotModels(): CachedCopilotModels {

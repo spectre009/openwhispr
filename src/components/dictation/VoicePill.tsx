@@ -12,7 +12,8 @@ import {
   VOICE_PILL_REC_DOT,
   resolvePillFootprint,
 } from "../../helpers/voicePillPresentation";
-import { formatPillElapsed, resolveRecordingChromeStyle } from "../../helpers/recordingIndicator";
+import { resolveRecordingChromeStyle } from "../../helpers/recordingIndicator";
+import { useElapsedLabel } from "../../hooks/useElapsedLabel";
 import type { RecordingIndicatorStyle } from "../../types/electron";
 
 export type VoicePillState =
@@ -48,19 +49,6 @@ interface VoicePillProps extends Omit<HTMLAttributes<HTMLDivElement>, "children"
   /** How the "nothing-heard" spin-down ends: the pill fades out with it
    *  (auto-hide), or settles to idle. */
   nothingHeardExit?: "fade" | "settle";
-}
-
-// Ticks once a second from the recording's own start time, so a slow render
-// never drifts the readout.
-function useElapsedLabel(startedAt: number | null | undefined, active: boolean) {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    if (!active || !startedAt) return;
-    setNow(Date.now());
-    const timer = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(timer);
-  }, [active, startedAt]);
-  return formatPillElapsed(active && startedAt ? now - startedAt : 0);
 }
 
 function useReminderPulse(key: number) {
@@ -190,9 +178,9 @@ export const VoicePill = forwardRef<HTMLDivElement, VoicePillProps>(function Voi
         className
       )}
       style={{
-        // Listening uses the same compact pill as the assistant panel. The
-        // previous wide recording bar made the control feel like a different
-        // surface and forced an unnecessary large window resize.
+        // Listening uses the same compact pill as the idle state. The previous
+        // wide recording bar made the control feel like a different surface
+        // and forced an unnecessary large window resize.
         width: footprint.width,
         height: footprint.height,
         cursor: isProcessing || isThinking ? "not-allowed" : isDragging ? "grabbing" : "pointer",

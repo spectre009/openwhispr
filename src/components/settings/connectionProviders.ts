@@ -154,8 +154,8 @@ export const CONNECTION_PROVIDERS: readonly ConnectionProviderDef[] = [
     name: "OpenRouter",
     common: false,
     llm: true,
-    transcription: false,
-    credentials: single("openrouterApiKey", "setOpenrouterApiKey", "llm"),
+    transcription: true,
+    credentials: single("openrouterApiKey", "setOpenrouterApiKey", "both"),
     keyUrl: "https://openrouter.ai/keys",
   },
   {

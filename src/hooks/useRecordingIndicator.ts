@@ -23,7 +23,7 @@ const LIVE_KEYS: Record<string, (value: string) => unknown> = {
  * The floating icon's recording style, whether it shows the elapsed time, and
  * the CSS variables its pill and cancel skin read, in the color of the
  * recording's mode when "Color by mode" is on. Follows Settings live in every
- * window that hosts a pill: the companion pill window never runs
+ * window that hosts a pill: the agent window never runs
  * initializeSettings, so it would otherwise miss the store's storage
  * listener. Duplicate updates in the dictation window are harmless — the
  * values are normalized and equal.

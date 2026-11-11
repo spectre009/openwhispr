@@ -345,8 +345,9 @@ test("an owner change or clearing History drops the paste being watched", async 
   await paste(PASTED);
   run(500);
   assert.ok(target._autoLearnPasteContext);
-  target.audioStorageManager = { deleteAllAudio: () => {} };
-  target.databaseManager.clearTranscriptions = () => ({ success: true, cleared: 1 });
+  // Clear history deletes only the cleared rows' recordings (#2924).
+  target.audioStorageManager = { deleteAudioForTranscriptions: () => ({ deleted: 0 }) };
+  target.databaseManager.clearTranscriptions = () => ({ success: true, cleared: 1, ids: [1] });
   await handlers.get("db-clear-transcriptions")({});
   assert.equal(target._autoLearnPasteContext, null);
 });

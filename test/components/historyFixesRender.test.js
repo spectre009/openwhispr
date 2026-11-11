@@ -471,7 +471,10 @@ test(
     assert.match(dialog.textContent, /Dictionary words sync with your account/);
     assert.deepEqual(calls("applyDictionaryChanges"), []);
     await v.act(() => v.within(dialog, "Add word").click(), 60);
-    assert.deepEqual(calls("applyDictionaryChanges"), [[{ add: ["Little Buddy"], remove: [] }]]);
+    // The second argument is whose lists the window shows (#2924); unknown in this harness.
+  assert.deepEqual(calls("applyDictionaryChanges"), [
+    [{ add: ["Little Buddy"], remove: [] }, undefined],
+  ]);
     assert.equal(v.dialog(), null);
     assert.deepEqual(v.useSettingsStore.getState().customDictionary, ["Little Buddy"]);
 

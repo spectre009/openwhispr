@@ -66,7 +66,7 @@ async function mount(t, { mockTimers = false } = {}) {
         },
         hideDictationPreview: async () => {},
         completeDictationPreview: async () => {},
-        dictationLifecycleStateChanged: () => {},
+        dictationLifecycleStateChanged: async () => true,
       },
     },
   });

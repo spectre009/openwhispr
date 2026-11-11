@@ -576,7 +576,9 @@ async function probeGemini(ctx) {
  * OpenRouter's key-info route, never /credits (that needs a management key):
  * a management key is refused for requests, and a key's own spending limit
  * shows only when it has one (`limit: null` is unlimited). Models come from
- * the public list, without the key.
+ * the public lists, without the key: its text models, and, for any used model
+ * that list doesn't name, its speech-to-text models, which OpenRouter lists
+ * only by output modality.
  */
 async function probeOpenRouter(ctx) {
   const { route } = ctx.descriptor;
@@ -604,13 +606,7 @@ async function probeOpenRouter(ctx) {
   }
   let models;
   if (ctx.descriptor.models.length > 0) {
-    try {
-      const list = await ctx.request(`${route}/models`, { read: "json" });
-      const parsed = list.ok ? openAiListing(list.data) : null;
-      if (parsed) models = compareModels(ctx.descriptor.models, parsed);
-    } catch {
-      // The key was answered; the public list only adds the model comparison.
-    }
+    models = await compareOpenRouterModels(ctx, route);
   }
   return {
     ...base,
@@ -619,6 +615,28 @@ async function probeOpenRouter(ctx) {
     ...(limit ? { limit } : {}),
     ...(models ? { models } : {}),
   };
+}
+
+// The key was answered; the public lists only add the model comparison. A list that
+// couldn't be read leaves what it might have named unknown, never missing.
+async function compareOpenRouterModels(ctx, route) {
+  const read = async (url) => {
+    try {
+      const list = await ctx.request(url, { read: "json" });
+      return list.ok ? openAiListing(list.data) : null;
+    } catch {
+      return null;
+    }
+  };
+  const text = await read(`${route}/models`);
+  const offered = new Set((text?.ids ?? []).map(norm));
+  const unlisted = ctx.descriptor.models.some((model) => !offered.has(norm(model)));
+  const speech = unlisted ? await read(`${route}/models?output_modalities=transcription`) : null;
+  if (!text && !speech) return undefined;
+  return compareModels(ctx.descriptor.models, {
+    ids: [...(text?.ids ?? []), ...(speech?.ids ?? [])],
+    truncated: !text || (unlisted && !speech),
+  });
 }
 
 /** xAI's key-info route: a blocked or disabled key (or team) counts as rejected. */

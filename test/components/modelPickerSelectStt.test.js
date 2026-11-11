@@ -73,6 +73,7 @@ const KEYS = {
   tinfoilApiKey: "tf-test",
   deepgramApiKey: "dg-test",
   assemblyaiApiKey: "aai-test",
+  openrouterApiKey: "sk-or-test",
   customTranscriptionApiKey: "sk-custom-test",
 };
 
@@ -142,6 +143,8 @@ async function load(t) {
   });
   const vite = await createRendererServer(t, {
     cachePrefix: "openwhispr-stt-picker-adapter-",
+    // ModelPicker's provider icons import assets through the "@" alias.
+    resolveAlias: { "@": require("node:path").resolve(__dirname, "../../src") },
     // A key read back from main clears the request service's key cache.
     mockModules: {
       "/services/ReasoningService": "export default { clearApiKeyCache() {} };",
@@ -163,6 +166,10 @@ async function load(t) {
     adapter: await load("/components/settings/modelPicker/selectStt.ts"),
     connection: await load("/components/settings/modelPicker/connectionOptions.ts"),
     pick: await load("/components/settings/modelPicker/connectionPick.ts"),
+    hints: await load("/utils/sttHintFields.js"),
+    hintTarget: await load("/utils/dictionaryHints.ts"),
+    picker: await load("/components/settings/modelPicker/ModelPicker.tsx"),
+    icons: await load("/utils/providerIcons.ts"),
   };
   return env;
 }
@@ -617,6 +624,10 @@ const KINDS = [
   cloudKind("tinfoil", "voxtral-mini-4b-realtime", ALL),
   cloudKind("deepgram", "nova-3", NOT_UPLOAD),
   cloudKind("assemblyai", "universal-streaming-english", NOT_UPLOAD),
+  // OpenRouter brokers batch transcription only (#2105); Nova-3 through it is upload-only.
+  cloudKind("openrouter", "mistralai/voxtral-mini-transcribe-3-0", NOT_LIVE),
+  cloudKind("openrouter", "elevenlabs/scribe-v2", NOT_LIVE),
+  cloudKind("openrouter", "deepgram/nova-3", ["fileTranscription"]),
   {
     // The model typed into the custom endpoint's fields commits (as the Custom tab's model field did).
     name: "a custom endpoint's model",
@@ -698,6 +709,114 @@ test("every pick leaves the store, its persisted copy and every route as the old
   }
   assert.ok(persistedWrites > 0, "the persisted copy is compared too");
   console.log(`stt adapter equivalence: ${compared} comparisons ${JSON.stringify(perSurface)}`);
+});
+
+test("OpenRouter: its speech models per surface, an unlisted id kept as itself, no dictionary sent", async (t) => {
+  await load(t);
+  const { daily } = fixtures();
+  const group = (surface, policy = UNMANAGED) =>
+    env.stt
+      .buildSttPickerOptions(surface, pickerContext(surface, policy))
+      .find((entry) => entry.id === "provider:openrouter") ?? null;
+  const shipped = env.registry.getTranscriptionProvider("openrouter").models.map((m) => m.id);
+  assert.ok(shipped.includes("deepgram/nova-3"), "the bundled catalog carries OpenRouter's list");
+
+  reset(daily);
+  // Uploads list every benchmarked model; Recognition leaves out the upload-only Nova-3,
+  // which gets no dictionary through OpenRouter; live recording streams, which OpenRouter can't.
+  assert.deepEqual(
+    group("fileTranscription").options.map((option) => option.model),
+    shipped
+  );
+  assert.deepEqual(
+    group("dictation").options.map((option) => option.model),
+    shipped.filter((id) => id !== "deepgram/nova-3")
+  );
+  assert.equal(group("liveRecording"), null);
+  // A policy that doesn't name it hides it.
+  assert.equal(group("dictation", MANAGED), null);
+  // Each model names its vendor, for PickerIcon to draw that vendor's mark (or OpenRouter's).
+  const icons = Object.fromEntries(
+    group("fileTranscription").options.map((option) => [option.model, option.icon])
+  );
+  assert.equal(icons["mistralai/voxtral-mini-transcribe-3-0"], "openrouter:mistralai");
+  assert.equal(icons["nvidia/nemotron-3.5-transcribe"], "openrouter:nvidia");
+  assert.equal(icons["deepgram/nova-3"], "openrouter:deepgram");
+  assert.equal(icons["elevenlabs/scribe-v2"], "openrouter:elevenlabs");
+  // PickerIcon draws the vendor's mark, or OpenRouter's for a vendor without one.
+  const { PickerIcon } = env.picker;
+  assert.equal(
+    PickerIcon({ icon: "openrouter:mistralai" }).props.src,
+    env.icons.getProviderIcon("mistral")
+  );
+  assert.equal(PickerIcon({ icon: "openrouter:elevenlabs" }).props.provider, "openrouter");
+
+  // Without its key, the group says where to add one.
+  reset({ ...daily, openrouterApiKey: "" });
+  const missing = group("dictation").options;
+  assert.equal(missing.length, 1);
+  assert.equal(missing[0].available.reasonKey, "modelPicker.reasons.noKey");
+
+  // An id outside the shortlist (acceptsUnlistedTranscriptionModel) stays the selection,
+  // shown first, and opening the menu writes nothing.
+  const unlisted = {
+    ...daily,
+    cloudTranscriptionProvider: "openrouter",
+    cloudTranscriptionModel: "openai/whisper-1",
+  };
+  reset(unlisted);
+  const before = snapshot();
+  const ctx = pickerContext("dictation", UNMANAGED);
+  const first = group("dictation").options[0];
+  assert.equal(first.model, "openai/whisper-1");
+  assert.equal(first.available, true);
+  assert.equal(env.stt.selectedSttOptionId(ctx.current), "provider:openrouter:openai/whisper-1");
+  assert.equal(env.stt.describeSttSelection("dictation", ctx).title.text, "openai/whisper-1");
+  assert.deepEqual(snapshot(), before);
+  // Recognition never keeps the upload-only model through that pass-through.
+  reset({ ...unlisted, cloudTranscriptionModel: "deepgram/nova-3" });
+  assert.equal(
+    env.stt.sttPickAvailability(
+      "dictation",
+      { mode: "providers", provider: "openrouter", model: "deepgram/nova-3" },
+      pickerContext("dictation", UNMANAGED)
+    ),
+    null
+  );
+
+  // The request goes to OpenRouter with its own key, and carries no dictionary: OpenRouter
+  // drops `prompt`, so live dictation and Re-transcribe send none, script bias included.
+  reset({ ...unlisted, cloudTranscriptionModel: "mistralai/voxtral-mini-transcribe-3-0" });
+  const route = env.route.resolveTranscriptionRoute({
+    settings: state(),
+    policy: UNMANAGED,
+    providers: env.registry.getTranscriptionProviders(),
+  });
+  assert.equal(route.transport, "http-batch");
+  assert.equal(route.provider, "openrouter");
+  assert.deepEqual(route.auth, { scheme: "bearer", keyRef: "openrouter" });
+  assert.equal(new URL(route.endpoint).hostname, "openrouter.ai");
+  const target = env.hintTarget.resolveHintTarget({
+    engine: "byok",
+    provider: "openrouter",
+    endpoint: route.endpoint,
+    model: route.model,
+  });
+  assert.equal(target.channel, "none");
+  const fields = env.hints.buildSttHintFields(
+    {
+      route: "openai-compatible",
+      provider: "openrouter",
+      endpoint: route.endpoint,
+      model: route.model,
+    },
+    { words: ["Kusto", "OpenWhispr"], chineseScriptPreference: "simplified" }
+  );
+  assert.equal(fields.prompt, null);
+  assert.deepEqual(fields.keywords, []);
+  assert.equal(fields.echo, null);
+  assert.ok(fields.entries.length > 0);
+  assert.ok(fields.entries.every((entry) => entry.coverage === "notSent"));
 });
 
 test("the custom endpoint's entry browses, or gives the mode back to an endpoint already set", async (t) => {

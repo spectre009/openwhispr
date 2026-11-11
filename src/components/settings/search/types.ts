@@ -4,10 +4,10 @@ import type { SettingsLocation } from "../settingsPages";
 
 export type { SettingsLocation } from "../settingsPages";
 
-/** The Workspace page's tabs, which a location may name (WorkspaceSection holds the real list). */
-export const WORKSPACE_SUB_TABS: readonly string[] = ["general", "members", "teams", "developer"];
+/** The People page's tabs, which a location may name (WorkspacePeopleSection holds the real list). */
+export const PEOPLE_SUB_TABS: readonly string[] = ["members", "invitations", "guests", "teams"];
 
-/** The i18n key of a Workspace tab's label. */
+/** The i18n key of a People tab's label. */
 export function subTabLabelKey(subTab: string): string {
   return `settingsPage.workspace.tab.${subTab}`;
 }
@@ -82,8 +82,12 @@ export interface SettingsSearchContext {
   isWayland: boolean | null;
   /** NVIDIA GPUs found; null until known. The GPU pickers need two or more. */
   gpuCount: number | null;
-  /** Owner or admin of the active workspace (its Developer tab). */
+  /** A workspace is chosen (not Personal): its People, Teamspaces and Developer pages show. */
+  hasWorkspace: boolean;
+  /** Owner or admin of the chosen workspace (manage_settings: its Developer page). */
   canManageWorkspace: boolean;
+  /** May manage the chosen workspace's members (manage_members: People's Invitations tab). */
+  canManageMembers: boolean;
   on: SettingsSearchToggles;
   /** LLM scopes that run on a local model now (keep-model-loaded only shows then). */
   localLlm: Partial<Record<SearchLlmScope, boolean>>;
@@ -114,7 +118,7 @@ export interface SettingDescriptor {
   /** Stable and scope-qualified ("dictation.cleanup.model"); search destinations use it. */
   id: string;
   kind: SettingDescriptorKind;
-  /** The page it lives on (and Workspace tab); moving a setting moves only this. */
+  /** The page it lives on (and People tab); moving a setting moves only this. */
   location?: SettingsLocation;
   /** For `elsewhere`: the app page it opens. */
   elsewhere?: ElsewhereLocation;
